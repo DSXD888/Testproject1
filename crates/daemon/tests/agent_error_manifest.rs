@@ -71,6 +71,51 @@ fn draft(error_type: ErrorCode) -> ErrorManifestDraft {
     }
 }
 
+const fn l5_operator_alert_cases() -> [(ErrorCode, &'static str); 10] {
+    [
+        (
+            ErrorCode::ClassificationAmbiguous,
+            "block auto-qualification and escalate classification to a broker",
+        ),
+        (
+            ErrorCode::TariffBranchDivergence,
+            "treat this as a hard blocker, not a scenario band",
+        ),
+        (
+            ErrorCode::MeasureInteractionUnknown,
+            "require manual customs review before any auto-decision",
+        ),
+        (
+            ErrorCode::ExporterUnresolved,
+            "apply the residual rate and alert the operator",
+        ),
+        (
+            ErrorCode::SupplementaryUnitMissing,
+            "abstain on that duty component until evidence exists",
+        ),
+        (
+            ErrorCode::ValuationModeConflict,
+            "preserve the uncertainty range for operator review",
+        ),
+        (
+            ErrorCode::FpoAccessUnavailable,
+            "continue with remaining recall sources and apply the confidence penalty",
+        ),
+        (
+            ErrorCode::TradeRemedyWatchStale,
+            "reclassify before relying on landed cost",
+        ),
+        (
+            ErrorCode::FxRateMissing,
+            "block landed-cost computation until the customs rate is present",
+        ),
+        (
+            ErrorCode::FreightEstimateFailed,
+            "require a manual freight estimate before decision-grade margin use",
+        ),
+    ]
+}
+
 #[test]
 fn ag_err_001_store_create_persists_error_manifest_row_and_markdown() -> Result<()> {
     let (temp, state_db) = open_temp_db()?;
@@ -146,6 +191,28 @@ fn ag_err_005_agent_suspect_output_manifest_contains_operator_alert() -> Result<
     assert!(markdown.contains("## Operator Alert"));
     assert!(markdown.contains("AGENT_SUSPECT_OUTPUT"));
     assert!(markdown.contains("Do not promote or outbox this worker output"));
+    Ok(())
+}
+
+#[test]
+fn l5_error_manifest_operator_alerts_cover_decision_grade_codes() -> Result<()> {
+    let (temp, state_db) = open_temp_db()?;
+    seed_process(state_db.connection())?;
+    let store = ErrorManifestStore::new(temp.path().join("artifacts"))?;
+
+    for (error_code, expected_phrase) in l5_operator_alert_cases() {
+        let stored = store.create(state_db.connection(), &draft(error_code), Utc::now())?;
+        let markdown = std::fs::read_to_string(&stored.markdown_path)?;
+
+        assert!(markdown.contains("## Operator Alert"));
+        assert!(markdown.contains(error_code.as_str()));
+        assert!(
+            markdown.contains(expected_phrase),
+            "operator alert for {} should explain `{expected_phrase}`",
+            error_code.as_str()
+        );
+    }
+
     Ok(())
 }
 

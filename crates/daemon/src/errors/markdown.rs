@@ -103,13 +103,85 @@ pub fn render_error_manifest_markdown(
     ))
 }
 
-fn operator_alert_section(record: &ErrorManifestRecord) -> &'static str {
-    if record.error_type == ErrorCode::AgentSuspectOutput {
-        "## Operator Alert\n\
+const fn operator_alert_section(record: &ErrorManifestRecord) -> &'static str {
+    match record.error_type {
+        ErrorCode::ClassificationAmbiguous => {
+            "## Operator Alert\n\
+             `CLASSIFICATION_AMBIGUOUS`: Top HS6 candidates diverged across recall sources; block auto-qualification and escalate classification to a broker.\n\n"
+        }
+        ErrorCode::TariffBranchDivergence => {
+            "## Operator Alert\n\
+             `TARIFF_BRANCH_DIVERGENCE`: UK10 branches split on remedy/no-remedy or duty type; treat this as a hard blocker, not a scenario band.\n\n"
+        }
+        ErrorCode::MeasureInteractionUnknown => {
+            "## Operator Alert\n\
+             `MEASURE_INTERACTION_UNKNOWN`: Active measure interaction rules are unclear; require manual customs review before any auto-decision.\n\n"
+        }
+        ErrorCode::ExporterUnresolved => {
+            "## Operator Alert\n\
+             `EXPORTER_UNRESOLVED`: A trade-remedy exporter or manufacturer is unresolved; apply the residual rate and alert the operator.\n\n"
+        }
+        ErrorCode::SupplementaryUnitMissing => {
+            "## Operator Alert\n\
+             `SUPPLEMENTARY_UNIT_MISSING`: Required supplementary-unit evidence is unavailable; abstain on that duty component until evidence exists.\n\n"
+        }
+        ErrorCode::ValuationModeConflict => {
+            "## Operator Alert\n\
+             `VALUATION_MODE_CONFLICT`: Material proxy and declaration valuation diverge; preserve the uncertainty range for operator review.\n\n"
+        }
+        ErrorCode::FpoAccessUnavailable => {
+            "## Operator Alert\n\
+             `FPO_ACCESS_UNAVAILABLE`: FPO or search-suggestion access is unavailable; continue with remaining recall sources and apply the confidence penalty.\n\n"
+        }
+        ErrorCode::TradeRemedyWatchStale => {
+            "## Operator Alert\n\
+             `TRADE_REMEDY_WATCH_STALE`: Trade-remedy watch freshness expired for the cached classification; reclassify before relying on landed cost.\n\n"
+        }
+        ErrorCode::FxRateMissing => {
+            "## Operator Alert\n\
+             `FX_RATE_MISSING`: No valid HMRC customs FX snapshot is available; block landed-cost computation until the customs rate is present.\n\n"
+        }
+        ErrorCode::FreightEstimateFailed => {
+            "## Operator Alert\n\
+             `FREIGHT_ESTIMATE_FAILED`: Neither freight provider produced a quote; require a manual freight estimate before decision-grade margin use.\n\n"
+        }
+        ErrorCode::AgentSuspectOutput => {
+            "## Operator Alert\n\
          Rejected enforcement-active worker output is quarantined as `AGENT_SUSPECT_OUTPUT`. \
          Do not promote or outbox this worker output; inspect validator evidence and rerun from \
          the last trusted checkpoint.\n\n"
-    } else {
-        ""
+        }
+        ErrorCode::SourceChanged
+        | ErrorCode::NoticeParseFailed
+        | ErrorCode::ExtractionEncryptedPdf
+        | ErrorCode::ExtractionEmptyPdf
+        | ErrorCode::ExtractionCorruptPdf
+        | ErrorCode::ExtractionEngineUnavailable
+        | ErrorCode::ExtractionTimeout
+        | ErrorCode::ExtractionOom
+        | ErrorCode::GoodsClassificationLowConfidence
+        | ErrorCode::SupplierMatchLowConfidence
+        | ErrorCode::CommodityCodeLowConfidence
+        | ErrorCode::RevenueBasisUncertain
+        | ErrorCode::AgentStalled
+        | ErrorCode::AgentAuthChallenge
+        | ErrorCode::AgentSkillFailed
+        | ErrorCode::AgentOutputContractInvalid
+        | ErrorCode::AgentPartialFailure
+        | ErrorCode::AgentInternalError
+        | ErrorCode::AgentRunFailed
+        | ErrorCode::AgentCleanupIncomplete
+        | ErrorCode::AgentDaemonCrashDuringSession
+        | ErrorCode::AgentProtocolMismatch
+        | ErrorCode::SourceSoftBlocked
+        | ErrorCode::SourceCaptchaBlocked
+        | ErrorCode::AuthStateStale
+        | ErrorCode::PageShapeDrift
+        | ErrorCode::LocaleOrCurrencyDrift
+        | ErrorCode::HostSleepInterrupted
+        | ErrorCode::HostResourceExhausted
+        | ErrorCode::SkillDirectoryInvalid
+        | ErrorCode::SqliteWriteFailed
+        | ErrorCode::DaemonStartupFailed => "",
     }
 }

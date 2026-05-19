@@ -115,7 +115,8 @@ mod tests {
     };
     use crate::structured_impl::{
         CONTROL_PROTOCOL_RETENTION_DAYS, StructuredControlEventKind, StructuredControlEventRecord,
-        StructuredProtocolEventKind, StructuredTrace, TraceIdentity, trace_contains_artifact_ref,
+        StructuredProtocolEventKind, StructuredTrace, TraceIdentity, error_code_class_for_str,
+        trace_contains_artifact_ref,
     };
     use crate::support::telemetry::TelemetryProbe;
 
@@ -243,6 +244,24 @@ mod tests {
             .into_iter()
             .map(HealthIssue::code)
             .collect()
+    }
+
+    const fn l5_error_class_cases() -> [(ErrorCode, &'static str); 10] {
+        [
+            (ErrorCode::ClassificationAmbiguous, "decision_grade_blocker"),
+            (ErrorCode::TariffBranchDivergence, "decision_grade_blocker"),
+            (
+                ErrorCode::MeasureInteractionUnknown,
+                "decision_grade_blocker",
+            ),
+            (ErrorCode::ExporterUnresolved, "evidence_gap"),
+            (ErrorCode::SupplementaryUnitMissing, "evidence_gap"),
+            (ErrorCode::ValuationModeConflict, "valuation_conflict"),
+            (ErrorCode::FpoAccessUnavailable, "recall_source_unavailable"),
+            (ErrorCode::TradeRemedyWatchStale, "decision_grade_blocker"),
+            (ErrorCode::FxRateMissing, "decision_grade_blocker"),
+            (ErrorCode::FreightEstimateFailed, "evidence_gap"),
+        ]
     }
 
     #[allow(dead_code)]
@@ -940,6 +959,40 @@ mod tests {
             !error_codes.contains(&"FPO_UNAVAILABLE"),
             "L5-T-measure_interaction-018 must not add duplicate FPO_UNAVAILABLE"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn l5_error_codes_emit_structured_trace_metadata() -> Result<()> {
+        for (error_code, expected_class) in l5_error_class_cases() {
+            let mut trace = StructuredTrace::new(ExecutionMode::Contract, ["created", "failed"]);
+            trace.insert_error_code_metadata(error_code.as_str())?;
+
+            ensure!(
+                trace
+                    .additional_fields
+                    .get("error_code")
+                    .and_then(JsonValue::as_str)
+                    == Some(error_code.as_str()),
+                "structured trace should carry error_code for {}",
+                error_code.as_str()
+            );
+            ensure!(
+                trace
+                    .additional_fields
+                    .get("error_class")
+                    .and_then(JsonValue::as_str)
+                    == Some(expected_class),
+                "structured trace should carry error_class `{expected_class}` for {}",
+                error_code.as_str()
+            );
+            ensure!(
+                error_code_class_for_str(error_code.as_str()) == Some(expected_class),
+                "error_code_class_for_str should classify {} as `{expected_class}`",
+                error_code.as_str()
+            );
+        }
+
         Ok(())
     }
 

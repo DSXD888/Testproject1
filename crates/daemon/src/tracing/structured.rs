@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use crate::agents::adapter::{AuthChallengeKind, CapabilityReport, ControlEvent, ExecutionMode};
+#[cfg(not(test))]
+use crate::errors::manifest::ErrorCode;
 
 pub const STRUCTURED_TRACE_SCHEMA_VERSION: u32 = 1;
 pub const CONTROL_PROTOCOL_RETENTION_DAYS: u32 = 30;
@@ -187,6 +189,28 @@ impl StructuredTrace {
 
     pub fn insert_metadata(&mut self, key: impl Into<String>, value: Value) {
         self.additional_fields.insert(key.into(), value);
+    }
+
+    pub fn insert_error_code_metadata(
+        &mut self,
+        error_code: &(impl StructuredErrorCodeMetadata + ?Sized),
+    ) -> Result<()> {
+        let code = error_code.error_code();
+        let class = error_code
+            .error_class()
+            .with_context(|| format!("classifying structured error code `{code}`"))?;
+        self.insert_metadata("error_code", Value::String(code.to_owned()));
+        self.insert_metadata("error_class", Value::String(class.to_owned()));
+        Ok(())
+    }
+
+    #[cfg(not(test))]
+    pub fn insert_manifest_error_code_metadata(&mut self, error_code: ErrorCode) {
+        self.insert_metadata("error_code", Value::String(error_code.as_str().to_owned()));
+        self.insert_metadata(
+            "error_class",
+            Value::String(error_code_class(error_code).to_owned()),
+        );
     }
 
     pub fn push_control_record(&mut self, record: StructuredControlEventRecord) {
@@ -394,6 +418,134 @@ pub fn add_root_string_field(raw: &str, key: &str, value: &str) -> Result<String
     let mut trace = StructuredTrace::parse(raw)?;
     trace.insert_metadata(key, Value::String(value.to_owned()));
     trace.to_json_string()
+}
+
+pub trait StructuredErrorCodeMetadata {
+    fn error_code(&self) -> &str;
+
+    fn error_class(&self) -> Option<&'static str> {
+        error_code_class_for_str(self.error_code())
+    }
+}
+
+impl StructuredErrorCodeMetadata for str {
+    fn error_code(&self) -> &str {
+        self
+    }
+}
+
+impl StructuredErrorCodeMetadata for &str {
+    fn error_code(&self) -> &str {
+        self
+    }
+}
+
+#[cfg(not(test))]
+impl StructuredErrorCodeMetadata for ErrorCode {
+    fn error_code(&self) -> &str {
+        self.as_str()
+    }
+
+    fn error_class(&self) -> Option<&'static str> {
+        Some(error_code_class(*self))
+    }
+}
+
+#[must_use]
+pub fn error_code_class_for_str(error_code: &str) -> Option<&'static str> {
+    let class = match error_code {
+        "SOURCE_CHANGED" | "NOTICE_PARSE_FAILED" => "source_change",
+        "EXTRACTION_ENCRYPTED_PDF"
+        | "EXTRACTION_EMPTY_PDF"
+        | "EXTRACTION_CORRUPT_PDF"
+        | "EXTRACTION_ENGINE_UNAVAILABLE"
+        | "EXTRACTION_TIMEOUT"
+        | "EXTRACTION_OOM" => "extraction_failure",
+        "GOODS_CLASSIFICATION_LOW_CONFIDENCE"
+        | "SUPPLIER_MATCH_LOW_CONFIDENCE"
+        | "COMMODITY_CODE_LOW_CONFIDENCE"
+        | "REVENUE_BASIS_UNCERTAIN" => "low_confidence",
+        "CLASSIFICATION_AMBIGUOUS"
+        | "TARIFF_BRANCH_DIVERGENCE"
+        | "MEASURE_INTERACTION_UNKNOWN"
+        | "TRADE_REMEDY_WATCH_STALE"
+        | "FX_RATE_MISSING" => "decision_grade_blocker",
+        "EXPORTER_UNRESOLVED" | "SUPPLEMENTARY_UNIT_MISSING" | "FREIGHT_ESTIMATE_FAILED" => {
+            "evidence_gap"
+        }
+        "VALUATION_MODE_CONFLICT" => "valuation_conflict",
+        "FPO_ACCESS_UNAVAILABLE" => "recall_source_unavailable",
+        "AGENT_STALLED"
+        | "AGENT_AUTH_CHALLENGE"
+        | "AGENT_SKILL_FAILED"
+        | "AGENT_OUTPUT_CONTRACT_INVALID"
+        | "AGENT_SUSPECT_OUTPUT"
+        | "AGENT_PARTIAL_FAILURE"
+        | "AGENT_INTERNAL_ERROR"
+        | "AGENT_RUN_FAILED"
+        | "AGENT_CLEANUP_INCOMPLETE"
+        | "AGENT_DAEMON_CRASH_DURING_SESSION"
+        | "AGENT_PROTOCOL_MISMATCH" => "agent_execution_failure",
+        "SOURCE_SOFT_BLOCKED"
+        | "SOURCE_CAPTCHA_BLOCKED"
+        | "AUTH_STATE_STALE"
+        | "PAGE_SHAPE_DRIFT"
+        | "LOCALE_OR_CURRENCY_DRIFT" => "source_health",
+        "HOST_SLEEP_INTERRUPTED" | "HOST_RESOURCE_EXHAUSTED" => "host_environment",
+        "SKILL_DIRECTORY_INVALID" | "SQLITE_WRITE_FAILED" | "DAEMON_STARTUP_FAILED" => {
+            "daemon_internal"
+        }
+        _ => return None,
+    };
+    Some(class)
+}
+
+#[cfg(not(test))]
+#[must_use]
+pub const fn error_code_class(error_code: ErrorCode) -> &'static str {
+    match error_code {
+        ErrorCode::SourceChanged | ErrorCode::NoticeParseFailed => "source_change",
+        ErrorCode::ExtractionEncryptedPdf
+        | ErrorCode::ExtractionEmptyPdf
+        | ErrorCode::ExtractionCorruptPdf
+        | ErrorCode::ExtractionEngineUnavailable
+        | ErrorCode::ExtractionTimeout
+        | ErrorCode::ExtractionOom => "extraction_failure",
+        ErrorCode::GoodsClassificationLowConfidence
+        | ErrorCode::SupplierMatchLowConfidence
+        | ErrorCode::CommodityCodeLowConfidence
+        | ErrorCode::RevenueBasisUncertain => "low_confidence",
+        ErrorCode::ClassificationAmbiguous
+        | ErrorCode::TariffBranchDivergence
+        | ErrorCode::MeasureInteractionUnknown
+        | ErrorCode::TradeRemedyWatchStale
+        | ErrorCode::FxRateMissing => "decision_grade_blocker",
+        ErrorCode::ExporterUnresolved
+        | ErrorCode::SupplementaryUnitMissing
+        | ErrorCode::FreightEstimateFailed => "evidence_gap",
+        ErrorCode::ValuationModeConflict => "valuation_conflict",
+        ErrorCode::FpoAccessUnavailable => "recall_source_unavailable",
+        ErrorCode::AgentStalled
+        | ErrorCode::AgentAuthChallenge
+        | ErrorCode::AgentSkillFailed
+        | ErrorCode::AgentOutputContractInvalid
+        | ErrorCode::AgentSuspectOutput
+        | ErrorCode::AgentPartialFailure
+        | ErrorCode::AgentInternalError
+        | ErrorCode::AgentRunFailed
+        | ErrorCode::AgentCleanupIncomplete
+        | ErrorCode::AgentDaemonCrashDuringSession
+        | ErrorCode::AgentProtocolMismatch => "agent_execution_failure",
+        ErrorCode::SourceSoftBlocked
+        | ErrorCode::SourceCaptchaBlocked
+        | ErrorCode::AuthStateStale
+        | ErrorCode::PageShapeDrift
+        | ErrorCode::LocaleOrCurrencyDrift => "source_health",
+        ErrorCode::HostSleepInterrupted | ErrorCode::HostResourceExhausted => "host_environment",
+        ErrorCode::SkillDirectoryInvalid
+        | ErrorCode::SqliteWriteFailed
+        | ErrorCode::DaemonStartupFailed => "daemon_internal",
+    }
 }
 
 pub fn trace_contains_artifact_ref(raw: &str, artifact_path: &Path) -> Result<bool> {
