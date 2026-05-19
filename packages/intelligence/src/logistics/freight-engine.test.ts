@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 import type { FreightEstimate, ModeSelectionFacts, ShippingMode } from "./freight-types";
 import {
   FREIGHT_PROVIDER_DISAGREEMENT_THRESHOLD_BPS,
+  FreightEngine,
   estimateWithDualProviders,
   reconcile,
 } from "./freight-engine";
@@ -538,6 +539,124 @@ describe("dual-provider freight engine", () => {
       failure: "FREIGHT_ESTIMATE_FAILED",
       manualEstimateRequired: true,
     });
+  });
+});
+
+describe("freight boundary defaults", () => {
+  it("L5-T-freight_engine-006 runs palletized and loose-carton scenarios for unknown packaging and selects the highest-cost feasible boundary", async () => {
+    const calls: Array<{ provider: string; packagingState?: string }> = [];
+    const engine = new FreightEngine(
+      {
+        async estimate(opts) {
+          const packagingState = (opts as { packagingState?: string })
+            .packagingState;
+          calls.push({ provider: "freightos", packagingState });
+          return freightEstimate(
+            "freightos",
+            packagingState === "loose_cartons" ? 190_000 : 140_000,
+          );
+        },
+      },
+      {
+        async estimate(opts) {
+          const packagingState = (opts as { packagingState?: string })
+            .packagingState;
+          calls.push({ provider: "searates", packagingState });
+          return freightEstimate(
+            "searates",
+            packagingState === "loose_cartons" ? 175_000 : 130_000,
+          );
+        },
+      },
+    );
+
+    const result = await engine.estimate({
+      facts: baseFacts({ packagingState: "unknown" }),
+      incoterm: "FOB",
+      originPort: "CNTSN",
+      destinationPort: "GBSOU",
+    });
+
+    expect(result.boundaryScenariosRun).toHaveLength(2);
+    expect(
+      result.boundaryScenariosRun.map((scenario) => scenario.packagingState),
+    ).toEqual(["palletized", "loose_cartons"]);
+    expect(calls).toHaveLength(4);
+    expect(calls.map((call) => call.packagingState)).toEqual([
+      "palletized",
+      "palletized",
+      "loose_cartons",
+      "loose_cartons",
+    ]);
+    expect(result.selectedPackagingState).toBe("loose_cartons");
+    expect(result.selectedEstimate?.baseGbpPence).toBe(190_000);
+    expect(result.manualEstimateRequired).toBe(false);
+    expect(result.missingLogisticsFacts).toContain("packaging_state");
+    expect(result.unlockableMarginNote).toContain("packaging_state");
+  });
+
+  it("L5-T-freight_engine-007 runs EXW FOB CIF boundary scenarios for missing Incoterm and records missing logistics facts", async () => {
+    const calls: Array<{ provider: string; incoterm?: string }> = [];
+    const engine = new FreightEngine(
+      {
+        async estimate(opts) {
+          const incoterm = (opts as { incoterm?: string }).incoterm;
+          calls.push({ provider: "freightos", incoterm });
+          return freightEstimate(
+            "freightos",
+            incoterm === "EXW" ? 250_000 : incoterm === "FOB" ? 180_000 : 150_000,
+          );
+        },
+      },
+      {
+        async estimate(opts) {
+          const incoterm = (opts as { incoterm?: string }).incoterm;
+          calls.push({ provider: "searates", incoterm });
+          return freightEstimate(
+            "searates",
+            incoterm === "EXW" ? 240_000 : incoterm === "FOB" ? 170_000 : 145_000,
+          );
+        },
+      },
+    );
+
+    const result = await engine.estimate({
+      facts: baseFacts(),
+      incoterm: "unknown",
+      originPort: "CNTSN",
+      destinationPort: "GBSOU",
+    });
+
+    expect(result.boundaryScenariosRun.map((scenario) => scenario.incoterm)).toEqual([
+      "EXW",
+      "FOB",
+      "CIF",
+    ]);
+    expect(calls.map((call) => call.incoterm)).toEqual([
+      "EXW",
+      "EXW",
+      "FOB",
+      "FOB",
+      "CIF",
+      "CIF",
+    ]);
+    expect(result.selectedIncoterm).toBe("EXW");
+    expect(result.selectedEstimate?.baseGbpPence).toBe(250_000);
+    expect(result.missingLogisticsFacts).toContain("incoterm");
+    expect(result.unlockableMarginNote).toContain("incoterm");
+
+    const blocked = await engine.estimate({
+      facts: { ...baseFacts(), weightKg: null },
+      incoterm: "unknown",
+      originPort: "CNTSN",
+      destinationPort: "GBSOU",
+    });
+    expect(blocked.manualEstimateRequired).toBe(true);
+    expect(blocked.selectedEstimate).toBeNull();
+    expect(blocked.warningsAndBlockers).toContain(
+      "FREIGHT_DIMENSIONAL_DATA_MISSING",
+    );
+    expect(blocked.missingLogisticsFacts).toContain("weight_kg");
   });
 });
 
