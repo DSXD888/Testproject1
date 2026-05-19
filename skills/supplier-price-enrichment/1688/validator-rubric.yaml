@@ -1,0 +1,67 @@
+schema_version: 1
+validator_overlay: validation/overlay-customs-classification
+source_id: "1688"
+rubric_id: supplier-price-enrichment-1688-l5
+test_ids:
+  - L5-T-freight_engine-010
+domain_checks:
+  query_language:
+    required: true
+    pass_condition: "All production marketplace queries are Chinese-only 2-4 term short clusters."
+    fail_codes:
+      - 1688_VOCABULARY_MISMATCH_NO_VALID_ZH_ALIAS
+      - VOCABULARY_MISMATCH_EN_ONLY
+  price_signal_role:
+    required: true
+    pass_condition: "Every supplier quote has price_signal_role=domestic_wholesale_floor."
+    fail_codes:
+      - MARKETPLACE_ROLE_DRIFT
+  auth_refresh:
+    required: true
+    pass_condition: "auth-refresh/1688 is verified before production search."
+    fail_codes:
+      - 1688_AUTH_REFRESH_REQUIRED
+      - SOURCE_AUTH_STATE_INVALID
+  regulated_goods_guard:
+    required: true
+    pass_condition: "Regulated goods without explicit compliance/export evidence emit a warning and suppress supplier_quotes."
+    fail_codes:
+      - 1688_REGULATED_GOODS_EVIDENCE_MISSING
+  lexicon_expansion:
+    required: true
+    pass_condition: "Missing validated Chinese vocabulary routes to lexicon expansion, not product-unavailable conclusions."
+    fail_codes:
+      - 1688_VOCABULARY_MISMATCH_NO_VALID_ZH_ALIAS
+      - VOCABULARY_MISMATCH_EN_ONLY
+  unit_currency_basis:
+    required: true
+    pass_condition: "CNY original price and Chinese quantity glyphs are preserved; GBP conversion may be null only when FX evidence is missing."
+scoring:
+  approved:
+    min_confidence_bps: 8500
+    requires:
+      - query_language
+      - price_signal_role
+      - auth_refresh
+      - unit_currency_basis
+  rejected:
+    applies_when:
+      - regulated_goods_guard fails
+      - auth_refresh fails
+  insufficient_basis:
+    applies_when:
+      - lexicon_expansion required
+      - missing Chinese aliases prevent a valid short cluster
+compatibility:
+  worker_behavior_version: supplier-price-enrichment/1688@2.0.0
+  validator_behavior_version: validation/overlay-customs-classification@1.0.0+1.0
+  incompatible_versions_block_promotion: true
+evidence_requirements:
+  - auth_refresh_result
+  - query_zh
+  - term_count
+  - listing_url
+  - observed_locale
+  - observed_currency
+  - compliance_export_evidence_state
+  - source_transcript_path

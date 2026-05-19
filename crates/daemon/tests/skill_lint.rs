@@ -9,9 +9,10 @@ mod sources_impl;
 use std::collections::BTreeSet;
 
 use anyhow::{Result, ensure};
+use serde_json::Value as JsonValue;
 
 use skills_support::{
-    TestSkillDir, lint_skill_directory, load_skill_metadata, repo_root, repo_skill_dir,
+    LintedSkill, TestSkillDir, lint_skill_directory, load_skill_metadata, repo_root, repo_skill_dir,
 };
 use sources_impl::DEFAULT_SOURCE_SKILL_VERSION;
 
@@ -364,6 +365,228 @@ fn ut_skl_010_non_behavior_affecting_changes_require_explicit_behavior_identity(
     ensure!(
         error_text.contains("worker_behavior_version")
             || error_text.contains("gate_b_exact_slice_key")
+    );
+    Ok(())
+}
+
+#[test]
+fn l5_t_freight_engine_010_1688_maturation_contract() -> Result<()> {
+    let skill_dir = repo_skill_dir("supplier-price-enrichment/1688")?;
+    let linted = lint_skill_directory(&skill_dir)?;
+    assert_1688_metadata_and_skill_text(&linted)?;
+    assert_1688_result_schema(&skill_dir)?;
+    let canary_text = assert_1688_canaries(&skill_dir)?;
+    let golden = assert_1688_golden_and_rubric(&skill_dir)?;
+    assert_1688_calibration_mirror(&canary_text, &golden)?;
+    Ok(())
+}
+
+fn assert_1688_metadata_and_skill_text(linted: &LintedSkill) -> Result<()> {
+    ensure!(linted.metadata.promotion_stage.as_deref() == Some("candidate"));
+    ensure!(
+        linted.metadata.worker_behavior_version.as_deref()
+            == Some("supplier-price-enrichment/1688@2.0.0")
+    );
+    ensure!(
+        linted.metadata.validator_behavior_version.as_deref()
+            == Some("validation/overlay-customs-classification@1.0.0+1.0")
+    );
+    ensure!(
+        linted
+            .metadata
+            .gate_b_exact_slice_key
+            .as_deref()
+            .is_some_and(|key| key.contains("supplier-price-enrichment/1688@2.0.0")
+                && key.contains("validation/overlay-customs-classification@1.0.0+1.0"))
+    );
+
+    for required in [
+        "validator_overlay: validation/overlay-customs-classification",
+        "price_signal_role: \"domestic_wholesale_floor\"",
+        "Chinese-only short clusters of 2-4 terms",
+        "auth-refresh/1688",
+        "1688_AUTH_REFRESH_REQUIRED",
+        "1688_REGULATED_GOODS_EVIDENCE_MISSING",
+        "1688_VOCABULARY_MISMATCH_NO_VALID_ZH_ALIAS",
+        "lexicon expansion",
+    ] {
+        ensure!(
+            linted.skill_markdown.contains(required),
+            "1688 SKILL.md missing `{required}`"
+        );
+    }
+    Ok(())
+}
+
+fn assert_1688_result_schema(skill_dir: &std::path::Path) -> Result<()> {
+    let result_schema: JsonValue = serde_json::from_str(&std::fs::read_to_string(
+        skill_dir.join("result.schema.json"),
+    )?)?;
+    ensure!(
+        result_schema
+            .pointer("/properties/supplier_quotes/items/properties/price_signal_role/const")
+            .and_then(JsonValue::as_str)
+            == Some("domestic_wholesale_floor")
+    );
+    let attempt_strategies = result_schema
+        .pointer("/properties/search_attempts/items/properties/strategy/enum")
+        .and_then(JsonValue::as_array)
+        .expect("search_attempt strategy enum");
+    for strategy in [
+        "short_cluster",
+        "auth_refresh_preflight",
+        "lexicon_expansion",
+    ] {
+        ensure!(
+            attempt_strategies
+                .iter()
+                .any(|value| value.as_str() == Some(strategy)),
+            "1688 result schema missing strategy `{strategy}`"
+        );
+    }
+    let failure_codes = result_schema
+        .pointer("/properties/extraction_metadata/properties/failure_code/enum")
+        .and_then(JsonValue::as_array)
+        .expect("failure_code enum");
+    for code in [
+        "1688_AUTH_REFRESH_REQUIRED",
+        "1688_REGULATED_GOODS_EVIDENCE_MISSING",
+        "1688_VOCABULARY_MISMATCH_NO_VALID_ZH_ALIAS",
+        "VOCABULARY_MISMATCH_EN_ONLY",
+    ] {
+        ensure!(
+            failure_codes
+                .iter()
+                .any(|value| value.as_str() == Some(code)),
+            "1688 result schema missing failure code `{code}`"
+        );
+    }
+    Ok(())
+}
+
+fn assert_1688_canaries(skill_dir: &std::path::Path) -> Result<String> {
+    let canary_text = std::fs::read_to_string(skill_dir.join("canary.inputs.jsonl"))?;
+    let mut case_count = 0;
+    let mut categories = BTreeSet::new();
+    let mut intents = BTreeSet::new();
+    let mut successful_short_clusters = 0;
+    for line in canary_text.lines().filter(|line| !line.trim().is_empty()) {
+        let row: JsonValue = serde_json::from_str(line)?;
+        case_count += 1;
+        ensure!(row.get("source_id").and_then(JsonValue::as_str) == Some("1688"));
+        ensure!(
+            row.get("expected_price_signal_role")
+                .and_then(JsonValue::as_str)
+                == Some("domestic_wholesale_floor")
+        );
+        categories.insert(
+            row.get("category")
+                .and_then(JsonValue::as_str)
+                .expect("canary category")
+                .to_owned(),
+        );
+        intents.insert(
+            row.get("case_intent")
+                .and_then(JsonValue::as_str)
+                .expect("canary case_intent")
+                .to_owned(),
+        );
+        let profile = row.get("search_profile").expect("search_profile");
+        ensure!(
+            profile
+                .get("noun_aliases_zh")
+                .and_then(JsonValue::as_array)
+                .is_some(),
+            "1688 canary missing noun_aliases_zh"
+        );
+        for wave in profile
+            .get("query_waves_json")
+            .and_then(JsonValue::as_array)
+            .expect("query_waves_json")
+        {
+            ensure!(
+                wave.get("query_en").is_none(),
+                "1688 canaries must not send English query text"
+            );
+            if wave.get("strategy").and_then(JsonValue::as_str) == Some("short_cluster") {
+                let term_count = wave
+                    .get("term_count")
+                    .and_then(JsonValue::as_i64)
+                    .expect("short cluster term_count");
+                ensure!(
+                    (2..=4).contains(&term_count),
+                    "short_cluster term_count must be 2-4"
+                );
+                ensure!(
+                    wave.get("query_zh")
+                        .and_then(JsonValue::as_str)
+                        .is_some_and(|query| !query.trim().is_empty()),
+                    "short_cluster query_zh must be populated"
+                );
+                successful_short_clusters += 1;
+            }
+        }
+    }
+    ensure!(
+        case_count >= 5,
+        "1688 canary set must contain at least five cases"
+    );
+    ensure!(
+        categories
+            == BTreeSet::from([
+                "examination-gloves".to_owned(),
+                "fasteners".to_owned(),
+                "packaging-cartons".to_owned(),
+            ]),
+        "1688 canaries must cover all three L5 goods categories"
+    );
+    for intent in [
+        "domestic_wholesale_floor_success",
+        "short_cluster_pruning_to_two_terms",
+        "regulated_goods_quote_suppressed_without_export_compliance",
+        "auth_refresh_preflight_blocks_production_search",
+        "vocabulary_mismatch_routes_to_lexicon_expansion",
+    ] {
+        ensure!(
+            intents.contains(intent),
+            "1688 canaries missing intent `{intent}`"
+        );
+    }
+    ensure!(successful_short_clusters >= 4);
+    Ok(canary_text)
+}
+
+fn assert_1688_golden_and_rubric(skill_dir: &std::path::Path) -> Result<String> {
+    let golden = std::fs::read_to_string(skill_dir.join("golden.assertions.yaml"))?;
+    let rubric = std::fs::read_to_string(skill_dir.join("validator-rubric.yaml"))?;
+    let _: serde_yaml::Value = serde_yaml::from_str(&golden)?;
+    let _: serde_yaml::Value = serde_yaml::from_str(&rubric)?;
+    for required in [
+        "L5-T-freight_engine-010",
+        "L5-T-freight_engine-013",
+        "L5-T-freight_engine-018",
+        "domestic_wholesale_floor",
+        "auth_refresh_1688_runs_before_production_search",
+        "regulated_goods_without_export_compliance_suppresses_supplier_quote",
+        "incompatible_versions_block_promotion: true",
+    ] {
+        ensure!(
+            golden.contains(required) || rubric.contains(required),
+            "1688 golden/rubric missing `{required}`"
+        );
+    }
+    Ok(golden)
+}
+
+fn assert_1688_calibration_mirror(canary_text: &str, golden: &str) -> Result<()> {
+    let mirror_dir = repo_root()?.join("tests/fixtures/calibration/marketplace-search/1688");
+    ensure!(
+        std::fs::read_to_string(mirror_dir.join("canary.inputs.jsonl"))? == canary_text,
+        "1688 calibration mirror canaries must match the skill canaries"
+    );
+    ensure!(
+        std::fs::read_to_string(mirror_dir.join("golden.assertions.yaml"))? == golden,
+        "1688 calibration mirror golden assertions must match the skill assertions"
     );
     Ok(())
 }

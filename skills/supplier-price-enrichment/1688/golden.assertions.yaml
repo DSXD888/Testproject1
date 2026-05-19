@@ -1,0 +1,74 @@
+schema_version: 1
+source_id: "1688"
+skill_id: "supplier-price-enrichment/1688"
+test_ids:
+  - L5-T-freight_engine-010
+  - L5-T-freight_engine-013
+  - L5-T-freight_engine-018
+expected_contract:
+  promotion_stage: candidate
+  validator_overlay: validation/overlay-customs-classification
+  worker_behavior_version: supplier-price-enrichment/1688@2.0.0
+  validator_behavior_version: validation/overlay-customs-classification@1.0.0+1.0
+  price_signal_role: domestic_wholesale_floor
+  executable_quote_allowed: false
+  query_language: zh-CN
+  query_cluster_terms_min: 2
+  query_cluster_terms_max: 4
+required_assertions:
+  - all_canaries_parse_as_jsonl
+  - every_canary_source_id_is_1688
+  - every_success_canary_uses_chinese_short_cluster
+  - no_canary_uses_english_query_text_for_1688_search
+  - every_emitted_quote_uses_domestic_wholesale_floor
+  - auth_refresh_1688_runs_before_production_search
+  - vocabulary_mismatch_routes_to_lexicon_expansion_not_unavailable
+  - regulated_goods_without_export_compliance_suppresses_supplier_quote
+  - unit_basis_normalizes_chinese_units
+  - cny_original_price_preserved_and_gbp_conversion_may_be_null_when_fx_missing
+cases:
+  - case_id: l5-1688-fasteners-zh-001
+    expected_verdict: approved
+    expected_price_signal_role: domestic_wholesale_floor
+    must_include:
+      - short_cluster
+      - 六角螺栓
+      - domestic_wholesale_floor
+  - case_id: l5-1688-cartons-short-cluster-001
+    expected_verdict: approved
+    expected_cluster_term_counts: [2, 3]
+    must_include:
+      - 双瓦楞
+      - 加厚
+  - case_id: l5-1688-gloves-regulated-evidence-missing-001
+    expected_verdict: rejected
+    expected_failure_code: 1688_REGULATED_GOODS_EVIDENCE_MISSING
+    expected_quote_suppressed: true
+    must_include:
+      - regulated_goods
+      - compliance_export_evidence_state
+  - case_id: l5-1688-auth-refresh-required-001
+    expected_verdict: rejected
+    expected_failure_code: 1688_AUTH_REFRESH_REQUIRED
+    must_include:
+      - auth-refresh/1688
+      - auth_refresh_preflight
+  - case_id: l5-1688-vocabulary-mismatch-001
+    expected_verdict: insufficient_basis
+    expected_failure_code: 1688_VOCABULARY_MISMATCH_NO_VALID_ZH_ALIAS
+    expected_lexicon_expansion: true
+    must_include:
+      - VOCABULARY_MISMATCH_EN_ONLY
+      - lexicon_expansion
+promotion_gate_assertions:
+  stable_promotion_requires_compatible_worker_validator_versions: true
+  candidate_output_cannot_be_authoritative_without_shadow_gate: true
+  rollback_returns_failed_version_to_candidate: true
+  incompatible_versions_block_promotion: true
+  compat_matrix:
+    - worker: supplier-price-enrichment/1688@2.0.0
+      validator: validation/overlay-customs-classification@1.0.0+1.0
+      state: compatible
+    - worker: supplier-price-enrichment/1688@1.0.0
+      validator: validation/overlay-customs-classification@1.0.0+1.0
+      state: incompatible

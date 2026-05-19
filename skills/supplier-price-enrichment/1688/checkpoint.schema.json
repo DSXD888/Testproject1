@@ -10,6 +10,18 @@
     "completed_profile_ids":     { "type": "array", "items": { "type": "string" } },
     "inflight_profile_id":       { "type": ["string", "null"] },
     "inflight_wave":             { "type": ["integer", "null"], "minimum": 0, "maximum": 4 },
-    "browser_attach_state":      { "type": "object" }
+    "browser_attach_state":      { "type": "object" },
+    "auth_refresh_state": {
+      "type": ["string", "null"],
+      "enum": [null, "verified", "required", "failed"]
+    },
+    "lexicon_expansion_required_profile_ids": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "regulated_goods_suppressed_quote_ids": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
   }
 }

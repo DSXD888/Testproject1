@@ -82,6 +82,9 @@
             "enum": [
               "exact_anchor",
               "alias_swap",
+              "short_cluster",
+              "lexicon_expansion",
+              "auth_refresh_preflight",
               "market_frame",
               "broad_existence",
               "compliance_off"
@@ -184,7 +187,7 @@
             ]
           },
           "price_signal_role": {
-            "const": "optimistic_floor"
+            "const": "domestic_wholesale_floor"
           },
           "unit_price_original_minor": {
             "type": "integer",
@@ -194,7 +197,10 @@
             "type": "string"
           },
           "unit_price_gbp_pence": {
-            "type": "integer",
+            "type": [
+              "integer",
+              "null"
+            ],
             "minimum": 0
           },
           "offer_total_original_minor": {
@@ -322,6 +328,22 @@
               "absent"
             ]
           },
+          "compliance_export_evidence_state": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              null,
+              "present",
+              "missing",
+              "ambiguous",
+              "not_applicable"
+            ]
+          },
+          "regulated_goods_execution_eligible": {
+            "type": "boolean"
+          },
           "match_confidence_bps": {
             "type": "integer",
             "minimum": 0,
@@ -433,6 +455,22 @@
           "type": [
             "string",
             "null"
+          ],
+          "enum": [
+            null,
+            "SOURCE_AUTH_STATE_INVALID",
+            "SOURCE_CAPTCHA_BLOCKED",
+            "LOCALE_OR_CURRENCY_DRIFT",
+            "ZERO_RESULTS_ALL_WAVES",
+            "HARD_CONFLICT_ZERO_SURVIVORS",
+            "CDP_PROFILE_LOCK_CONFLICT",
+            "AGENT_STALLED",
+            "AGENT_RUN_FAILED",
+            "PAGE_SHAPE_DRIFT",
+            "1688_AUTH_REFRESH_REQUIRED",
+            "1688_REGULATED_GOODS_EVIDENCE_MISSING",
+            "1688_VOCABULARY_MISMATCH_NO_VALID_ZH_ALIAS",
+            "VOCABULARY_MISMATCH_EN_ONLY"
           ]
         }
       }
