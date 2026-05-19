@@ -1,5 +1,29 @@
 export const FPO_ACCESS_UNAVAILABLE = "FPO_ACCESS_UNAVAILABLE";
 
+export {
+  InMemoryRecallLatticeStore,
+  InMemoryTariffGraph,
+  expandRecallLatticeToTariffGraph,
+  persistRecallLattice,
+  recallLatticeRowsFromExpansion,
+  verifyShortlistedTariffBranches,
+} from "./ten-digit-resolution";
+export type {
+  AdditionalCodeRequirement,
+  ExpandedTariffCandidate,
+  ProductCommodityCodeOutboxEntry,
+  ProductCommodityCodeRow,
+  RecallLatticePersistenceCandidate,
+  RecallLatticePersistenceStore,
+  TariffBranchVerification,
+  TariffFamilySummary,
+  TariffGraph,
+  TariffGraphExpansionResult,
+  TariffMeasure,
+  TariffNode,
+  TariffNodeLevel,
+} from "./ten-digit-resolution";
+
 export type RecallSourceFamily =
   | "hmrc_fpo_or_search_suggestion"
   | "hmrc_tariff_keyword_search"

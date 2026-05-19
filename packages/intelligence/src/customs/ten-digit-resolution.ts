@@ -1,0 +1,632 @@
+import { createHash } from "node:crypto";
+
+import type { ExtractedAttributes } from "./description-quality";
+import type { MultiSourceRecallResult, SourceFamily } from "./multi-source-recall";
+
+export type TariffNodeLevel = "chapter" | "heading" | "subheading" | "cn8" | "uk10";
+
+export interface TariffMeasure {
+  id: string;
+  kind:
+    | "third_country_duty"
+    | "import_vat"
+    | "anti_dumping"
+    | "suspension"
+    | "quota"
+    | "documentary";
+  description: string;
+  dutyExpression?: string;
+}
+
+export interface AdditionalCodeRequirement {
+  codeType: string;
+  description: string;
+  requiredWhen: string;
+}
+
+export interface TariffFreshness {
+  structureCheckedAt: string;
+  measuresFreshUntil: string;
+}
+
+export interface TariffNode {
+  code: string;
+  parent: string | null;
+  level: TariffNodeLevel;
+  description: string;
+  measures: TariffMeasure[];
+  supplementaryUnitRequirements: string[];
+  additionalCodeRequirements: AdditionalCodeRequirement[];
+  scopeNotes: string[];
+  exclusions: string[];
+  freshness: TariffFreshness;
+}
+
+export interface ScoredTariffNode {
+  node: TariffNode;
+  scoreBps: number;
+  compatibilityReasons: string[];
+  rejectionReasons: string[];
+}
+
+export interface TariffGraph {
+  getNode(code: string): TariffNode | null;
+  descendants(code: string): TariffNode[];
+  shortlistNonDominated(
+    family: string,
+    attrs: ExtractedAttributes,
+    count: number,
+  ): ScoredTariffNode[];
+}
+
+export interface ExpandedTariffCandidate extends ScoredTariffNode {
+  familyCode: string;
+  initialRecallRank: number;
+  rankOrdinal: number;
+  sourceFamilies: SourceFamily[];
+  retrievalScoreBps: number;
+}
+
+export interface TariffFamilySummary {
+  familyCode: string;
+  initialRecallRank: number;
+  expandedDescendantCount: number;
+  shortlistedCount: number;
+  mostSupportedBranch: string | null;
+}
+
+export interface TariffGraphExpansionResult {
+  expandedCandidates: ExpandedTariffCandidate[];
+  shortlistedCandidates: ExpandedTariffCandidate[];
+  selectedCandidate: ExpandedTariffCandidate | null;
+  verificationQueue: string[];
+  familySummaries: TariffFamilySummary[];
+}
+
+export interface TariffBranchVerification {
+  code: string;
+  verifiedAt: string;
+  measuresFreshUntil: string;
+  measures: TariffMeasure[];
+}
+
+export interface ProductCommodityCodeRow {
+  id: string;
+  productCandidateId: string;
+  commodityCode: string;
+  digits: 6 | 8 | 10;
+  source: SourceFamily;
+  scoreBps: number;
+  rankOrdinal: number;
+  description: string;
+  evidenceJson: string;
+  ownerId: string;
+  rowVersion: number;
+  lastLocalSeq: number;
+  stageRunId: string;
+}
+
+export interface ProductCommodityCodeOutboxEntry {
+  localSeq: number;
+  entityKind: "product_commodity_codes";
+  entityId: string;
+  op: "upsert";
+  rowVersion: number;
+  stageRunId: string;
+  commitGroupId: string;
+  payloadJson: string;
+  contentHash: string;
+}
+
+export interface RecallLatticePersistenceCandidate {
+  code: string;
+  rank: number;
+  sourceFamily: SourceFamily;
+  retrievalScoreBps: number | null;
+  agreementState: "agreed" | "diverged" | "unavailable";
+  description?: string;
+}
+
+export interface RecallLatticePersistenceTransaction {
+  replaceProductCommodityCodes(productCandidateId: string): void | Promise<void>;
+  nextLocalSeq(): number | Promise<number>;
+  insertProductCommodityCode(row: ProductCommodityCodeRow): void | Promise<void>;
+  appendLocalOutbox(entry: ProductCommodityCodeOutboxEntry): void | Promise<void>;
+}
+
+export interface RecallLatticePersistenceStore {
+  transaction<T>(
+    commitGroupId: string,
+    fn: (tx: RecallLatticePersistenceTransaction) => T | Promise<T>,
+  ): Promise<T>;
+}
+
+export class InMemoryTariffGraph implements TariffGraph {
+  private readonly nodes: Map<string, TariffNode>;
+
+  constructor(nodes: TariffNode[]) {
+    this.nodes = new Map(nodes.map((node) => [node.code, node]));
+  }
+
+  getNode(code: string): TariffNode | null {
+    return this.nodes.get(code) ?? null;
+  }
+
+  descendants(code: string): TariffNode[] {
+    const start = this.nodes.get(code);
+    if (start === undefined) {
+      return [];
+    }
+
+    const descendants: TariffNode[] = [];
+    const pending = [start.code];
+    while (pending.length > 0) {
+      const parent = pending.shift();
+      if (parent === undefined) {
+        continue;
+      }
+
+      for (const child of this.nodes.values()) {
+        if (child.parent !== parent) {
+          continue;
+        }
+
+        if (child.level === "uk10") {
+          descendants.push(child);
+        }
+        pending.push(child.code);
+      }
+    }
+
+    if (start.level === "uk10") {
+      descendants.push(start);
+    }
+
+    return descendants.sort((left, right) => left.code.localeCompare(right.code));
+  }
+
+  shortlistNonDominated(
+    family: string,
+    attrs: ExtractedAttributes,
+    count: number,
+  ): ScoredTariffNode[] {
+    return this.descendants(family)
+      .map((node) => scoreTariffNode(node, attrs, 0))
+      .sort(compareScoredTariffNodes)
+      .slice(0, count);
+  }
+}
+
+export class InMemoryRecallLatticeStore implements RecallLatticePersistenceStore {
+  rows: ProductCommodityCodeRow[];
+  outbox: ProductCommodityCodeOutboxEntry[];
+  transactions: Array<{ commitGroupId: string; insertedRowIds: string[] }>;
+  private localSeq: number;
+
+  constructor(opts?: {
+    rows?: ProductCommodityCodeRow[];
+    outbox?: ProductCommodityCodeOutboxEntry[];
+    localSeq?: number;
+  }) {
+    this.rows = opts?.rows ?? [];
+    this.outbox = opts?.outbox ?? [];
+    this.transactions = [];
+    this.localSeq = opts?.localSeq ?? 0;
+  }
+
+  async transaction<T>(
+    commitGroupId: string,
+    fn: (tx: RecallLatticePersistenceTransaction) => T | Promise<T>,
+  ): Promise<T> {
+    const rowsBefore = [...this.rows];
+    const outboxBefore = [...this.outbox];
+    const localSeqBefore = this.localSeq;
+    const insertedRowIds: string[] = [];
+
+    const tx: RecallLatticePersistenceTransaction = {
+      replaceProductCommodityCodes: (productCandidateId) => {
+        this.rows = this.rows.filter(
+          (row) => row.productCandidateId !== productCandidateId,
+        );
+      },
+      nextLocalSeq: () => {
+        this.localSeq += 1;
+        return this.localSeq;
+      },
+      insertProductCommodityCode: (row) => {
+        this.rows.push(row);
+        insertedRowIds.push(row.id);
+      },
+      appendLocalOutbox: (entry) => {
+        this.outbox.push(entry);
+      },
+    };
+
+    try {
+      const result = await fn(tx);
+      this.transactions.push({ commitGroupId, insertedRowIds });
+      return result;
+    } catch (error) {
+      this.rows = rowsBefore;
+      this.outbox = outboxBefore;
+      this.localSeq = localSeqBefore;
+      throw error;
+    }
+  }
+}
+
+export function expandRecallLatticeToTariffGraph(
+  graph: TariffGraph,
+  recallResult: MultiSourceRecallResult,
+  opts?: { shortlistPerFamily?: number },
+): TariffGraphExpansionResult {
+  const shortlistPerFamily = opts?.shortlistPerFamily ?? 3;
+  const familyInputs = recallResult.candidateRecallAgreement.map(
+    (agreement, index) => {
+      const agreedSources = agreement.agreement.filter(
+        (sourceResult) => sourceResult.state === "agreed",
+      );
+      return {
+        familyCode: agreement.candidateCode,
+        initialRecallRank: index + 1,
+        sourceFamilies: agreedSources.map((sourceResult) => sourceResult.sourceFamily),
+        retrievalScoreBps: Math.max(
+          0,
+          ...agreedSources.map((sourceResult) => sourceResult.scoreBps ?? 0),
+        ),
+      };
+    },
+  );
+
+  const expandedCandidates = familyInputs.flatMap((familyInput) =>
+    graph.descendants(familyInput.familyCode).map((node) => ({
+      ...scoreTariffNode(node, recallResult.attributes, familyInput.retrievalScoreBps),
+      familyCode: familyInput.familyCode,
+      initialRecallRank: familyInput.initialRecallRank,
+      rankOrdinal: familyInput.initialRecallRank,
+      sourceFamilies: familyInput.sourceFamilies,
+      retrievalScoreBps: familyInput.retrievalScoreBps,
+    })),
+  );
+
+  const shortlistedCandidates = familyInputs.flatMap((familyInput) =>
+    expandedCandidates
+      .filter((candidate) => candidate.familyCode === familyInput.familyCode)
+      .sort(compareExpandedTariffCandidates)
+      .slice(0, shortlistPerFamily)
+      .map((candidate, index) => ({
+        ...candidate,
+        rankOrdinal: index + 1,
+      })),
+  );
+
+  const selectedCandidate = [...shortlistedCandidates].sort(
+    compareExpandedTariffCandidates,
+  )[0] ?? null;
+
+  return {
+    expandedCandidates,
+    shortlistedCandidates,
+    selectedCandidate,
+    verificationQueue: shortlistedCandidates.map((candidate) => candidate.node.code),
+    familySummaries: familyInputs.map((familyInput) => {
+      const familyShortlist = shortlistedCandidates.filter(
+        (candidate) => candidate.familyCode === familyInput.familyCode,
+      );
+      return {
+        familyCode: familyInput.familyCode,
+        initialRecallRank: familyInput.initialRecallRank,
+        expandedDescendantCount: expandedCandidates.filter(
+          (candidate) => candidate.familyCode === familyInput.familyCode,
+        ).length,
+        shortlistedCount: familyShortlist.length,
+        mostSupportedBranch: familyShortlist[0]?.node.code ?? null,
+      };
+    }),
+  };
+}
+
+export async function verifyShortlistedTariffBranches(
+  expansion: TariffGraphExpansionResult,
+  verifier: (node: TariffNode) => TariffBranchVerification | Promise<TariffBranchVerification>,
+): Promise<TariffBranchVerification[]> {
+  const uniqueShortlist = uniqueBy(
+    expansion.shortlistedCandidates.map((candidate) => candidate.node),
+    (node) => node.code,
+  );
+
+  const verifications: TariffBranchVerification[] = [];
+  for (const node of uniqueShortlist) {
+    verifications.push(await verifier(node));
+  }
+
+  return verifications;
+}
+
+export function recallLatticeRowsFromExpansion(
+  expansion: TariffGraphExpansionResult,
+): RecallLatticePersistenceCandidate[] {
+  return expansion.shortlistedCandidates.flatMap(
+    (candidate): RecallLatticePersistenceCandidate[] => {
+      if (candidate.sourceFamilies.length === 0) {
+        return [
+          {
+            code: candidate.node.code,
+            rank: candidate.rankOrdinal,
+            sourceFamily: "hmrc_tariff_keyword_search",
+            retrievalScoreBps: candidate.retrievalScoreBps,
+            agreementState: "unavailable",
+            description: candidate.node.description,
+          },
+        ];
+      }
+
+      return candidate.sourceFamilies.map((sourceFamily) => ({
+        code: candidate.node.code,
+        rank: candidate.rankOrdinal,
+        sourceFamily,
+        retrievalScoreBps: candidate.retrievalScoreBps,
+        agreementState: "agreed",
+        description: candidate.node.description,
+      }));
+    },
+  );
+}
+
+export async function persistRecallLattice(
+  db: RecallLatticePersistenceStore,
+  opts: {
+    productCandidateId: string;
+    stageRunId: string;
+    recallResult: MultiSourceRecallResult;
+    expandedCandidates: RecallLatticePersistenceCandidate[];
+    ownerId?: string;
+    commitGroupId?: string;
+  },
+): Promise<ProductCommodityCodeRow[]> {
+  const ownerId = opts.ownerId ?? "local-daemon";
+  const commitGroupId =
+    opts.commitGroupId ??
+    `${opts.stageRunId}:product_commodity_codes:${opts.productCandidateId}`;
+  const candidates = dedupePersistenceCandidates(opts.expandedCandidates);
+  const writtenRows: ProductCommodityCodeRow[] = [];
+
+  await db.transaction(commitGroupId, async (tx) => {
+    await tx.replaceProductCommodityCodes(opts.productCandidateId);
+
+    for (const candidate of candidates) {
+      const localSeq = await tx.nextLocalSeq();
+      const row: ProductCommodityCodeRow = {
+        id: productCommodityCodeId(opts.productCandidateId, candidate),
+        productCandidateId: opts.productCandidateId,
+        commodityCode: candidate.code,
+        digits: commodityDigits(candidate.code),
+        source: candidate.sourceFamily,
+        scoreBps: candidate.retrievalScoreBps ?? 0,
+        rankOrdinal: candidate.rank,
+        description: candidate.description ?? "",
+        evidenceJson: stableJson({
+          agreementState: candidate.agreementState,
+          sourceFamily: candidate.sourceFamily,
+          candidateRecallAgreement: opts.recallResult.candidateRecallAgreement.map(
+            (agreement) => ({
+              candidateCode: agreement.candidateCode,
+              states: agreement.agreement.map((sourceResult) => ({
+                sourceFamily: sourceResult.sourceFamily,
+                state: sourceResult.state,
+              })),
+            }),
+          ),
+        }),
+        ownerId,
+        rowVersion: 1,
+        lastLocalSeq: localSeq,
+        stageRunId: opts.stageRunId,
+      };
+      const payloadJson = stableJson(row);
+      const outboxEntry: ProductCommodityCodeOutboxEntry = {
+        localSeq,
+        entityKind: "product_commodity_codes",
+        entityId: row.id,
+        op: "upsert",
+        rowVersion: row.rowVersion,
+        stageRunId: opts.stageRunId,
+        commitGroupId,
+        payloadJson,
+        contentHash: sha256(payloadJson),
+      };
+
+      await tx.insertProductCommodityCode(row);
+      await tx.appendLocalOutbox(outboxEntry);
+      writtenRows.push(row);
+    }
+  });
+
+  return writtenRows;
+}
+
+function scoreTariffNode(
+  node: TariffNode,
+  attrs: ExtractedAttributes,
+  retrievalScoreBps: number,
+): ScoredTariffNode {
+  const haystack = tokenize(
+    [
+      node.description,
+      ...node.scopeNotes,
+      ...node.exclusions,
+      ...node.measures.map((measure) => measure.description),
+    ].join(" "),
+  );
+  const compatibilityReasons: string[] = [];
+  const rejectionReasons: string[] = [];
+  let score = Math.round(retrievalScoreBps * 0.45);
+
+  if (matchesAny(haystack, nounTerms(attrs.headNoun))) {
+    score += 2_000;
+    compatibilityReasons.push("head_noun_compatible");
+  }
+
+  if (attrs.material !== undefined) {
+    const classificationText = tokenize(
+      [
+        node.description,
+        ...node.scopeNotes,
+        ...node.measures.map((measure) => measure.description),
+      ].join(" "),
+    );
+    if (matchesAny(classificationText, tokenize(attrs.material))) {
+      score += 2_000;
+      compatibilityReasons.push("material_compatible");
+    } else if (materialMismatch(node, attrs.material)) {
+      score -= 3_500;
+      rejectionReasons.push("material_mismatch");
+    }
+  }
+
+  if (
+    attrs.principalFunction !== undefined &&
+    matchesAny(haystack, tokenize(attrs.principalFunction))
+  ) {
+    score += 1_000;
+    compatibilityReasons.push("function_compatible");
+  }
+
+  if (node.supplementaryUnitRequirements.length > 0) {
+    compatibilityReasons.push("supplementary_unit_requirements_cached");
+  }
+
+  if (node.additionalCodeRequirements.length > 0) {
+    compatibilityReasons.push("additional_code_requirements_cached");
+  }
+
+  return {
+    node,
+    scoreBps: clampBps(score),
+    compatibilityReasons,
+    rejectionReasons,
+  };
+}
+
+function compareExpandedTariffCandidates(
+  left: ExpandedTariffCandidate,
+  right: ExpandedTariffCandidate,
+): number {
+  return compareScoredTariffNodes(left, right);
+}
+
+function compareScoredTariffNodes(
+  left: ScoredTariffNode,
+  right: ScoredTariffNode,
+): number {
+  return right.scoreBps - left.scoreBps || left.node.code.localeCompare(right.node.code);
+}
+
+function dedupePersistenceCandidates(
+  candidates: RecallLatticePersistenceCandidate[],
+): RecallLatticePersistenceCandidate[] {
+  const byKey = new Map<string, RecallLatticePersistenceCandidate>();
+  for (const candidate of candidates) {
+    byKey.set(`${candidate.code}:${candidate.sourceFamily}`, candidate);
+  }
+  return [...byKey.values()].sort(
+    (left, right) =>
+      left.rank - right.rank ||
+      left.code.localeCompare(right.code) ||
+      left.sourceFamily.localeCompare(right.sourceFamily),
+  );
+}
+
+function productCommodityCodeId(
+  productCandidateId: string,
+  candidate: RecallLatticePersistenceCandidate,
+): string {
+  return `pcc_${hashParts([
+    productCandidateId,
+    candidate.code,
+    candidate.sourceFamily,
+  ]).slice(0, 24)}`;
+}
+
+function commodityDigits(code: string): 6 | 8 | 10 {
+  if (code.length === 6 || code.length === 8 || code.length === 10) {
+    return code.length;
+  }
+  throw new Error(`unsupported commodity code digit length: ${code}`);
+}
+
+function materialMismatch(node: TariffNode, material: string): boolean {
+  const descriptionTokens = tokenize(node.description);
+  const materialTokens = tokenize(material);
+  if (matchesAny(descriptionTokens, materialTokens)) {
+    return false;
+  }
+  if (matchesAny(tokenize(node.exclusions.join(" ")), materialTokens)) {
+    return true;
+  }
+  return matchesAny(descriptionTokens, ["plastic", "rubber", "steel", "metal", "textile"]);
+}
+
+function nounTerms(headNoun: string): string[] {
+  const terms = tokenize(headNoun);
+  if (terms.includes("cartons") || terms.includes("carton")) {
+    return [...terms, "box", "boxes", "case", "cases"];
+  }
+  if (terms.includes("boxes") || terms.includes("box")) {
+    return [...terms, "carton", "cartons"];
+  }
+  return terms;
+}
+
+function matchesAny(haystack: string[], needles: string[]): boolean {
+  return needles.some((needle) => haystack.includes(needle));
+}
+
+function tokenize(value: string): string[] {
+  return value
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((token) => token.length > 1);
+}
+
+function clampBps(value: number): number {
+  return Math.max(0, Math.min(10_000, value));
+}
+
+function uniqueBy<T>(items: T[], key: (item: T) => string): T[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const itemKey = key(item);
+    if (seen.has(itemKey)) {
+      return false;
+    }
+    seen.add(itemKey);
+    return true;
+  });
+}
+
+function stableJson(value: unknown): string {
+  return JSON.stringify(sortJson(value));
+}
+
+function sortJson(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(sortJson);
+  }
+  if (typeof value === "object" && value !== null) {
+    return Object.fromEntries(
+      Object.entries(value)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, nested]) => [key, sortJson(nested)]),
+    );
+  }
+  return value;
+}
+
+function hashParts(parts: string[]): string {
+  return createHash("sha256").update(parts.join("\0")).digest("hex");
+}
+
+function sha256(value: string): string {
+  return `sha256:${createHash("sha256").update(value).digest("hex")}`;
+}
