@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "checked_at",
+    "per_source_health"
+  ],
+  "properties": {
+    "checked_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "aggregate_status": {
+      "type": "string",
+      "enum": [
+        "healthy",
+        "degraded",
+        "blocked",
+        "unknown"
+      ]
+    },
+    "per_source_health": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "alibaba",
+        "1688",
+        "amazon",
+        "pcs",
+        "searates",
+        "freightos",
+        "taric"
+      ],
+      "patternProperties": {
+        "^(alibaba|1688|amazon|pcs|searates|freightos|taric)$": {
+          "type": "object",
+          "required": [
+            "status",
+            "evidence_path",
+            "paid_api_auth_check"
+          ],
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "healthy",
+                "degraded",
+                "blocked",
+                "auth_required",
+                "unknown"
+              ]
+            },
+            "evidence_path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "failure_code": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "paid_api_auth_check": {
+              "type": "boolean",
+              "const": false
+            },
+            "checked_skill_id": {
+              "type": "string"
+            },
+            "last_success_at": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            },
+            "warnings": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

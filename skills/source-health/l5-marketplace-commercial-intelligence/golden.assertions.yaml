@@ -1,0 +1,57 @@
+schema_version: 1
+skill_id: source-health/l5-marketplace-commercial-intelligence
+test_ids:
+  - L5-T-freight_engine-016
+covered_sources:
+  - alibaba
+  - 1688
+  - amazon
+  - pcs
+  - searates
+  - freightos
+  - taric
+required_assertions:
+  - every_covered_source_has_one_canary_input
+  - every_per_source_health_entry_has_evidence_path
+  - paid_api_auth_check_is_false_for_every_source
+  - source_health_status_enum_is_tiered
+  - auth_refresh_1688_coordination_path_exists
+  - pcs_scotland_public_ocds_source_included
+  - freightos_and_searates_are_cdp_skill_bindings_not_paid_connectors
+  - taric_is_public_reference_binding
+expected_result_shape:
+  checked_at: required_iso_datetime
+  per_source_health:
+    alibaba:
+      status_enum: [healthy, degraded, blocked, auth_required, unknown]
+      paid_api_auth_check: false
+    "1688":
+      status_enum: [healthy, degraded, blocked, auth_required, unknown]
+      paid_api_auth_check: false
+    amazon:
+      status_enum: [healthy, degraded, blocked, unknown]
+      paid_api_auth_check: false
+    pcs:
+      status_enum: [healthy, degraded, blocked, unknown]
+      paid_api_auth_check: false
+    searates:
+      status_enum: [healthy, degraded, blocked, auth_required, unknown]
+      paid_api_auth_check: false
+    freightos:
+      status_enum: [healthy, degraded, blocked, auth_required, unknown]
+      paid_api_auth_check: false
+    taric:
+      status_enum: [healthy, degraded, blocked, unknown]
+      paid_api_auth_check: false
+promotion_controls:
+  promotion_stage: candidate
+  blocks_stable_until:
+    - L5-T-freight_engine-016
+    - l5-p5-marketplace-fixture-promotion-gate
+  incompatible_versions_block_promotion: true
+evidence_requirements:
+  - checked_skill_id
+  - canary_fixture
+  - source_specific_health_artifact
+  - paid_api_auth_check_false
+  - failure_code_when_not_healthy

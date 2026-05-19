@@ -595,6 +595,136 @@ fn assert_1688_calibration_mirror(canary_text: &str, golden: &str) -> Result<()>
 }
 
 #[test]
+fn l5_t_freight_engine_016_source_health_aggregate_skill_artifacts() -> Result<()> {
+    let skill_dir = repo_skill_dir("source-health/l5-marketplace-commercial-intelligence")?;
+    let linted = lint_skill_directory(&skill_dir)?;
+    assert_l5_source_health_metadata(&linted)?;
+    assert_l5_source_health_result_schema(&skill_dir)?;
+    assert_l5_source_health_canaries(&skill_dir)?;
+    assert_l5_source_health_golden_and_rubric(&skill_dir)
+}
+
+fn assert_l5_source_health_metadata(linted: &LintedSkill) -> Result<()> {
+    ensure!(linted.metadata.skill_version == "2026.05.19-1");
+    ensure!(linted.metadata.interaction_profile == "headless_contract");
+    ensure!(linted.metadata.promotion_stage.as_deref() == Some("candidate"));
+    ensure!(linted.metadata.model_profile == "tier_1_lightweight");
+    ensure!(linted.metadata.side_effect_class == "none");
+    ensure!(
+        linted.metadata.source_structure_version.as_deref()
+            == Some("l5-marketplace-commercial-intelligence-2026-05-19")
+    );
+    ensure!(
+        linted.metadata.worker_behavior_version.as_deref()
+            == Some("source-health/l5-marketplace-commercial-intelligence@2026.05.19-1+1.0.0")
+    );
+    ensure!(linted.metadata.validator_behavior_version.as_deref() == Some("2026.03.30-1"));
+    ensure!(linted.metadata.gate_a_family_key.as_deref() == Some("source-health"));
+    ensure!(
+        linted.metadata.gate_b_exact_slice_key.as_deref()
+            == Some(
+                "source-health/l5-marketplace-commercial-intelligence::l5-marketplace-commercial-intelligence::source-health/l5-marketplace-commercial-intelligence@2026.05.19-1+1.0.0::2026.03.30-1"
+            )
+    );
+    for required in [
+        "Alibaba, 1688, Amazon, PCS Scotland, SeaRates, Freightos, and TARIC",
+        "auth-refresh/1688",
+        "paid_api_auth_check",
+        "Do not omit sources",
+    ] {
+        ensure!(
+            linted.skill_markdown.contains(required),
+            "L5 aggregate source-health SKILL.md missing `{required}`"
+        );
+    }
+    Ok(())
+}
+
+fn assert_l5_source_health_result_schema(skill_dir: &std::path::Path) -> Result<()> {
+    let result_schema: JsonValue = serde_json::from_str(&std::fs::read_to_string(
+        skill_dir.join("result.schema.json"),
+    )?)?;
+    let required = result_schema
+        .pointer("/properties/per_source_health/required")
+        .and_then(JsonValue::as_array)
+        .expect("per_source_health.required should be present");
+    let required_sources = required
+        .iter()
+        .filter_map(JsonValue::as_str)
+        .map(str::to_owned)
+        .collect::<BTreeSet<_>>();
+    ensure!(required_sources == l5_source_set());
+    let paid_auth = result_schema
+        .pointer(
+            "/properties/per_source_health/patternProperties/^(alibaba|1688|amazon|pcs|searates|freightos|taric)$/properties/paid_api_auth_check/const",
+        )
+        .and_then(JsonValue::as_bool);
+    ensure!(paid_auth == Some(false));
+    Ok(())
+}
+
+fn assert_l5_source_health_canaries(skill_dir: &std::path::Path) -> Result<()> {
+    let canary_text = std::fs::read_to_string(skill_dir.join("canary.inputs.jsonl"))?;
+    let mut seen = BTreeSet::new();
+    for line in canary_text.lines().filter(|line| !line.trim().is_empty()) {
+        let row: JsonValue = serde_json::from_str(line)?;
+        let source_id = row
+            .get("source_id")
+            .and_then(JsonValue::as_str)
+            .expect("source_id should be present");
+        seen.insert(source_id.to_owned());
+        ensure!(
+            row.get("paid_api_auth_check").and_then(JsonValue::as_bool) == Some(false),
+            "{source_id} must not request paid API auth checks"
+        );
+        ensure!(
+            row.get("canary_fixture")
+                .and_then(JsonValue::as_str)
+                .is_some_and(|path| !path.trim().is_empty()),
+            "{source_id} must name a canary fixture"
+        );
+    }
+    ensure!(seen == l5_source_set());
+    Ok(())
+}
+
+fn assert_l5_source_health_golden_and_rubric(skill_dir: &std::path::Path) -> Result<()> {
+    let golden = std::fs::read_to_string(skill_dir.join("golden.assertions.yaml"))?;
+    let rubric = std::fs::read_to_string(skill_dir.join("validator-rubric.yaml"))?;
+    let _: serde_yaml::Value = serde_yaml::from_str(&golden)?;
+    let _: serde_yaml::Value = serde_yaml::from_str(&rubric)?;
+    for required in [
+        "L5-T-freight_engine-016",
+        "paid_api_auth_check_is_false_for_every_source",
+        "auth_refresh_1688_coordination_path_exists",
+        "seven_source_coverage",
+        "no_paid_api_auth",
+        "stable_promotion_owner: l5-p5-marketplace-fixture-promotion-gate",
+    ] {
+        ensure!(
+            golden.contains(required) || rubric.contains(required),
+            "L5 aggregate source-health golden/rubric missing `{required}`"
+        );
+    }
+    Ok(())
+}
+
+fn l5_source_set() -> BTreeSet<String> {
+    [
+        "1688",
+        "alibaba",
+        "amazon",
+        "freightos",
+        "pcs",
+        "searates",
+        "taric",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect()
+}
+
+#[test]
 fn ut_skl_011_cdp_browser_skills_have_preflight_and_no_bare_agent_browser_commands() -> Result<()> {
     for relative in CDP_BROWSER_SKILLS {
         let skill = load_skill_metadata(&repo_skill_dir(relative)?)?;

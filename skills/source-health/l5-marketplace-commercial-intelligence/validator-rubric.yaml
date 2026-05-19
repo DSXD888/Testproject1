@@ -1,0 +1,60 @@
+rubric_version: 1
+worker_skill_id: source-health/l5-marketplace-commercial-intelligence
+validator_overlay: none
+worker_behavior_version: source-health/l5-marketplace-commercial-intelligence@2026.05.19-1+1.0.0
+validator_behavior_version: "2026.03.30-1"
+test_ids:
+  primary:
+    - L5-T-freight_engine-016
+
+blocking_checks:
+  - id: seven_source_coverage
+    severity: blocker
+    rule: "The aggregate result must include Alibaba, 1688, Amazon, PCS, SeaRates, Freightos, and TARIC exactly once."
+    evidence_fields:
+      - per_source_health
+
+  - id: no_paid_api_auth
+    severity: blocker
+    rule: "Every covered source must have paid_api_auth_check=false and must not request commercial connector credentials."
+    evidence_fields:
+      - per_source_health.*.paid_api_auth_check
+
+  - id: evidence_path_required
+    severity: blocker
+    rule: "Every source verdict must include an evidence_path or artifact reference from the source-specific canary."
+    evidence_fields:
+      - per_source_health.*.evidence_path
+
+  - id: auth_refresh_1688_bound
+    severity: blocker
+    rule: "1688 readiness must reference auth-refresh/1688 coordination when auth state is stale or required."
+    evidence_fields:
+      - per_source_health.1688.checked_skill_id
+      - per_source_health.1688.failure_code
+
+  - id: pcs_public_scope_preserved
+    severity: blocker
+    rule: "PCS coverage must remain public Scotland OCDS readiness and must not be treated as a supplier marketplace."
+    evidence_fields:
+      - per_source_health.pcs.checked_skill_id
+
+warning_checks:
+  - id: stale_source_specific_canary
+    severity: warning
+    rule: "A stale source-specific canary may produce degraded or unknown aggregate status, but it must not be silently counted as healthy."
+
+promotion_controls:
+  promotion_stage: candidate
+  stable_promotion_owner: l5-p5-marketplace-fixture-promotion-gate
+  required_standard_files:
+    - SKILL.md
+    - result.schema.json
+    - checkpoint.schema.json
+    - canary.inputs.jsonl
+    - golden.assertions.yaml
+    - validator-rubric.yaml
+  compatible_pairs:
+    - worker: source-health/l5-marketplace-commercial-intelligence@2026.05.19-1+1.0.0
+      validator: "2026.03.30-1"
+      state: compatible

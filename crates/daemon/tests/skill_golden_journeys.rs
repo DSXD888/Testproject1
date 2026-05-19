@@ -498,7 +498,14 @@ mod tests {
                     .map(str::to_owned)
             })
             .collect::<BTreeSet<_>>();
-        ensure!(source_health_dirs == BTreeSet::from(["alibaba".to_owned(), "fts".to_owned()]));
+        ensure!(
+            source_health_dirs
+                == BTreeSet::from([
+                    "alibaba".to_owned(),
+                    "fts".to_owned(),
+                    "l5-marketplace-commercial-intelligence".to_owned(),
+                ])
+        );
 
         ensure!(
             lint_skill_directory(&repo_skill_dir("validation/base")?)?
