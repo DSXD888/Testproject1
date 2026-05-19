@@ -1,6 +1,11 @@
 import { describe, expect, it } from "bun:test";
 
-import type { ModeSelectionFacts, ShippingMode } from "./freight-types";
+import type { FreightEstimate, ModeSelectionFacts, ShippingMode } from "./freight-types";
+import {
+  FREIGHT_PROVIDER_DISAGREEMENT_THRESHOLD_BPS,
+  estimateWithDualProviders,
+  reconcile,
+} from "./freight-engine";
 import {
   FREIGHTOS_SKILL_ID,
   createFreightosAdapter,
@@ -433,6 +438,124 @@ describe("SeaRates skill adapter", () => {
     });
   });
 });
+
+describe("dual-provider freight engine", () => {
+  it("L5-T-freight_engine-003 invokes both provider adapters and reconciles normalized GBP bands", async () => {
+    const freightosCalls: unknown[] = [];
+    const searatesCalls: unknown[] = [];
+
+    const outcome = await estimateWithDualProviders({
+      mode: "sea_lcl",
+      originPort: "CNTSN",
+      destinationPort: "GBSOU",
+      weightKg: 850,
+      volumeM3: 5.4,
+      freightos: {
+        async estimate(opts) {
+          freightosCalls.push(opts);
+          return normalizeFreightosSkillResult(
+            {
+              freight_status: "quoted",
+              cdp_state: "connected",
+              freight_currency: "GBP",
+              freight_low_amount_minor: 110_000,
+              freight_base_amount_minor: 120_000,
+              freight_high_amount_minor: 140_000,
+              quote_expired: false,
+              warnings: [],
+              blockers: [],
+            },
+            {
+              ...opts,
+              checkedAt: "2026-05-19T00:00:00.000Z",
+            },
+          );
+        },
+      },
+      searates: {
+        async estimate(opts) {
+          searatesCalls.push(opts);
+          return normalizeSearatesSkillResult(
+            {
+              freight_status: "quoted",
+              cdp_state: "connected",
+              freight_currency: "GBP",
+              freight_low_amount_minor: 116_000,
+              freight_base_amount_minor: 125_000,
+              freight_high_amount_minor: 145_000,
+              quote_expired: false,
+              warnings: [],
+              blockers: [],
+            },
+            {
+              mode: opts.mode,
+              checkedAt: "2026-05-19T00:00:00.000Z",
+            },
+          );
+        },
+      },
+    });
+
+    expect(freightosCalls).toHaveLength(1);
+    expect(searatesCalls).toHaveLength(1);
+    expect(outcome.kind).toBe("agreed");
+    if (outcome.kind !== "agreed") {
+      throw new Error("expected providers to agree below the threshold");
+    }
+    expect(outcome.selected.provider).toBe("searates");
+    expect(outcome.selected.baseGbpPence).toBe(125_000);
+    expect(outcome.otherProvider.provider).toBe("freightos");
+    expect(outcome.otherProvider.baseGbpPence).toBe(120_000);
+  });
+
+  it("L5-T-freight_engine-004 records low confidence and selects the conservative provider when quotes diverge", () => {
+    const outcome = reconcile(
+      freightEstimate("freightos", 120_000),
+      freightEstimate("searates", 185_000),
+    );
+
+    expect(FREIGHT_PROVIDER_DISAGREEMENT_THRESHOLD_BPS).toBe(2_500);
+    expect(outcome.kind).toBe("disagreement");
+    if (outcome.kind !== "disagreement") {
+      throw new Error("expected a provider disagreement");
+    }
+    expect(outcome.deltaBps).toBe(5_417);
+    expect(outcome.warning).toBe("FREIGHT_MODE_LOW_CONFIDENCE");
+    expect(outcome.selected.provider).toBe("searates");
+    expect(outcome.selected.baseGbpPence).toBe(185_000);
+    expect(outcome.otherProvider.provider).toBe("freightos");
+    expect(outcome.otherProvider.baseGbpPence).toBe(120_000);
+  });
+
+  it("L5-T-freight_engine-005 emits manual freight requirement when both providers fail", () => {
+    const outcome = reconcile(
+      freightEstimate("freightos", null, "FREIGHTOS_NO_QUOTE"),
+      freightEstimate("searates", null, "SEARATES_NO_QUOTE"),
+    );
+
+    expect(outcome).toEqual({
+      kind: "dual_failure",
+      failure: "FREIGHT_ESTIMATE_FAILED",
+      manualEstimateRequired: true,
+    });
+  });
+});
+
+function freightEstimate(
+  provider: FreightEstimate["provider"],
+  baseGbpPence: number | null,
+  failureCode?: string,
+): FreightEstimate {
+  return {
+    provider,
+    mode: "sea_lcl",
+    lowGbpPence: baseGbpPence === null ? null : baseGbpPence - 10_000,
+    baseGbpPence,
+    highGbpPence: baseGbpPence === null ? null : baseGbpPence + 10_000,
+    failureCode,
+    checkedAt: "2026-05-19T00:00:00.000Z",
+  };
+}
 
 function baseFacts(
   overrides: Partial<ModeSelectionFacts> = {},
