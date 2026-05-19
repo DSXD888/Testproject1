@@ -33,6 +33,7 @@ const PUSH_OWNED_RESEED_TABLES: &[&str] = &[
     "supplier_quotes",
     "candidate_pricing_assessments",
     "landed_cost_estimates",
+    "product_commodity_codes",
     "manifests",
     "pipeline_assessments",
     "bid_workflow_states",

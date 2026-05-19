@@ -24,6 +24,8 @@ const L_OPERATOR_OVERRIDE_AUDIT_MIGRATION_PATH: &str =
 const L_COMMERCIAL_BASIS_COVERAGE_MIGRATION_PATH: &str =
     "migrations/0011_commercial_basis_coverage.sql";
 const L4_SYNC_STATE_MIGRATION_PATH: &str = "migrations/0012_l4_sync_state.sql";
+const L5_PRODUCT_COMMODITY_CODES_MIGRATION_PATH: &str =
+    "migrations/0013_l5_product_commodity_codes.sql";
 const MIGRATION_LOG_TABLE: &str = "schema_migrations";
 const PRE_L3_SCHEMA_EPOCH: i64 = 1;
 const MIGRATIONS: &[(&str, i64, &str)] = &[
@@ -70,6 +72,11 @@ const MIGRATIONS: &[(&str, i64, &str)] = &[
         L_COMMERCIAL_BASIS_COVERAGE_MIGRATION_PATH,
     ),
     ("0012_l4_sync_state", 9, L4_SYNC_STATE_MIGRATION_PATH),
+    (
+        "0013_l5_product_commodity_codes",
+        9,
+        L5_PRODUCT_COMMODITY_CODES_MIGRATION_PATH,
+    ),
 ];
 
 pub const DEFAULT_SCHEMA_EPOCH: i64 = 9;

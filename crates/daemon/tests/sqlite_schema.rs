@@ -19,6 +19,7 @@ use provisional_impl::{
 };
 use support::db::{DEFAULT_SCHEMA_EPOCH, L4TestStateDb, StateDb};
 use support::supabase::{SupabaseLocalStack, logical_schema_from_sql};
+use support::sync::{OutboxOp, OutboxWriter, canonical_content_hash, write_push_owned_transaction};
 
 const PUSH_OWNED_TABLES: &[&str] = &[
     "procurement_processes",
@@ -792,6 +793,263 @@ fn l4_t_sqlite_schema_013_reopening_db_does_not_duplicate_l4_state() -> Result<(
 }
 
 #[test]
+#[doc = "L5-T-customs_classification-006"]
+fn l5_t_customs_classification_006_product_commodity_codes_shape_and_replacement() -> Result<()> {
+    let temp = tempfile::tempdir()?;
+    let db_path = temp.path().join("state.db");
+    let mut state_db = StateDb::open(&db_path)?;
+    let conn = state_db.connection_mut();
+
+    let migration_count = query_count(
+        conn,
+        "SELECT COUNT(*) FROM schema_migrations WHERE id = '0013_l5_product_commodity_codes'",
+    )?;
+    ensure!(
+        migration_count == 1,
+        "L5 product_commodity_codes migration was not recorded"
+    );
+
+    let columns = sqlite_table_columns(conn, "product_commodity_codes")?;
+    ensure_columns(
+        "product_commodity_codes",
+        &columns,
+        &[
+            "id",
+            "product_candidate_id",
+            "commodity_code",
+            "digits",
+            "source",
+            "score_bps",
+            "rank_ordinal",
+            "description",
+            "evidence_json",
+            "owner_id",
+            "row_version",
+            "last_local_seq",
+            "stage_run_id",
+            "created_at",
+            "updated_at",
+        ],
+    )?;
+    for column in [
+        "rank_ordinal",
+        "description",
+        "last_local_seq",
+        "stage_run_id",
+    ] {
+        ensure_column_nullable("product_commodity_codes", &columns, column, true)?;
+    }
+    for column in [
+        "id",
+        "product_candidate_id",
+        "commodity_code",
+        "digits",
+        "source",
+        "score_bps",
+        "evidence_json",
+        "owner_id",
+        "row_version",
+        "created_at",
+        "updated_at",
+    ] {
+        ensure_column_nullable("product_commodity_codes", &columns, column, false)?;
+    }
+    ensure_column_type_contains("product_commodity_codes", &columns, "digits", "INT")?;
+    ensure_column_type_contains("product_commodity_codes", &columns, "score_bps", "INT")?;
+    ensure_column_type_contains("product_commodity_codes", &columns, "row_version", "INT")?;
+
+    let table_sql = sqlite_table_sql(conn, "product_commodity_codes")?;
+    assert_sql_contains_all(
+        &table_sql,
+        &[
+            "REFERENCES product_candidates(id)",
+            "CHECK (digits IN (6, 8, 10))",
+            "CHECK (score_bps BETWEEN 0 AND 10000)",
+            "hmrc_fpo_or_search_suggestion",
+            "cpv_chapter_prior",
+            "rule_based_chapter_hint",
+            "hmrc_tariff_keyword_search",
+            "atr_codebook_reuse",
+            "UNIQUE (product_candidate_id, commodity_code, source)",
+        ],
+    )?;
+    let indexes = index_names(conn, "product_commodity_codes")?;
+    ensure!(
+        indexes.contains("idx_product_commodity_codes_candidate_stage"),
+        "product_commodity_codes missing candidate/stage_run_id index"
+    );
+    ensure!(
+        indexes.contains("idx_product_commodity_codes_code_source"),
+        "product_commodity_codes missing commodity/source index"
+    );
+
+    seed_l5_product_candidate(conn)?;
+    conn.execute(
+        "\
+        INSERT INTO product_commodity_codes (
+          id, product_candidate_id, commodity_code, digits, source, score_bps,
+          rank_ordinal, description, evidence_json, owner_id, row_version, stage_run_id
+        ) VALUES
+          (
+            'l5-old-code-1', 'l5-product-candidate', '392690', 6,
+            'rule_based_chapter_hint', 4100, 1, 'old plastic family',
+            '{\"agreement_state\":\"old\"}', 'local-owner', 1, 'l5-old-stage'
+          ),
+          (
+            'l5-old-code-2', 'l5-product-candidate', '731815', 6,
+            'cpv_chapter_prior', 3900, 2, 'old fastener family',
+            '{\"agreement_state\":\"old\"}', 'local-owner', 1, 'l5-old-stage'
+          )
+        ",
+        [],
+    )?;
+    ensure!(
+        query_count(
+            conn,
+            "SELECT COUNT(*) FROM product_commodity_codes WHERE product_candidate_id = 'l5-product-candidate'",
+        )? == 2,
+        "expected two stale commodity-code rows before replacement"
+    );
+
+    let schema_epoch =
+        i32::try_from(DEFAULT_SCHEMA_EPOCH).context("DEFAULT_SCHEMA_EPOCH exceeds i32")?;
+    let writer = OutboxWriter::new("l5-product-code-test", schema_epoch)?;
+    let commit_group_id = "l5-product-code-replacement";
+    let stage_run_id = "l5-stage-run-new";
+    let replacement_rows = [
+        (
+            "l5-new-code-1",
+            "7318154290",
+            10_i64,
+            "hmrc_tariff_keyword_search",
+            9100_i64,
+            1_i64,
+            "threaded steel fasteners",
+        ),
+        (
+            "l5-new-code-2",
+            "7318154890",
+            10_i64,
+            "hmrc_fpo_or_search_suggestion",
+            8400_i64,
+            2_i64,
+            "other fastener branch",
+        ),
+    ];
+
+    write_push_owned_transaction(conn, commit_group_id, |tx| {
+        tx.execute(
+            "DELETE FROM product_commodity_codes WHERE product_candidate_id = ?1",
+            ["l5-product-candidate"],
+        )?;
+
+        for (id, commodity_code, digits, source, score_bps, rank_ordinal, description) in
+            replacement_rows
+        {
+            let payload = serde_json::json!({
+                "id": id,
+                "product_candidate_id": "l5-product-candidate",
+                "commodity_code": commodity_code,
+                "digits": digits,
+                "source": source,
+                "score_bps": score_bps,
+                "rank_ordinal": rank_ordinal,
+                "description": description,
+                "evidence_json": {
+                    "agreement_state": "shortlisted",
+                    "recall_trace_id": format!("trace-{id}")
+                },
+                "owner_id": "local-owner",
+                "row_version": 2,
+                "stage_run_id": stage_run_id
+            });
+            let payload_json = payload.to_string();
+            let content_hash = canonical_content_hash(&payload_json)?;
+            tx.execute(
+                "\
+                INSERT INTO product_commodity_codes (
+                  id, product_candidate_id, commodity_code, digits, source, score_bps,
+                  rank_ordinal, description, evidence_json, owner_id, row_version, stage_run_id
+                ) VALUES (?1, 'l5-product-candidate', ?2, ?3, ?4, ?5, ?6, ?7, ?8,
+                          'local-owner', 2, ?9)
+                ",
+                params![
+                    id,
+                    commodity_code,
+                    digits,
+                    source,
+                    score_bps,
+                    rank_ordinal,
+                    description,
+                    payload["evidence_json"].to_string(),
+                    stage_run_id
+                ],
+            )?;
+            let local_seq = writer.write_push_owned_with_outbox(
+                tx,
+                "product_commodity_codes",
+                id,
+                OutboxOp::Insert,
+                &payload_json,
+                &content_hash,
+                stage_run_id,
+                commit_group_id,
+            )?;
+            tx.execute(
+                "UPDATE product_commodity_codes SET last_local_seq = ?1 WHERE id = ?2",
+                params![local_seq, id],
+            )?;
+        }
+        Ok(())
+    })?;
+
+    ensure!(
+        query_count(
+            conn,
+            "SELECT COUNT(*) FROM product_commodity_codes WHERE stage_run_id = 'l5-old-stage'",
+        )? == 0,
+        "stale commodity-code rows survived set replacement"
+    );
+    ensure!(
+        query_count(
+            conn,
+            "SELECT COUNT(*) FROM product_commodity_codes
+             WHERE product_candidate_id = 'l5-product-candidate'
+               AND stage_run_id = 'l5-stage-run-new'
+               AND last_local_seq IS NOT NULL",
+        )? == 2,
+        "replacement rows were not inserted under one stage_run_id with outbox local_seq links"
+    );
+    ensure!(
+        query_count(
+            conn,
+            "SELECT COUNT(*) FROM local_outbox
+             WHERE entity_kind = 'product_commodity_codes'
+               AND commit_group_id = 'l5-product-code-replacement'",
+        )? == 2,
+        "product_commodity_codes replacement did not emit local_outbox rows"
+    );
+
+    let invalid_source = conn.execute(
+        "\
+        INSERT INTO product_commodity_codes (
+          id, product_candidate_id, commodity_code, digits, source, score_bps,
+          evidence_json, owner_id
+        ) VALUES (
+          'l5-invalid-source', 'l5-product-candidate', '731815', 6,
+          'paid_vendor_classifier', 5000, '{}', 'local-owner'
+        )
+        ",
+        [],
+    );
+    ensure!(
+        invalid_source.is_err(),
+        "product_commodity_codes accepted an unsupported recall source family"
+    );
+    Ok(())
+}
+
+#[test]
 #[doc = "L4-T-sqlite_schema-014"]
 fn l4_t_sqlite_schema_014_required_indices_exist() -> Result<()> {
     let db = L4TestStateDb::new()?;
@@ -1512,6 +1770,55 @@ fn insert_outbox_row(
             content_hash
         ],
     )
+}
+
+fn seed_l5_product_candidate(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "\
+        INSERT INTO procurement_processes (
+          id, current_stage, title, latest_published_at, latest_updated_at, owner_id
+        ) VALUES (
+          'l5-process', 'classification', 'L5 product commodity process',
+          '2026-05-19T00:00:00Z', '2026-05-19T00:00:00Z', 'local-owner'
+        )
+        ",
+        [],
+    )?;
+    conn.execute(
+        "\
+        INSERT INTO contract_notices (
+          id, process_id, source_id, source_notice_id, raw_document_id, title,
+          procurement_stage, published_at, source_updated_at, normalized_payload, owner_id
+        ) VALUES (
+          'l5-notice', 'l5-process', 'fts', 'l5-source-notice', 'l5-raw-doc',
+          'L5 notice', 'tender', '2026-05-19T00:00:00Z',
+          '2026-05-19T00:00:00Z', '{}', 'local-owner'
+        )
+        ",
+        [],
+    )?;
+    conn.execute(
+        "\
+        INSERT INTO notice_lots (
+          id, notice_id, lot_number, title, estimated_value_pence, owner_id
+        ) VALUES ('l5-lot', 'l5-notice', 1, 'Fastener lot', 250000, 'local-owner')
+        ",
+        [],
+    )?;
+    conn.execute(
+        "\
+        INSERT INTO product_candidates (
+          id, process_id, notice_id, lot_id, name, candidate_type, match_archetype,
+          head_noun, owner_id
+        ) VALUES (
+          'l5-product-candidate', 'l5-process', 'l5-notice', 'l5-lot',
+          'Threaded steel fasteners', 'physical_good', 'direct_supply',
+          'fastener', 'local-owner'
+        )
+        ",
+        [],
+    )?;
+    Ok(())
 }
 
 fn seed_workflow_job(conn: &Connection, job_id: &str) -> Result<()> {
