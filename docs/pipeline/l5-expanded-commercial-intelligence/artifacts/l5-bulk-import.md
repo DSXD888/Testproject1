@@ -859,7 +859,7 @@ Workflow (mandatory):
 Common patterns:
 
 - **markdown rendering (`errors/markdown.rs`):** each variant emits a human-readable bullet. Use the SCREAMING_SNAKE wire constant + a 1-sentence operator-visible explanation derived from the spec AC.
-- **tracing (`tracing/structured.rs`):** typed field for `error_code` (already string) plus optional structured `error_class` field for blocker vs warning.
+- **tracing (`tracing/structured.rs`):** typed field for `error_code` (already string) plus an additional structured `error_class` field for blocker vs warning.
 - **validation policy (`validation/policy.rs`):** classify into `BLOCKER` vs `WARNING` vs `RECOVERABLE` per the table.
 - **validation executor (`validation/executor.rs`):** propagate to verdict envelope; treat new hard blockers as `rejected` not `flagged` unless basis_sufficiency permits abstention.
 - **IPC handlers (`ipc/handlers/*`):** ensure the new variant is serializable through the existing typed payload, not coerced to "other".
@@ -2568,7 +2568,7 @@ Tests to add:
 - [ ] `searates-skill-adapter.ts` exists with the `SearatesAdapter`-style API.
 - [ ] Output normalized to `FreightEstimate`.
 - [ ] 5 SeaRates failure codes emitted on the documented conditions.
-- [ ] No modifications to `searates-freight-estimate/SKILL.md` UNLESS strictly required; if modified, the change is additive (new optional fields).
+- [ ] No modifications to `searates-freight-estimate/SKILL.md` UNLESS strictly required; if modified, the change is additive (new nullable fields with default behavior).
 - [ ] Tests pass `bun run test`.
 
 ## Dependencies
@@ -2982,7 +2982,7 @@ Two concerns merged into one bead because both involve external authority resolu
 Source families implemented here (§1.4.1):
 
 1. `hmrc_fpo_or_search_suggestion` — `/api/search`, `/api/search_suggestions`, OR public FPO (decision recorded by this bead).
-2. (deferred to other beads: `cpv_chapter_prior`, `rule_based_chapter_hint`, `hmrc_tariff_keyword_search`, `atr_codebook_reuse`)
+2. (owned by sibling Phase 4 beads: `cpv_chapter_prior`, `rule_based_chapter_hint`, `hmrc_tariff_keyword_search`, `atr_codebook_reuse`)
 
 TARIC adapter:
 
@@ -5073,7 +5073,7 @@ This bead's deliverable enters Phase 5's promotion-gate harness via the calibrat
 
 ## Context
 
-Matures `skills/supplier-price-enrichment/amazon/` from candidate to stable + adds source registry entry (registry entry shape from `l5-p1-source-registry-shape`). EXACT deltas vs current 92-line SKILL.md. PA-API 5.0 sunset on 2026-04-30 — browser-first operation is required, not optional.
+Matures `skills/supplier-price-enrichment/amazon/` from candidate to stable + adds source registry entry (registry entry shape from `l5-p1-source-registry-shape`). EXACT deltas vs current 92-line SKILL.md. PA-API 5.0 sunset on 2026-04-30 — browser-first operation is mandatory under §2.3.3 AC2.
 
 ## Files to Create/Modify
 
@@ -6541,7 +6541,7 @@ Tests to add:
 - [ ] `evaluateCbamExposure` function exported.
 - [ ] `cbam_estimate_gbp_pence` is ALWAYS null in L5 (rate-bearing logic forbidden).
 - [ ] 5 in-scope 2027 sectors (aluminium, cement, fertiliser, hydrogen, iron/steel) covered.
-- [ ] Glass + ceramics OUT of scope per §1.14.1 AC2.
+- [ ] Glass + ceramics not in confirmed 2027 CBAM sector list per §1.14.1 AC2.
 - [ ] `landed_cost_estimates.cbam_exposure_flag` and `cbam_estimate_gbp_pence` populated via existing columns.
 - [ ] Both test IDs pass.
 
