@@ -1,6 +1,12 @@
 import { describe, expect, it } from "bun:test";
 
 import type { ModeSelectionFacts, ShippingMode } from "./freight-types";
+import {
+  FREIGHTOS_SKILL_ID,
+  createFreightosAdapter,
+  freightosUsesPaidApiCredentials,
+  normalizeFreightosSkillResult,
+} from "./freightos-skill-adapter";
 import { selectMode } from "./mode-selector";
 
 // [TEST_START] L5 freight engine scaffold.
@@ -174,6 +180,123 @@ describe("freight mode selector", () => {
         testCase.name,
       ).toContain(testCase.expectedLock);
     }
+  });
+});
+
+describe("Freightos skill adapter", () => {
+  it("L5-T-freight_engine-003 normalizes captured Freightos CDP output into GBP quote bands without paid API credentials", async () => {
+    const adapter = createFreightosAdapter();
+    const estimate = await adapter.estimate({
+      mode: "sea_lcl",
+      originPort: "CNTSN",
+      destinationPort: "GBSOU",
+      weightKg: 850,
+      volumeM3: 5.4,
+      cassettePath: "canary-01-dgu-tianjin-portsmouth-result.json",
+      checkedAt: "2026-05-19T00:00:00.000Z",
+    });
+
+    const eurToGbp = 1 / 1.146;
+    expect(FREIGHTOS_SKILL_ID).toBe("landed-cost/freightos-freight-estimate");
+    expect(freightosUsesPaidApiCredentials()).toBe(false);
+    expect(estimate.provider).toBe("freightos");
+    expect(estimate.mode).toBe("sea_lcl");
+    expect(estimate.failureCode).toBeUndefined();
+    expect(estimate.baseGbpPence).toBe(Math.round(327_714 * eurToGbp));
+    expect(estimate.lowGbpPence).toBe(Math.round(310_136 * eurToGbp));
+    expect(estimate.highGbpPence).toBe(Math.round(502_911 * eurToGbp));
+    expect(estimate.evidenceTranscriptPath).toBe(
+      "canary-01-dgu-tianjin-portsmouth-result.json",
+    );
+  });
+
+  it("L5-T-freight_engine-008 records Freightos source-specific no-quote page-drift schema-drift unsupported-mode and auth-prompt failures", async () => {
+    const adapter = createFreightosAdapter();
+
+    const unsupportedMode = await adapter.estimate({
+      mode: "air_general",
+      originPort: "CNTSN",
+      destinationPort: "GBSOU",
+      weightKg: 100,
+      volumeM3: 2,
+      checkedAt: "2026-05-19T00:00:00.000Z",
+    });
+    expect(unsupportedMode.failureCode).toBe("FREIGHTOS_UNSUPPORTED_MODE");
+
+    const noQuote = await adapter.estimate({
+      mode: "sea_lcl",
+      originPort: "CNXXX",
+      destinationPort: "GBSOU",
+      weightKg: 100,
+      volumeM3: 2,
+      cassettePath: "fp-04-port-not-mapped-result.json",
+      checkedAt: "2026-05-19T00:00:00.000Z",
+    });
+    expect(noQuote.failureCode).toBe("FREIGHTOS_NO_QUOTE");
+    expect(noQuote.evidenceTranscriptPath).toBe(
+      "fp-04-port-not-mapped-result.json",
+    );
+
+    const authPrompt = await adapter.estimate({
+      mode: "sea_lcl",
+      originPort: "CNTSN",
+      destinationPort: "GBSOU",
+      weightKg: 100,
+      volumeM3: 2,
+      cassettePath: "fp-03-session-expired-result.json",
+      checkedAt: "2026-05-19T00:00:00.000Z",
+    });
+    expect(authPrompt.failureCode).toBe("FREIGHTOS_AUTH_PROMPT");
+
+    const pageDrift = normalizeFreightosSkillResult(
+      {
+        freight_status: "blocked",
+        cdp_state: "connected",
+        warnings: [],
+        blockers: [
+          {
+            code: "FREIGHTOS_PAGE_SHAPE_DRIFT",
+            message: "Quote panel selector changed",
+          },
+        ],
+      },
+      {
+        mode: "sea_lcl",
+        originPort: "CNTSN",
+        destinationPort: "GBSOU",
+        weightKg: 100,
+        volumeM3: 2,
+        checkedAt: "2026-05-19T00:00:00.000Z",
+        evidenceTranscriptPath: "run-manifest/freightos-page-drift.json",
+      },
+    );
+    expect(pageDrift.failureCode).toBe("FREIGHTOS_PAGE_SHAPE_DRIFT");
+    expect(pageDrift.evidenceTranscriptPath).toBe(
+      "run-manifest/freightos-page-drift.json",
+    );
+
+    const schemaDrift = normalizeFreightosSkillResult(
+      {
+        freight_status: "quoted",
+        freight_currency: "EUR",
+        freight_base_amount_minor: 100_000,
+        freight_low_amount_minor: 90_000,
+        freight_high_amount_minor: 120_000,
+        warnings: [],
+        blockers: [],
+      },
+      {
+        mode: "sea_lcl",
+        originPort: "CNTSN",
+        destinationPort: "GBSOU",
+        weightKg: 100,
+        volumeM3: 2,
+        checkedAt: "2026-05-19T00:00:00.000Z",
+        evidenceTranscriptPath: "run-manifest/freightos-schema-drift.json",
+      },
+    );
+    expect(schemaDrift.failureCode).toBe("FREIGHTOS_SCHEMA_DRIFT");
+    expect(schemaDrift.baseGbpPence).toBeNull();
   });
 });
 
