@@ -5,17 +5,18 @@ interaction_profile: pty_interactive
 result_schema_version: 1.0.0
 checkpoint_schema_version: 1.0.0
 validator_overlay_version: 2026.04.21-1
+validator_overlay: validation/overlay-customs-classification
 model_profile: browse_stable_low_cost
 agent_cli: claude
 side_effect_class: local_state
-promotion_stage: candidate
-worker_behavior_version: supplier-price-enrichment/ebay@2026.04.21-1+1.0.0
-validator_behavior_version: 2026.04.21-1
+promotion_stage: stable
+worker_behavior_version: skills/supplier-price-enrichment/ebay@1.0.0
+validator_behavior_version: validation/overlay-customs-classification@1.0.0+1.0
 version_change_affects_behavior: true
 gate_a_family_key: supplier-price-enrichment
-gate_a_family_prequalified: false
-gate_b_exact_slice_key: supplier-price-enrichment/ebay::ebay::supplier-price-enrichment/ebay@2026.04.21-1+1.0.0::2026.04.21-1
-gate_b_exact_slice_ready: false
+gate_a_family_prequalified: true
+gate_b_exact_slice_key: supplier-price-enrichment/ebay::ebay::skills/supplier-price-enrichment/ebay@1.0.0::validation/overlay-customs-classification@1.0.0+1.0
+gate_b_exact_slice_ready: true
 maxPages: 3
 maxScrollCycles: 2
 browser_attach_mode: cdp_persistent_profile
@@ -73,6 +74,20 @@ Same `result.json` + `run-manifest.md` contract as Alibaba. Key invariants:
 - `price_signal_role: "benchmark_ceiling"` (UK retail ceiling, not a floor)
 - `currency: "GBP"` (typical; record otherwise when the listing differs)
 - `region: "UK"`
+- `validator_overlay: "validation/overlay-customs-classification"` in run metadata when the validator consumes a canary or production result
+
+## L5 Baseline Binding
+
+eBay is the already-operational UK retail benchmark source for L5. It remains `promotion_stage: stable` and contributes ceiling evidence only; it does not become an executable wholesale quote or an import-floor substitute. The standard six-file production skill directory is authoritative for promotion-gate checks:
+
+- `SKILL.md`
+- `result.schema.json`
+- `checkpoint.schema.json`
+- `canary.inputs.jsonl`
+- `golden.assertions.yaml`
+- `validator-rubric.yaml`
+
+The calibration mirror under `tests/fixtures/calibration/marketplace-search/ebay/` must stay byte-identical for canary inputs and golden assertions. Any future behavior-affecting change must update `worker_behavior_version`, `gate_b_exact_slice_key`, the canary set, and the mirrored assertions in one bead.
 
 ## Failure Codes
 

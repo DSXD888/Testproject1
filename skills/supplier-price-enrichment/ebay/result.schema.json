@@ -197,6 +197,28 @@
             "type": "integer",
             "minimum": 0
           },
+          "normalization_evidence": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "original_currency": {
+                "type": "string"
+              },
+              "original_minor": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "fx_rate_basis": {
+                "type": "string"
+              },
+              "fx_checked_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          },
           "offer_total_original_minor": {
             "type": [
               "integer",
@@ -428,6 +450,10 @@
             "string",
             "null"
           ]
+        },
+        "validator_overlay": {
+          "type": "string",
+          "const": "validation/overlay-customs-classification"
         },
         "failure_code": {
           "type": [

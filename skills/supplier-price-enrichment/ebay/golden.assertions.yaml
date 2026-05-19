@@ -1,0 +1,93 @@
+schema_version: 1
+skill_id: supplier-price-enrichment/ebay
+test_ids:
+  primary:
+    - L5-T-customs_classification-008
+    - L5-T-customs_classification-011
+  promotion_gate:
+    - L5-T-freight_engine-013
+    - L5-T-freight_engine-018
+validator_overlay: validation/overlay-customs-classification
+worker_behavior_version: skills/supplier-price-enrichment/ebay@1.0.0
+validator_behavior_version: validation/overlay-customs-classification@1.0.0+1.0
+
+global_assertions:
+  result_schema_valid: true
+  required_standard_files:
+    - SKILL.md
+    - result.schema.json
+    - checkpoint.schema.json
+    - canary.inputs.jsonl
+    - golden.assertions.yaml
+    - validator-rubric.yaml
+  source_id: ebay
+  source_name: eBay
+  price_signal_role: benchmark_ceiling
+  promotion_stage: stable
+  quote_role_may_be_executable: false
+  paid_api_dependency_allowed: false
+  marketplace_rows_coexist_with:
+    - alibaba
+    - 1688
+    - amazon
+  required_categories:
+    - fasteners
+    - packaging-cartons
+    - examination-gloves
+  calibration_mirror_required: true
+
+cases:
+  l5-ebay-fasteners-001:
+    category: fasteners
+    expected_failure_code: null
+    expected_price_signal_role: benchmark_ceiling
+    source_quote_role: benchmark_ceiling
+    min_canary_profiles: 1
+    must_preserve_required_attrs:
+      - material
+      - thread
+
+  l5-ebay-cartons-001:
+    category: packaging-cartons
+    expected_failure_code: null
+    expected_price_signal_role: benchmark_ceiling
+    unit_basis_required: true
+    expected_query_strategies:
+      - exact_anchor
+      - market_frame
+
+  l5-ebay-gloves-001:
+    category: examination-gloves
+    expected_failure_code: null
+    expected_price_signal_role: benchmark_ceiling
+    regulated_goods_seller_gate:
+      min_feedback_pct: 9500
+      min_feedback_count: 50
+    compliance_evidence_required:
+      - EN 455
+      - EN 374
+
+  l5-ebay-zero-results-recovery-001:
+    category: fasteners
+    expected_failure_code: EBAY_ZERO_RESULTS
+    recovery_wave_required: alias_swap
+    supplier_quotes_may_be_empty: true
+
+  l5-ebay-currency-normalization-001:
+    category: packaging-cartons
+    expected_normalization: normalized_to_GBP
+    fx_evidence_required: true
+    original_currency_preserved: true
+
+l5_customs_classification_coverage:
+  L5-T-customs_classification-008:
+    assertion: "eBay rows coexist with Alibaba, 1688, and Amazon supplier_quotes using source-specific price_signal_role, evidence, origin, and confidence fields."
+  L5-T-customs_classification-011:
+    assertion: "Every validated category includes eBay plus at least one floor source; benchmark_ceiling never silently becomes an executable quote."
+
+promotion_gate_inputs:
+  contributes_to:
+    - L5-T-freight_engine-013
+    - L5-T-freight_engine-018
+  stable_baseline_allowed_here: true
+  compatible_validator_required: true

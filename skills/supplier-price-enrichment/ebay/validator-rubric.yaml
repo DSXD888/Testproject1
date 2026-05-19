@@ -1,0 +1,71 @@
+rubric_version: 1
+worker_skill_id: supplier-price-enrichment/ebay
+validator_overlay: validation/overlay-customs-classification
+worker_behavior_version: skills/supplier-price-enrichment/ebay@1.0.0
+validator_behavior_version: validation/overlay-customs-classification@1.0.0+1.0
+test_ids:
+  primary:
+    - L5-T-customs_classification-008
+    - L5-T-customs_classification-011
+  promotion_gate:
+    - L5-T-freight_engine-013
+    - L5-T-freight_engine-018
+
+blocking_checks:
+  - id: benchmark_ceiling_only
+    severity: blocker
+    rule: "Every emitted eBay quote keeps price_signal_role=benchmark_ceiling and is never promoted to executable wholesale quote evidence."
+
+  - id: full_search_profile_preserved
+    severity: blocker
+    rule: "eBay must consume critical attributes, numeric specs, standards, aliases, exclusions, query waves, and eligibility state; head-noun-only extraction fails."
+    evidence_fields:
+      - search_profile.critical_attributes_json
+      - search_profile.numeric_specs_json
+      - search_profile.standards_json
+      - search_profile.noun_aliases_en
+      - search_profile.excluded_terms
+      - search_profile.query_waves_json
+      - search_profile.search_eligibility_state
+
+  - id: category_coverage
+    severity: blocker
+    rule: "The canary set covers fasteners, packaging-cartons, and examination-gloves so L5 category readiness always includes the eBay baseline."
+
+  - id: regulated_goods_seller_gate
+    severity: blocker
+    rule: "Regulated goods quotes require seller reputation evidence and applicable standards evidence; low-reputation listings are warnings, not supplier_quotes."
+    failure_codes:
+      - LOW_REPUTATION_SELLER_DROPPED
+
+  - id: currency_normalization_evidence
+    severity: blocker
+    rule: "Non-GBP eBay listings may be normalized only when original currency/minor amount and FX evidence are preserved."
+
+  - id: calibration_mirror_exact
+    severity: blocker
+    rule: "tests/fixtures/calibration/marketplace-search/ebay canary and golden files must stay byte-identical to the skill files."
+
+warning_checks:
+  - id: anonymous_mode_warning
+    severity: warning
+    rule: "Anonymous eBay mode is permitted but must be recorded as a warning when observed."
+
+  - id: auction_listing_skipped
+    severity: warning
+    rule: "Auction listings are skipped and recorded as AUCTION_LISTING_SKIPPED warnings, never as benchmark quotes."
+
+promotion_controls:
+  promotion_stage: stable
+  baseline_source: true
+  required_standard_files:
+    - SKILL.md
+    - result.schema.json
+    - checkpoint.schema.json
+    - canary.inputs.jsonl
+    - golden.assertions.yaml
+    - validator-rubric.yaml
+  compatible_pairs:
+    - worker: skills/supplier-price-enrichment/ebay@1.0.0
+      validator: validation/overlay-customs-classification@1.0.0+1.0
+      state: compatible
