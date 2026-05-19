@@ -204,7 +204,16 @@ mod tests {
             ErrorCode::SupplierMatchLowConfidence.as_str(),
             ErrorCode::CommodityCodeLowConfidence.as_str(),
             ErrorCode::RevenueBasisUncertain.as_str(),
+            ErrorCode::ClassificationAmbiguous.as_str(),
+            ErrorCode::TariffBranchDivergence.as_str(),
+            ErrorCode::MeasureInteractionUnknown.as_str(),
+            ErrorCode::ExporterUnresolved.as_str(),
+            ErrorCode::SupplementaryUnitMissing.as_str(),
+            ErrorCode::ValuationModeConflict.as_str(),
             ErrorCode::FpoAccessUnavailable.as_str(),
+            ErrorCode::TradeRemedyWatchStale.as_str(),
+            ErrorCode::FxRateMissing.as_str(),
+            ErrorCode::FreightEstimateFailed.as_str(),
             ErrorCode::AgentStalled.as_str(),
             ErrorCode::AgentAuthChallenge.as_str(),
             ErrorCode::AgentSkillFailed.as_str(),
@@ -652,7 +661,16 @@ mod tests {
             "SUPPLIER_MATCH_LOW_CONFIDENCE",
             "COMMODITY_CODE_LOW_CONFIDENCE",
             "REVENUE_BASIS_UNCERTAIN",
+            "CLASSIFICATION_AMBIGUOUS",
+            "TARIFF_BRANCH_DIVERGENCE",
+            "MEASURE_INTERACTION_UNKNOWN",
+            "EXPORTER_UNRESOLVED",
+            "SUPPLEMENTARY_UNIT_MISSING",
+            "VALUATION_MODE_CONFLICT",
             "FPO_ACCESS_UNAVAILABLE",
+            "TRADE_REMEDY_WATCH_STALE",
+            "FX_RATE_MISSING",
+            "FREIGHT_ESTIMATE_FAILED",
             "AGENT_STALLED",
             "AGENT_AUTH_CHALLENGE",
             "AGENT_SKILL_FAILED",
@@ -680,8 +698,8 @@ mod tests {
             "L3-T-observability_telemetry-012 expected exact ErrorCode inventory"
         );
         ensure!(
-            inventory.len() == 34,
-            "L3-T-observability_telemetry-012 expected exactly 34 error codes"
+            inventory.len() == 43,
+            "L3-T-observability_telemetry-012 expected exactly 43 error codes"
         );
 
         let logical_canary_mapping = vec![
@@ -885,8 +903,42 @@ mod tests {
             "CI-L3-007 every HealthIssue code should map to the ErrorCode inventory"
         );
         ensure!(
-            error_codes.len() == 34,
+            error_codes.len() == 43,
             "CI-L3-007 expected exact ErrorCode inventory coverage count"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn l5_t_measure_interaction_018_error_vocabulary_contains_l5_customs_codes() -> Result<()> {
+        let error_codes = error_inventory();
+        let expected_l5_codes = [
+            "CLASSIFICATION_AMBIGUOUS",
+            "TARIFF_BRANCH_DIVERGENCE",
+            "MEASURE_INTERACTION_UNKNOWN",
+            "EXPORTER_UNRESOLVED",
+            "SUPPLEMENTARY_UNIT_MISSING",
+            "VALUATION_MODE_CONFLICT",
+            "FPO_ACCESS_UNAVAILABLE",
+            "TRADE_REMEDY_WATCH_STALE",
+            "FX_RATE_MISSING",
+            "FREIGHT_ESTIMATE_FAILED",
+        ];
+
+        for expected_code in expected_l5_codes {
+            ensure!(
+                error_codes.contains(&expected_code),
+                "L5-T-measure_interaction-018 expected L5 ErrorCode `{expected_code}`"
+            );
+            let parsed = crate::errors_manifest_impl::parse_error_code(expected_code)?;
+            ensure!(
+                parsed.as_str() == expected_code,
+                "L5-T-measure_interaction-018 expected roundtrip for `{expected_code}`"
+            );
+        }
+        ensure!(
+            !error_codes.contains(&"FPO_UNAVAILABLE"),
+            "L5-T-measure_interaction-018 must not add duplicate FPO_UNAVAILABLE"
         );
         Ok(())
     }

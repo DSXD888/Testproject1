@@ -667,7 +667,7 @@ fn l3_t_observability_telemetry_015_validation_and_arbiter_status_dispatch_read_
 #[test]
 fn it_ipc_006_desktop_restart_while_daemon_stays_alive_allows_resume() -> Result<()> {
     let setup = HandshakeHarness::new()?;
-    let response = setup.request(&ClientMessage::Hello {
+    let response = setup.request_after_client_write(&ClientMessage::Hello {
         desktop_version: "desktop-1.0.0".to_owned(),
         supported_protocol_range: ProtocolRange { min: 1, max: 1 },
         expected_schema_epoch: DEFAULT_SCHEMA_EPOCH,
