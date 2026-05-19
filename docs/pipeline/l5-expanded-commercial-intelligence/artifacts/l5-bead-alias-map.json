@@ -1,1824 +1,1694 @@
-{
-  "bead_aliases": {
-    "l5-p6-final-dod-readiness-gate": "testproject1-hn05.6.11",
-    "l5-p6-mainrs-default-on-and-live-demo": "testproject1-hn05.6.10",
-    "l5-p6-mainrs-delegation-cutover": "testproject1-hn05.6.9",
-    "l5-p6-mainrs-feature-flag-shadow": "testproject1-hn05.6.8",
-    "l5-p6-field-level-projection-boundary": "testproject1-hn05.6.7",
-    "l5-p6-goldset-examination-gloves-corpus": "testproject1-hn05.6.5",
-    "l5-p6-goldset-packaging-cartons-corpus": "testproject1-hn05.6.4",
-    "l5-p6-goldset-fasteners-corpus": "testproject1-hn05.6.3",
-    "l5-p6-accuracy-harness-module": "testproject1-hn05.6.1",
-    "l5-p5-skills-scope-preservation-gate": "testproject1-hn05.5.9",
-    "l5-p5-marketplace-fixture-promotion-gate": "testproject1-hn05.5.8",
-    "l5-p5-pcs-scotland-skill": "testproject1-hn05.5.6",
-    "l5-p5-amazon-maturation": "testproject1-hn05.5.4",
-    "l5-p5-1688-maturation": "testproject1-hn05.5.3",
-    "l5-p5-alibaba-maturation": "testproject1-hn05.5.2",
-    "l5-p5-validator-overlay-contract": "testproject1-hn05.5.1",
-    "l5-p4-customs-scope-preservation-gate": "testproject1-hn05.4.13",
-    "l5-p4-redaction-sentinel-design": "testproject1-hn05.4.12",
-    "l5-p4-divergence-readiness-producers": "testproject1-hn05.4.11",
-    "l5-p4-conservative-defaults-evidence-leverage": "testproject1-hn05.4.10",
-    "l5-p4-classification-freshness": "testproject1-hn05.4.9",
-    "l5-p4-vat-additional-code-valuation": "testproject1-hn05.4.8",
-    "l5-p4-measure-scanner-interactions": "testproject1-hn05.4.7",
-    "l5-p4-exporter-origin-resolution": "testproject1-hn05.4.6",
-    "l5-p4-uk10-resolution-branching": "testproject1-hn05.4.5",
-    "l5-p4-tariff-graph-junction-writes": "testproject1-hn05.4.4",
-    "l5-p4-hmrc-multi-family-expansion": "testproject1-hn05.4.3",
-    "l5-p4-description-quality-recall": "testproject1-hn05.4.2",
-    "l5-p4-hmrc-fpo-taric-discovery": "testproject1-hn05.4.1",
-    "l5-p3-freight-source-health-gate": "testproject1-hn05.3.7",
-    "l5-p3-freight-boundary-defaults": "testproject1-hn05.3.6",
-    "l5-p3-dual-provider-disagreement": "testproject1-hn05.3.5",
-    "l5-p3-searates-adapter": "testproject1-hn05.3.4",
-    "l5-p3-freightos-adapter": "testproject1-hn05.3.3",
-    "l5-p3-logistics-types-mode-selector": "testproject1-hn05.3.2",
-    "l5-p3-freightos-prerequisite-check": "testproject1-hn05.3.1",
-    "l5-p2-fx-cron-persistence-gate": "testproject1-hn05.2.6",
-    "l5-p2-fx-basis-recalculation": "testproject1-hn05.2.4",
-    "l5-p2-frankfurter-commercial-fx": "testproject1-hn05.2.3",
-    "l5-p2-hmrc-customs-fx-parser": "testproject1-hn05.2.2",
-    "l5-p2-fx-types-and-cassettes": "testproject1-hn05.2.1",
-    "l5-p1-scope-preservation-gate": "testproject1-hn05.1.8",
-    "l5-p1-cron-definitions": "testproject1-hn05.1.5",
-    "l5-p1-source-registry-shape": "testproject1-hn05.1.4",
-    "l5-p1-error-exhaustive-consumers": "testproject1-hn05.1.3",
-    "l5-p1-error-vocabulary-enum": "testproject1-hn05.1.2",
-    "l5-p1-sqlite-product-commodity-codes": "testproject1-hn05.1.1",
-    "L5 Phase 6: Gold-Set Accuracy, CBAM, And Integration": "testproject1-hn05.6",
-    "L5 Phase 5: Marketplace Skills And Validator Overlay": "testproject1-hn05.5",
-    "L5 Phase 4: Customs Engine": "testproject1-hn05.4",
-    "L5 Phase 3: Freight Engine": "testproject1-hn05.3",
-    "L5 Phase 2: FX Engine": "testproject1-hn05.2",
-    "L5 Phase 1: Foundation — Schema And Daemon Glue": "testproject1-hn05.1",
-    "Epic: L5 Implementation — Expanded Commercial Intelligence": "testproject1-hn05",
-    "l5-p6-cbam-placeholder": "testproject1-hn05.6.6",
-    "l5-p6-comparison-adapters": "testproject1-hn05.6.2",
-    "l5-p5-source-health-auth-binding": "testproject1-hn05.5.7",
-    "l5-p5-ebay-baseline-binding": "testproject1-hn05.5.5",
-    "l5-p2-simple-fx-skill-extension": "testproject1-hn05.2.5",
-    "l5-p1-daemon-test-target-setup": "testproject1-hn05.1.7",
-    "l5-p1-env-bootstrap-preflight": "testproject1-hn05.1.6"
+[
+  {
+    "bead_id": "testproject1-hn05.6.11",
+    "bead_title": "l5-p6-final-dod-readiness-gate",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "dod",
+      "l5",
+      "l5-phase-6",
+      "layer-5",
+      "review-gate"
+    ],
+    "spec_ids": [],
+    "test_ids": [
+      "L5-T-customs_classification-027"
+    ],
+    "ci_gates": [
+      "CI-L5-001",
+      "CI-L5-008"
+    ],
+    "dependencies": [
+      "testproject1-hn05.6.10",
+      "testproject1-hn05.6.9",
+      "testproject1-hn05.6.8",
+      "testproject1-hn05.6.7",
+      "testproject1-hn05.6.5",
+      "testproject1-hn05.6.4",
+      "testproject1-hn05.6.3",
+      "testproject1-hn05.6.1",
+      "testproject1-hn05.6.6",
+      "testproject1-hn05.6.2"
+    ],
+    "bead_alias": "l5-p6-final-dod-readiness-gate"
   },
-  "bead_trace": [
-    {
-      "bead_id": "testproject1-hn05.6.11",
-      "bead_title": "l5-p6-final-dod-readiness-gate",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "dod",
-        "l5",
-        "l5-phase-6",
-        "layer-5",
-        "review-gate"
-      ],
-      "spec_ids": [],
-      "test_ids": [
-        "L5-T-customs_classification-001",
-        "L5-T-customs_classification-009",
-        "L5-T-customs_classification-027",
-        "L5-T-customs_classification-034",
-        "L5-T-freight_engine-003",
-        "L5-T-freight_engine-009",
-        "L5-T-freight_engine-011",
-        "L5-T-freight_engine-014",
-        "L5-T-fx_engine-001",
-        "L5-T-fx_engine-002",
-        "L5-T-fx_engine-010",
-        "L5-T-hmrc_fpo-002",
-        "L5-T-hmrc_fpo-004",
-        "L5-T-measure_interaction-001"
-      ],
-      "ci_gates": [
-        "CI-L5-001",
-        "CI-L5-008"
-      ],
-      "dependencies": [
-        "testproject1-hn05.6.10",
-        "testproject1-hn05.6.9",
-        "testproject1-hn05.6.8",
-        "testproject1-hn05.6.7",
-        "testproject1-hn05.6.5",
-        "testproject1-hn05.6.4",
-        "testproject1-hn05.6.3",
-        "testproject1-hn05.6.1",
-        "testproject1-hn05.6.6",
-        "testproject1-hn05.6.2"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.6.10",
-      "bead_title": "l5-p6-mainrs-default-on-and-live-demo",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "l5",
-        "l5-phase-6",
-        "layer-5",
-        "live-demo",
-        "mainrs"
-      ],
-      "spec_ids": [
-        "L5-FR-3.1.11"
-      ],
-      "test_ids": [
-        "L5-T-measure_interaction-020"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.6.9",
-        "testproject1-hn05.6.5",
-        "testproject1-hn05.6.4",
-        "testproject1-hn05.6.3"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.6.9",
-      "bead_title": "l5-p6-mainrs-delegation-cutover",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "l5",
-        "l5-phase-6",
-        "layer-5",
-        "mainrs"
-      ],
-      "spec_ids": [
-        "L5-FR-2.4.1",
-        "L5-FR-3.1.11",
-        "L5-FR-3.8.1"
-      ],
-      "test_ids": [],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.6.8",
-        "testproject1-hn05.6.7"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.6.8",
-      "bead_title": "l5-p6-mainrs-feature-flag-shadow",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "l5",
-        "l5-phase-6",
-        "layer-5",
-        "mainrs"
-      ],
-      "spec_ids": [
-        "L5-FR-2.4.1",
-        "L5-FR-3.1.11"
-      ],
-      "test_ids": [],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.5.9",
-        "testproject1-hn05.4.13",
-        "testproject1-hn05.3.7",
-        "testproject1-hn05.2.6"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.6.7",
-      "bead_title": "l5-p6-field-level-projection-boundary",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "l5",
-        "l5-phase-6",
-        "layer-5",
-        "redaction"
-      ],
-      "spec_ids": [
-        "L5-FR-1.3.1",
-        "L5-FR-3.8.1"
-      ],
-      "test_ids": [
-        "L5-T-measure_interaction-020"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.4.13",
-        "testproject1-hn05.4.12"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.6.5",
-      "bead_title": "l5-p6-goldset-examination-gloves-corpus",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "gold-set",
-        "l5",
-        "l5-phase-6",
-        "layer-5"
-      ],
-      "spec_ids": [
-        "L5-FR-1.8.2",
-        "L5-FR-1.9.2",
-        "L5-FR-3.1.12",
-        "L5-FR-3.3.10"
-      ],
-      "test_ids": [
-        "L5-T-customs_classification-027"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.6.1"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.6.4",
-      "bead_title": "l5-p6-goldset-packaging-cartons-corpus",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "gold-set",
-        "l5",
-        "l5-phase-6",
-        "layer-5"
-      ],
-      "spec_ids": [
-        "L5-FR-3.1.12"
-      ],
-      "test_ids": [
-        "L5-T-customs_classification-001",
-        "L5-T-customs_classification-027"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.6.1"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.6.3",
-      "bead_title": "l5-p6-goldset-fasteners-corpus",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "gold-set",
-        "l5",
-        "l5-phase-6",
-        "layer-5"
-      ],
-      "spec_ids": [
-        "L5-FR-1.2.1",
-        "L5-FR-3.1.12",
-        "L5-FR-3.3.18"
-      ],
-      "test_ids": [
-        "L5-T-customs_classification-027",
-        "L5-T-customs_classification-028",
-        "L5-T-measure_interaction-012"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.6.1"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.6.1",
-      "bead_title": "l5-p6-accuracy-harness-module",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "accuracy",
-        "l5",
-        "l5-phase-6",
-        "layer-5"
-      ],
-      "spec_ids": [
-        "L5-FR-3.4.1",
-        "L5-FR-3.4.2",
-        "L5-FR-3.4.3",
-        "L5-FR-3.7.3"
-      ],
-      "test_ids": [
-        "L5-T-customs_classification-028",
-        "L5-T-customs_classification-029",
-        "L5-T-customs_classification-030",
-        "L5-T-customs_classification-031",
-        "L5-T-customs_classification-032",
-        "L5-T-customs_classification-035"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.4.13"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.5.9",
-      "bead_title": "l5-p5-skills-scope-preservation-gate",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "l5",
-        "l5-phase-5",
-        "layer-5",
-        "review-gate"
-      ],
-      "spec_ids": [],
-      "test_ids": [
-        "L5-T-customs_classification-008",
-        "L5-T-freight_engine-009"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.5.8",
-        "testproject1-hn05.5.6",
-        "testproject1-hn05.5.4",
-        "testproject1-hn05.5.3",
-        "testproject1-hn05.5.2",
-        "testproject1-hn05.5.1",
-        "testproject1-hn05.5.7",
-        "testproject1-hn05.5.5"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.5.8",
-      "bead_title": "l5-p5-marketplace-fixture-promotion-gate",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "l5",
-        "l5-phase-5",
-        "layer-5",
-        "promotion"
-      ],
-      "spec_ids": [
-        "L5-FR-1.15.1",
-        "L5-FR-2.3.5",
-        "L5-FR-2.4.3"
-      ],
-      "test_ids": [
-        "L5-T-customs_classification-008",
-        "L5-T-customs_classification-011",
-        "L5-T-freight_engine-013",
-        "L5-T-freight_engine-018"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.5.6",
-        "testproject1-hn05.5.4",
-        "testproject1-hn05.5.3",
-        "testproject1-hn05.5.2",
-        "testproject1-hn05.5.7",
-        "testproject1-hn05.5.5"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.5.6",
-      "bead_title": "l5-p5-pcs-scotland-skill",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "l5",
-        "l5-phase-5",
-        "layer-5",
-        "pcs",
-        "scotland"
-      ],
-      "spec_ids": [
-        "L5-FR-1.15.2",
-        "L5-FR-3.1.3",
-        "L5-FR-3.3.15"
-      ],
-      "test_ids": [
-        "L5-T-freight_engine-013",
-        "L5-T-freight_engine-014",
-        "L5-T-freight_engine-018"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.5.1",
-        "testproject1-hn05.1.4"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.5.4",
-      "bead_title": "l5-p5-amazon-maturation",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "l5",
-        "l5-phase-5",
-        "layer-5",
-        "marketplace"
-      ],
-      "spec_ids": [
-        "L5-FR-1.15.1",
-        "L5-FR-2.3.3",
-        "L5-FR-2.3.4",
-        "L5-FR-3.3.14"
-      ],
-      "test_ids": [
-        "L5-T-freight_engine-011",
-        "L5-T-freight_engine-013",
-        "L5-T-freight_engine-018"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.5.1",
-        "testproject1-hn05.1.4"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.5.3",
-      "bead_title": "l5-p5-1688-maturation",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "l5",
-        "l5-phase-5",
-        "layer-5",
-        "marketplace"
-      ],
-      "spec_ids": [
-        "L5-FR-1.15.1",
-        "L5-FR-2.3.2",
-        "L5-FR-3.3.13"
-      ],
-      "test_ids": [
-        "L5-T-freight_engine-010",
-        "L5-T-freight_engine-013",
-        "L5-T-freight_engine-018"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.5.1"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.5.2",
-      "bead_title": "l5-p5-alibaba-maturation",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "l5",
-        "l5-phase-5",
-        "layer-5",
-        "marketplace"
-      ],
-      "spec_ids": [
-        "L5-FR-1.15.1",
-        "L5-FR-2.3.1",
-        "L5-FR-2.3.6",
-        "L5-FR-3.3.9",
-        "L5-FR-3.7.2"
-      ],
-      "test_ids": [
-        "L5-T-freight_engine-009",
-        "L5-T-freight_engine-013",
-        "L5-T-freight_engine-018"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.5.1"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.5.1",
-      "bead_title": "l5-p5-validator-overlay-contract",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "l5",
-        "l5-phase-5",
-        "layer-5",
-        "validator"
-      ],
-      "spec_ids": [
-        "L5-FR-2.3.4",
-        "L5-FR-2.3.5",
-        "L5-FR-3.7.7"
-      ],
-      "test_ids": [
-        "L5-T-freight_engine-013",
-        "L5-T-freight_engine-018"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.1.8"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.4.13",
-      "bead_title": "l5-p4-customs-scope-preservation-gate",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "l5",
-        "l5-phase-4",
-        "layer-5",
-        "review-gate"
-      ],
-      "spec_ids": [
-        "L5-FR-1.1.1",
-        "L5-FR-1.2.3"
-      ],
-      "test_ids": [
-        "L5-T-customs_classification-001",
-        "L5-T-customs_classification-004",
-        "L5-T-customs_classification-007",
-        "L5-T-customs_classification-008",
-        "L5-T-customs_classification-010",
-        "L5-T-customs_classification-012",
-        "L5-T-customs_classification-033",
-        "L5-T-customs_classification-036",
-        "L5-T-hmrc_fpo-001",
-        "L5-T-measure_interaction-001",
-        "L5-T-measure_interaction-019"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.4.12",
-        "testproject1-hn05.4.11",
-        "testproject1-hn05.4.10",
-        "testproject1-hn05.4.9",
-        "testproject1-hn05.4.8",
-        "testproject1-hn05.4.7",
-        "testproject1-hn05.4.6",
-        "testproject1-hn05.4.5",
-        "testproject1-hn05.4.4",
-        "testproject1-hn05.4.3",
-        "testproject1-hn05.4.2",
-        "testproject1-hn05.4.1"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.4.12",
-      "bead_title": "l5-p4-redaction-sentinel-design",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "l5",
-        "l5-phase-4",
-        "layer-5",
-        "redaction"
-      ],
-      "spec_ids": [
-        "L5-FR-1.3.1",
-        "L5-FR-3.8.1"
-      ],
-      "test_ids": [
-        "L5-T-measure_interaction-020"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.1.1"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.4.11",
-      "bead_title": "l5-p4-divergence-readiness-producers",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "customs",
-        "l5",
-        "l5-phase-4",
-        "l6-readiness",
-        "layer-5"
-      ],
-      "spec_ids": [
-        "L5-FR-1.11.3",
-        "L5-FR-1.13.1",
-        "L5-FR-1.13.2",
-        "L5-FR-2.4.1",
-        "L5-FR-3.5.1",
-        "L5-FR-3.5.2",
-        "L5-FR-3.5.5",
-        "L5-FR-3.8.1",
-        "L5-FR-3.8.2"
-      ],
-      "test_ids": [
-        "L5-T-customs_classification-018",
-        "L5-T-customs_classification-020",
-        "L5-T-customs_classification-021",
-        "L5-T-customs_classification-022",
-        "L5-T-customs_classification-034"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.4.10",
-        "testproject1-hn05.4.9",
-        "testproject1-hn05.4.8",
-        "testproject1-hn05.4.7",
-        "testproject1-hn05.4.5"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.4.10",
-      "bead_title": "l5-p4-conservative-defaults-evidence-leverage",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "customs",
-        "l5",
-        "l5-phase-4",
-        "layer-5"
-      ],
-      "spec_ids": [
-        "L5-FR-1.12.1",
-        "L5-FR-1.12.2",
-        "L5-FR-1.12.3",
-        "L5-FR-1.12.4",
-        "L5-FR-3.3.12"
-      ],
-      "test_ids": [
-        "L5-T-customs_classification-013",
-        "L5-T-customs_classification-015",
-        "L5-T-customs_classification-017",
-        "L5-T-customs_classification-019",
-        "L5-T-freight_engine-017"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.4.8",
-        "testproject1-hn05.4.7",
-        "testproject1-hn05.4.6",
-        "testproject1-hn05.2.6"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.4.9",
-      "bead_title": "l5-p4-classification-freshness",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "customs",
-        "l5",
-        "l5-phase-4",
-        "layer-5"
-      ],
-      "spec_ids": [
-        "L5-FR-1.11.1",
-        "L5-FR-1.11.2",
-        "L5-FR-1.11.3",
-        "L5-FR-1.11.4",
-        "L5-FR-3.5.8",
-        "L5-FR-3.7.5"
-      ],
-      "test_ids": [
-        "L5-T-customs_classification-022",
-        "L5-T-customs_classification-023",
-        "L5-T-customs_classification-024"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.4.4",
-        "testproject1-hn05.1.5"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.4.8",
-      "bead_title": "l5-p4-vat-additional-code-valuation",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "customs",
-        "l5",
-        "l5-phase-4",
-        "layer-5"
-      ],
-      "spec_ids": [
-        "L5-FR-1.10.1",
-        "L5-FR-1.10.2",
-        "L5-FR-1.9.1",
-        "L5-FR-1.9.2"
-      ],
-      "test_ids": [
-        "L5-T-customs_classification-016",
-        "L5-T-measure_interaction-014",
-        "L5-T-measure_interaction-015",
-        "L5-T-measure_interaction-016",
-        "L5-T-measure_interaction-017"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.4.7",
-        "testproject1-hn05.2.6"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.4.7",
-      "bead_title": "l5-p4-measure-scanner-interactions",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "customs",
-        "l5",
-        "l5-phase-4",
-        "layer-5"
-      ],
-      "spec_ids": [
-        "L5-FR-1.7.1",
-        "L5-FR-1.7.2",
-        "L5-FR-1.7.3",
-        "L5-FR-1.7.4",
-        "L5-FR-1.8.1",
-        "L5-FR-1.8.2",
-        "L5-FR-1.8.3",
-        "L5-FR-1.8.4"
-      ],
-      "test_ids": [
-        "L5-T-measure_interaction-001",
-        "L5-T-measure_interaction-002",
-        "L5-T-measure_interaction-003",
-        "L5-T-measure_interaction-004",
-        "L5-T-measure_interaction-005",
-        "L5-T-measure_interaction-006",
-        "L5-T-measure_interaction-007",
-        "L5-T-measure_interaction-008",
-        "L5-T-measure_interaction-009",
-        "L5-T-measure_interaction-010"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.4.6",
-        "testproject1-hn05.4.5",
-        "testproject1-hn05.1.3"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.4.6",
-      "bead_title": "l5-p4-exporter-origin-resolution",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "customs",
-        "l5",
-        "l5-phase-4",
-        "layer-5"
-      ],
-      "spec_ids": [
-        "L5-FR-1.6.1",
-        "L5-FR-1.6.2"
-      ],
-      "test_ids": [
-        "L5-T-customs_classification-014",
-        "L5-T-measure_interaction-011",
-        "L5-T-measure_interaction-012",
-        "L5-T-measure_interaction-013"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.4.2",
-        "testproject1-hn05.1.3"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.4.5",
-      "bead_title": "l5-p4-uk10-resolution-branching",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "customs",
-        "l5",
-        "l5-phase-4",
-        "layer-5"
-      ],
-      "spec_ids": [
-        "L5-FR-1.5.1",
-        "L5-FR-1.5.2",
-        "L5-FR-1.5.5",
-        "L5-FR-3.1.6"
-      ],
-      "test_ids": [
-        "L5-T-customs_classification-001",
-        "L5-T-customs_classification-002",
-        "L5-T-customs_classification-003",
-        "L5-T-customs_classification-005"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.4.4"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.4.4",
-      "bead_title": "l5-p4-tariff-graph-junction-writes",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "customs",
-        "l5",
-        "l5-phase-4",
-        "layer-5"
-      ],
-      "spec_ids": [
-        "L5-FR-1.3.2",
-        "L5-FR-1.5.3",
-        "L5-FR-1.5.4",
-        "L5-FR-2.4.2"
-      ],
-      "test_ids": [
-        "L5-T-customs_classification-004",
-        "L5-T-customs_classification-006"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.4.3",
-        "testproject1-hn05.1.1"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.4.3",
-      "bead_title": "l5-p4-hmrc-multi-family-expansion",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "customs",
-        "l5",
-        "l5-phase-4",
-        "layer-5"
-      ],
-      "spec_ids": [
-        "L5-FR-1.4.1",
-        "L5-FR-1.4.5"
-      ],
-      "test_ids": [
-        "L5-T-hmrc_fpo-001",
-        "L5-T-hmrc_fpo-004",
-        "L5-T-hmrc_fpo-005",
-        "L5-T-hmrc_fpo-006"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.4.2",
-        "testproject1-hn05.4.1"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.4.2",
-      "bead_title": "l5-p4-description-quality-recall",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "customs",
-        "l5",
-        "l5-phase-4",
-        "layer-5"
-      ],
-      "spec_ids": [
-        "L5-FR-1.4.4"
-      ],
-      "test_ids": [
-        "L5-T-hmrc_fpo-009",
-        "L5-T-hmrc_fpo-010"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.4.1"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.4.1",
-      "bead_title": "l5-p4-hmrc-fpo-taric-discovery",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "customs",
-        "fpo",
-        "l5",
-        "l5-phase-4",
-        "layer-5",
-        "taric"
-      ],
-      "spec_ids": [
-        "L5-FR-1.4.2",
-        "L5-FR-1.4.3",
-        "L5-FR-1.4.5",
-        "L5-FR-3.1.4",
-        "L5-FR-3.7.1",
-        "L5-FR-3.9.2"
-      ],
-      "test_ids": [
-        "L5-T-hmrc_fpo-002",
-        "L5-T-hmrc_fpo-003",
-        "L5-T-hmrc_fpo-007",
-        "L5-T-hmrc_fpo-008",
-        "L5-T-hmrc_fpo-011",
-        "L5-T-hmrc_fpo-012"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.1.8"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.3.7",
-      "bead_title": "l5-p3-freight-source-health-gate",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "l5",
-        "l5-phase-3",
-        "layer-5",
-        "review-gate"
-      ],
-      "spec_ids": [],
-      "test_ids": [
-        "L5-T-freight_engine-001",
-        "L5-T-freight_engine-015",
-        "L5-T-freight_engine-016"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.3.6",
-        "testproject1-hn05.3.5",
-        "testproject1-hn05.3.4",
-        "testproject1-hn05.3.3",
-        "testproject1-hn05.3.2",
-        "testproject1-hn05.3.1",
-        "testproject1-hn05.1.5"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.3.6",
-      "bead_title": "l5-p3-freight-boundary-defaults",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "freight",
-        "l5",
-        "l5-phase-3",
-        "layer-5"
-      ],
-      "spec_ids": [
-        "L5-FR-1.12.1",
-        "L5-FR-2.2.3",
-        "L5-FR-3.6.1"
-      ],
-      "test_ids": [
-        "L5-T-customs_classification-017",
-        "L5-T-freight_engine-006",
-        "L5-T-freight_engine-007"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.3.5",
-        "testproject1-hn05.3.4",
-        "testproject1-hn05.3.3",
-        "testproject1-hn05.3.2"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.3.5",
-      "bead_title": "l5-p3-dual-provider-disagreement",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "freight",
-        "l5",
-        "l5-phase-3",
-        "layer-5"
-      ],
-      "spec_ids": [
-        "L5-FR-2.2.2",
-        "L5-FR-2.2.4",
-        "L5-FR-3.3.17",
-        "L5-FR-3.5.10"
-      ],
-      "test_ids": [
-        "L5-T-freight_engine-004",
-        "L5-T-freight_engine-005"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.3.4",
-        "testproject1-hn05.3.3"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.3.4",
-      "bead_title": "l5-p3-searates-adapter",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "adapters",
-        "freight",
-        "l5",
-        "l5-phase-3",
-        "layer-5"
-      ],
-      "spec_ids": [
-        "L5-FR-2.2.2",
-        "L5-FR-2.2.4"
-      ],
-      "test_ids": [
-        "L5-T-freight_engine-003",
-        "L5-T-freight_engine-008"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.3.2"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.3.3",
-      "bead_title": "l5-p3-freightos-adapter",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "adapters",
-        "freight",
-        "l5",
-        "l5-phase-3",
-        "layer-5"
-      ],
-      "spec_ids": [
-        "L5-FR-2.2.2",
-        "L5-FR-2.2.4",
-        "L5-FR-3.1.10"
-      ],
-      "test_ids": [
-        "L5-T-freight_engine-003",
-        "L5-T-freight_engine-008"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.3.2",
-        "testproject1-hn05.3.1"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.3.2",
-      "bead_title": "l5-p3-logistics-types-mode-selector",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "freight",
-        "l5",
-        "l5-phase-3",
-        "layer-5"
-      ],
-      "spec_ids": [
-        "L5-FR-2.2.1",
-        "L5-FR-3.6.2"
-      ],
-      "test_ids": [
-        "L5-T-freight_engine-001",
-        "L5-T-freight_engine-002"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.3.1"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.3.1",
-      "bead_title": "l5-p3-freightos-prerequisite-check",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "freight",
-        "l5",
-        "l5-phase-3",
-        "layer-5",
-        "prerequisite"
-      ],
-      "spec_ids": [
-        "L5-FR-3.9.2"
-      ],
-      "test_ids": [
-        "L5-T-freight_engine-015"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.1.8"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.2.6",
-      "bead_title": "l5-p2-fx-cron-persistence-gate",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "l5",
-        "l5-phase-2",
-        "layer-5",
-        "review-gate"
-      ],
-      "spec_ids": [],
-      "test_ids": [
-        "L5-T-fx_engine-001",
-        "L5-T-fx_engine-005"
-      ],
-      "ci_gates": [
-        "CI-L5-004"
-      ],
-      "dependencies": [
-        "testproject1-hn05.2.4",
-        "testproject1-hn05.2.3",
-        "testproject1-hn05.2.2",
-        "testproject1-hn05.2.1",
-        "testproject1-hn05.1.5",
-        "testproject1-hn05.2.5"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.2.4",
-      "bead_title": "l5-p2-fx-basis-recalculation",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "fx",
-        "l5",
-        "l5-phase-2",
-        "layer-5"
-      ],
-      "spec_ids": [
-        "L5-FR-2.1.2",
-        "L5-FR-2.1.4",
-        "L5-FR-2.4.1",
-        "L5-FR-3.1.11",
-        "L5-FR-3.10.1",
-        "L5-FR-3.10.2",
-        "L5-FR-3.3.16"
-      ],
-      "test_ids": [
-        "L5-T-fx_engine-003",
-        "L5-T-fx_engine-004",
-        "L5-T-fx_engine-010",
-        "L5-T-fx_engine-012"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.2.3",
-        "testproject1-hn05.2.2"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.2.3",
-      "bead_title": "l5-p2-frankfurter-commercial-fx",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "fx",
-        "l5",
-        "l5-phase-2",
-        "layer-5"
-      ],
-      "spec_ids": [
-        "L5-FR-2.1.1",
-        "L5-FR-2.1.3",
-        "L5-FR-3.1.9"
-      ],
-      "test_ids": [
-        "L5-T-fx_engine-002",
-        "L5-T-fx_engine-008",
-        "L5-T-fx_engine-011"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.2.1"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.2.2",
-      "bead_title": "l5-p2-hmrc-customs-fx-parser",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "fx",
-        "l5",
-        "l5-phase-2",
-        "layer-5"
-      ],
-      "spec_ids": [
-        "L5-FR-2.1.1",
-        "L5-FR-2.1.2",
-        "L5-FR-2.1.3",
-        "L5-FR-3.1.8",
-        "L5-FR-3.5.9"
-      ],
-      "test_ids": [
-        "L5-T-fx_engine-001",
-        "L5-T-fx_engine-005",
-        "L5-T-fx_engine-006",
-        "L5-T-fx_engine-007"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.2.1"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.2.1",
-      "bead_title": "l5-p2-fx-types-and-cassettes",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "fx",
-        "l5",
-        "l5-phase-2",
-        "layer-5"
-      ],
-      "spec_ids": [
-        "L5-FR-1.16.1",
-        "L5-FR-2.1.1",
-        "L5-FR-2.1.2"
-      ],
-      "test_ids": [
-        "L5-T-fx_engine-001"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.1.8"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.1.8",
-      "bead_title": "l5-p1-scope-preservation-gate",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "l5",
-        "l5-phase-1",
-        "layer-5",
-        "review-gate"
-      ],
-      "spec_ids": [],
-      "test_ids": [
-        "L5-T-customs_classification-006",
-        "L5-T-freight_engine-012",
-        "L5-T-freight_engine-014",
-        "L5-T-freight_engine-016",
-        "L5-T-fx_engine-009",
-        "L5-T-measure_interaction-018"
-      ],
-      "ci_gates": [
-        "CI-L5-001",
-        "CI-L5-002",
-        "CI-L5-003",
-        "CI-L5-005",
-        "CI-L5-006",
-        "CI-L5-007"
-      ],
-      "dependencies": [
-        "testproject1-hn05.1.5",
-        "testproject1-hn05.1.4",
-        "testproject1-hn05.1.3",
-        "testproject1-hn05.1.2",
-        "testproject1-hn05.1.1",
-        "testproject1-hn05.1.7",
-        "testproject1-hn05.1.6"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.1.5",
-      "bead_title": "l5-p1-cron-definitions",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "cron",
-        "l5",
-        "l5-phase-1",
-        "layer-5"
-      ],
-      "spec_ids": [
-        "L5-FR-1.11.2"
-      ],
-      "test_ids": [
-        "L5-T-customs_classification-023",
-        "L5-T-customs_classification-024",
-        "L5-T-freight_engine-016",
-        "L5-T-fx_engine-009"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.1.4"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.1.4",
-      "bead_title": "l5-p1-source-registry-shape",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "l5",
-        "l5-phase-1",
-        "layer-5",
-        "sources"
-      ],
-      "spec_ids": [
-        "L5-FR-1.15.2",
-        "L5-FR-2.3.4"
-      ],
-      "test_ids": [
-        "L5-T-freight_engine-012",
-        "L5-T-freight_engine-014",
-        "L5-T-freight_engine-016"
-      ],
-      "ci_gates": [],
-      "dependencies": []
-    },
-    {
-      "bead_id": "testproject1-hn05.1.3",
-      "bead_title": "l5-p1-error-exhaustive-consumers",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "errors",
-        "l5",
-        "l5-phase-1",
-        "layer-5"
-      ],
-      "spec_ids": [],
-      "test_ids": [
-        "L5-T-measure_interaction-018"
-      ],
-      "ci_gates": [
-        "CI-L5-002"
-      ],
-      "dependencies": [
-        "testproject1-hn05.1.2"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.1.2",
-      "bead_title": "l5-p1-error-vocabulary-enum",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "errors",
-        "l5",
-        "l5-phase-1",
-        "layer-5"
-      ],
-      "spec_ids": [
-        "L5-FR-3.5.1",
-        "L5-FR-3.5.10",
-        "L5-FR-3.5.2",
-        "L5-FR-3.5.3",
-        "L5-FR-3.5.4",
-        "L5-FR-3.5.5",
-        "L5-FR-3.5.6",
-        "L5-FR-3.5.7",
-        "L5-FR-3.5.8",
-        "L5-FR-3.5.9"
-      ],
-      "test_ids": [
-        "L5-T-customs_classification-014",
-        "L5-T-freight_engine-005",
-        "L5-T-fx_engine-007",
-        "L5-T-hmrc_fpo-005",
-        "L5-T-measure_interaction-004",
-        "L5-T-measure_interaction-018"
-      ],
-      "ci_gates": [
-        "CI-L5-001",
-        "CI-L5-002",
-        "CI-L5-007"
-      ],
-      "dependencies": []
-    },
-    {
-      "bead_id": "testproject1-hn05.1.1",
-      "bead_title": "l5-p1-sqlite-product-commodity-codes",
-      "issue_type": "task",
-      "priority": 0,
-      "labels": [
-        "l5",
-        "l5-phase-1",
-        "layer-5",
-        "migration"
-      ],
-      "spec_ids": [
-        "L5-FR-1.3.2",
-        "L5-FR-2.4.2"
-      ],
-      "test_ids": [
-        "L5-T-customs_classification-006",
-        "L5-T-customs_classification-036"
-      ],
-      "ci_gates": [
-        "CI-L5-001",
-        "CI-L5-005"
-      ],
-      "dependencies": []
-    },
-    {
-      "bead_id": "testproject1-hn05.6",
-      "bead_title": "L5 Phase 6: Gold-Set Accuracy, CBAM, And Integration",
-      "issue_type": "epic",
-      "priority": 0,
-      "labels": [
-        "implementation",
-        "l5",
-        "l5-phase-6",
-        "layer-5"
-      ],
-      "spec_ids": [],
-      "test_ids": [
-        "L5-T-customs_classification-009",
-        "L5-T-freight_engine-017",
-        "L5-T-measure_interaction-020"
-      ],
-      "ci_gates": [
-        "CI-L5-001"
-      ],
-      "dependencies": []
-    },
-    {
-      "bead_id": "testproject1-hn05.5",
-      "bead_title": "L5 Phase 5: Marketplace Skills And Validator Overlay",
-      "issue_type": "epic",
-      "priority": 0,
-      "labels": [
-        "implementation",
-        "l5",
-        "l5-phase-5",
-        "layer-5"
-      ],
-      "spec_ids": [],
-      "test_ids": [
-        "L5-T-customs_classification-008",
-        "L5-T-freight_engine-009"
-      ],
-      "ci_gates": [],
-      "dependencies": []
-    },
-    {
-      "bead_id": "testproject1-hn05.4",
-      "bead_title": "L5 Phase 4: Customs Engine",
-      "issue_type": "epic",
-      "priority": 0,
-      "labels": [
-        "implementation",
-        "l5",
-        "l5-phase-4",
-        "layer-5"
-      ],
-      "spec_ids": [],
-      "test_ids": [
-        "L5-T-customs_classification-001",
-        "L5-T-measure_interaction-001"
-      ],
-      "ci_gates": [],
-      "dependencies": []
-    },
-    {
-      "bead_id": "testproject1-hn05.3",
-      "bead_title": "L5 Phase 3: Freight Engine",
-      "issue_type": "epic",
-      "priority": 0,
-      "labels": [
-        "implementation",
-        "l5",
-        "l5-phase-3",
-        "layer-5"
-      ],
-      "spec_ids": [],
-      "test_ids": [
-        "L5-T-freight_engine-001"
-      ],
-      "ci_gates": [],
-      "dependencies": []
-    },
-    {
-      "bead_id": "testproject1-hn05.2",
-      "bead_title": "L5 Phase 2: FX Engine",
-      "issue_type": "epic",
-      "priority": 0,
-      "labels": [
-        "implementation",
-        "l5",
-        "l5-phase-2",
-        "layer-5"
-      ],
-      "spec_ids": [],
-      "test_ids": [
-        "L5-T-fx_engine-001"
-      ],
-      "ci_gates": [
-        "CI-L5-004"
-      ],
-      "dependencies": []
-    },
-    {
-      "bead_id": "testproject1-hn05.1",
-      "bead_title": "L5 Phase 1: Foundation — Schema And Daemon Glue",
-      "issue_type": "epic",
-      "priority": 0,
-      "labels": [
-        "implementation",
-        "l5",
-        "l5-phase-1",
-        "layer-5"
-      ],
-      "spec_ids": [],
-      "test_ids": [
-        "L5-T-customs_classification-006",
-        "L5-T-freight_engine-012",
-        "L5-T-fx_engine-009",
-        "L5-T-measure_interaction-018"
-      ],
-      "ci_gates": [
-        "CI-L5-001"
-      ],
-      "dependencies": []
-    },
-    {
-      "bead_id": "testproject1-hn05",
-      "bead_title": "Epic: L5 Implementation — Expanded Commercial Intelligence",
-      "issue_type": "epic",
-      "priority": 0,
-      "labels": [
-        "implementation",
-        "l5",
-        "layer-5"
-      ],
-      "spec_ids": [
-        "L5-FR-1.1.1",
-        "L5-FR-1.10.1",
-        "L5-FR-1.11.1",
-        "L5-FR-1.12.1",
-        "L5-FR-1.13.1",
-        "L5-FR-1.14.1",
-        "L5-FR-1.15.1",
-        "L5-FR-1.15.2",
-        "L5-FR-1.16.1",
-        "L5-FR-1.2.1",
-        "L5-FR-1.2.2",
-        "L5-FR-1.2.3",
-        "L5-FR-1.2.4",
-        "L5-FR-1.2.5",
-        "L5-FR-1.3.1",
-        "L5-FR-1.3.2",
-        "L5-FR-1.3.3",
-        "L5-FR-1.4.1",
-        "L5-FR-1.5.1",
-        "L5-FR-1.6.1",
-        "L5-FR-1.7.1",
-        "L5-FR-1.8.1",
-        "L5-FR-1.9.1",
-        "L5-FR-2.1.1",
-        "L5-FR-2.2.1",
-        "L5-FR-2.3.1",
-        "L5-FR-2.3.2",
-        "L5-FR-2.3.3",
-        "L5-FR-2.3.4",
-        "L5-FR-2.3.5",
-        "L5-FR-2.3.6",
-        "L5-FR-2.4.1",
-        "L5-FR-2.4.2",
-        "L5-FR-2.4.3",
-        "L5-FR-3.1.1",
-        "L5-FR-3.1.10",
-        "L5-FR-3.1.11",
-        "L5-FR-3.1.12",
-        "L5-FR-3.1.2",
-        "L5-FR-3.1.3",
-        "L5-FR-3.1.4",
-        "L5-FR-3.1.5",
-        "L5-FR-3.1.6",
-        "L5-FR-3.1.7",
-        "L5-FR-3.1.8",
-        "L5-FR-3.1.9",
-        "L5-FR-3.10.1",
-        "L5-FR-3.2.1",
-        "L5-FR-3.2.2",
-        "L5-FR-3.3.1",
-        "L5-FR-3.3.10",
-        "L5-FR-3.3.11",
-        "L5-FR-3.3.12",
-        "L5-FR-3.3.13",
-        "L5-FR-3.3.14",
-        "L5-FR-3.3.15",
-        "L5-FR-3.3.16",
-        "L5-FR-3.3.17",
-        "L5-FR-3.3.18",
-        "L5-FR-3.3.19",
-        "L5-FR-3.3.2",
-        "L5-FR-3.3.3",
-        "L5-FR-3.3.4",
-        "L5-FR-3.3.5",
-        "L5-FR-3.3.6",
-        "L5-FR-3.3.7",
-        "L5-FR-3.3.8",
-        "L5-FR-3.3.9",
-        "L5-FR-3.4.1",
-        "L5-FR-3.5.1",
-        "L5-FR-3.6.1",
-        "L5-FR-3.7.1",
-        "L5-FR-3.7.2",
-        "L5-FR-3.7.3",
-        "L5-FR-3.7.4",
-        "L5-FR-3.7.5",
-        "L5-FR-3.7.6",
-        "L5-FR-3.7.7",
-        "L5-FR-3.7.8",
-        "L5-FR-3.8.1",
-        "L5-FR-3.9.1",
-        "L5-FR-3.9.2",
-        "L5-FR-3.9.3"
-      ],
-      "test_ids": [
-        "L5-T-customs_classification-001",
-        "L5-T-customs_classification-006",
-        "L5-T-customs_classification-008",
-        "L5-T-customs_classification-009",
-        "L5-T-customs_classification-036",
-        "L5-T-freight_engine-001",
-        "L5-T-freight_engine-009",
-        "L5-T-freight_engine-012",
-        "L5-T-freight_engine-017",
-        "L5-T-fx_engine-001",
-        "L5-T-fx_engine-009",
-        "L5-T-measure_interaction-001",
-        "L5-T-measure_interaction-018",
-        "L5-T-measure_interaction-020"
-      ],
-      "ci_gates": [
-        "CI-L5-001",
-        "CI-L5-004"
-      ],
-      "dependencies": []
-    },
-    {
-      "bead_id": "testproject1-hn05.6.6",
-      "bead_title": "l5-p6-cbam-placeholder",
-      "issue_type": "task",
-      "priority": 1,
-      "labels": [
-        "cbam",
-        "l5",
-        "l5-phase-6",
-        "layer-5"
-      ],
-      "spec_ids": [
-        "L5-FR-1.14.1",
-        "L5-FR-1.14.2",
-        "L5-FR-1.14.3",
-        "L5-FR-3.3.19",
-        "L5-FR-3.7.8"
-      ],
-      "test_ids": [
-        "L5-T-customs_classification-025",
-        "L5-T-customs_classification-026"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.4.13"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.6.2",
-      "bead_title": "l5-p6-comparison-adapters",
-      "issue_type": "task",
-      "priority": 1,
-      "labels": [
-        "l5",
-        "l5-phase-6",
-        "layer-5",
-        "validation"
-      ],
-      "spec_ids": [
-        "L5-FR-1.16.1",
-        "L5-FR-1.16.2"
-      ],
-      "test_ids": [
-        "L5-T-freight_engine-017"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.4.13"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.5.7",
-      "bead_title": "l5-p5-source-health-auth-binding",
-      "issue_type": "task",
-      "priority": 1,
-      "labels": [
-        "l5",
-        "l5-phase-5",
-        "layer-5",
-        "source-health"
-      ],
-      "spec_ids": [
-        "L5-FR-3.10.2",
-        "L5-FR-3.7.2"
-      ],
-      "test_ids": [
-        "L5-T-freight_engine-016"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.5.6",
-        "testproject1-hn05.5.4",
-        "testproject1-hn05.5.3",
-        "testproject1-hn05.5.2",
-        "testproject1-hn05.1.5"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.5.5",
-      "bead_title": "l5-p5-ebay-baseline-binding",
-      "issue_type": "task",
-      "priority": 1,
-      "labels": [
-        "l5",
-        "l5-phase-5",
-        "layer-5",
-        "marketplace"
-      ],
-      "spec_ids": [
-        "L5-FR-2.3.4",
-        "L5-FR-2.3.5"
-      ],
-      "test_ids": [
-        "L5-T-customs_classification-008",
-        "L5-T-customs_classification-011",
-        "L5-T-freight_engine-013",
-        "L5-T-freight_engine-018"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.5.1"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.2.5",
-      "bead_title": "l5-p2-simple-fx-skill-extension",
-      "issue_type": "task",
-      "priority": 1,
-      "labels": [
-        "fx",
-        "l5",
-        "l5-phase-2",
-        "layer-5",
-        "skills"
-      ],
-      "spec_ids": [
-        "L5-FR-2.1.1"
-      ],
-      "test_ids": [
-        "L5-T-fx_engine-002",
-        "L5-T-fx_engine-011"
-      ],
-      "ci_gates": [],
-      "dependencies": [
-        "testproject1-hn05.2.3",
-        "testproject1-hn05.2.2"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.1.7",
-      "bead_title": "l5-p1-daemon-test-target-setup",
-      "issue_type": "task",
-      "priority": 1,
-      "labels": [
-        "daemon-tests",
-        "l5",
-        "l5-phase-1",
-        "layer-5"
-      ],
-      "spec_ids": [],
-      "test_ids": [
-        "L5-T-customs_classification-004",
-        "L5-T-customs_classification-027",
-        "L5-T-freight_engine-012",
-        "L5-T-fx_engine-005",
-        "L5-T-measure_interaction-019"
-      ],
-      "ci_gates": [
-        "CI-L5-005"
-      ],
-      "dependencies": [
-        "testproject1-hn05.1.5",
-        "testproject1-hn05.1.3",
-        "testproject1-hn05.1.1"
-      ]
-    },
-    {
-      "bead_id": "testproject1-hn05.1.6",
-      "bead_title": "l5-p1-env-bootstrap-preflight",
-      "issue_type": "task",
-      "priority": 1,
-      "labels": [
-        "bootstrap",
-        "l5",
-        "l5-phase-1",
-        "layer-5"
-      ],
-      "spec_ids": [
-        "L5-FR-3.10.2",
-        "L5-FR-3.9.1",
-        "L5-FR-3.9.2"
-      ],
-      "test_ids": [],
-      "ci_gates": [
-        "CI-L5-001",
-        "CI-L5-006"
-      ],
-      "dependencies": []
-    }
-  ]
-}
+  {
+    "bead_id": "testproject1-hn05.6.10",
+    "bead_title": "l5-p6-mainrs-default-on-and-live-demo",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "l5",
+      "l5-phase-6",
+      "layer-5",
+      "live-demo",
+      "mainrs"
+    ],
+    "spec_ids": [
+      "L5-FR-3.1.11"
+    ],
+    "test_ids": [],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.6.9",
+      "testproject1-hn05.6.5",
+      "testproject1-hn05.6.4",
+      "testproject1-hn05.6.3"
+    ],
+    "bead_alias": "l5-p6-mainrs-default-on-and-live-demo"
+  },
+  {
+    "bead_id": "testproject1-hn05.6.9",
+    "bead_title": "l5-p6-mainrs-delegation-cutover",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "l5",
+      "l5-phase-6",
+      "layer-5",
+      "mainrs"
+    ],
+    "spec_ids": [
+      "L5-FR-2.4.1",
+      "L5-FR-3.1.11",
+      "L5-FR-3.8.1"
+    ],
+    "test_ids": [
+      "L5-T-customs_classification-007",
+      "L5-T-customs_classification-009",
+      "L5-T-customs_classification-012",
+      "L5-T-customs_classification-036"
+    ],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.6.8",
+      "testproject1-hn05.6.7"
+    ],
+    "bead_alias": "l5-p6-mainrs-delegation-cutover"
+  },
+  {
+    "bead_id": "testproject1-hn05.6.8",
+    "bead_title": "l5-p6-mainrs-feature-flag-shadow",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "l5",
+      "l5-phase-6",
+      "layer-5",
+      "mainrs"
+    ],
+    "spec_ids": [
+      "L5-FR-2.4.1",
+      "L5-FR-3.1.11"
+    ],
+    "test_ids": [],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.5.9",
+      "testproject1-hn05.4.13",
+      "testproject1-hn05.3.7",
+      "testproject1-hn05.2.6"
+    ],
+    "bead_alias": "l5-p6-mainrs-feature-flag-shadow"
+  },
+  {
+    "bead_id": "testproject1-hn05.6.7",
+    "bead_title": "l5-p6-field-level-projection-boundary",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "l5",
+      "l5-phase-6",
+      "layer-5",
+      "redaction"
+    ],
+    "spec_ids": [
+      "L5-FR-1.3.1",
+      "L5-FR-3.8.1"
+    ],
+    "test_ids": [
+      "L5-T-measure_interaction-020"
+    ],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.4.13",
+      "testproject1-hn05.4.12"
+    ],
+    "bead_alias": "l5-p6-field-level-projection-boundary"
+  },
+  {
+    "bead_id": "testproject1-hn05.6.5",
+    "bead_title": "l5-p6-goldset-examination-gloves-corpus",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "gold-set",
+      "l5",
+      "l5-phase-6",
+      "layer-5"
+    ],
+    "spec_ids": [
+      "L5-FR-1.8.2",
+      "L5-FR-1.9.2",
+      "L5-FR-3.1.12",
+      "L5-FR-3.3.10"
+    ],
+    "test_ids": [],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.6.1"
+    ],
+    "bead_alias": "l5-p6-goldset-examination-gloves-corpus"
+  },
+  {
+    "bead_id": "testproject1-hn05.6.4",
+    "bead_title": "l5-p6-goldset-packaging-cartons-corpus",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "gold-set",
+      "l5",
+      "l5-phase-6",
+      "layer-5"
+    ],
+    "spec_ids": [
+      "L5-FR-3.1.12"
+    ],
+    "test_ids": [],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.6.1"
+    ],
+    "bead_alias": "l5-p6-goldset-packaging-cartons-corpus"
+  },
+  {
+    "bead_id": "testproject1-hn05.6.3",
+    "bead_title": "l5-p6-goldset-fasteners-corpus",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "gold-set",
+      "l5",
+      "l5-phase-6",
+      "layer-5"
+    ],
+    "spec_ids": [
+      "L5-FR-1.2.1",
+      "L5-FR-3.1.12",
+      "L5-FR-3.3.18"
+    ],
+    "test_ids": [],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.6.1"
+    ],
+    "bead_alias": "l5-p6-goldset-fasteners-corpus"
+  },
+  {
+    "bead_id": "testproject1-hn05.6.1",
+    "bead_title": "l5-p6-accuracy-harness-module",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "accuracy",
+      "l5",
+      "l5-phase-6",
+      "layer-5"
+    ],
+    "spec_ids": [
+      "L5-FR-3.4.1",
+      "L5-FR-3.4.2",
+      "L5-FR-3.4.3",
+      "L5-FR-3.7.3"
+    ],
+    "test_ids": [
+      "L5-T-customs_classification-010",
+      "L5-T-customs_classification-028",
+      "L5-T-customs_classification-029",
+      "L5-T-customs_classification-030",
+      "L5-T-customs_classification-031",
+      "L5-T-customs_classification-032",
+      "L5-T-customs_classification-035"
+    ],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.4.13"
+    ],
+    "bead_alias": "l5-p6-accuracy-harness-module"
+  },
+  {
+    "bead_id": "testproject1-hn05.5.9",
+    "bead_title": "l5-p5-skills-scope-preservation-gate",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "l5",
+      "l5-phase-5",
+      "layer-5",
+      "review-gate"
+    ],
+    "spec_ids": [],
+    "test_ids": [],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.5.8",
+      "testproject1-hn05.5.6",
+      "testproject1-hn05.5.4",
+      "testproject1-hn05.5.3",
+      "testproject1-hn05.5.2",
+      "testproject1-hn05.5.1",
+      "testproject1-hn05.5.7",
+      "testproject1-hn05.5.5"
+    ],
+    "bead_alias": "l5-p5-skills-scope-preservation-gate"
+  },
+  {
+    "bead_id": "testproject1-hn05.5.8",
+    "bead_title": "l5-p5-marketplace-fixture-promotion-gate",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "l5",
+      "l5-phase-5",
+      "layer-5",
+      "promotion"
+    ],
+    "spec_ids": [
+      "L5-FR-1.15.1",
+      "L5-FR-2.3.5",
+      "L5-FR-2.4.3"
+    ],
+    "test_ids": [
+      "L5-T-customs_classification-008",
+      "L5-T-customs_classification-011",
+      "L5-T-freight_engine-013",
+      "L5-T-freight_engine-018"
+    ],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.5.6",
+      "testproject1-hn05.5.4",
+      "testproject1-hn05.5.3",
+      "testproject1-hn05.5.2",
+      "testproject1-hn05.5.7",
+      "testproject1-hn05.5.5"
+    ],
+    "bead_alias": "l5-p5-marketplace-fixture-promotion-gate"
+  },
+  {
+    "bead_id": "testproject1-hn05.5.6",
+    "bead_title": "l5-p5-pcs-scotland-skill",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "l5",
+      "l5-phase-5",
+      "layer-5",
+      "pcs",
+      "scotland"
+    ],
+    "spec_ids": [
+      "L5-FR-1.15.2",
+      "L5-FR-3.1.3",
+      "L5-FR-3.3.15"
+    ],
+    "test_ids": [
+      "L5-T-freight_engine-014"
+    ],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.5.1",
+      "testproject1-hn05.1.4"
+    ],
+    "bead_alias": "l5-p5-pcs-scotland-skill"
+  },
+  {
+    "bead_id": "testproject1-hn05.5.4",
+    "bead_title": "l5-p5-amazon-maturation",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "l5",
+      "l5-phase-5",
+      "layer-5",
+      "marketplace"
+    ],
+    "spec_ids": [
+      "L5-FR-1.15.1",
+      "L5-FR-2.3.3",
+      "L5-FR-2.3.4",
+      "L5-FR-3.3.14"
+    ],
+    "test_ids": [
+      "L5-T-freight_engine-011"
+    ],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.5.1",
+      "testproject1-hn05.1.4"
+    ],
+    "bead_alias": "l5-p5-amazon-maturation"
+  },
+  {
+    "bead_id": "testproject1-hn05.5.3",
+    "bead_title": "l5-p5-1688-maturation",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "l5",
+      "l5-phase-5",
+      "layer-5",
+      "marketplace"
+    ],
+    "spec_ids": [
+      "L5-FR-1.15.1",
+      "L5-FR-2.3.2",
+      "L5-FR-3.3.13"
+    ],
+    "test_ids": [
+      "L5-T-freight_engine-010"
+    ],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.5.1"
+    ],
+    "bead_alias": "l5-p5-1688-maturation"
+  },
+  {
+    "bead_id": "testproject1-hn05.5.2",
+    "bead_title": "l5-p5-alibaba-maturation",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "l5",
+      "l5-phase-5",
+      "layer-5",
+      "marketplace"
+    ],
+    "spec_ids": [
+      "L5-FR-1.15.1",
+      "L5-FR-2.3.1",
+      "L5-FR-2.3.6",
+      "L5-FR-3.3.9",
+      "L5-FR-3.7.2"
+    ],
+    "test_ids": [
+      "L5-T-freight_engine-009"
+    ],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.5.1"
+    ],
+    "bead_alias": "l5-p5-alibaba-maturation"
+  },
+  {
+    "bead_id": "testproject1-hn05.5.1",
+    "bead_title": "l5-p5-validator-overlay-contract",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "l5",
+      "l5-phase-5",
+      "layer-5",
+      "validator"
+    ],
+    "spec_ids": [
+      "L5-FR-2.3.4",
+      "L5-FR-2.3.5",
+      "L5-FR-3.7.7"
+    ],
+    "test_ids": [],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.1.8"
+    ],
+    "bead_alias": "l5-p5-validator-overlay-contract"
+  },
+  {
+    "bead_id": "testproject1-hn05.4.13",
+    "bead_title": "l5-p4-customs-scope-preservation-gate",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "l5",
+      "l5-phase-4",
+      "layer-5",
+      "review-gate"
+    ],
+    "spec_ids": [
+      "L5-FR-1.1.1",
+      "L5-FR-1.2.3"
+    ],
+    "test_ids": [
+      "L5-T-customs_classification-033"
+    ],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.4.12",
+      "testproject1-hn05.4.11",
+      "testproject1-hn05.4.10",
+      "testproject1-hn05.4.9",
+      "testproject1-hn05.4.8",
+      "testproject1-hn05.4.7",
+      "testproject1-hn05.4.6",
+      "testproject1-hn05.4.5",
+      "testproject1-hn05.4.4",
+      "testproject1-hn05.4.3",
+      "testproject1-hn05.4.2",
+      "testproject1-hn05.4.1"
+    ],
+    "bead_alias": "l5-p4-customs-scope-preservation-gate"
+  },
+  {
+    "bead_id": "testproject1-hn05.4.12",
+    "bead_title": "l5-p4-redaction-sentinel-design",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "l5",
+      "l5-phase-4",
+      "layer-5",
+      "redaction"
+    ],
+    "spec_ids": [
+      "L5-FR-1.3.1",
+      "L5-FR-3.8.1"
+    ],
+    "test_ids": [],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.1.1"
+    ],
+    "bead_alias": "l5-p4-redaction-sentinel-design"
+  },
+  {
+    "bead_id": "testproject1-hn05.4.11",
+    "bead_title": "l5-p4-divergence-readiness-producers",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "customs",
+      "l5",
+      "l5-phase-4",
+      "l6-readiness",
+      "layer-5"
+    ],
+    "spec_ids": [
+      "L5-FR-1.11.3",
+      "L5-FR-1.13.1",
+      "L5-FR-1.13.2",
+      "L5-FR-2.4.1",
+      "L5-FR-3.5.1",
+      "L5-FR-3.5.2",
+      "L5-FR-3.5.5",
+      "L5-FR-3.8.1",
+      "L5-FR-3.8.2"
+    ],
+    "test_ids": [
+      "L5-T-customs_classification-020",
+      "L5-T-customs_classification-021",
+      "L5-T-customs_classification-034"
+    ],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.4.10",
+      "testproject1-hn05.4.9",
+      "testproject1-hn05.4.8",
+      "testproject1-hn05.4.7",
+      "testproject1-hn05.4.5"
+    ],
+    "bead_alias": "l5-p4-divergence-readiness-producers"
+  },
+  {
+    "bead_id": "testproject1-hn05.4.10",
+    "bead_title": "l5-p4-conservative-defaults-evidence-leverage",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "customs",
+      "l5",
+      "l5-phase-4",
+      "layer-5"
+    ],
+    "spec_ids": [
+      "L5-FR-1.12.1",
+      "L5-FR-1.12.2",
+      "L5-FR-1.12.3",
+      "L5-FR-1.12.4",
+      "L5-FR-3.3.12"
+    ],
+    "test_ids": [
+      "L5-T-customs_classification-013",
+      "L5-T-customs_classification-015",
+      "L5-T-customs_classification-019"
+    ],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.4.8",
+      "testproject1-hn05.4.7",
+      "testproject1-hn05.4.6",
+      "testproject1-hn05.2.6"
+    ],
+    "bead_alias": "l5-p4-conservative-defaults-evidence-leverage"
+  },
+  {
+    "bead_id": "testproject1-hn05.4.9",
+    "bead_title": "l5-p4-classification-freshness",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "customs",
+      "l5",
+      "l5-phase-4",
+      "layer-5"
+    ],
+    "spec_ids": [
+      "L5-FR-1.11.1",
+      "L5-FR-1.11.2",
+      "L5-FR-1.11.3",
+      "L5-FR-1.11.4",
+      "L5-FR-3.5.8",
+      "L5-FR-3.7.5"
+    ],
+    "test_ids": [
+      "L5-T-customs_classification-022",
+      "L5-T-customs_classification-023",
+      "L5-T-customs_classification-024"
+    ],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.4.4",
+      "testproject1-hn05.1.5"
+    ],
+    "bead_alias": "l5-p4-classification-freshness"
+  },
+  {
+    "bead_id": "testproject1-hn05.4.8",
+    "bead_title": "l5-p4-vat-additional-code-valuation",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "customs",
+      "l5",
+      "l5-phase-4",
+      "layer-5"
+    ],
+    "spec_ids": [
+      "L5-FR-1.10.1",
+      "L5-FR-1.10.2",
+      "L5-FR-1.9.1",
+      "L5-FR-1.9.2"
+    ],
+    "test_ids": [
+      "L5-T-customs_classification-016",
+      "L5-T-measure_interaction-014",
+      "L5-T-measure_interaction-015",
+      "L5-T-measure_interaction-016",
+      "L5-T-measure_interaction-017"
+    ],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.4.7",
+      "testproject1-hn05.2.6"
+    ],
+    "bead_alias": "l5-p4-vat-additional-code-valuation"
+  },
+  {
+    "bead_id": "testproject1-hn05.4.7",
+    "bead_title": "l5-p4-measure-scanner-interactions",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "customs",
+      "l5",
+      "l5-phase-4",
+      "layer-5"
+    ],
+    "spec_ids": [
+      "L5-FR-1.7.1",
+      "L5-FR-1.7.2",
+      "L5-FR-1.7.3",
+      "L5-FR-1.7.4",
+      "L5-FR-1.8.1",
+      "L5-FR-1.8.2",
+      "L5-FR-1.8.3",
+      "L5-FR-1.8.4"
+    ],
+    "test_ids": [
+      "L5-T-customs_classification-018",
+      "L5-T-measure_interaction-001",
+      "L5-T-measure_interaction-002",
+      "L5-T-measure_interaction-003",
+      "L5-T-measure_interaction-004",
+      "L5-T-measure_interaction-005",
+      "L5-T-measure_interaction-006",
+      "L5-T-measure_interaction-007",
+      "L5-T-measure_interaction-008",
+      "L5-T-measure_interaction-009",
+      "L5-T-measure_interaction-010"
+    ],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.4.6",
+      "testproject1-hn05.4.5",
+      "testproject1-hn05.1.3"
+    ],
+    "bead_alias": "l5-p4-measure-scanner-interactions"
+  },
+  {
+    "bead_id": "testproject1-hn05.4.6",
+    "bead_title": "l5-p4-exporter-origin-resolution",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "customs",
+      "l5",
+      "l5-phase-4",
+      "layer-5"
+    ],
+    "spec_ids": [
+      "L5-FR-1.6.1",
+      "L5-FR-1.6.2"
+    ],
+    "test_ids": [
+      "L5-T-customs_classification-014",
+      "L5-T-measure_interaction-011",
+      "L5-T-measure_interaction-012",
+      "L5-T-measure_interaction-013"
+    ],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.4.2",
+      "testproject1-hn05.1.3"
+    ],
+    "bead_alias": "l5-p4-exporter-origin-resolution"
+  },
+  {
+    "bead_id": "testproject1-hn05.4.5",
+    "bead_title": "l5-p4-uk10-resolution-branching",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "customs",
+      "l5",
+      "l5-phase-4",
+      "layer-5"
+    ],
+    "spec_ids": [
+      "L5-FR-1.5.1",
+      "L5-FR-1.5.2",
+      "L5-FR-1.5.5",
+      "L5-FR-3.1.6"
+    ],
+    "test_ids": [
+      "L5-T-customs_classification-001",
+      "L5-T-customs_classification-002",
+      "L5-T-customs_classification-003",
+      "L5-T-customs_classification-005"
+    ],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.4.4"
+    ],
+    "bead_alias": "l5-p4-uk10-resolution-branching"
+  },
+  {
+    "bead_id": "testproject1-hn05.4.4",
+    "bead_title": "l5-p4-tariff-graph-junction-writes",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "customs",
+      "l5",
+      "l5-phase-4",
+      "layer-5"
+    ],
+    "spec_ids": [
+      "L5-FR-1.3.2",
+      "L5-FR-1.5.3",
+      "L5-FR-1.5.4",
+      "L5-FR-2.4.2"
+    ],
+    "test_ids": [
+      "L5-T-customs_classification-004"
+    ],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.4.3",
+      "testproject1-hn05.1.1"
+    ],
+    "bead_alias": "l5-p4-tariff-graph-junction-writes"
+  },
+  {
+    "bead_id": "testproject1-hn05.4.3",
+    "bead_title": "l5-p4-hmrc-multi-family-expansion",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "customs",
+      "l5",
+      "l5-phase-4",
+      "layer-5"
+    ],
+    "spec_ids": [
+      "L5-FR-1.4.1",
+      "L5-FR-1.4.5"
+    ],
+    "test_ids": [
+      "L5-T-hmrc_fpo-001",
+      "L5-T-hmrc_fpo-004",
+      "L5-T-hmrc_fpo-005",
+      "L5-T-hmrc_fpo-006"
+    ],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.4.2",
+      "testproject1-hn05.4.1"
+    ],
+    "bead_alias": "l5-p4-hmrc-multi-family-expansion"
+  },
+  {
+    "bead_id": "testproject1-hn05.4.2",
+    "bead_title": "l5-p4-description-quality-recall",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "customs",
+      "l5",
+      "l5-phase-4",
+      "layer-5"
+    ],
+    "spec_ids": [
+      "L5-FR-1.4.4"
+    ],
+    "test_ids": [
+      "L5-T-hmrc_fpo-009",
+      "L5-T-hmrc_fpo-010"
+    ],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.4.1"
+    ],
+    "bead_alias": "l5-p4-description-quality-recall"
+  },
+  {
+    "bead_id": "testproject1-hn05.4.1",
+    "bead_title": "l5-p4-hmrc-fpo-taric-discovery",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "customs",
+      "fpo",
+      "l5",
+      "l5-phase-4",
+      "layer-5",
+      "taric"
+    ],
+    "spec_ids": [
+      "L5-FR-1.4.2",
+      "L5-FR-1.4.3",
+      "L5-FR-1.4.5",
+      "L5-FR-3.1.4",
+      "L5-FR-3.7.1",
+      "L5-FR-3.9.2"
+    ],
+    "test_ids": [
+      "L5-T-hmrc_fpo-002",
+      "L5-T-hmrc_fpo-003",
+      "L5-T-hmrc_fpo-007",
+      "L5-T-hmrc_fpo-008",
+      "L5-T-hmrc_fpo-011",
+      "L5-T-hmrc_fpo-012"
+    ],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.1.8"
+    ],
+    "bead_alias": "l5-p4-hmrc-fpo-taric-discovery"
+  },
+  {
+    "bead_id": "testproject1-hn05.3.7",
+    "bead_title": "l5-p3-freight-source-health-gate",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "l5",
+      "l5-phase-3",
+      "layer-5",
+      "review-gate"
+    ],
+    "spec_ids": [],
+    "test_ids": [
+      "L5-T-freight_engine-016"
+    ],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.3.6",
+      "testproject1-hn05.3.5",
+      "testproject1-hn05.3.4",
+      "testproject1-hn05.3.3",
+      "testproject1-hn05.3.2",
+      "testproject1-hn05.3.1",
+      "testproject1-hn05.1.5"
+    ],
+    "bead_alias": "l5-p3-freight-source-health-gate"
+  },
+  {
+    "bead_id": "testproject1-hn05.3.6",
+    "bead_title": "l5-p3-freight-boundary-defaults",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "freight",
+      "l5",
+      "l5-phase-3",
+      "layer-5"
+    ],
+    "spec_ids": [
+      "L5-FR-1.12.1",
+      "L5-FR-2.2.3",
+      "L5-FR-3.6.1"
+    ],
+    "test_ids": [
+      "L5-T-customs_classification-017",
+      "L5-T-freight_engine-006",
+      "L5-T-freight_engine-007"
+    ],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.3.5",
+      "testproject1-hn05.3.4",
+      "testproject1-hn05.3.3",
+      "testproject1-hn05.3.2"
+    ],
+    "bead_alias": "l5-p3-freight-boundary-defaults"
+  },
+  {
+    "bead_id": "testproject1-hn05.3.5",
+    "bead_title": "l5-p3-dual-provider-disagreement",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "freight",
+      "l5",
+      "l5-phase-3",
+      "layer-5"
+    ],
+    "spec_ids": [
+      "L5-FR-2.2.2",
+      "L5-FR-2.2.4",
+      "L5-FR-3.3.17",
+      "L5-FR-3.5.10"
+    ],
+    "test_ids": [
+      "L5-T-freight_engine-003",
+      "L5-T-freight_engine-004",
+      "L5-T-freight_engine-005"
+    ],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.3.4",
+      "testproject1-hn05.3.3"
+    ],
+    "bead_alias": "l5-p3-dual-provider-disagreement"
+  },
+  {
+    "bead_id": "testproject1-hn05.3.4",
+    "bead_title": "l5-p3-searates-adapter",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "adapters",
+      "freight",
+      "l5",
+      "l5-phase-3",
+      "layer-5"
+    ],
+    "spec_ids": [
+      "L5-FR-2.2.2",
+      "L5-FR-2.2.4"
+    ],
+    "test_ids": [],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.3.2"
+    ],
+    "bead_alias": "l5-p3-searates-adapter"
+  },
+  {
+    "bead_id": "testproject1-hn05.3.3",
+    "bead_title": "l5-p3-freightos-adapter",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "adapters",
+      "freight",
+      "l5",
+      "l5-phase-3",
+      "layer-5"
+    ],
+    "spec_ids": [
+      "L5-FR-2.2.2",
+      "L5-FR-2.2.4",
+      "L5-FR-3.1.10"
+    ],
+    "test_ids": [
+      "L5-T-freight_engine-008"
+    ],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.3.2",
+      "testproject1-hn05.3.1"
+    ],
+    "bead_alias": "l5-p3-freightos-adapter"
+  },
+  {
+    "bead_id": "testproject1-hn05.3.2",
+    "bead_title": "l5-p3-logistics-types-mode-selector",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "freight",
+      "l5",
+      "l5-phase-3",
+      "layer-5"
+    ],
+    "spec_ids": [
+      "L5-FR-2.2.1",
+      "L5-FR-3.6.2"
+    ],
+    "test_ids": [
+      "L5-T-freight_engine-001",
+      "L5-T-freight_engine-002"
+    ],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.3.1"
+    ],
+    "bead_alias": "l5-p3-logistics-types-mode-selector"
+  },
+  {
+    "bead_id": "testproject1-hn05.3.1",
+    "bead_title": "l5-p3-freightos-prerequisite-check",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "freight",
+      "l5",
+      "l5-phase-3",
+      "layer-5",
+      "prerequisite"
+    ],
+    "spec_ids": [
+      "L5-FR-3.9.2"
+    ],
+    "test_ids": [
+      "L5-T-freight_engine-015"
+    ],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.1.8"
+    ],
+    "bead_alias": "l5-p3-freightos-prerequisite-check"
+  },
+  {
+    "bead_id": "testproject1-hn05.2.6",
+    "bead_title": "l5-p2-fx-cron-persistence-gate",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "l5",
+      "l5-phase-2",
+      "layer-5",
+      "review-gate"
+    ],
+    "spec_ids": [],
+    "test_ids": [],
+    "ci_gates": [
+      "CI-L5-004"
+    ],
+    "dependencies": [
+      "testproject1-hn05.2.4",
+      "testproject1-hn05.2.3",
+      "testproject1-hn05.2.2",
+      "testproject1-hn05.2.1",
+      "testproject1-hn05.1.5",
+      "testproject1-hn05.2.5"
+    ],
+    "bead_alias": "l5-p2-fx-cron-persistence-gate"
+  },
+  {
+    "bead_id": "testproject1-hn05.2.4",
+    "bead_title": "l5-p2-fx-basis-recalculation",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "fx",
+      "l5",
+      "l5-phase-2",
+      "layer-5"
+    ],
+    "spec_ids": [
+      "L5-FR-2.1.2",
+      "L5-FR-2.1.4",
+      "L5-FR-2.4.1",
+      "L5-FR-3.1.11",
+      "L5-FR-3.10.1",
+      "L5-FR-3.10.2",
+      "L5-FR-3.3.16"
+    ],
+    "test_ids": [
+      "L5-T-fx_engine-003",
+      "L5-T-fx_engine-004",
+      "L5-T-fx_engine-010",
+      "L5-T-fx_engine-012"
+    ],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.2.3",
+      "testproject1-hn05.2.2"
+    ],
+    "bead_alias": "l5-p2-fx-basis-recalculation"
+  },
+  {
+    "bead_id": "testproject1-hn05.2.3",
+    "bead_title": "l5-p2-frankfurter-commercial-fx",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "fx",
+      "l5",
+      "l5-phase-2",
+      "layer-5"
+    ],
+    "spec_ids": [
+      "L5-FR-2.1.1",
+      "L5-FR-2.1.3",
+      "L5-FR-3.1.9"
+    ],
+    "test_ids": [
+      "L5-T-fx_engine-002",
+      "L5-T-fx_engine-008",
+      "L5-T-fx_engine-011"
+    ],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.2.1"
+    ],
+    "bead_alias": "l5-p2-frankfurter-commercial-fx"
+  },
+  {
+    "bead_id": "testproject1-hn05.2.2",
+    "bead_title": "l5-p2-hmrc-customs-fx-parser",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "fx",
+      "l5",
+      "l5-phase-2",
+      "layer-5"
+    ],
+    "spec_ids": [
+      "L5-FR-2.1.1",
+      "L5-FR-2.1.2",
+      "L5-FR-2.1.3",
+      "L5-FR-3.1.8",
+      "L5-FR-3.5.9"
+    ],
+    "test_ids": [
+      "L5-T-fx_engine-001",
+      "L5-T-fx_engine-005",
+      "L5-T-fx_engine-006",
+      "L5-T-fx_engine-007"
+    ],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.2.1"
+    ],
+    "bead_alias": "l5-p2-hmrc-customs-fx-parser"
+  },
+  {
+    "bead_id": "testproject1-hn05.2.1",
+    "bead_title": "l5-p2-fx-types-and-cassettes",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "fx",
+      "l5",
+      "l5-phase-2",
+      "layer-5"
+    ],
+    "spec_ids": [
+      "L5-FR-1.16.1",
+      "L5-FR-2.1.1",
+      "L5-FR-2.1.2"
+    ],
+    "test_ids": [],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.1.8"
+    ],
+    "bead_alias": "l5-p2-fx-types-and-cassettes"
+  },
+  {
+    "bead_id": "testproject1-hn05.1.8",
+    "bead_title": "l5-p1-scope-preservation-gate",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "l5",
+      "l5-phase-1",
+      "layer-5",
+      "review-gate"
+    ],
+    "spec_ids": [],
+    "test_ids": [],
+    "ci_gates": [
+      "CI-L5-001",
+      "CI-L5-002",
+      "CI-L5-003",
+      "CI-L5-005",
+      "CI-L5-006",
+      "CI-L5-007"
+    ],
+    "dependencies": [
+      "testproject1-hn05.1.5",
+      "testproject1-hn05.1.4",
+      "testproject1-hn05.1.3",
+      "testproject1-hn05.1.2",
+      "testproject1-hn05.1.1",
+      "testproject1-hn05.1.7",
+      "testproject1-hn05.1.6"
+    ],
+    "bead_alias": "l5-p1-scope-preservation-gate"
+  },
+  {
+    "bead_id": "testproject1-hn05.1.5",
+    "bead_title": "l5-p1-cron-definitions",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "cron",
+      "l5",
+      "l5-phase-1",
+      "layer-5"
+    ],
+    "spec_ids": [
+      "L5-FR-1.11.2"
+    ],
+    "test_ids": [
+      "L5-T-fx_engine-009"
+    ],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.1.4"
+    ],
+    "bead_alias": "l5-p1-cron-definitions"
+  },
+  {
+    "bead_id": "testproject1-hn05.1.4",
+    "bead_title": "l5-p1-source-registry-shape",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "l5",
+      "l5-phase-1",
+      "layer-5",
+      "sources"
+    ],
+    "spec_ids": [
+      "L5-FR-1.15.2",
+      "L5-FR-2.3.4"
+    ],
+    "test_ids": [
+      "L5-T-freight_engine-012"
+    ],
+    "ci_gates": [],
+    "dependencies": [],
+    "bead_alias": "l5-p1-source-registry-shape"
+  },
+  {
+    "bead_id": "testproject1-hn05.1.3",
+    "bead_title": "l5-p1-error-exhaustive-consumers",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "errors",
+      "l5",
+      "l5-phase-1",
+      "layer-5"
+    ],
+    "spec_ids": [],
+    "test_ids": [],
+    "ci_gates": [
+      "CI-L5-002"
+    ],
+    "dependencies": [
+      "testproject1-hn05.1.2"
+    ],
+    "bead_alias": "l5-p1-error-exhaustive-consumers"
+  },
+  {
+    "bead_id": "testproject1-hn05.1.2",
+    "bead_title": "l5-p1-error-vocabulary-enum",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "errors",
+      "l5",
+      "l5-phase-1",
+      "layer-5"
+    ],
+    "spec_ids": [
+      "L5-FR-3.5.1",
+      "L5-FR-3.5.10",
+      "L5-FR-3.5.2",
+      "L5-FR-3.5.3",
+      "L5-FR-3.5.4",
+      "L5-FR-3.5.5",
+      "L5-FR-3.5.6",
+      "L5-FR-3.5.7",
+      "L5-FR-3.5.8",
+      "L5-FR-3.5.9"
+    ],
+    "test_ids": [
+      "L5-T-measure_interaction-018"
+    ],
+    "ci_gates": [
+      "CI-L5-001",
+      "CI-L5-002",
+      "CI-L5-007"
+    ],
+    "dependencies": [],
+    "bead_alias": "l5-p1-error-vocabulary-enum"
+  },
+  {
+    "bead_id": "testproject1-hn05.1.1",
+    "bead_title": "l5-p1-sqlite-product-commodity-codes",
+    "issue_type": "task",
+    "priority": 0,
+    "labels": [
+      "l5",
+      "l5-phase-1",
+      "layer-5",
+      "migration"
+    ],
+    "spec_ids": [
+      "L5-FR-1.3.2",
+      "L5-FR-2.4.2"
+    ],
+    "test_ids": [
+      "L5-T-customs_classification-006"
+    ],
+    "ci_gates": [
+      "CI-L5-001",
+      "CI-L5-005"
+    ],
+    "dependencies": [],
+    "bead_alias": "l5-p1-sqlite-product-commodity-codes"
+  },
+  {
+    "bead_id": "testproject1-hn05.6",
+    "bead_title": "L5 Phase 6: Gold-Set Accuracy, CBAM, And Integration",
+    "issue_type": "epic",
+    "priority": 0,
+    "labels": [
+      "implementation",
+      "l5",
+      "l5-phase-6",
+      "layer-5"
+    ],
+    "spec_ids": [],
+    "test_ids": [],
+    "ci_gates": [
+      "CI-L5-001"
+    ],
+    "dependencies": [],
+    "bead_alias": "L5 Phase 6: Gold-Set Accuracy, CBAM, And Integration"
+  },
+  {
+    "bead_id": "testproject1-hn05.5",
+    "bead_title": "L5 Phase 5: Marketplace Skills And Validator Overlay",
+    "issue_type": "epic",
+    "priority": 0,
+    "labels": [
+      "implementation",
+      "l5",
+      "l5-phase-5",
+      "layer-5"
+    ],
+    "spec_ids": [],
+    "test_ids": [],
+    "ci_gates": [],
+    "dependencies": [],
+    "bead_alias": "L5 Phase 5: Marketplace Skills And Validator Overlay"
+  },
+  {
+    "bead_id": "testproject1-hn05.4",
+    "bead_title": "L5 Phase 4: Customs Engine",
+    "issue_type": "epic",
+    "priority": 0,
+    "labels": [
+      "implementation",
+      "l5",
+      "l5-phase-4",
+      "layer-5"
+    ],
+    "spec_ids": [],
+    "test_ids": [],
+    "ci_gates": [],
+    "dependencies": [],
+    "bead_alias": "L5 Phase 4: Customs Engine"
+  },
+  {
+    "bead_id": "testproject1-hn05.3",
+    "bead_title": "L5 Phase 3: Freight Engine",
+    "issue_type": "epic",
+    "priority": 0,
+    "labels": [
+      "implementation",
+      "l5",
+      "l5-phase-3",
+      "layer-5"
+    ],
+    "spec_ids": [],
+    "test_ids": [],
+    "ci_gates": [],
+    "dependencies": [],
+    "bead_alias": "L5 Phase 3: Freight Engine"
+  },
+  {
+    "bead_id": "testproject1-hn05.2",
+    "bead_title": "L5 Phase 2: FX Engine",
+    "issue_type": "epic",
+    "priority": 0,
+    "labels": [
+      "implementation",
+      "l5",
+      "l5-phase-2",
+      "layer-5"
+    ],
+    "spec_ids": [],
+    "test_ids": [],
+    "ci_gates": [
+      "CI-L5-004"
+    ],
+    "dependencies": [],
+    "bead_alias": "L5 Phase 2: FX Engine"
+  },
+  {
+    "bead_id": "testproject1-hn05.1",
+    "bead_title": "L5 Phase 1: Foundation — Schema And Daemon Glue",
+    "issue_type": "epic",
+    "priority": 0,
+    "labels": [
+      "implementation",
+      "l5",
+      "l5-phase-1",
+      "layer-5"
+    ],
+    "spec_ids": [],
+    "test_ids": [],
+    "ci_gates": [
+      "CI-L5-001"
+    ],
+    "dependencies": [],
+    "bead_alias": "L5 Phase 1: Foundation — Schema And Daemon Glue"
+  },
+  {
+    "bead_id": "testproject1-hn05",
+    "bead_title": "Epic: L5 Implementation — Expanded Commercial Intelligence",
+    "issue_type": "epic",
+    "priority": 0,
+    "labels": [
+      "implementation",
+      "l5",
+      "layer-5"
+    ],
+    "spec_ids": [
+      "L5-FR-1.1.1",
+      "L5-FR-1.10.1",
+      "L5-FR-1.11.1",
+      "L5-FR-1.12.1",
+      "L5-FR-1.13.1",
+      "L5-FR-1.14.1",
+      "L5-FR-1.15.1",
+      "L5-FR-1.15.2",
+      "L5-FR-1.16.1",
+      "L5-FR-1.2.1",
+      "L5-FR-1.2.2",
+      "L5-FR-1.2.3",
+      "L5-FR-1.2.4",
+      "L5-FR-1.2.5",
+      "L5-FR-1.3.1",
+      "L5-FR-1.3.2",
+      "L5-FR-1.3.3",
+      "L5-FR-1.4.1",
+      "L5-FR-1.5.1",
+      "L5-FR-1.6.1",
+      "L5-FR-1.7.1",
+      "L5-FR-1.8.1",
+      "L5-FR-1.9.1",
+      "L5-FR-2.1.1",
+      "L5-FR-2.2.1",
+      "L5-FR-2.3.1",
+      "L5-FR-2.3.2",
+      "L5-FR-2.3.3",
+      "L5-FR-2.3.4",
+      "L5-FR-2.3.5",
+      "L5-FR-2.3.6",
+      "L5-FR-2.4.1",
+      "L5-FR-2.4.2",
+      "L5-FR-2.4.3",
+      "L5-FR-3.1.1",
+      "L5-FR-3.1.10",
+      "L5-FR-3.1.11",
+      "L5-FR-3.1.12",
+      "L5-FR-3.1.2",
+      "L5-FR-3.1.3",
+      "L5-FR-3.1.4",
+      "L5-FR-3.1.5",
+      "L5-FR-3.1.6",
+      "L5-FR-3.1.7",
+      "L5-FR-3.1.8",
+      "L5-FR-3.1.9",
+      "L5-FR-3.10.1",
+      "L5-FR-3.2.1",
+      "L5-FR-3.2.2",
+      "L5-FR-3.3.1",
+      "L5-FR-3.3.10",
+      "L5-FR-3.3.11",
+      "L5-FR-3.3.12",
+      "L5-FR-3.3.13",
+      "L5-FR-3.3.14",
+      "L5-FR-3.3.15",
+      "L5-FR-3.3.16",
+      "L5-FR-3.3.17",
+      "L5-FR-3.3.18",
+      "L5-FR-3.3.19",
+      "L5-FR-3.3.2",
+      "L5-FR-3.3.3",
+      "L5-FR-3.3.4",
+      "L5-FR-3.3.5",
+      "L5-FR-3.3.6",
+      "L5-FR-3.3.7",
+      "L5-FR-3.3.8",
+      "L5-FR-3.3.9",
+      "L5-FR-3.4.1",
+      "L5-FR-3.5.1",
+      "L5-FR-3.6.1",
+      "L5-FR-3.7.1",
+      "L5-FR-3.7.2",
+      "L5-FR-3.7.3",
+      "L5-FR-3.7.4",
+      "L5-FR-3.7.5",
+      "L5-FR-3.7.6",
+      "L5-FR-3.7.7",
+      "L5-FR-3.7.8",
+      "L5-FR-3.8.1",
+      "L5-FR-3.9.1",
+      "L5-FR-3.9.2",
+      "L5-FR-3.9.3"
+    ],
+    "test_ids": [],
+    "ci_gates": [
+      "CI-L5-001",
+      "CI-L5-004"
+    ],
+    "dependencies": [],
+    "bead_alias": "Epic: L5 Implementation — Expanded Commercial Intelligence"
+  },
+  {
+    "bead_id": "testproject1-hn05.6.6",
+    "bead_title": "l5-p6-cbam-placeholder",
+    "issue_type": "task",
+    "priority": 1,
+    "labels": [
+      "cbam",
+      "l5",
+      "l5-phase-6",
+      "layer-5"
+    ],
+    "spec_ids": [
+      "L5-FR-1.14.1",
+      "L5-FR-1.14.2",
+      "L5-FR-1.14.3",
+      "L5-FR-3.3.19",
+      "L5-FR-3.7.8"
+    ],
+    "test_ids": [
+      "L5-T-customs_classification-025",
+      "L5-T-customs_classification-026"
+    ],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.4.13"
+    ],
+    "bead_alias": "l5-p6-cbam-placeholder"
+  },
+  {
+    "bead_id": "testproject1-hn05.6.2",
+    "bead_title": "l5-p6-comparison-adapters",
+    "issue_type": "task",
+    "priority": 1,
+    "labels": [
+      "l5",
+      "l5-phase-6",
+      "layer-5",
+      "validation"
+    ],
+    "spec_ids": [
+      "L5-FR-1.16.1",
+      "L5-FR-1.16.2"
+    ],
+    "test_ids": [
+      "L5-T-freight_engine-017"
+    ],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.4.13"
+    ],
+    "bead_alias": "l5-p6-comparison-adapters"
+  },
+  {
+    "bead_id": "testproject1-hn05.5.7",
+    "bead_title": "l5-p5-source-health-auth-binding",
+    "issue_type": "task",
+    "priority": 1,
+    "labels": [
+      "l5",
+      "l5-phase-5",
+      "layer-5",
+      "source-health"
+    ],
+    "spec_ids": [
+      "L5-FR-3.10.2",
+      "L5-FR-3.7.2"
+    ],
+    "test_ids": [],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.5.6",
+      "testproject1-hn05.5.4",
+      "testproject1-hn05.5.3",
+      "testproject1-hn05.5.2",
+      "testproject1-hn05.1.5"
+    ],
+    "bead_alias": "l5-p5-source-health-auth-binding"
+  },
+  {
+    "bead_id": "testproject1-hn05.5.5",
+    "bead_title": "l5-p5-ebay-baseline-binding",
+    "issue_type": "task",
+    "priority": 1,
+    "labels": [
+      "l5",
+      "l5-phase-5",
+      "layer-5",
+      "marketplace"
+    ],
+    "spec_ids": [
+      "L5-FR-2.3.4",
+      "L5-FR-2.3.5"
+    ],
+    "test_ids": [],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.5.1"
+    ],
+    "bead_alias": "l5-p5-ebay-baseline-binding"
+  },
+  {
+    "bead_id": "testproject1-hn05.2.5",
+    "bead_title": "l5-p2-simple-fx-skill-extension",
+    "issue_type": "task",
+    "priority": 1,
+    "labels": [
+      "fx",
+      "l5",
+      "l5-phase-2",
+      "layer-5",
+      "skills"
+    ],
+    "spec_ids": [
+      "L5-FR-2.1.1"
+    ],
+    "test_ids": [],
+    "ci_gates": [],
+    "dependencies": [
+      "testproject1-hn05.2.3",
+      "testproject1-hn05.2.2"
+    ],
+    "bead_alias": "l5-p2-simple-fx-skill-extension"
+  },
+  {
+    "bead_id": "testproject1-hn05.1.7",
+    "bead_title": "l5-p1-daemon-test-target-setup",
+    "issue_type": "task",
+    "priority": 1,
+    "labels": [
+      "daemon-tests",
+      "l5",
+      "l5-phase-1",
+      "layer-5"
+    ],
+    "spec_ids": [],
+    "test_ids": [
+      "L5-T-measure_interaction-019"
+    ],
+    "ci_gates": [
+      "CI-L5-005"
+    ],
+    "dependencies": [
+      "testproject1-hn05.1.5",
+      "testproject1-hn05.1.3",
+      "testproject1-hn05.1.1"
+    ],
+    "bead_alias": "l5-p1-daemon-test-target-setup"
+  },
+  {
+    "bead_id": "testproject1-hn05.1.6",
+    "bead_title": "l5-p1-env-bootstrap-preflight",
+    "issue_type": "task",
+    "priority": 1,
+    "labels": [
+      "bootstrap",
+      "l5",
+      "l5-phase-1",
+      "layer-5"
+    ],
+    "spec_ids": [
+      "L5-FR-3.10.2",
+      "L5-FR-3.9.1",
+      "L5-FR-3.9.2"
+    ],
+    "test_ids": [],
+    "ci_gates": [
+      "CI-L5-001",
+      "CI-L5-006"
+    ],
+    "dependencies": [],
+    "bead_alias": "l5-p1-env-bootstrap-preflight"
+  }
+]

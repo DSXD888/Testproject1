@@ -607,7 +607,9 @@ L5's single new local table: `product_commodity_codes` junction. Mirrors the Sup
 
 ## Files to Create/Modify
 
-- **Create:** `migrations/0013_l5_product_commodity_codes.sql` (or next-free `NNNN_l5_product_commodity_codes.sql` if `0013` slot was taken by a concurrent agent).
+- **Create:** `migrations/NNNN_l5_product_commodity_codes.sql` using the next-free flat migration slot at claim time. As of this bead inventory, `0013_l5_product_commodity_codes.sql` is expected after `0012_l4_sync_state.sql`; do not create `sqlite/migrations/0002_*` or any separate SQLite migration tree.
+- **Modify:** `crates/daemon/src/db/sync.rs` (`PUSH_OWNED_RESEED_TABLES` at lines 24-49) to include `product_commodity_codes` so L4 local-outbox/reseed semantics cover the new push-owned table.
+- **Verify only:** `infra/supabase/migrations/0001_projection_tables.sql` already contains the Supabase `product_commodity_codes` projection table at lines 615-633. No new Supabase projection migration is created by this bead.
 
 ## Spec Requirements (verbatim)
 
@@ -635,30 +637,38 @@ Existing migration sequence in `migrations/`:
 - `0011_commercial_basis_coverage.sql`
 - `0012_l4_sync_state.sql`
 
-Required columns (mirror the existing L4 Supabase projection table shape — read `infra/supabase/migrations/0001_projection_tables.sql` for the canonical projection-side definition):
+Required columns (mirror the existing L4 Supabase projection table shape in `infra/supabase/migrations/0001_projection_tables.sql:615-633`; SQLite/Postgres type differences are allowed):
 
 | Column | Type | Notes |
 |--------|------|-------|
 | `id` | `text PRIMARY KEY` | UUID-style identifier |
 | `product_candidate_id` | `text NOT NULL` | FK to `product_candidates` |
 | `commodity_code` | `text NOT NULL` | HS6/CN8/UK10 code string |
-| `recall_source_family` | `text NOT NULL CHECK (recall_source_family IN ('hmrc_fpo_or_search_suggestion','cpv_chapter_prior','rule_based_chapter_hint','hmrc_tariff_keyword_search','atr_codebook_reuse'))` | 5 families from §1.4.1 |
-| `agreement_state` | `text NOT NULL CHECK (agreement_state IN ('agreed','diverged','unavailable'))` | per §11.2 trace contract |
-| `rank` | `integer NOT NULL` | local shortlist rank |
-| `retrieval_score_bps` | `integer NULL` | nullable when source family `unavailable` |
-| `stage_run_id` | `text NOT NULL` | atomic commit cohort |
+| `digits` | `integer NOT NULL CHECK (digits IN (6, 8, 10))` | derived from commodity-code length |
+| `source` | `text NOT NULL` | one of the §1.4.1 recall source-family ids: `hmrc_fpo_or_search_suggestion`, `cpv_chapter_prior`, `rule_based_chapter_hint`, `hmrc_tariff_keyword_search`, `atr_codebook_reuse` |
+| `score_bps` | `integer NOT NULL CHECK (score_bps BETWEEN 0 AND 10000)` | recall/agreement score in basis points |
+| `rank_ordinal` | `integer NULL` | local shortlist rank |
+| `description` | `text NULL` | candidate label or family description |
+| `evidence_json` | `text NOT NULL DEFAULT '{}'` | JSON payload containing `agreement_state`, raw source evidence, and §11.2 recall trace metadata |
 | `owner_id` | `text NOT NULL` | L4 push contract |
 | `row_version` | `integer NOT NULL DEFAULT 1` | L4 push contract |
 | `last_local_seq` | `integer NULL` | L4 push contract |
-| `content_hash` | `text NOT NULL` | outbox replay hash |
+| `stage_run_id` | `text NULL` | atomic commit cohort |
 | `created_at` | `text NOT NULL DEFAULT (datetime('now'))` |
 | `updated_at` | `text NOT NULL DEFAULT (datetime('now'))` |
 
 Required indices:
 - `(product_candidate_id, stage_run_id)` — for set-replacement.
-- `(commodity_code, recall_source_family)` — for cross-candidate aggregation in audits.
+- `(commodity_code, source)` — for cross-candidate aggregation in audits.
+- `UNIQUE (product_candidate_id, commodity_code, source)` — mirrors Supabase projection uniqueness.
 
 Set-replacement semantics: on classification rerun for `product_candidate_id = X` under `stage_run_id = Y`, the writer deletes all rows where `product_candidate_id = X` AND `stage_run_id < Y` (or older `row_version`) within the same SQLite transaction, then inserts the new rows. Test ID `L5-T-customs_classification-006` exercises this atomicity.
+
+Sync/outbox hookup:
+
+- Add `"product_commodity_codes"` to `PUSH_OWNED_RESEED_TABLES` in `crates/daemon/src/db/sync.rs:24-49`.
+- Every insert/update/delete in the writer path must run inside `write_push_owned_transaction(...)` and call `write_push_owned_with_outbox(...)` with `entity_kind = "product_commodity_codes"` so `local_outbox` detects mutations to the new table.
+- `L5-T-measure_interaction-019` must keep passing: decision-grade table writes cannot bypass L4 outbox/RLS semantics.
 
 ## Tests to Pass
 
@@ -670,8 +680,11 @@ Indirect coverage (must compile but assertions live elsewhere):
 
 ## Acceptance Criteria
 
-- [ ] `migrations/0013_l5_product_commodity_codes.sql` exists and applies cleanly from a fresh DB.
+- [ ] `migrations/NNNN_l5_product_commodity_codes.sql` exists in the flat `migrations/` directory and applies cleanly from a fresh DB.
 - [ ] All required columns and indices present.
+- [ ] `crates/daemon/src/db/sync.rs` `PUSH_OWNED_RESEED_TABLES` contains `product_commodity_codes`.
+- [ ] Mutations emit `local_outbox` rows through `write_push_owned_with_outbox(...)` with `entity_kind = "product_commodity_codes"`.
+- [ ] `infra/supabase/migrations/0001_projection_tables.sql` projection alignment is verified; no new Supabase migration is added.
 - [ ] Set-replacement is exercised by `L5-T-customs_classification-006`.
 - [ ] L4 Supabase projection columns match local SQLite shape modulo SQLite/Postgres type differences (text vs varchar; integer vs bigint).
 - [ ] Reapplying the migration on an already-migrated DB is a no-op.
@@ -709,12 +722,12 @@ Indirect coverage (must compile but assertions live elsewhere):
 
 ## Context
 
-L5 adds 9 new `ErrorCode` enum variants (plus reuses existing `FpoAccessUnavailable`) to `crates/daemon/src/errors/manifest.rs`. The enum currently has 34 variants (lines 20-54). The matching `as_str()` and `parse_error_code` functions also update. Runtime emission paths are tested by domain phases (2, 3, 4); this bead only owns the vocabulary itself.
+L5 adds 9 new `ErrorCode` enum variants and reuses the existing `FpoAccessUnavailable` variant, for 10 L5 wire-format error codes total, in `crates/daemon/src/errors/manifest.rs`. The enum currently has 34 variants (lines 20-54). The matching `as_str()` and `parse_error_code` functions also update. Runtime emission paths are tested by domain phases (2, 3, 4), but this bead may not close until all exhaustive match sites surfaced by `cargo clippy --all-targets -- -D warnings` are updated with typed L5 arms.
 
 ## Files to Create/Modify
 
 - **Modify:** `crates/daemon/src/errors/manifest.rs` (lines 20-55 enum + matching `as_str()` + `parse_error_code`).
-- **Modify:** the same file's `impl ErrorCode { pub fn as_str(&self) -> &'static str }` matcher block and `parse_error_code` reverse mapping.
+- **Modify:** all exhaustive `ErrorCode` match consumers surfaced by `cargo clippy --all-targets -- -D warnings` after the enum extension. Known likely sites to inspect in this checkout: `crates/daemon/src/errors/markdown.rs`, `crates/daemon/src/validation/policy.rs`, `crates/daemon/src/validation/executor.rs`, `crates/daemon/src/tracing/structured.rs`, and `crates/daemon/src/ipc/handlers/`.
 
 ## Spec Requirements (verbatim)
 
@@ -733,17 +746,17 @@ Pre-amble from §3.5: "These customs error requirements are daemon error-vocabul
 
 ## Implementation Details
 
-Add to `pub enum ErrorCode` (already at lines 20-54), 9 new variants (preserve alphabetic/grouped insertion order consistent with existing style; the existing file groups by domain not strictly alphabetic):
+Add to `pub enum ErrorCode` (already at lines 20-54), 9 new Rust variants (preserve alphabetic/grouped insertion order consistent with existing style; the existing file groups by domain not strictly alphabetic) and keep the existing 10th L5 code as `FpoAccessUnavailable`:
 
 ```rust
-// new L5 variants (insertion order can match the spec's §3.5 ordering)
+// L5 §3.5 Rust variants / wire codes
 ClassificationAmbiguous,
 TariffBranchDivergence,
 MeasureInteractionUnknown,
 ExporterUnresolved,
 SupplementaryUnitMissing,
 ValuationModeConflict,
-// FpoAccessUnavailable already exists at line ~32; do not add duplicate
+FpoAccessUnavailable, // already exists; do not add duplicate FpoUnavailable
 TradeRemedyWatchStale,
 FxRateMissing,
 FreightEstimateFailed,
@@ -758,12 +771,19 @@ ErrorCode::MeasureInteractionUnknown => "MEASURE_INTERACTION_UNKNOWN",
 ErrorCode::ExporterUnresolved => "EXPORTER_UNRESOLVED",
 ErrorCode::SupplementaryUnitMissing => "SUPPLEMENTARY_UNIT_MISSING",
 ErrorCode::ValuationModeConflict => "VALUATION_MODE_CONFLICT",
+ErrorCode::FpoAccessUnavailable => "FPO_ACCESS_UNAVAILABLE",
 ErrorCode::TradeRemedyWatchStale => "TRADE_REMEDY_WATCH_STALE",
 ErrorCode::FxRateMissing => "FX_RATE_MISSING",
 ErrorCode::FreightEstimateFailed => "FREIGHT_ESTIMATE_FAILED",
 ```
 
-`parse_error_code` (reverse string→variant) must accept the same 9 new strings. The existing `FPO_ACCESS_UNAVAILABLE` arm is left untouched.
+`parse_error_code` (reverse string→variant) must accept the same 10 wire strings. The existing `FPO_ACCESS_UNAVAILABLE` arm is left untouched and no `FPO_UNAVAILABLE` alias is added.
+
+Clippy propagation rule:
+
+- Run `cargo clippy --all-targets -- -D warnings` immediately after adding the enum arms.
+- Patch every surfaced exhaustive `ErrorCode` consumer with explicit arms; do not introduce wildcard `_ =>` fallbacks for the L5 variants.
+- This bead is not closable until the enum, `as_str()`, parser, and clippy-surfaced consumers compile together. The sibling `l5-p1-error-exhaustive-consumers` bead exists as the coordination surface for those likely sites, but the typed propagation requirement remains part of this ErrorCode extension contract.
 
 ## Tests to Pass
 
@@ -776,10 +796,11 @@ This bead also blocks (i.e., must exist before they can pass):
 
 ## Acceptance Criteria
 
-- [ ] 9 new variants present in `ErrorCode` enum; 10th `FpoAccessUnavailable` left unchanged (no duplicate `FPO_UNAVAILABLE`).
+- [ ] 10 L5 wire-format codes are covered verbatim: `CLASSIFICATION_AMBIGUOUS`, `TARIFF_BRANCH_DIVERGENCE`, `MEASURE_INTERACTION_UNKNOWN`, `EXPORTER_UNRESOLVED`, `SUPPLEMENTARY_UNIT_MISSING`, `VALUATION_MODE_CONFLICT`, existing `FPO_ACCESS_UNAVAILABLE`, `TRADE_REMEDY_WATCH_STALE`, `FX_RATE_MISSING`, `FREIGHT_ESTIMATE_FAILED`.
+- [ ] 9 new Rust variants present in `ErrorCode`; 10th `FpoAccessUnavailable` left unchanged (no duplicate `FPO_UNAVAILABLE` / `FpoUnavailable`).
 - [ ] `as_str()` returns the verbatim screaming-snake-case strings listed above.
-- [ ] `parse_error_code` accepts every new variant string.
-- [ ] `cargo check --all-targets` passes for this enum-only change before exhaustive consumers update (i.e., enum addition is forward-compatible even before propagation, OR the propagation bead `l5-p1-error-exhaustive-consumers` MUST claim immediately after).
+- [ ] `parse_error_code` accepts every listed variant string.
+- [ ] Every `ErrorCode` exhaustive match surfaced by `cargo clippy --all-targets -- -D warnings` is updated with explicit typed arms before this bead closes.
 - [ ] `L5-T-measure_interaction-018` greppable variant set assertion passes.
 
 ## Dependencies
@@ -2595,7 +2616,7 @@ Tests to add:
 ## SOURCE OF TRUTH WARNING
 
 - **Spec**: §2.2.2 AC2, §2.2.4 AC3, §3.3.17, §3.5.10 (PRIMARY)
-- **TDD**: §8.5 `L5-T-freight_engine-004,005`, §7.3 (`FREIGHT_PROVIDER_DISAGREEMENT_THRESHOLD_BPS = 2500`), §11.7 (Freight Discrepancy Contract) (PRIMARY)
+- **TDD**: §8.5 `L5-T-freight_engine-003,004,005`, §7.3 (`FREIGHT_PROVIDER_DISAGREEMENT_THRESHOLD_BPS = 2500`), §11.7 (Freight Discrepancy Contract) (PRIMARY)
 - **Strategy**: Phase 3 (after both adapters)
 
 ## Coordination Protocol
@@ -2609,7 +2630,7 @@ When Freightos and SeaRates both return quotes, compares the two `base_gbp_pence
 ## Files to Create/Modify
 
 - **Modify:** `packages/intelligence/src/logistics/freight-engine.ts` (this is part of the freight-engine module; full file ownership is in `l5-p3-freight-boundary-defaults`; this bead contributes the disagreement section)
-- **Modify:** `packages/intelligence/src/logistics/freight-engine.test.ts` (add `L5-T-freight_engine-004,005`)
+- **Modify:** `packages/intelligence/src/logistics/freight-engine.test.ts` (add/close `L5-T-freight_engine-003,004,005`)
 
 ## Spec Requirements (verbatim)
 
@@ -2676,17 +2697,19 @@ Dual-failure case: `selected_base_gbp_pence = null`, `manual_estimate_required =
 
 ## Tests to Pass
 
+- **`L5-T-freight_engine-003`** (T3, dual-provider invocation fixture): Freightos and SeaRates CDP skills are both invoked and normalized into low/base/high GBP bands; no paid API account is used.
 - **`L5-T-freight_engine-004`** (T1, discrepancy fixture): Freightos 120,000 pence + SeaRates 185,000 pence exceed threshold, emit `FREIGHT_MODE_LOW_CONFIDENCE`, select conservative higher base
 - **`L5-T-freight_engine-005`** (T1, dual failure fixture): both providers failing emits `FREIGHT_ESTIMATE_FAILED`, preserves manual-estimate requirement, no fabricated data
 
 ## Acceptance Criteria
 
 - [ ] `reconcile()` function exists in `freight-engine.ts` exporting the typed outcome.
+- [ ] Both provider adapters are invoked in the dual-provider fixture and normalized to GBP bands before reconciliation.
 - [ ] `FREIGHT_PROVIDER_DISAGREEMENT_THRESHOLD_BPS = 2500` named constant exported.
 - [ ] Discrepancy fixture math matches TDD §11.7 exactly.
 - [ ] Dual-failure path emits `FREIGHT_ESTIMATE_FAILED` (daemon enum from Phase 1) without fabricating quote data.
 - [ ] Conservative-selection rule: when disagreed, picks the higher of the two `baseGbpPence` values.
-- [ ] Both test IDs pass.
+- [ ] All 3 listed test IDs pass.
 
 ## Dependencies
 
@@ -3256,7 +3279,17 @@ export class MultiSourceRecall {
 }
 ```
 
-Recall agreement trace per §11.2 (verbatim shape):
+Recall agreement trace per §11.2 (verbatim shape). The `candidateRecallAgreement[].agreement` list is always sorted by this exact source-family order so tests can compare arrays directly:
+
+```ts
+export const RECALL_SOURCE_FAMILY_ORDER: SourceFamily[] = [
+  "hmrc_fpo_or_search_suggestion",
+  "cpv_chapter_prior",
+  "rule_based_chapter_hint",
+  "hmrc_tariff_keyword_search",
+  "atr_codebook_reuse",
+];
+```
 
 ```json
 {
@@ -3283,6 +3316,7 @@ Tests to add:
 | `L5-T-hmrc_fpo-004` | T1 | five-source recall bundle: all sources agree on same family; 5 source records present; confidence agreement-based, not FPO-only |
 | `L5-T-hmrc_fpo-005` | T1 | disagreement bundle: 5 sources disagree; source-level divergence recorded; emit `CLASSIFICATION_AMBIGUOUS` when top HS6 families materially split |
 | `L5-T-hmrc_fpo-006` | T1 | FPO-only bundle: FPO/search-suggestion candidate present but all other families absent; decision remains non-auto; records retrieval relevance only |
+| `L5-T-customs_classification-002` | cross-ref | downstream reranking must see `candidateRecallAgreement` for selected `4819100000` containing exactly five source-family states sorted by `RECALL_SOURCE_FAMILY_ORDER`: `agreed`, `agreed`, `agreed`, `diverged`, `unavailable` |
 
 ## Tests to Pass
 
@@ -3295,6 +3329,7 @@ Tests to add:
 
 - [ ] `multi-source-recall.ts` exists with 5-family `SourceFamily` enum.
 - [ ] `MultiSourceRecallResult.candidateRecallAgreement` shape matches §11.2 verbatim.
+- [ ] `candidateRecallAgreement[].agreement` contains exactly the five source-family ids sorted as `[hmrc_fpo_or_search_suggestion, cpv_chapter_prior, rule_based_chapter_hint, hmrc_tariff_keyword_search, atr_codebook_reuse]`.
 - [ ] Each source family is queryable in isolation; unavailability is tracked, not faked.
 - [ ] FPO-only does NOT unlock auto-classification.
 - [ ] `CLASSIFICATION_AMBIGUOUS` emission on top-HS6 disagreement.
@@ -4905,6 +4940,7 @@ Tests to add (TDD §8.5):
 ## Tests to Pass
 
 - **`L5-T-freight_engine-009`** (T3)
+- **Promotion-gate cross checks:** `L5-T-freight_engine-013` (six-file skill directory/promotion contract) and `L5-T-freight_engine-018` (candidate→stable journey) must pass for Alibaba in `l5-p5-marketplace-fixture-promotion-gate` before `promotion_stage` flips to `stable`.
 
 ## Acceptance Criteria
 
@@ -4914,6 +4950,7 @@ Tests to add (TDD §8.5):
 - [ ] Anti-bot circuit breaker behavior documented + canary case for it.
 - [ ] Validator overlay bound; `worker_behavior_version` set.
 - [ ] `promotion_stage` remains `candidate` until `l5-p5-marketplace-fixture-promotion-gate` promotes.
+- [ ] Alibaba rows are present in the promotion gate fixtures for `L5-T-freight_engine-013` and `L5-T-freight_engine-018`.
 - [ ] Existing 241-line SKILL.md not regressed (line count likely grows; the existing behaviors preserved).
 - [ ] All 6 §2.3.6 ACs exercised by canary cases.
 
@@ -5020,6 +5057,7 @@ Tests to add:
 ## Tests to Pass
 
 - **`L5-T-freight_engine-010`** (T3)
+- **Promotion-gate cross checks:** `L5-T-freight_engine-013` (six-file skill directory/promotion contract) and `L5-T-freight_engine-018` (candidate→stable journey) must pass for 1688 in `l5-p5-marketplace-fixture-promotion-gate` before `promotion_stage` flips to `stable`.
 
 ## Acceptance Criteria
 
@@ -5029,6 +5067,7 @@ Tests to add:
 - [ ] Auth refresh integration documented (skill or manual).
 - [ ] Vocabulary mismatch → lexicon expansion (not unavailability).
 - [ ] Regulated-goods guard suppresses quote when compliance evidence absent.
+- [ ] 1688 rows are present in the promotion gate fixtures for `L5-T-freight_engine-013` and `L5-T-freight_engine-018`.
 - [ ] `L5-T-freight_engine-010` passes.
 
 ## Dependencies
@@ -5136,6 +5175,7 @@ Tests to add:
 ## Tests to Pass
 
 - **`L5-T-freight_engine-011`** (T3)
+- **Promotion-gate cross checks:** `L5-T-freight_engine-013` (six-file skill directory/promotion contract) and `L5-T-freight_engine-018` (candidate→stable journey) must pass for Amazon in `l5-p5-marketplace-fixture-promotion-gate` before `promotion_stage` flips to `stable`.
 
 ## Acceptance Criteria
 
@@ -5145,6 +5185,7 @@ Tests to add:
 - [ ] Structured title vocabulary used for variant disambiguation.
 - [ ] `price_signal_role = "benchmark_ceiling"` constant.
 - [ ] `crates/daemon/src/sources/registry.rs` has Amazon production binding (worker/validator behavior versions set).
+- [ ] Amazon rows are present in the promotion gate fixtures for `L5-T-freight_engine-013` and `L5-T-freight_engine-018`.
 - [ ] `L5-T-freight_engine-011` passes.
 
 ## Dependencies
@@ -5314,8 +5355,10 @@ PCS Scotland procurement ingestion is TRULY NEW. Per operator decision 2026-05-0
 - **Create:** `skills/procurement-ingestion/pcs/canary.inputs.jsonl`
 - **Create:** `skills/procurement-ingestion/pcs/golden.assertions.yaml`
 - **Create:** `skills/procurement-ingestion/pcs/validator-rubric.yaml`
+- **Create:** `tests/fixtures/calibration/marketplace-search/pcs/canary.inputs.jsonl`
+- **Create:** `tests/fixtures/calibration/marketplace-search/pcs/golden.assertions.yaml`
 - **Modify:** `crates/daemon/src/sources/registry.rs` (PCS production binding — registry entry shape added by Phase 1; this bead populates worker_behavior_version etc.)
-- **Modify:** existing bootstrap doc (already references PCS prereqs in §3 + §4.3 — verify no further edits needed)
+- **Modify:** `docs/pipeline/l5-expanded-commercial-intelligence/artifacts/l5-expanded-commercial-intelligence-bootstrap.md` to list PCS OCDS Web API account state, endpoint evidence, and sign-in/API-key requirement state.
 
 ## Spec Requirements (verbatim)
 
@@ -5345,7 +5388,7 @@ interaction_profile: http_public  # OCDS Web API; no auth
 auth_requirements: none
 result_schema_version: 1
 endpoints:
-  notice_list: "https://www.publiccontractsscotland.gov.uk/search/search_notices.aspx?api=true"  # confirm exact URL via investigation; PCS exposes JSON via OCDS endpoint
+  notice_list: "https://www.publiccontractsscotland.gov.uk/search/search_notices.aspx?api=true"  # replace with live-verified exact PCS/OCDS URL before close
   notice_family: "https://www.publiccontractsscotland.gov.uk/search/show/search_view.aspx?api=true&ID={notice_id}"
 validator_overlay: validation/overlay-customs-classification  # or procurement-specific overlay
 worker_behavior_version: 1.0.0
@@ -5353,7 +5396,7 @@ validator_behavior_version: 1.0.0
 ---
 ```
 
-(Endpoint URLs above are placeholders; the skill author must confirm the exact PCS OCDS endpoint and document it in the SKILL.md. PCS uses publiccontractsscotland.gov.uk; the OCDS export path may differ — verify via `curl` probe.)
+Endpoint URL discipline: the implementation must replace the example endpoint strings with live-verified PCS/OCDS URLs before closing. The bootstrap doc must record the account state explicitly, e.g. `PCS_OCDS_WEB_API_ACCOUNT_STATE = public_no_account_required` or the exact account/API-key state discovered by the probe. A bead cannot close with unresolved endpoint text in `SKILL.md`, canaries, or bootstrap.
 
 `result.schema.json` mirrors the existing `contracts-finder/result.schema.json` shape with PCS-specific fields:
 
@@ -5397,6 +5440,8 @@ Canary inputs (5 minimum per bootstrap §7.2):
 {"case_id":"l5-pcs-notice-list-stale-cassette","mode":"notice_list","cassette_path":"tests/fixtures/cassettes/l5/pcs/notice-list-stale.json"}
 ```
 
+Mirror the same five canary cases into `tests/fixtures/calibration/marketplace-search/pcs/canary.inputs.jsonl`; mirror stable assertions into `tests/fixtures/calibration/marketplace-search/pcs/golden.assertions.yaml` so the promotion harness can run PCS beside Alibaba/1688/Amazon/eBay.
+
 Golden assertions (per §7.2 PCS row): "result schema, notice-list retrieval, notice-family retrieval, OCDS fields, source registry binding".
 
 Tests to add:
@@ -5412,7 +5457,9 @@ Tests to add:
 ## Acceptance Criteria
 
 - [ ] All 6 skill directory standard files exist for PCS.
-- [ ] PCS OCDS endpoint URLs verified live (or documented as TBD investigation if endpoint moved).
+- [ ] PCS calibration mirror exists at `tests/fixtures/calibration/marketplace-search/pcs/{canary.inputs.jsonl,golden.assertions.yaml}`.
+- [ ] PCS OCDS endpoint URLs verified live and written into `SKILL.md`, canaries, and bootstrap; no unresolved endpoint/example text remains.
+- [ ] Bootstrap doc records PCS OCDS Web API account/API-key state.
 - [ ] `crates/daemon/src/sources/registry.rs` PCS entry has worker/validator behavior versions populated.
 - [ ] Canary inputs cover all 3 gold-set categories + zero-result recovery + cassette replay.
 - [ ] `buyer_country = "GB-SCT"` constant in result schema for Scotland scope.
@@ -6801,8 +6848,8 @@ Delegates the live `main.rs` Stage 11 landed-cost path to the new package engine
 
 ## Files to Create/Modify
 
-- **Modify:** `crates/daemon/src/main.rs` (Stage 11 landed-cost path delegates to package engines under `DecisionGrade` mode)
-- **Possibly create:** `crates/daemon/src/landed_cost_decision_grade_bridge.rs` (Rust ↔ TypeScript shim — actually this is unlikely; if the package engines are TS-only, the Rust side must either run the TS via subprocess OR the entire decision-grade pipeline lives in TypeScript with results piped back to Rust. The codebase architecture has `packages/intelligence/` as a Bun/TS workspace consumed by the daemon via some integration boundary — read existing usage patterns to determine the correct shim style.)
+- **Modify:** `crates/daemon/src/main.rs` (Stage 11 landed-cost path delegates to package engines under `DecisionGrade` mode). Current landed-cost implementation span to inspect is `crates/daemon/src/main.rs:5639-8288`, including `base_landed_cost_job_parameters`, `parse_hmrc_customs_result`, `parse_shipment_sizing_result`, `parse_searates_freight_result`, `parse_simple_fx_lookup_result`, `load_landed_cost_assessments`, `run_landed_cost_skill`, and the surrounding Stage 11 writer path.
+- **Create only if needed:** `crates/daemon/src/landed_cost_decision_grade_bridge.rs`. Use this module only if the existing daemon integration boundary cannot stay clean inside `main.rs`; the module must expose typed Rust functions rather than ad-hoc stringly glue.
 
 ## Spec Requirements (verbatim)
 
@@ -6813,7 +6860,7 @@ Delegates the live `main.rs` Stage 11 landed-cost path to the new package engine
 Cutover order (within this bead, internal sub-steps):
 
 1. Read existing `crates/daemon/src/main.rs:5639-8288` Stage 11 landed-cost block.
-2. Identify the integration boundary the daemon uses to call into `packages/intelligence/` (existing files: `crates/daemon/tests/agent_supplier_enrichment.rs` may show the pattern; or there's a subprocess/IPC pathway).
+2. Identify the integration boundary the daemon uses to call into `packages/intelligence/`; document the chosen boundary in code comments/tests. If the package engines are TS-only, invoke them through the existing durable skill/subprocess boundary used by Stage 11 rather than inventing an untyped JSON shell.
 3. Behind the feature flag `LandedCostPathMode::DecisionGrade`, replace the landed-cost arithmetic with calls into:
    - `FxEngine` (Phase 2)
    - `FreightEngine` (Phase 3)
@@ -6830,8 +6877,17 @@ Old path: NOT deleted. Kept as `ScreeningGradeOnly` mode for emergency fallback.
 ## Tests to Pass
 
 - Integration test: setting `L5_ENABLE_DECISION_GRADE_LANDED_COST=decision_grade` causes the new path to produce the `landed_cost_estimates` row.
+- **`L5-T-customs_classification-007`**: `landed_cost_estimates` receives all §2.4 decision-grade fields without adding a column.
+- **`L5-T-customs_classification-012`**: full pipeline ordering runs recall, UK10, exporter, measures, VAT, freshness, and conservative defaults before net-margin gating.
+- **`L5-T-customs_classification-036`**: complete-row guard asserts every existing `landed_cost_estimates` column is populated, explicitly nullable, or L4-sync-preserved.
 - All Phase 4 customs test IDs continue passing under decision_grade mode (the new path is the same engines, so already proven).
-- No regressions in `cargo test -p daemon --bin daemon`.
+- Regression gate before close: `cargo test -p daemon --bin daemon` plus the full daemon integration target loop:
+
+```bash
+for t in crates/daemon/tests/*.rs; do
+  cargo test --test "$(basename "$t" .rs)" || exit 1
+done
+```
 
 ## Acceptance Criteria
 
@@ -6841,6 +6897,7 @@ Old path: NOT deleted. Kept as `ScreeningGradeOnly` mode for emergency fallback.
 - [ ] Field-level projection boundary applied at push time.
 - [ ] Feature flag still default-OFF — production is unaffected.
 - [ ] `cargo test -p daemon --bin daemon` + daemon integration target loop passes.
+- [ ] Existing landed-cost integration coverage still passes in screening-grade mode and decision-grade mode.
 - [ ] Old path code preserved.
 
 ## Dependencies
