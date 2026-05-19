@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
+import { EXPORTER_UNRESOLVED, resolveExporter } from "./exporter-resolution";
+
 const repoRoot = new URL("../../../../", import.meta.url);
 
 const redactionDesignUrl = new URL(
@@ -42,6 +44,74 @@ const displayFields = [
 ] as const;
 
 describe("measure interaction redaction sentinels", () => {
+  it("L5-T-measure_interaction-011 defaults active trade remedies to residual when exporter proof is absent", () => {
+    const result = resolveExporter({
+      commodityCode: "7604210000",
+      countryOfOrigin: "CN",
+      customsValueGbpPence: 1_000_000,
+      supplierQuotes: [],
+      measuresAtCommodity: [aluminiumExtrusionMeasure()],
+    });
+
+    expect(result.exporterRateBasis).toBe("residual_default");
+    expect(result.errorCode).toBe(EXPORTER_UNRESOLVED);
+    expect(result.exporterIdentityConfidenceBps).toBeGreaterThanOrEqual(0);
+    expect(result.exporterIdentityConfidenceBps).toBeLessThanOrEqual(10_000);
+    expect(result.selectedRatePctBps).toBe(3510);
+  });
+
+  it("L5-T-measure_interaction-012 applies aluminium residual duty and records named-exporter delta", () => {
+    const result = resolveExporter({
+      commodityCode: "7604210000",
+      countryOfOrigin: "CN",
+      customsValueGbpPence: 1_000_000,
+      supplierQuotes: [],
+      measuresAtCommodity: [aluminiumExtrusionMeasure()],
+    });
+
+    expect(result.exporterRateBasis).toBe("residual_default");
+    expect(result.selectedRatePctBps).toBe(3510);
+    expect(result.appliedTradeRemedyDutyGbpPence).toBe(351_000);
+    expect(result.unlockableMarginBps).toBe(3510);
+    expect(result.evidenceLeverage[0]).toMatchObject({
+      kind: "named_exporter_proof",
+      unlockableMarginBps: 3510,
+    });
+  });
+
+  it("L5-T-measure_interaction-013 rejects distributor marketplace and factory-direct names as named-exporter proof", () => {
+    const weakClaims = [
+      {
+        supplierName: "Foshan Nanhai Aluminium Co Ltd",
+        supplierRole: "distributor" as const,
+      },
+      {
+        marketplaceSellerName: "Foshan Nanhai Aluminium Co Ltd",
+        supplierRole: "marketplace_seller" as const,
+      },
+      {
+        supplierName: "Factory Direct Aluminium Store",
+        supplierRole: "unknown" as const,
+        factoryDirectClaim: true,
+      },
+    ];
+
+    for (const quote of weakClaims) {
+      const result = resolveExporter({
+        commodityCode: "7604210000",
+        countryOfOrigin: "CN",
+        customsValueGbpPence: 1_000_000,
+        supplierQuotes: [quote],
+        measuresAtCommodity: [aluminiumExtrusionMeasure()],
+      });
+
+      expect(result.exporterRateBasis).toBe("residual_default");
+      expect(result.errorCode).toBe(EXPORTER_UNRESOLVED);
+      expect(result.selectedRatePctBps).toBe(3510);
+      expect(result.exporterIdentityConfidenceBps).toBeLessThanOrEqual(2500);
+    }
+  });
+
   it("L5-T-measure_interaction-020 skeleton maps viewer and operator sentinel boundaries", async () => {
     const [design, fixture] = await Promise.all([
       readText(redactionDesignUrl),
@@ -105,4 +175,30 @@ function fixtureFieldBlock(fixture: string, field: string): string {
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function aluminiumExtrusionMeasure() {
+  return {
+    id: "uk-ad-aluminium-extrusions-cn-residual",
+    kind: "anti_dumping" as const,
+    active: true,
+    countryOfOrigin: "CN",
+    residualRatePctBps: 3510,
+    namedExporterRates: [
+      {
+        exporterName: "Foshan Nanhai Aluminium Co Ltd",
+        manufacturerName: "Foshan Nanhai Aluminium Co Ltd",
+        additionalCode: "C999",
+        ratePctBps: 0,
+      },
+    ],
+    annexExporterRates: [
+      {
+        exporterName: "Guangdong Annex Aluminium Producer",
+        manufacturerName: "Guangdong Annex Aluminium Producer",
+        additionalCode: "C998",
+        ratePctBps: 750,
+      },
+    ],
+  };
 }
