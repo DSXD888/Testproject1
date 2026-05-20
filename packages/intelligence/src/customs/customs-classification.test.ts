@@ -15,6 +15,7 @@ import {
   TRADE_REMEDY_WATCH_STALE,
   createTariffChangeEvent,
   createTradeRemedyCaseOpeningEvent,
+  evaluateCbamExposure,
   sweepFreshness,
 } from "./classification-freshness";
 import { EXPORTER_UNRESOLVED, resolveExporter } from "./exporter-resolution";
@@ -486,6 +487,91 @@ describe("customs classification freshness", () => {
     expect(caughtUp.passing).toBe(true);
     expect(caughtUp.catchUpJobs).toEqual([]);
     expect(caughtUp.blocksL6Readiness).toBe(false);
+  });
+});
+
+describe("customs classification CBAM placeholder", () => {
+  it("L5-T-customs_classification-025 flags confirmed 2027 sectors without quantifying CBAM", () => {
+    const inScopeCases = [
+      { sector: "iron_and_steel", uk10: "7318159590" },
+      { sector: "aluminium", uk10: "7607111900" },
+      { sector: "cement", uk10: "2523290000" },
+      { sector: "fertiliser", uk10: "3102101000" },
+      { sector: "hydrogen", uk10: "2804100000" },
+    ] as const;
+
+    for (const fixture of inScopeCases) {
+      const result = evaluateCbamExposure({
+        uk10: fixture.uk10,
+        deliveryWindow: {
+          start: "2026-12-15T00:00:00Z",
+          end: "2027-01-15T00:00:00Z",
+        },
+      });
+
+      expect(result).toMatchObject({
+        cbamExposureFlag: 1,
+        cbamEstimateGbpPence: null,
+        sector: fixture.sector,
+        rationale:
+          "confirmed_2027_sector_window_crosses_2027_01_01_estimate_pending_secondary_legislation",
+      });
+    }
+  });
+
+  it("L5-T-customs_classification-026 clears non-scope families and pre-2027 windows", () => {
+    const clearCases = [
+      {
+        uk10: "7010904300",
+        deliveryWindow: {
+          start: "2026-12-15T00:00:00Z",
+          end: "2027-01-15T00:00:00Z",
+        },
+        sector: null,
+        rationale: "outside_confirmed_2027_cbam_sector_scope",
+      },
+      {
+        uk10: "6911100000",
+        deliveryWindow: {
+          start: "2026-12-15T00:00:00Z",
+          end: "2027-01-15T00:00:00Z",
+        },
+        sector: null,
+        rationale: "outside_confirmed_2027_cbam_sector_scope",
+      },
+      {
+        uk10: "7318159590",
+        deliveryWindow: {
+          start: "2026-12-01T00:00:00Z",
+          end: "2026-12-31T23:59:59Z",
+        },
+        sector: "iron_and_steel",
+        rationale: "delivery_window_ends_before_2027_01_01",
+      },
+      {
+        uk10: "7607111900",
+        deliveryWindow: {
+          start: "2026-12-01T00:00:00Z",
+          end: "2026-12-31T23:59:59Z",
+        },
+        sector: "aluminium",
+        rationale: "delivery_window_ends_before_2027_01_01",
+      },
+    ] as const;
+
+    for (const fixture of clearCases) {
+      const result = evaluateCbamExposure({
+        uk10: fixture.uk10,
+        deliveryWindow: fixture.deliveryWindow,
+      });
+
+      expect(result).toMatchObject({
+        cbamExposureFlag: 0,
+        cbamEstimateGbpPence: null,
+        sector: fixture.sector,
+        rationale: fixture.rationale,
+      });
+    }
   });
 });
 

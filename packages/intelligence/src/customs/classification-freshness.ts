@@ -1,10 +1,18 @@
 export const TRADE_REMEDY_WATCH_STALE = "TRADE_REMEDY_WATCH_STALE";
 export const TARIFF_STRUCTURE_CHANGED = "TARIFF_STRUCTURE_CHANGED";
 export const TRA_INVESTIGATION_OPEN = "TRA_INVESTIGATION_OPEN";
+export const CBAM_2027_START_DATE = "2027-01-01";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 export type FreshnessVector = "structure" | "measures" | "remedies" | "fx";
+
+export type Cbam2027Sector =
+  | "aluminium"
+  | "cement"
+  | "fertiliser"
+  | "hydrogen"
+  | "iron_and_steel";
 
 export type TradeRemedyWatchState =
   | "stable"
@@ -106,6 +114,21 @@ export interface TradeRemedyCaseOpeningEvent {
   enqueueRecalculation: false;
 }
 
+export interface CbamExposureInput {
+  uk10: string;
+  deliveryWindow: { start: string; end: string };
+}
+
+export interface CbamExposureResult {
+  cbamExposureFlag: 0 | 1;
+  cbamEstimateGbpPence: null;
+  sector: Cbam2027Sector | null;
+  rationale:
+    | "confirmed_2027_sector_window_crosses_2027_01_01_estimate_pending_secondary_legislation"
+    | "delivery_window_ends_before_2027_01_01"
+    | "outside_confirmed_2027_cbam_sector_scope";
+}
+
 export function sweepFreshness(input: FreshnessSweepInput): FreshnessSweepResult {
   const expectedImportEnd = parseIsoDate(
     input.expectedImportWindow.end,
@@ -184,6 +207,48 @@ export function sweepFreshness(input: FreshnessSweepInput): FreshnessSweepResult
     tradeRemedyWatchState,
     vectorStates,
     catchUpJobs,
+  };
+}
+
+export function evaluateCbamExposure(
+  input: CbamExposureInput,
+): CbamExposureResult {
+  const commodityCode = normalizeUk10(input.uk10);
+  const sector = cbam2027SectorFor(commodityCode);
+  const deliveryStart = parseIsoDate(
+    input.deliveryWindow.start,
+    "deliveryWindow.start",
+  );
+  const deliveryEnd = parseIsoDate(input.deliveryWindow.end, "deliveryWindow.end");
+  if (deliveryEnd < deliveryStart) {
+    throw new Error("deliveryWindow.end must be on or after deliveryWindow.start");
+  }
+
+  if (sector === null) {
+    return {
+      cbamExposureFlag: 0,
+      cbamEstimateGbpPence: null,
+      sector: null,
+      rationale: "outside_confirmed_2027_cbam_sector_scope",
+    };
+  }
+
+  const cbamStartsAt = parseIsoDate(CBAM_2027_START_DATE, "CBAM_2027_START_DATE");
+  if (deliveryEnd < cbamStartsAt) {
+    return {
+      cbamExposureFlag: 0,
+      cbamEstimateGbpPence: null,
+      sector,
+      rationale: "delivery_window_ends_before_2027_01_01",
+    };
+  }
+
+  return {
+    cbamExposureFlag: 1,
+    cbamEstimateGbpPence: null,
+    sector,
+    rationale:
+      "confirmed_2027_sector_window_crosses_2027_01_01_estimate_pending_secondary_legislation",
   };
 }
 
@@ -302,6 +367,33 @@ function blockersFor(expiredVectors: FreshnessVector[]): string[] {
     blockers.push(TRADE_REMEDY_WATCH_STALE);
   }
   return uniqueSorted(blockers);
+}
+
+function cbam2027SectorFor(uk10: string): Cbam2027Sector | null {
+  if (uk10.startsWith("72") || uk10.startsWith("73")) {
+    return "iron_and_steel";
+  }
+  if (uk10.startsWith("76")) {
+    return "aluminium";
+  }
+  if (uk10.startsWith("2523")) {
+    return "cement";
+  }
+  if (uk10.startsWith("31")) {
+    return "fertiliser";
+  }
+  if (uk10.startsWith("280410")) {
+    return "hydrogen";
+  }
+  return null;
+}
+
+function normalizeUk10(value: string): string {
+  const normalized = value.replace(/\s/g, "");
+  if (!/^\d{2,10}$/.test(normalized)) {
+    throw new Error("uk10 must be a 2 to 10 digit commodity code");
+  }
+  return normalized;
 }
 
 function orderedVectors(): FreshnessVector[] {
