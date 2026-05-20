@@ -5268,13 +5268,14 @@ enum LandedCostPathMode {
 
 impl LandedCostPathMode {
     fn from_env_value(raw: Option<&str>) -> Self {
-        let Some(value) = raw.map(str::trim).filter(|value| !value.is_empty()) else {
-            return Self::ScreeningGradeOnly;
-        };
-        match value.to_ascii_lowercase().replace('-', "_").as_str() {
-            "shadow" | "shadow_compare" => Self::ShadowCompare,
-            "decision_grade" => Self::DecisionGrade,
-            _ => Self::ScreeningGradeOnly,
+        let normalized = raw
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(|value| value.to_ascii_lowercase().replace('-', "_"));
+        match normalized.as_deref() {
+            Some("screening_grade" | "screening_grade_only" | "off") => Self::ScreeningGradeOnly,
+            Some("shadow" | "shadow_compare") => Self::ShadowCompare,
+            _ => Self::DecisionGrade,
         }
     }
 
@@ -27976,13 +27977,21 @@ mod tests {
     }
 
     #[test]
-    fn l5_decision_grade_feature_flag_defaults_to_screening() {
+    fn l5_decision_grade_feature_flag_defaults_to_decision_grade() {
         assert!(matches!(
             super::LandedCostPathMode::from_env_value(None),
-            super::LandedCostPathMode::ScreeningGradeOnly
+            super::LandedCostPathMode::DecisionGrade
         ));
         assert!(matches!(
             super::LandedCostPathMode::from_env_value(Some("")),
+            super::LandedCostPathMode::DecisionGrade
+        ));
+        assert!(matches!(
+            super::LandedCostPathMode::from_env_value(Some("screening_grade")),
+            super::LandedCostPathMode::ScreeningGradeOnly
+        ));
+        assert!(matches!(
+            super::LandedCostPathMode::from_env_value(Some("off")),
             super::LandedCostPathMode::ScreeningGradeOnly
         ));
         assert!(matches!(
@@ -27990,7 +27999,11 @@ mod tests {
             super::LandedCostPathMode::ShadowCompare
         ));
         assert!(matches!(
-            super::LandedCostPathMode::from_env_value(Some("decision_grade")),
+            super::LandedCostPathMode::from_env_value(Some("decision-grade")),
+            super::LandedCostPathMode::DecisionGrade
+        ));
+        assert!(matches!(
+            super::LandedCostPathMode::from_env_value(Some("unexpected")),
             super::LandedCostPathMode::DecisionGrade
         ));
     }
