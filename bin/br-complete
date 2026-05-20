@@ -8,7 +8,9 @@ Order (do not reorder):
      (otherwise the bead was never properly claimed via br-claim)
   4. resolve commit hash (--commit, else `git log --grep` for `<id>:`)
   5. verify HEAD == @{u} so the commit is actually on the remote
-  6. send_message [<id>] Complete (to peers + self)
+  6. discover_peers (list_contacts, then list_agents liveness fallback;
+     loud error if neither yields peers and --solo not set);
+     send_message [<id>] Complete to those peers (NEVER silently self)
   7. `br close <id> --reason "Completed"`
   8. `bin/br-sync` + git add .beads/ + commit + pull --rebase + push
   9. release_file_reservations(agent_name=<self>)
@@ -18,6 +20,7 @@ once the underlying issue is fixed.
 """
 
 import argparse
+from datetime import datetime, timedelta, timezone
 import json
 import os
 import subprocess
@@ -105,6 +108,16 @@ def preflight_health(url, token, tool_label):
     recovery = result.get("recovery") or {}
     next_action = recovery.get("next_action") if isinstance(recovery, dict) else ""
     next_action = next_action or ""
+    recovery_mode = (recovery.get("mode") or "").lower() if isinstance(recovery, dict) else ""
+    write_policy = (recovery.get("write_policy") or "").lower() if isinstance(recovery, dict) else ""
+    if recovery_mode == "degraded_read_only" or write_policy == "reject_all_mutations":
+        die(
+            "agent-mail is degraded_read_only — refusing to mutate.\n"
+            f"  recovery.mode:        {recovery_mode or '(missing)'}\n"
+            f"  recovery.write_policy:{write_policy or '(missing)'}\n"
+            f"  recovery.next_action: {next_action}\n"
+            "  Do not retry until the operator has repaired the SQLite index."
+        )
     if health_level == "red" and "archive inventory is ahead" in detail:
         die(
             "agent-mail is degraded_read_only — refusing to mutate.\n"
@@ -186,8 +199,156 @@ def mcp_call(url, token, tool_name, arguments, timeout=30):
         try:
             return json.loads(text_payload)
         except ValueError:
+            lower_payload = text_payload.lower()
+            if (
+                "degraded_read_only" in lower_payload
+                or "not write-safe" in lower_payload
+                or "mutating mcp calls are refused" in lower_payload
+            ):
+                die(f"MCP {tool_name} error: {text_payload}", code=1)
             return text_payload
     return result
+
+
+class NoPeersError(RuntimeError):
+    """Raised when neither list_contacts nor list_agents yields any peer."""
+
+
+def _parse_iso_ts(value):
+    """Parse an ISO-8601 timestamp; tolerate trailing 'Z' and missing tz."""
+    if not isinstance(value, str) or not value:
+        return None
+    text = value.strip()
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        dt = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+def _normalize_peer_list(payload, *, exclude):
+    """Flatten list_contacts/list_agents response shapes into peer names."""
+    out = []
+    seen = set()
+
+    def _add(name):
+        if not name or not isinstance(name, str):
+            return
+        if name == exclude or name in seen:
+            return
+        seen.add(name)
+        out.append(name)
+
+    items = []
+    if isinstance(payload, list):
+        items = payload
+    elif isinstance(payload, dict):
+        for key in ("contacts", "agents", "result", "results", "items"):
+            value = payload.get(key)
+            if isinstance(value, list):
+                items = value
+                break
+    for entry in items:
+        if isinstance(entry, str):
+            _add(entry)
+        elif isinstance(entry, dict):
+            _add(entry.get("name") or entry.get("agent_name"))
+    return out
+
+
+# Sentinel for "auto-derive same_program from self's list_agents entry".
+_AUTO_PROGRAM = object()
+
+
+def discover_peers(
+    url, token, project_key, agent,
+    *,
+    max_idle_seconds=3600,
+    same_program=_AUTO_PROGRAM,
+    allow_solo=False,
+    tool_label="br-complete",
+):
+    """Resolve recipients for Start/Complete mail.
+
+    Strategy:
+      1. list_contacts — preferred explicit handshake links.
+      2. list_agents — liveness fallback, same-program by default.
+      3. No peers — raise loudly unless solo mode was explicitly requested.
+
+    Returns (recipients: list[str], source: str), where source is one of
+    "contacts", "list_agents", or "solo".
+    """
+    contacts_payload = mcp_call(url, token, "list_contacts", {
+        "project_key": project_key, "agent_name": agent,
+    })
+    contacts = _normalize_peer_list(contacts_payload, exclude=agent)
+    if contacts:
+        return contacts, "contacts"
+
+    agents_payload = mcp_call(url, token, "list_agents", {
+        "project_key": project_key,
+    })
+    candidates = []
+    if isinstance(agents_payload, list):
+        candidates = agents_payload
+    elif isinstance(agents_payload, dict):
+        for key in ("agents", "result", "results", "items"):
+            value = agents_payload.get(key)
+            if isinstance(value, list):
+                candidates = value
+                break
+
+    if same_program is _AUTO_PROGRAM:
+        same_program = ""
+        for entry in candidates:
+            if not isinstance(entry, dict):
+                continue
+            name = entry.get("name") or entry.get("agent_name")
+            if name == agent:
+                same_program = entry.get("program") or ""
+                break
+
+    cutoff = datetime.now(timezone.utc) - timedelta(seconds=max_idle_seconds)
+    live = []
+    seen = set()
+    for entry in candidates:
+        if not isinstance(entry, dict):
+            continue
+        name = entry.get("name") or entry.get("agent_name")
+        if not name or name == agent or name in seen:
+            continue
+        if same_program:
+            prog = entry.get("program")
+            if prog and prog != same_program:
+                continue
+        last = entry.get("last_active_ts") or entry.get("inception_ts")
+        ts = _parse_iso_ts(last) if last else None
+        if ts is None or ts >= cutoff:
+            seen.add(name)
+            live.append(name)
+    if live:
+        return live, "list_agents"
+
+    if allow_solo:
+        return [agent], "solo"
+    raise NoPeersError(
+        "no peers discoverable.\n"
+        f"  list_contacts returned [] AND list_agents returned no live peers "
+        f"(idle cutoff: {max_idle_seconds}s, program filter: {same_program!r}).\n"
+        f"  Recovery options:\n"
+        f"    1. Handshake an existing peer:\n"
+        f"         macro_contact_handshake(project_key={project_key!r},\n"
+        f"                                 requester={agent!r}, target=<peer>)\n"
+        f"    2. Confirm a second agent is registered in this project:\n"
+        f"         list_agents(project_key={project_key!r})\n"
+        f"    3. If this really is a swarm of one, opt in explicitly:\n"
+        f"         {tool_label} <bead-id> --solo\n"
+        f"         (or export AGENT_MAIL_ALLOW_SOLO=1)"
+    )
 
 
 def br_show(bead_id):
@@ -296,6 +457,30 @@ def parse_args():
         "--dry-run", action="store_true",
         help="Print intentions and exit; make NO changes.",
     )
+    p.add_argument(
+        "--solo", action="store_true",
+        help=(
+            "Allow self-addressing when no peers are discoverable. "
+            "Use only for genuine single-agent operation. "
+            "Equivalent to AGENT_MAIL_ALLOW_SOLO=1."
+        ),
+    )
+    p.add_argument(
+        "--peer-max-idle-seconds", type=int, default=3600,
+        help=(
+            "When falling back to list_agents (because list_contacts is empty), "
+            "treat agents idle longer than this as not-live. Default: 3600 (1h)."
+        ),
+    )
+    p.add_argument(
+        "--peer-same-program", default=None,
+        help=(
+            "When falling back to list_agents, only include peers whose program "
+            "matches this string. Default: auto-derived from your own program in "
+            "list_agents. Pass '*' to disable the filter. Pass a literal program "
+            "name to force-pin."
+        ),
+    )
     return p.parse_args()
 
 
@@ -372,27 +557,34 @@ def main():
         return 0
 
     # 4. SEND COMPLETE MAIL.
-    peers_res = mcp_call(url, token, "list_contacts", {
-        "project_key": project_key, "agent_name": agent,
-    })
-    peers = []
-    if isinstance(peers_res, list):
-        for p in peers_res:
-            if isinstance(p, str) and p and p != agent:
-                peers.append(p)
-            elif isinstance(p, dict):
-                n = p.get("agent_name") or p.get("name")
-                if n and n != agent:
-                    peers.append(n)
-    elif isinstance(peers_res, dict):
-        for p in peers_res.get("contacts", []) or []:
-            if isinstance(p, dict):
-                n = p.get("agent_name") or p.get("name")
-                if n and n != agent:
-                    peers.append(n)
-            elif isinstance(p, str) and p != agent:
-                peers.append(p)
-    recipients = peers if peers else [agent]
+    allow_solo = bool(args.solo) or os.environ.get("AGENT_MAIL_ALLOW_SOLO", "").strip() in ("1", "true", "yes")
+    if args.peer_same_program is None:
+        program_arg = _AUTO_PROGRAM
+    elif args.peer_same_program == "*":
+        program_arg = ""
+    else:
+        program_arg = args.peer_same_program
+    try:
+        recipients, source = discover_peers(
+            url, token, project_key, agent,
+            max_idle_seconds=args.peer_max_idle_seconds,
+            same_program=program_arg,
+            allow_solo=allow_solo,
+            tool_label="br-complete",
+        )
+    except NoPeersError as e:
+        die(str(e))
+    if source == "solo":
+        warn(
+            "no peers found — proceeding in solo mode. "
+            "Complete mail will be self-addressed (audit-only)."
+        )
+    elif source == "list_agents":
+        warn(
+            "no contacts found; falling back to list_agents liveness filter. "
+            f"Recipients: {recipients!r}. "
+            "Run macro_contact_handshake to make this deterministic."
+        )
 
     body_md = (
         f"Completed bead **{bead_id}** ({title}).\n\n"

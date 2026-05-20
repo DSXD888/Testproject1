@@ -49,6 +49,39 @@ macro_start_session(
 )
 ```
 
+**Refresh contact handshakes.** Other agents may have joined the swarm between your sessions. Without an explicit handshake, the `bin/br-claim` / `bin/br-complete` wrappers cannot peer-route Start/Complete mail to them:
+
+```
+# _within_last_hour is a 3-line helper:
+#   def _within_last_hour(ts): return ts and (now_utc() - parse_iso(ts)) < timedelta(hours=1)
+peers = list_agents(project_key="/Users/alinaaitova/Desktop/Testproject1")
+contacts = list_contacts(project_key="/Users/alinaaitova/Desktop/Testproject1", agent_name=<your-name>)
+contact_names = {(c["name"] if isinstance(c, dict) else c) for c in (contacts or [])}
+my_program = next((p["program"] for p in peers if p["name"] == <your-name>), None)
+new_handshakes = []
+for peer in peers:
+    if (peer["name"] != <your-name>
+        and peer["name"] not in contact_names
+        and peer.get("program") == my_program
+        and _within_last_hour(peer.get("last_active_ts"))):
+        macro_contact_handshake(
+            project_key="/Users/alinaaitova/Desktop/Testproject1",
+            requester=<your-name>,
+            target=peer["name"],
+        )
+        new_handshakes.append(peer["name"])
+
+# Verify — list_contacts must now include every peer you just handshook.
+contacts_after = list_contacts(project_key="/Users/alinaaitova/Desktop/Testproject1",
+                               agent_name=<your-name>)
+after_names = {(c["name"] if isinstance(c, dict) else c) for c in (contacts_after or [])}
+missing = [n for n in new_handshakes if n not in after_names]
+assert not missing, \
+    f"Refresh handshake failed for: {missing}. Investigate before next bin/br-claim."
+```
+
+Do this on every session resume and after any "swarm grows" event.
+
 If `macro_start_session` is unavailable, do it manually:
 
 ```

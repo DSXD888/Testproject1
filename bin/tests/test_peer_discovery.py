@@ -1,0 +1,162 @@
+#!/usr/bin/env python3
+"""Tests for discover_peers(...) in bin/br-claim.
+
+Runs against the live mcp-agent-mail HTTP server on 127.0.0.1:8765. Each test
+uses a unique throwaway project_key so it does not pollute any real project's
+archive. The throwaway project directories are intentionally left in /tmp.
+
+Run:
+    python3 -m unittest bin.tests.test_peer_discovery
+"""
+
+import importlib.machinery
+import importlib.util
+import contextlib
+import io
+import os
+import socket
+import tempfile
+import unittest
+
+
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+BR_CLAIM = os.path.join(REPO_ROOT, "bin", "br-claim")
+MCP_URL = os.environ.get("AGENT_MAIL_MCP_URL", "http://127.0.0.1:8765/mcp/")
+
+
+def _load_module(path, name):
+    loader = importlib.machinery.SourceFileLoader(name, path)
+    spec = importlib.util.spec_from_loader(name, loader)
+    mod = importlib.util.module_from_spec(spec)
+    loader.exec_module(mod)
+    return mod
+
+
+def _agentmail_reachable():
+    try:
+        with socket.create_connection(("127.0.0.1", 8765), timeout=1):
+            return True
+    except OSError:
+        return False
+
+
+@unittest.skipUnless(_agentmail_reachable(), "mcp-agent-mail not reachable on 127.0.0.1:8765")
+class DiscoverPeersTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.br_claim = _load_module(BR_CLAIM, "br_claim_under_test")
+        cls.token = cls.br_claim.resolve_bearer_token()
+
+    def setUp(self):
+        self.project_key = tempfile.mkdtemp(prefix="test-peer-discovery-")
+        self._mcp_call("ensure_project", {
+            "human_key": self.project_key,
+        })
+
+    def _mcp_call(self, tool_name, arguments):
+        stderr = io.StringIO()
+        try:
+            with contextlib.redirect_stderr(stderr):
+                return self.br_claim.mcp_call(MCP_URL, self.token, tool_name, arguments)
+        except SystemExit:
+            msg = stderr.getvalue()
+            lowered = msg.lower()
+            if (
+                "degraded_read_only" in lowered
+                or "not write-safe" in lowered
+                or "mutating mcp calls are refused" in lowered
+            ):
+                self.skipTest(f"mcp-agent-mail is not write-safe: {msg.strip()}")
+            raise
+
+    def _register(self, suffix):
+        res = self._mcp_call("register_agent", {
+            "project_key": self.project_key,
+            "program": "peer-discovery-test",
+            "model": "test",
+            "task_description": f"peer-discovery test agent {suffix}",
+        })
+        name = res.get("name") if isinstance(res, dict) else None
+        self.assertIsNotNone(name, f"register_agent returned no name: {res!r}")
+        self._mcp_call("set_contact_policy", {
+            "project_key": self.project_key,
+            "agent_name": name,
+            "policy": "open",
+        })
+        return name
+
+    def _handshake(self, requester, target):
+        self._mcp_call("macro_contact_handshake", {
+            "project_key": self.project_key,
+            "requester": requester,
+            "target": target,
+            "auto_accept": True,
+        })
+
+    def test_T1_contacts_present_returns_contacts(self):
+        a = self._register("T1a")
+        b = self._register("T1b")
+        self._handshake(a, b)
+        peers, source = self.br_claim.discover_peers(
+            MCP_URL, self.token, self.project_key, a,
+        )
+        self.assertEqual(source, "contacts")
+        self.assertIn(b, peers)
+        self.assertNotIn(a, peers)
+
+    def test_T2_no_contacts_list_agents_live(self):
+        a = self._register("T2a")
+        b = self._register("T2b")
+        peers, source = self.br_claim.discover_peers(
+            MCP_URL, self.token, self.project_key, a,
+            max_idle_seconds=3600,
+        )
+        self.assertEqual(source, "list_agents")
+        self.assertIn(b, peers)
+        self.assertNotIn(a, peers)
+
+    def test_T3_stale_only_raises_or_returns_live(self):
+        a = self._register("T3a")
+        self._register("T3b")
+        try:
+            peers, source = self.br_claim.discover_peers(
+                MCP_URL, self.token, self.project_key, a,
+                max_idle_seconds=0,
+            )
+            self.assertNotEqual(peers, [a])
+            self.assertEqual(source, "list_agents")
+        except self.br_claim.NoPeersError:
+            pass
+
+    def test_T4_solo_raises(self):
+        a = self._register("T4a")
+        with self.assertRaises(self.br_claim.NoPeersError) as cm:
+            self.br_claim.discover_peers(
+                MCP_URL, self.token, self.project_key, a,
+            )
+        msg = str(cm.exception)
+        self.assertIn("macro_contact_handshake", msg)
+        self.assertIn("--solo", msg)
+
+    def test_T5_allow_solo_returns_self(self):
+        a = self._register("T5a")
+        peers, source = self.br_claim.discover_peers(
+            MCP_URL, self.token, self.project_key, a,
+            allow_solo=True,
+        )
+        self.assertEqual(peers, [a])
+        self.assertEqual(source, "solo")
+
+    def test_T6_dedup_and_self_filter(self):
+        a = self._register("T6a")
+        b = self._register("T6b")
+        self._handshake(a, b)
+        peers, _ = self.br_claim.discover_peers(
+            MCP_URL, self.token, self.project_key, a,
+        )
+        self.assertEqual(peers.count(b), 1)
+        self.assertNotIn(a, peers)
+
+
+if __name__ == "__main__":
+    unittest.main()

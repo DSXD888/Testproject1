@@ -27,6 +27,8 @@ For any bead-tracked work in this repo, you MUST use the project wrappers to cla
 
 You MUST NOT use raw `br update --status=in_progress` or `br close <id>` directly — they bypass Agent Mail and file reservations, which leaves the swarm unable to detect collisions. The pre-commit hook at `.git/hooks/hooks.d/pre-commit/50-agent-mail.py` enforces file-reservation conflicts today; the Phase B extension to that hook (when active) will additionally block any commit with a `<bead-id>:` message prefix that has no corresponding `[<bead-id>] Start` mail in the archive.
 
+**Prerequisite — bootstrap contact handshake.** `bin/br-claim` and `bin/br-complete` send Start/Complete mail to the peers returned by `list_contacts(...)`. `contact_policy: "open"` enables incoming requests but does NOT auto-create handshake links — without an explicit `macro_contact_handshake(...)`, `list_contacts` is empty and the wrappers fall back to a liveness-filtered `list_agents` (or raise `NoPeersError` if neither yields peers). For deterministic peer routing, run `macro_contact_handshake` against every visible peer at session start (see the "MCP Agent Mail" section below) and refresh after any swarm-growth event. The wrappers also accept `--solo` (or `AGENT_MAIL_ALLOW_SOLO=1`) for legitimate single-agent operation, which still emits a loud warning rather than acting silently.
+
 If a wrapper errors, fix the underlying problem (agent-mail server down, file reservation conflict, missing `AGENT_MAIL_NAME` env var). Never bypass.
 
 This is a constitutional rule, equal in force to Rule 1 (no file deletion). It applies to every layer (L0 through L6 and beyond) and every future stage.
@@ -218,10 +220,24 @@ A mail-like layer that lets coding agents coordinate asynchronously via MCP tool
 
 ### Same Repository Workflow
 
-1. **Register identity:**
+1. **Register identity, set policy, AND handshake peers:**
    ```
-   ensure_project(project_key=<abs-path>)
+   ensure_project(human_key=<abs-path>)
    register_agent(project_key, program, model)
+   set_contact_policy(project_key, agent_name=<you>, policy="open")
+
+   # CRITICAL: handshake every live peer. contact_policy="open" only
+   # accepts incoming contact requests; it does not establish bilateral
+   # links. Without these handshakes, list_contacts(<you>) is empty
+   # and bin/br-claim / bin/br-complete fall back to list_agents
+   # (or raise NoPeersError).
+   for peer in list_agents(project_key):
+       if peer["name"] != <you>:
+           macro_contact_handshake(
+               project_key=project_key,
+               requester=<you>,
+               target=peer["name"],
+           )
    ```
 
 2. **Reserve files before editing:**
@@ -256,6 +272,7 @@ A mail-like layer that lets coding agents coordinate asynchronously via MCP tool
 - `"from_agent not registered"`: Always `register_agent` in the correct `project_key` first
 - `"FILE_RESERVATION_CONFLICT"`: Adjust patterns, wait for expiry, or use non-exclusive reservation
 - **Auth errors:** If JWT+JWKS enabled, include bearer token with matching `kid`
+- **Empty `list_contacts` after `set_contact_policy(policy="open")`**: expected. Policy enables incoming requests; it does not auto-handshake. Run `macro_contact_handshake` (see Same Repository Workflow step 1) before relying on `list_contacts(...)` for routing. `bin/br-claim` / `bin/br-complete` will refuse to silently self-address — they fall back to `list_agents` and, failing that, raise `NoPeersError`.
 
 ---
 

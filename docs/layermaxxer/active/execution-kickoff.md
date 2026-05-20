@@ -182,6 +182,41 @@ macro_start_session(
 
 This registers your agent, fetches your inbox, and shows active file reservations in one call.
 
+**THEN — bootstrap contact handshakes (REQUIRED before any `bin/br-claim`).**
+
+`macro_start_session` registers and may set `contact_policy="open"`, but it does NOT establish bilateral contact links. Without an explicit handshake, `list_contacts(<you>)` is empty and the `bin/br-claim` / `bin/br-complete` wrappers fall back to a liveness-filtered `list_agents`, or — if that is also empty — raise `NoPeersError`. For deterministic peer routing:
+
+```
+# 1. Discover live peers in YOUR program.
+#    _within_last_hour is a 3-line helper:
+#      def _within_last_hour(ts): return ts and (now_utc() - parse_iso(ts)) < timedelta(hours=1)
+peers = list_agents(project_key="/Users/alinaaitova/Desktop/Testproject1")
+my_program = next((p["program"] for p in peers if p["name"] == <your-name>), None)
+candidates = [p for p in peers
+              if p["name"] != <your-name>
+              and p.get("program") == my_program
+              and _within_last_hour(p.get("last_active_ts"))]
+
+# 2. Handshake each.
+for peer in candidates:
+    macro_contact_handshake(
+        project_key="/Users/alinaaitova/Desktop/Testproject1",
+        requester=<your-name>,
+        target=peer["name"],
+    )
+
+# 3. VERIFY — every candidate must now appear in list_contacts.
+verified = list_contacts(project_key="/Users/alinaaitova/Desktop/Testproject1",
+                         agent_name=<your-name>)
+verified_names = {(c["name"] if isinstance(c, dict) else c) for c in (verified or [])}
+missing = [p["name"] for p in candidates if p["name"] not in verified_names]
+assert not missing, \
+    f"Handshake verification failed — these peers did NOT land in list_contacts: {missing}. " \
+    f"Investigate (rate limit, server error, race) before claiming any bead."
+```
+
+Refresh this handshake loop whenever you notice a new peer in `list_agents` that is not in your `list_contacts` — i.e., on every fresh inbox check, before each new `bin/br-claim`.
+
 If `macro_start_session` is unavailable, do it manually:
 
 ```

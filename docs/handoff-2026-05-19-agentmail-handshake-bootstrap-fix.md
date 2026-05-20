@@ -11,11 +11,25 @@ operator: xiasshuang@gmail.com
 
 # Handoff — AgentMail Handshake Bootstrap (Universal Fix)
 
-> **DO NOT START THIS WORK WHILE L5 BEADS ARE STILL OPEN.** See §0.
+> **DO NOT START THIS WORK WHILE L5 (Layer 5) BEADS ARE STILL OPEN, INCLUDING FIX BEADS.** See §0. The operator's chosen execution path is "complete every L5 bead — main AND fix — first, then land this handoff in the quiet window between L5 closing and any L6 swarm starting."
 
 ---
 
-## 0. Pre-flight — verify L5 is done AND L6 has not started
+## 0a. Five-line orientation for a cold-arriving agent
+
+If you've never worked in this project before, read this first. Then §0 pre-flight, then §1.
+
+- **The project**: `/Users/alinaaitova/Desktop/Testproject1` — UK public procurement intelligence platform. Multi-stack (Rust daemon + Bun/TypeScript packages + Tauri desktop + Next.js web). Multi-agent — multiple Claude/Codex sessions work in parallel via `bin/br-claim` / `bin/br-complete` + MCP Agent Mail. See `AGENTS.md` (constitutional) and `CLAUDE.md` (points to AGENTS.md).
+- **What "L5" means here**: Layer 5 — Expanded Commercial Intelligence. The most recent multi-agent swarm of work in this project, bead ID prefix `testproject1-hn05.*`. L5 introduces decision-grade customs classification + dual FX + real freight + marketplace skill maturations. It is being completed by a swarm of 4 concurrent agents (Claude + Codex CLI sessions).
+- **What "fix beads" means**: post-implementation fix beads spawned from L5 work — bugs found during L5, polish, follow-ups. Still labeled `layer-5`. Treated as in-scope for L5 until closed.
+- **What you're fixing**: a silent self-addressing bug in `bin/br-claim` and `bin/br-complete` that causes `[<bead-id>] Start` and `Complete` mail to go to `[<self>]` instead of peers whenever `list_contacts(...)` returns `[]` (which is the default on first claim, because `set_contact_policy("open")` does NOT auto-handshake). Operator caught this on 2026-05-19 during L5 Phase 1; applied a manual workaround to the live L5 swarm (see Appendix A for the verbatim message); deferred the durable fix to this handoff.
+- **What "universal fix" means**: the bug ships with the wrappers, and the wrappers ship to every new project the operator bootstraps. The fix has to land in this project's wrappers, in `AGENTS.md`, in the kickoff/push templates, in BOTH the Claude (`~/.claude/skills/`) and Codex (`~/.codex/skills/`) skill registries, AND in BOTH copies of the `install-bead-wrappers` skill assets (which is the canonical source from which new projects copy the wrappers). Anything less is partial coverage.
+
+If anything in this handoff conflicts with `AGENTS.md`, AGENTS.md wins.
+
+---
+
+## 0. Pre-flight — verify L5 (including fix beads) is done AND L6 has not started
 
 **Who runs this**: a fresh Claude Code or Codex CLI session in `/Users/alinaaitova/Desktop/Testproject1`, spawned by the operator after L5 closes. The session needs MCP access to the local `mcp-agent-mail` server and the `br` CLI on PATH. If you are a fully autonomous handoff worker, register with AgentMail first (§5.4 of `AGENTS.md`) so your `--solo` smoke tests can prove themselves against a real archive.
 
@@ -47,8 +61,10 @@ git status                       # must show "nothing to commit"
 git pull --rebase                # in sync with remote
 git rev-parse --abbrev-ref HEAD  # must be `main`
 
-# 4. No live swarm sessions. From your AgentMail-registered session:
-#    list_agents(project_key="/Users/alinaaitova/Desktop/Testproject1")
+# 4. No live swarm sessions. This check requires you to be AgentMail-registered
+#    (run macro_start_session FIRST if you haven't — it's a read-only registration
+#    that won't pollute the swarm). Then:
+#       list_agents(project_key="/Users/alinaaitova/Desktop/Testproject1")
 #    Reject if ANY result has program ∈ {l5-expanded-commercial-intelligence-executor,
 #    l6-*-executor} with last_active_ts inside the last 30 minutes.
 
@@ -58,6 +74,10 @@ curl -sfS http://127.0.0.1:8765/health 2>&1 | head -5
 ```
 
 If any check fails: **stop**, reply in any active handoff thread with `[handoff-block] AgentMail handshake fix paused: <reason>`, and wait. Do not proceed and do not partially apply — every change here is interdependent.
+
+**Specifically — if check #1 fails because fix beads are open**: the operator's chosen path is "let the swarm finish all open `layer-5` work first, using the L5 manual workaround (see Appendix A) the same way L5 main beads did, THEN run this handoff." Do NOT bypass check #1 to land the wrappers mid-fix-bead-swarm — that risks merge conflicts on `bin/br-claim` / `bin/br-complete` / `AGENTS.md` and could leave an active session running a half-loaded wrapper. Instead, reply with `[handoff-block] Waiting on layer-5 fix beads to close before landing handoff` and wait.
+
+Equivalently, if check #2 fails because L6 has already started, the gap has closed and a different decision is needed — escalate to the operator before proceeding. Don't try to thread the needle silently.
 
 ---
 
@@ -72,7 +92,7 @@ The fix has four durable parts, applied in order:
 3. **Claude skill-level (cross-project lever)** — update `~/.claude/skills/beads-to-execution/TEMPLATES.md` so every future Claude-Code-generated kickoff prompt inherits the handshake step automatically.
 4. **Codex skill-level (cross-project lever, MIRROR)** — same edit applied to `~/.codex/skills/beads-to-execution/TEMPLATES.md` so every future Codex-CLI-generated kickoff prompt inherits the same handshake step. Without this mirror, universal coverage breaks the moment the operator generates a kickoff from a Codex session.
 
-The bug is reproducible in 5 steps (predecessor manifest §3). The fix is reproducible in this document.
+The bug is reproducible in 5 steps (predecessor manifest §3). The fix is fully specified in this document — every artifact, every diff, every verification gate. A cold-arriving agent can execute end-to-end without external references beyond AGENTS.md and the predecessor error manifest.
 
 ---
 
@@ -88,7 +108,7 @@ The operator's concern: "I want a universal fix — does the handoff cover both 
 | Layermaxxer execution-kickoff/push templates (`docs/layermaxxer/active/...`) | Both — these templates are the source for layer-strategy execution prompts; the resulting prompts are consumed by whichever CLI the operator spawns. | §10, §11 | Same as above — markdown, CLI-neutral. |
 | `~/.claude/skills/beads-to-execution/TEMPLATES.md` | Claude Code only (the `/beads-to-execution` skill in Claude). | §12 | One half of the cross-CLI mirror. |
 | **`~/.codex/skills/beads-to-execution/TEMPLATES.md`** (parallel skill registry) | **Codex CLI only.** Confirmed present on this machine; mirror file structure to the Claude tree. | **§12-bis (NEW)** | Other half of the cross-CLI mirror. Without this, future kickoffs the operator generates from a Codex session would NOT inherit the handshake step. |
-| Sibling skills in BOTH trees that emit AgentMail-Setup blocks (`pipemaxxer/`, `layermaxxer/`) | Both — each CLI loads from its own tree. | §12.4, §12-bis.4 | Greps cover sibling skill TEMPLATES.md files in BOTH trees. |
+| Sibling skills in BOTH trees that emit AgentMail-Setup blocks (12+ files per tree — `bead-completion-audit`, `bead-plan-audit`, `beads-from-sources`, `featuremaxxer`, `layermaxxer`, `pipemaxxer`, `planmaxer`, `install-bead-wrappers`) | Both — each CLI loads from its own tree. | §12.4, §12-bis.3 | Greps cover sibling skill files (TEMPLATES.md / SKILL.md / CHECKLIST.md / references/TEMPLATES.md) in BOTH trees. |
 | Live `mcp-agent-mail` server (the broker) | Both — Claude and Codex sessions share one local server at `127.0.0.1:8765`; agents from either CLI co-exist in the same project archive. | (not modified — orthogonal) | The bug is purely client-side; the server's behaviour is correct. |
 | Phase B precommit hook (`.git/hooks/hooks.d/pre-commit/50-agent-mail.py`) | Both — runs from `git commit` regardless of CLI. | (not modified — still correct) | The hook only checks "Start mail exists in the thread"; it does not care about recipient list. This fix strengthens the upstream signal without changing the hook's contract. |
 
@@ -122,10 +142,29 @@ Bottom line: post-implementation, every NEW project (via `install-bead-wrappers`
 
 ## 2. Why this exists (link to evidence)
 
-Open `docs/handoff-2026-05-19-agentmail-wrapper-self-addressing.md` for the full error manifest — 4 affected agents, 16 self-addressed wrapper mails over 40 minutes in the L5 Phase 1 swarm of 2026-05-19, plus a counter-proof that direct `send_message` peer routing works fine. The manifest is dense; you do not need to re-read it to execute this handoff, but you must link to it from any commit message that lands the fix:
+Open `docs/handoff-2026-05-19-agentmail-wrapper-self-addressing.md` for the full error manifest — 4 affected agents, 16 self-addressed wrapper mails over 40 minutes in the L5 Phase 1 swarm of 2026-05-19, plus a counter-proof that direct `send_message` peer routing works fine. The manifest is dense; you do not need to re-read it to execute this handoff, but you must link to BOTH this handoff and the error manifest from your commit message:
 
-```
-commit -m "agent-mail wrappers: bootstrap handshake + layered peer discovery (fixes the self-addressing bug documented in docs/handoff-2026-05-19-agentmail-wrapper-self-addressing.md)"
+```bash
+git commit -m "$(cat <<'EOF'
+agent-mail wrappers: bootstrap handshake + layered peer discovery
+
+Replaces the silent `recipients = peers if peers else [agent]` self-fallback
+in bin/br-claim and bin/br-complete with a layered discovery strategy
+(list_contacts → list_agents liveness/program filter → loud NoPeersError),
+plus a --solo opt-in for legitimate single-agent operation. Adds the
+bootstrap-handshake step to AGENTS.md Rule 2 and the layermaxxer templates.
+
+Refs:
+  - docs/handoff-2026-05-19-agentmail-handshake-bootstrap-fix.md  (this handoff — plan)
+  - docs/handoff-2026-05-19-agentmail-wrapper-self-addressing.md  (error manifest — why)
+
+Operator-side mirror edits (NOT in this commit, applied in same session):
+  ~/.claude/skills/beads-to-execution/TEMPLATES.md           — §12
+  ~/.codex/skills/beads-to-execution/TEMPLATES.md            — §12-bis
+  ~/.claude/skills/install-bead-wrappers/assets/{br-claim,br-complete,agents-md-rule-2.md}
+  ~/.codex/skills/install-bead-wrappers/assets/{br-claim,br-complete,agents-md-rule-2.md}
+EOF
+)"
 ```
 
 The manifest's §5 (Root Cause), §7 (Proposed fix), §10 (Cross-project portability), and §12 (Handoff notes for the implementing agent) are the design source for everything below. If something in this handoff seems contradictory to the manifest, the manifest wins — call out the conflict in your commit message and proceed conservatively.
@@ -176,17 +215,21 @@ Out of scope (do **not** touch as part of this handoff):
 
 Implement strictly in this order. Each step is committable on its own; do **not** bundle them.
 
-| Step | What lands | Why this order |
-|------|-----------|----------------|
-| 5.1 | New test file `bin/tests/test_peer_discovery.py` + new helper `discover_peers(...)` duplicated in BOTH wrappers, **wired in behind a feature flag (`AGENT_MAIL_USE_LAYERED_DISCOVERY=1`) that defaults OFF** | Tests prove the helper before any wrapper behaviour changes. Old silent-fallback path is still the default. Zero behaviour change for any agent that pulls this commit without setting the flag. |
-| 5.2 | Flip the wrapper default: helper becomes the primary path, silent-fallback is dropped. `--solo` and `AGENT_MAIL_ALLOW_SOLO=1` become the only ways to address self. Emit a clear `NoPeersError` otherwise. | Once helper is exercised by tests and at least one live swarm validates it (§13.5), drop the flag. |
-| 5.3 | AGENTS.md Rule 2 addendum + MCP Agent Mail section addendum | Constitutional update — should land in the same commit as 5.2 so the rule and the wrapper behaviour ship together. |
-| 5.4 | `docs/layermaxxer/active/execution-kickoff.md` §5.1 + `execution-push.md` §2.1 — add bootstrap-handshake sub-step | Future layer kickoffs generated against these templates inherit the fix. |
-| 5.5 | **`~/.claude/skills/beads-to-execution/TEMPLATES.md`** — insert new sub-step §2a-bis (Bootstrap contact handshakes) between §2a "Boot Your Session" and §2b "Check What's Happening" | Propagates to every future Claude-Code-generated kickoff. |
-| 5.6 | **`~/.codex/skills/beads-to-execution/TEMPLATES.md`** — same edit, mirrored. Plus the §12-bis.3 grep against `~/.codex/skills/*/` for any sibling skill that emits an AgentMail-Setup block. | **Without this, every kickoff the operator generates from a Codex session ships the bug.** Universal coverage hinges on this step. |
-| 5.7 | **`~/.claude/skills/install-bead-wrappers/assets/{br-claim, br-complete, agents-md-rule-2.md}`** + same trio in `~/.codex/skills/install-bead-wrappers/assets/` — `cp` the fixed wrappers from this repo, append the Rule 2 addendum to both copies of `agents-md-rule-2.md`. | **Without this, every NEW project bootstrapped via `install-bead-wrappers` re-introduces the bug from day 1.** Even if the Claude/Codex `beads-to-execution` templates are fixed, a new project's wrappers will still self-address until someone manually patches them. §12-ter is the canonical pin. |
-| 5.8 | Live validation — spawn one Claude session and one Codex session, run the kickoff bootstrap from each, claim a throwaway bead, assert peer-routed Start mail (§13.5) | Final acceptance gate; cross-CLI proof. |
-| 5.9 | **End-to-end portability proof** — initialize a throwaway git repo in `/tmp`, run `install-bead-wrappers` (from either CLI), confirm the freshly-copied `bin/br-claim` contains `discover_peers` and does NOT contain `peers if peers else [agent]`. Confirm the freshly-appended Rule 2 includes the new handshake addendum. | Proves the install-bead-wrappers assets actually carry the fix. |
+No feature flag, no two-step landing. The entire premise of this handoff is "run after L5 closes" (§0), so there is no active swarm to protect from a one-shot wrapper rewrite. The §13.2 static greps + §13.5 cross-CLI live test catch any helper bug deterministically before the change ever touches a real swarm. Land each step, run its verification gate, then proceed.
+
+| Step | What lands | Why this order / gate |
+|------|-----------|----------------------|
+| 5.1 | New test file `bin/tests/test_peer_discovery.py` (§8). Run T1–T6 against a live mcp-agent-mail. | Tests are written BEFORE the wrappers change so the helper's contract is locked. T4 in particular pins the "raise on no peers" invariant. |
+| 5.2 | `bin/br-claim` + `bin/br-complete` — drop the old `recipients = peers if peers else [agent]` line and land the `discover_peers(...)` helper + CLI flags (§6 + §7). Single commit. **Gate: §13.2 grep checks must all pass before commit.** | One atomic replacement, not parallel paths. After this commit, no wrapper invocation in this repo can silently self-address. |
+| 5.3 | `AGENTS.md` — Rule 2 addendum + MCP Agent Mail section step-1 rewrite + Common Pitfalls bullet (§9). Same commit as 5.2 so rule and wrapper behaviour ship together. | Constitutional change pinned to the behaviour change. |
+| 5.4 | `docs/layermaxxer/active/execution-kickoff.md` §5.1 + `execution-push.md` §2.1 — add bootstrap-handshake sub-step (§10 + §11). Same commit as 5.2/5.3. | Future layer kickoffs generated against these templates inherit the fix. |
+| 5.5 | **`~/.claude/skills/beads-to-execution/TEMPLATES.md`** — insert new sub-step §2a-bis (Bootstrap contact handshakes) between §2a "Boot Your Session" and §2b "Check What's Happening" (§12). Plus §12.4 sibling-skill sweep. | Propagates to every future Claude-Code-generated kickoff. Operator-side edit (not in the repo commit). |
+| 5.6 | **`~/.codex/skills/beads-to-execution/TEMPLATES.md`** — same edit, mirrored (§12-bis). Plus §12-bis.3 sibling-skill sweep. **Gate: §12-bis.5 cross-CLI sanity grep must return `1` for both tree's TEMPLATES.md.** | **Without this, every kickoff generated from a Codex session ships the bug.** Universal coverage hinges on this. Operator-side edit. |
+| 5.7 | **`~/.claude/skills/install-bead-wrappers/assets/{br-claim, br-complete, agents-md-rule-2.md}`** + the same trio in `~/.codex/skills/install-bead-wrappers/assets/` — `cp` the fixed wrappers, append the Rule 2 addendum to both copies of `agents-md-rule-2.md` (§12-ter). **Gate: §12-ter.2 final `diff -q` chain returns no output.** | **Without this, every NEW project bootstrapped via `install-bead-wrappers` re-introduces the bug from day 1.** §12-ter is the canonical pin. |
+| 5.8 | Live validation — spawn one Claude session and one Codex session, run the kickoff bootstrap from each, claim a throwaway bead, assert peer-routed Start mail in BOTH directions (§13.5). | Final acceptance gate; cross-CLI proof. |
+| 5.9 | **End-to-end portability proof** — `git init` a `/tmp/...` throwaway repo, run `install-bead-wrappers` from either CLI, confirm the freshly-copied `bin/br-claim` contains `discover_peers` and does NOT contain `peers if peers else [agent]`, and the freshly-appended Rule 2 includes the new handshake addendum (§12-ter.5). | Proves the install-bead-wrappers assets actually carry the fix to new projects. |
+
+**Commit strategy**: steps 5.2–5.4 are one repo-side commit (wrappers + AGENTS.md + layermaxxer templates), so the constitutional rule and the behaviour change land together. Steps 5.5–5.7 are operator-side edits — they don't go through git. Steps 5.1, 5.8, 5.9 are validation gates that produce no artifacts.
 
 Do NOT touch the existing L5 artifacts (`docs/pipeline/l5-.../artifacts/*`). They are frozen.
 
@@ -354,14 +397,19 @@ def discover_peers(
     # 3. no peers anywhere
     if allow_solo:
         return [agent], "solo"
+    # Note: do NOT prefix this message with `{tool_label}:` — the caller wraps
+    # `discover_peers` in `die(str(e))`, and `die()` already adds the wrapper
+    # name as a prefix. Including it here would produce a double prefix
+    # ("br-claim: br-claim: no peers ..."). The tool_label is still used in
+    # the recovery-options block to suggest the right --solo invocation.
     raise NoPeersError(
-        f"{tool_label}: no peers discoverable.\n"
+        "no peers discoverable.\n"
         f"  list_contacts returned [] AND list_agents returned no live peers "
         f"(idle cutoff: {max_idle_seconds}s, program filter: {same_program!r}).\n"
         f"  Recovery options:\n"
         f"    1. Handshake an existing peer:\n"
         f"         macro_contact_handshake(project_key={project_key!r},\n"
-        f"                                 agent_name={agent!r}, peer_name=<peer>)\n"
+        f"                                 requester={agent!r}, target=<peer>)\n"
         f"    2. Confirm a second agent is registered in this project:\n"
         f"         list_agents(project_key={project_key!r})\n"
         f"    3. If this really is a swarm of one, opt in explicitly:\n"
@@ -402,9 +450,11 @@ Add the following after the existing `--dry-run` argument:
     )
 ```
 
-### 6.3 Replace the defective block (lines 396-419 verbatim)
+### 6.3 Replace the defective block (was lines 396-419 pre-edit; will have shifted after §6.1 + §6.2)
 
-Old (DELETE — these are the 24 lines that ship the bug):
+**Line-number caveat**: §6.1 inserts ~110 lines of helper code BEFORE the original line 396, and §6.2 inserts ~25 lines of CLI flags into `parse_args()`. So by the time you reach this edit, the original line 396 is now at roughly line 530. **Do not chase line numbers — use Edit's exact-string match against the unique text below.** The old block starts with `# 6. SEND START MAIL (unless idempotency says skip).` and ends with `recipients = peers if peers else [agent]` — both phrases are unique in the file.
+
+Old (DELETE — these are the 23 lines that ship the bug):
 
 ```python
     # 6. SEND START MAIL (unless idempotency says skip).
@@ -513,7 +563,9 @@ Paste the entire `class NoPeersError`, `_parse_iso_ts`, `_normalize_peer_list`, 
 
 Paste the three `add_argument` calls from §6.2 into `parse_args()` at line 278-299.
 
-### 7.3 Replace the defective block (lines 374-395)
+### 7.3 Replace the defective block (was lines 374-395 pre-edit; will have shifted after §7.1 + §7.2)
+
+**Line-number caveat (same as §6.3)**: §7.1's helper insertion and §7.2's CLI flags push the original line 374 to roughly line 510. Use the unique block text to locate, not line numbers. The block starts with `# 4. SEND COMPLETE MAIL.` and ends with `recipients = peers if peers else [agent]`.
 
 Old (DELETE):
 
@@ -694,8 +746,8 @@ class DiscoverPeersTests(unittest.TestCase):
         b = self._register("T1b")
         self.br_claim.mcp_call(MCP_URL, self.token, "macro_contact_handshake", {
             "project_key": self.project_key,
-            "agent_name": a,
-            "peer_name": b,
+            "requester": a,
+            "target": b,
         })
         peers, source = self.br_claim.discover_peers(
             MCP_URL, self.token, self.project_key, a,
@@ -769,8 +821,8 @@ class DiscoverPeersTests(unittest.TestCase):
         b = self._register("T6b")
         self.br_claim.mcp_call(MCP_URL, self.token, "macro_contact_handshake", {
             "project_key": self.project_key,
-            "agent_name": a,
-            "peer_name": b,
+            "requester": a,
+            "target": b,
         })
         peers, _ = self.br_claim.discover_peers(
             MCP_URL, self.token, self.project_key, a,
@@ -820,17 +872,17 @@ Insert a NEW paragraph immediately after it:
 
 Find this block (currently `AGENTS.md:221-223`):
 
-```
+~~~
 1. **Register identity:**
    ```
    ensure_project(project_key=<abs-path>)
    register_agent(project_key, program, model)
    ```
-```
+~~~
 
 Replace with:
 
-```
+~~~
 1. **Register identity, set policy, AND handshake peers:**
    ```
    ensure_project(project_key=<abs-path>)
@@ -846,11 +898,11 @@ Replace with:
        if peer["name"] != <you>:
            macro_contact_handshake(
                project_key=project_key,
-               agent_name=<you>,
-               peer_name=peer["name"],
+               requester=<you>,
+               target=peer["name"],
            )
    ```
-```
+~~~
 
 ### 9.3 Common Pitfalls addendum (around line 256)
 
@@ -866,9 +918,9 @@ Add a fourth bullet:
 
 The layermaxxer template at `docs/layermaxxer/active/execution-kickoff.md` is the source for every layermaxxer execution prompt. Currently §5.1 (around line 175) registers via `macro_start_session` and fetches inbox but does NOT handshake.
 
-Find §5.1 "Session Startup (Do This Once at Session Start)" and add a sub-step between registration and the inbox check:
+Find §5.1 "Session Startup (Do This Once at Session Start)" and add a sub-step between registration and the inbox check. Headings inside the `~~~` block below are content of the layermaxxer template, NOT headings inside this handoff doc:
 
-```
+~~~
 ### 5.1 Session Startup (Do This Once at Session Start)
 
 Register your identity and check for existing activity. Use the macro for speed:
@@ -889,8 +941,10 @@ This registers your agent, fetches your inbox, and shows active file reservation
 
 ```
 # 1. Discover live peers in YOUR program.
+#    _within_last_hour is a 3-line helper:
+#      def _within_last_hour(ts): return ts and (now_utc() - parse_iso(ts)) < timedelta(hours=1)
 peers = list_agents(project_key="/Users/alinaaitova/Desktop/Testproject1")
-my_program = next(p["program"] for p in peers if p["name"] == <your-name>)
+my_program = next((p["program"] for p in peers if p["name"] == <your-name>), None)
 candidates = [p for p in peers
               if p["name"] != <your-name>
               and p.get("program") == my_program
@@ -900,22 +954,25 @@ candidates = [p for p in peers
 for peer in candidates:
     macro_contact_handshake(
         project_key="/Users/alinaaitova/Desktop/Testproject1",
-        agent_name=<your-name>,
-        peer_name=peer["name"],
+        requester=<your-name>,
+        target=peer["name"],
     )
 
-# 3. VERIFY — list_contacts must now show each peer.
+# 3. VERIFY — every candidate must now appear in list_contacts.
 verified = list_contacts(project_key="/Users/alinaaitova/Desktop/Testproject1",
                          agent_name=<your-name>)
-assert all(c["name"] in [p["name"] for p in candidates] for c in verified), \
-    "Handshake verification failed — investigate before claiming any bead."
+verified_names = {(c["name"] if isinstance(c, dict) else c) for c in (verified or [])}
+missing = [p["name"] for p in candidates if p["name"] not in verified_names]
+assert not missing, \
+    f"Handshake verification failed — these peers did NOT land in list_contacts: {missing}. " \
+    f"Investigate (rate limit, server error, race) before claiming any bead."
 ```
 
 Refresh this handshake loop whenever you notice a new peer in `list_agents` that is not in your `list_contacts` — i.e., on every fresh inbox check, before each new `bin/br-claim`.
 
 If `macro_start_session` is unavailable, do it manually:
 ...
-```
+~~~
 
 (The remainder of §5.1 — the manual fallback — is unchanged.)
 
@@ -925,16 +982,19 @@ If `macro_start_session` is unavailable, do it manually:
 
 §2.1 (around line 40-50) currently re-registers and fetches inbox. Add the same handshake sub-step.
 
-Find §2.1 "Re-Register and Check Inbox" and immediately after the `macro_start_session(...)` block, insert:
+Find §2.1 "Re-Register and Check Inbox" and immediately after the `macro_start_session(...)` block, insert the following. The `~~~` outer fence prevents the inner ``` from terminating prematurely; everything inside is content to paste into the template:
 
-```
+~~~
 **Refresh contact handshakes.** Other agents may have joined the swarm between your sessions. Without an explicit handshake, the `bin/br-claim` / `bin/br-complete` wrappers cannot peer-route Start/Complete mail to them:
 
 ```
+# _within_last_hour is a 3-line helper:
+#   def _within_last_hour(ts): return ts and (now_utc() - parse_iso(ts)) < timedelta(hours=1)
 peers = list_agents(project_key="/Users/alinaaitova/Desktop/Testproject1")
 contacts = list_contacts(project_key="/Users/alinaaitova/Desktop/Testproject1", agent_name=<your-name>)
-contact_names = {c["name"] if isinstance(c, dict) else c for c in (contacts or [])}
-my_program = next(p["program"] for p in peers if p["name"] == <your-name>)
+contact_names = {(c["name"] if isinstance(c, dict) else c) for c in (contacts or [])}
+my_program = next((p["program"] for p in peers if p["name"] == <your-name>), None)
+new_handshakes = []
 for peer in peers:
     if (peer["name"] != <your-name>
         and peer["name"] not in contact_names
@@ -942,18 +1002,22 @@ for peer in peers:
         and _within_last_hour(peer.get("last_active_ts"))):
         macro_contact_handshake(
             project_key="/Users/alinaaitova/Desktop/Testproject1",
-            agent_name=<your-name>,
-            peer_name=peer["name"],
+            requester=<your-name>,
+            target=peer["name"],
         )
+        new_handshakes.append(peer["name"])
 
 # Verify — list_contacts must now include every peer you just handshook.
 contacts_after = list_contacts(project_key="/Users/alinaaitova/Desktop/Testproject1",
                                agent_name=<your-name>)
-# If any handshake failed silently (server-side error, race, etc.), this catches it.
+after_names = {(c["name"] if isinstance(c, dict) else c) for c in (contacts_after or [])}
+missing = [n for n in new_handshakes if n not in after_names]
+assert not missing, \
+    f"Refresh handshake failed for: {missing}. Investigate before next bin/br-claim."
 ```
 
 Do this on every session resume and after any "swarm grows" event.
-```
+~~~
 
 ---
 
@@ -975,9 +1039,9 @@ The insertion is a **new sub-section `### 2a-bis. Bootstrap Contact Handshakes (
 
 ### 12.2 The verbatim insertion
 
-Apply this Edit. Old (the current boundary between §2a and §2b at `~/.claude/skills/beads-to-execution/TEMPLATES.md:174-178`):
+Apply this Edit. Old (the current boundary between §2a and §2b at `~/.claude/skills/beads-to-execution/TEMPLATES.md:174-178`) — the `### 2b.` heading below is content of the TEMPLATES.md file, not a heading inside this handoff doc; the `~~~` fence makes that explicit:
 
-```
+~~~
 macro_start_session(
   human_key="{absolute_project_path}",
   program="claude-code",
@@ -987,11 +1051,11 @@ macro_start_session(
 ```
 
 ### 2b. Check What's Happening (Situational Awareness)
-```
+~~~
 
-New (inserts a §2a-bis sub-section without touching §2a or §2b headings):
+New (inserts a §2a-bis sub-section without touching §2a or §2b headings — again, the `### 2a-bis.` and `### 2b.` below are TEMPLATES.md content, not handoff-doc headings):
 
-```
+~~~
 macro_start_session(
   human_key="{absolute_project_path}",
   program="claude-code",
@@ -1006,8 +1070,10 @@ macro_start_session(
 
 ```
 # 1. Discover peers whose program matches yours and who are active in the last hour.
+#    _within_last_hour is a 3-line inline helper:
+#      def _within_last_hour(ts): return ts and (now_utc() - parse_iso(ts)) < timedelta(hours=1)
 peers = list_agents(project_key="{absolute_project_path}")
-my_program = next(p["program"] for p in peers if p["name"] == "<your-agent-name>")
+my_program = next((p["program"] for p in peers if p["name"] == "<your-agent-name>"), None)
 candidates = [p for p in peers
               if p["name"] != "<your-agent-name>"
               and p.get("program") == my_program
@@ -1017,21 +1083,24 @@ candidates = [p for p in peers
 for peer in candidates:
     macro_contact_handshake(
         project_key="{absolute_project_path}",
-        agent_name="<your-agent-name>",
-        peer_name=peer["name"],
+        requester="<your-agent-name>",
+        target=peer["name"],
     )
 
-# 3. VERIFY — list_contacts must now show each peer.
+# 3. VERIFY — every candidate must now appear in list_contacts.
 verified = list_contacts(project_key="{absolute_project_path}",
                          agent_name="<your-agent-name>")
-# Confirm every handshake target appears in `verified`; if any are missing,
-# investigate (rate limit, server error, race) before claiming any bead.
+verified_names = {(c["name"] if isinstance(c, dict) else c) for c in (verified or [])}
+missing = [p["name"] for p in candidates if p["name"] not in verified_names]
+assert not missing, \
+    f"Handshake verification failed for: {missing}. Investigate (rate limit, " \
+    f"server error, race) before claiming any bead."
 ```
 
 Refresh this loop whenever `list_agents` shows a new peer not yet in your `list_contacts` — i.e. before every `bin/br-claim` if the swarm is growing. The wrappers' `list_agents` fallback (auto-derives your program and filters by same-program-only) covers you between refreshes, but explicit handshakes are deterministic.
 
 ### 2b. Check What's Happening (Situational Awareness)
-```
+~~~
 
 ### 12.3 Quick-reference addendum (also in TEMPLATES.md)
 
@@ -1288,8 +1357,22 @@ TEST_PROJECT=$(mktemp -d /tmp/install-bead-wrappers-postfix-test.XXXXXX)
 cd "$TEST_PROJECT"
 git init -q
 
-# 2. Run the install-bead-wrappers skill (from either Claude or Codex session).
-#    The skill will cp the assets from the appropriate tree into the test project.
+# 2. From inside this session (Claude OR Codex), invoke the install-bead-wrappers
+#    skill — the user-facing trigger is typing `/install-bead-wrappers` in a
+#    Claude session, or equivalent in Codex. The skill auto-discovers its assets
+#    from ~/.claude/skills/.../assets/ (Claude) or ~/.codex/skills/.../assets/
+#    (Codex) per its Step 0 logic, and cp's them into bin/ + appends Rule 2 to
+#    AGENTS.md + installs the precommit hook via `am guard install`.
+#
+#    If you cannot invoke the slash command from your environment, you can
+#    simulate it by directly running:
+#       cp ~/.claude/skills/install-bead-wrappers/assets/br-claim    bin/br-claim
+#       cp ~/.claude/skills/install-bead-wrappers/assets/br-complete bin/br-complete
+#       chmod +x bin/br-claim bin/br-complete
+#       touch AGENTS.md
+#       cat ~/.claude/skills/install-bead-wrappers/assets/agents-md-rule-2.md >> AGENTS.md
+#    The skill does additional safety checks (preflight, hook install) but the
+#    portability assertions in step 3 below only need the cp + append.
 
 # 3. Confirm the freshly-copied wrappers are the FIXED version.
 grep -c '^def discover_peers' bin/br-claim bin/br-complete       # Expected: 1, 1
@@ -1323,6 +1406,8 @@ python3 -m unittest bin.tests.test_peer_discovery -v
 # Without mcp-agent-mail: 6 tests skipped, exit 0.
 ```
 
+Note on coverage: the tests directly exercise `bin/br-claim`'s `discover_peers` only. `bin/br-complete`'s helper is intentionally a verbatim copy (per the project's duplication pattern — see §6.1), so the contract is identical. The §13.2 grep checks plus the §13.5 live round-trip from the Codex pane (which uses `bin/br-complete`) catch any drift between the two.
+
 ### 13.2 Static cross-file consistency greps (run after §6 and §7 both land)
 
 Before any wrapper smoke test, confirm the helper landed in BOTH wrappers and the silent self-fallback is gone from BOTH. Each grep MUST return the expected line count:
@@ -1353,35 +1438,45 @@ Any deviation: stop and fix the missing edit before continuing.
 
 ### 13.3 Wrapper smoke test (no real bead)
 
+Run from inside Testproject1 (the wrapper resolves `project_key` via `git rev-parse --show-toplevel`):
+
 ```bash
 # Pick a non-existent bead-id and --dry-run. The wrapper should fail at the
 # br_show step ("bead not found"), NOT at the peer-discovery step.
-bin/br-claim nonexistent-bead-id --dry-run --paths /tmp/test
+./bin/br-claim nonexistent-bead-id-12345 --dry-run --paths /tmp/test
 # Expected exit: non-zero, error message about bead not found.
+# This proves: the wrapper loads, parses args, resolves agent/token/project_key,
+# and reaches br_show before peer discovery. It does NOT prove peer discovery works.
 
-# With AGENT_MAIL_ALLOW_SOLO=1 and a real bead in a single-agent project:
-AGENT_MAIL_ALLOW_SOLO=1 bin/br-claim <real-bead-id> --dry-run
-# Expected: prints solo warning, completes dry-run.
+# To prove peer discovery: spin up a temporary throwaway project_key in /tmp
+# (so you don't pollute the real Testproject1 archive with test agents).
+# Either:
+#   (a) use --solo to prove the solo-mode path:
+AGENT_MAIL_ALLOW_SOLO=1 AGENT_MAIL_PROJECT_KEY=/tmp/test-smoke-$(uuidgen) \
+  ./bin/br-claim <real-or-fake-bead-id> --dry-run
+# Expected: prints solo warning, completes dry-run (or fails at br_show if the
+# bead doesn't exist — which is fine; the peer-discovery path already ran).
+#   (b) or rely on §13.5 to prove the multi-peer path in a real cross-CLI swarm.
 ```
 
 ### 13.4 No-peers regression
 
-Single-agent scenario: register yourself only, run `bin/br-claim`. Expected:
+Single-agent scenario, in a clean throwaway project_key (NOT the live Testproject1, to avoid polluting the real archive): register yourself only, run `bin/br-claim`. Expected:
 
 ```
-br-claim: br-claim: no peers discoverable.
-  list_contacts returned [] AND list_agents returned no live peers (idle cutoff: 3600s, program filter: None).
+br-claim: no peers discoverable.
+  list_contacts returned [] AND list_agents returned no live peers (idle cutoff: 3600s, program filter: '').
   Recovery options:
     1. Handshake an existing peer:
-         macro_contact_handshake(...)
+         macro_contact_handshake(project_key='/tmp/...', requester='...', target=<peer>)
     2. Confirm a second agent is registered in this project:
-         list_agents(...)
+         list_agents(project_key='/tmp/...')
     3. If this really is a swarm of one, opt in explicitly:
          br-claim <bead-id> --solo
          (or export AGENT_MAIL_ALLOW_SOLO=1)
 ```
 
-Exit code non-zero. No Start mail archived.
+Exit code non-zero. No Start mail archived. Single "br-claim:" prefix (the §6.1 `NoPeersError` body omits the prefix because `die()` already adds it).
 
 ### 13.5 Cross-CLI live swarm validation (THE universal-coverage acceptance gate)
 
@@ -1467,7 +1562,7 @@ All of the following must hold before this handoff is considered complete:
 - [ ] §13.5 cross-CLI swarm validation passed: a Claude session's `bin/br-claim` produced a Start mail addressed `to: [<codex-agent>]`, AND a Codex session's `bin/br-complete` produced a Complete mail addressed `to: [<claude-agent>]`. Both directions, not just one.
 
 **Wrap-up:**
-- [ ] One repo-side commit lands all five repo-side changes with a message referencing both this handoff (`docs/handoff-2026-05-19-agentmail-handshake-bootstrap-fix.md`) and the predecessor error manifest (`docs/handoff-2026-05-19-agentmail-wrapper-self-addressing.md`).
+- [ ] One repo-side commit lands all six repo-side artifacts (bin/br-claim, bin/br-complete, bin/tests/test_peer_discovery.py, AGENTS.md, docs/layermaxxer/active/execution-kickoff.md, docs/layermaxxer/active/execution-push.md) with the §2 commit message format (references both this handoff AND the predecessor error manifest).
 - [ ] `MEMORY.md` index entry under "Open Handoffs (post-L5)" is updated to "**LANDED YYYY-MM-DD**" with the commit SHA.
 - [ ] Operator notified via AgentMail (reply in any handoff thread, or fresh mail to the operator's current session) that the wrapper protocol changed and existing sessions should refresh.
 
@@ -1571,6 +1666,18 @@ These are mentioned in the predecessor manifest §10 as "nice to have, not block
 - After landing, send a `[handoff-done] agent-mail handshake bootstrap fix landed` mail to the operator's session (or whoever's current `program=l6-*-executor` is most recently active) so they know the wrapper protocol changed and to refresh their session.
 - Update `MEMORY.md` per §14 — index entry only, one line under ~200 chars.
 
+### If you get stuck
+
+This handoff was designed to be self-contained, but reality has more edges than any plan. Concrete escalation paths in priority order:
+
+1. **Conflict between this handoff and the predecessor manifest** (`docs/handoff-2026-05-19-agentmail-wrapper-self-addressing.md`): the manifest wins. Call out the conflict in your commit message and proceed conservatively.
+2. **Conflict between this handoff and `AGENTS.md`**: AGENTS.md wins. The constitutional rules (Rule 1 no file deletion; Rule 2 wrapper discipline) override anything else.
+3. **A §13 verification gate fails AND you can't identify why**: do NOT push the wrapper change. Send `[handoff-block] §13.<N> failed: <symptom>` to the operator's inbox via AgentMail, with a copy of the failing command + output. Wait for guidance.
+4. **An MCP tool returns a shape you don't expect**: `_normalize_peer_list` (§6.1) is defensive about multiple response shapes — extend it with another `("agents", "result", ...)` key if needed. Add a comment naming the new shape and which server version surfaced it.
+5. **`install-bead-wrappers` slash command not available in your environment**: use the manual `cp + cat >>` fallback documented in §12-ter.5 step 2.
+6. **Genuine ambiguity or unforeseen edge case**: do NOT silently guess. Send `[handoff-question] <topic>` to the operator's inbox, propose two paths with tradeoffs, and wait. The operator answers fast; silent guesses produce silent bugs.
+7. **You discover the wrappers were ALREADY partially fixed** (e.g. a prior session landed §6 but not §7): finish what's missing rather than reverting. Use the §13.2 grep checks to identify exactly what's in place vs. missing. The fix is idempotent — applying a missing piece on top of an already-fixed wrapper is safe.
+
 ---
 
 ## Appendix A — Operator's L5 manual workaround (verbatim, 2026-05-19)
@@ -1580,7 +1687,7 @@ For reference and as a fallback recipe if any incident requires manual onboardin
 > Handshake bootstrap (one-time, per session start): Agent Mail's `list_contacts(...)` returns explicit handshake links — without them, `bin/br-claim` and `bin/br-complete` silently address Start/Complete mail to yourself instead of your peers. Before claiming your first bead:
 >
 > 1. Call `list_agents(project_key="/Users/alinaaitova/Desktop/Testproject1")` and note the peers whose program matches yours and whose `last_active_ts` is within the last hour.
-> 2. For each peer, call `macro_contact_handshake(project_key="/Users/alinaaitova/Desktop/Testproject1", agent_name=<your-name>, peer_name=<peer-name>)`.
+> 2. For each peer, call `macro_contact_handshake(project_key="/Users/alinaaitova/Desktop/Testproject1", requester=<your-name>, target=<peer-name>)`.
 >
 > Confirm by calling `list_contacts(project_key=..., agent_name=<your-name>)` — it should now return each peer. Then proceed with your normal kickoff work loop.
 
