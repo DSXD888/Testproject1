@@ -1,0 +1,16 @@
+{
+  "adapter": "avalara",
+  "captured_at": "2026-05-19",
+  "input_scenario": "CN origin stainless steel fasteners to GB, GBP customs value, sea LCL freight band",
+  "source_kind": "captured_fixture",
+  "component_pence": {
+    "dutyPence": 10900,
+    "vatPence": 74000,
+    "freightPence": 38650,
+    "totalPence": 123550
+  },
+  "notes": [
+    "Curated static comparison sample retained for fixture-only L5 divergence reporting.",
+    "No live vendor account, credential, or network request is required to use this sample."
+  ]
+}

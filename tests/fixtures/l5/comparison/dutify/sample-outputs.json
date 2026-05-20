@@ -1,0 +1,16 @@
+{
+  "adapter": "dutify",
+  "captured_at": "2026-05-19",
+  "input_scenario": "CN origin stainless steel fasteners to GB, GBP customs value, sea LCL freight band",
+  "source_kind": "captured_fixture",
+  "component_pence": {
+    "dutyPence": 11200,
+    "vatPence": 74400,
+    "freightPence": 38100,
+    "totalPence": 123700
+  },
+  "notes": [
+    "Curated static comparison sample retained for fixture-only L5 divergence reporting.",
+    "No live vendor account, credential, or network request is required to use this sample."
+  ]
+}

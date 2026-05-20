@@ -20,6 +20,18 @@ import {
   normalizeSearatesSkillResult,
   searatesUsesPaidApiCredentials,
 } from "./searates-skill-adapter";
+import {
+  compare as compareAvalara,
+  type ComparisonReport as AvalaraComparisonReport,
+} from "../validation/avalara-comparison";
+import {
+  compare as compareDutify,
+  type ComparisonReport as DutifyComparisonReport,
+} from "../validation/dutify-comparison";
+import {
+  compare as compareZonos,
+  type ComparisonReport as ZonosComparisonReport,
+} from "../validation/zonos-comparison";
 
 // [TEST_START] L5 freight engine scaffold.
 // L5-T-freight_engine-001,002 land in l5-p3-logistics-types-mode-selector.
@@ -975,6 +987,95 @@ describe("marketplace skill promotion gate", () => {
     expect(cron).toContain("source-health/l5-marketplace-commercial-intelligence");
   });
 
+  it("L5-T-freight_engine-017 contributes the three fixture-only validation comparison adapters", async () => {
+    const validationPackageFiles = [
+      "packages/intelligence/src/validation/dutify-comparison.ts",
+      "packages/intelligence/src/validation/zonos-comparison.ts",
+      "packages/intelligence/src/validation/avalara-comparison.ts",
+    ] as const;
+    const l5TestFiles = [
+      "packages/intelligence/src/customs/customs-classification.test.ts",
+      "packages/intelligence/src/customs/hmrc-fpo.test.ts",
+      "packages/intelligence/src/customs/measure-interaction.test.ts",
+      "packages/intelligence/src/fx/fx-engine.test.ts",
+      "packages/intelligence/src/logistics/freight-engine.test.ts",
+    ] as const;
+
+    expect(validationPackageFiles.length).toBe(3);
+    for (const file of [...validationPackageFiles, ...l5TestFiles]) {
+      expect(await repoFile(file).exists(), `${file} missing`).toBe(true);
+    }
+
+    const validationFiles = await Array.fromAsync(
+      new Bun.Glob("*.ts").scan({
+        cwd: repoPath("packages/intelligence/src/validation"),
+      }),
+    );
+    expect(new Set(validationFiles)).toEqual(
+      new Set([
+        "dutify-comparison.ts",
+        "zonos-comparison.ts",
+        "avalara-comparison.ts",
+      ]),
+    );
+
+    const l5Output = {
+      dutyPence: 10_900,
+      vatPence: 74_200,
+      freightPence: 38_600,
+      totalPence: 123_700,
+    };
+    const reports: Array<
+      DutifyComparisonReport | ZonosComparisonReport | AvalaraComparisonReport
+    > = [
+      compareDutify({
+        l5Output,
+        externalSampleFixturePath: repoPath(
+          "tests/fixtures/l5/comparison/dutify/sample-outputs.json",
+        ),
+      }),
+      compareZonos({
+        l5Output,
+        externalSampleFixturePath: repoPath(
+          "tests/fixtures/l5/comparison/zonos/sample-outputs.json",
+        ),
+      }),
+      compareAvalara({
+        l5Output,
+        externalSampleFixturePath: repoPath(
+          "tests/fixtures/l5/comparison/avalara/sample-outputs.json",
+        ),
+      }),
+    ];
+
+    expect(reports.map((report) => report.adapter)).toEqual([
+      "dutify",
+      "zonos",
+      "avalara",
+    ]);
+    for (const report of reports) {
+      expect(report.externalOutput.totalPence).toBeGreaterThan(0);
+      expect(report.divergenceBps.total).toBeGreaterThanOrEqual(0);
+      expect(report.notes.join("\n")).toContain("fixture-only comparison");
+      expect(report.notes.join("\n")).toContain("captured_at=");
+    }
+
+    const adapterTexts = await Promise.all(
+      validationPackageFiles.map((file) => readRepoText(file)),
+    );
+    const fixtureTexts = await Promise.all([
+      readRepoText("tests/fixtures/l5/comparison/dutify/sample-outputs.json"),
+      readRepoText("tests/fixtures/l5/comparison/zonos/sample-outputs.json"),
+      readRepoText("tests/fixtures/l5/comparison/avalara/sample-outputs.json"),
+    ]);
+    for (const text of [...adapterTexts, ...fixtureTexts]) {
+      expect(text).not.toContain("process.env");
+      expect(text).not.toContain("client_secret");
+      expect(text).not.toContain("access_token");
+      expect(text).not.toContain("Authorization");
+    }
+  });
+
   it("L5-T-freight_engine-018 keeps candidate runs non-authoritative until canary and shadow gates pass, honors stable, and rolls failed stable back to candidate", () => {
     const candidatePlan: MarketplacePromotionPlan = {
       stage: "candidate",
@@ -1090,6 +1191,10 @@ type MarketplacePromotionPlan = {
 
 function repoFile(relativePath: string) {
   return Bun.file(new URL(relativePath, REPO_ROOT));
+}
+
+function repoPath(relativePath: string): string {
+  return new URL(relativePath, REPO_ROOT).pathname;
 }
 
 async function readRepoText(relativePath: string): Promise<string> {
