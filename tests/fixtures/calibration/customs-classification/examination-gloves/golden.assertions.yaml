@@ -1,0 +1,125 @@
+schema_version: 1
+fixture_surface: calibration-corpus
+category: examination-gloves
+test_ids:
+  primary:
+    - L5-T-customs_classification-027
+  contributes:
+    - L5-T-customs_classification-028
+    - L5-T-customs_classification-029
+    - L5-T-customs_classification-030
+    - L5-T-customs_classification-031
+    - L5-T-customs_classification-032
+    - L5-T-customs_classification-035
+
+expected_score_category:
+  production_gate: eligible
+  label_tier_counts:
+    gold: 20
+    silver: 64
+    bronze: 36
+  pairwise_pairs: 12
+  total_cases: 120
+  catastrophic_understatement_rate_bps: 0
+  unsafe_auto_classification_rate_bps: 0
+  rule_of_three_upper_bound_bps: 250
+
+shared_assertions:
+  expected_trade_remedy: false
+  expected_supplementary_unit_required: true
+  supplementary_unit: pairs
+  medical_device_classification: Class I (MHRA)
+  cbam_estimate_gbp_pence: null
+  conservative_default_on_missing_evidence: true
+
+representative_cases:
+  l5-gloves-gold-clean-001:
+    expected_uk10: "4015190010"
+    expected_decision_grade: auto_pass
+    expected_additional_code_required: true
+    evidence_tier: gold
+  l5-gloves-gold-clean-004:
+    expected_uk10: "4015110000"
+    expected_decision_grade: auto_pass
+    expected_additional_code_required: true
+    evidence_tier: gold
+  l5-gloves-silver-weird-001:
+    expected_uk10: "4015190010"
+    expected_decision_grade: review_required
+    expected_additional_code_required: true
+    evidence_tier: silver
+    required_reviewers: 2
+  l5-gloves-silver-mutated-001:
+    expected_uk10: "6116102000"
+    expected_decision_grade: broker_required
+    mutation_dimension: hs6_perturbation
+    evidence_tier: silver
+  l5-gloves-silver-mutated-003:
+    expected_uk10: "4203291000"
+    expected_decision_grade: broker_required
+    mutation_dimension: material_swap
+    evidence_tier: silver
+  l5-gloves-bronze-challenge-006:
+    expected_uk10: "4015190010"
+    expected_decision_grade: broker_required
+    mutation_dimension: supplementary_unit_removal
+    evidence_tier: bronze
+  l5-gloves-pairwise-001-a:
+    pair_id: l5-gloves-pairwise-001
+    pair_dimension: medical_use_evidence
+    expected_decision_grade: auto_pass
+  l5-gloves-pairwise-001-b:
+    pair_id: l5-gloves-pairwise-001
+    pair_dimension: medical_use_evidence
+    expected_decision_grade: review_required
+  l5-gloves-pairwise-006-a:
+    pair_id: l5-gloves-pairwise-006
+    pair_dimension: supplementary_unit
+    expected_decision_grade: auto_pass
+  l5-gloves-pairwise-006-b:
+    pair_id: l5-gloves-pairwise-006
+    pair_dimension: supplementary_unit
+    expected_decision_grade: broker_required
+
+case_id_patterns:
+  gold_clean: "l5-gloves-gold-clean-001..020"
+  silver_weird: "l5-gloves-silver-weird-001..020"
+  silver_mutated: "l5-gloves-silver-mutated-001..020"
+  bronze_challenge: "l5-gloves-bronze-challenge-001..036"
+  pairwise: "l5-gloves-pairwise-001-a/b..012-a/b"
+
+mutation_coverage:
+  clean:
+    - stable nitrile examination glove
+    - stable latex examination glove
+    - stable vinyl examination glove
+    - sterile surgical rubber glove
+  weird:
+    - ambiguous tender wording
+    - translation variance
+    - low-evidence marketplace title
+    - SKU-level sterile and non-sterile mixing
+  mutated:
+    - hs6_perturbation
+    - sterility_evidence_removal
+    - material_swap
+    - medical_device_class_swap
+    - vat_relief_evidence_removal
+    - country_of_origin_swap
+    - supplementary_unit_removal
+    - currency_swap
+    - incoterm_swap
+    - additional_code_evidence_removal
+  pairwise:
+    - medical_use_evidence
+    - sterility
+    - material
+    - chapter_branch
+    - vat_relief
+    - supplementary_unit
+    - origin
+    - currency
+    - incoterm
+    - additional_code
+    - compliance_evidence
+    - description_quality

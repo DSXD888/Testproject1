@@ -1,0 +1,1 @@
+Calibration fixture surface for customs-classification examination-gloves clean cases. Covers stable nitrile, latex, vinyl, and sterile rubber glove evidence where UK10, medical-use evidence, and pair quantity are all present.

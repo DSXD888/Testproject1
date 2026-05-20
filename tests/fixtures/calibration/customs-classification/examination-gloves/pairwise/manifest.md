@@ -1,0 +1,1 @@
+Calibration fixture surface for customs-classification examination-gloves pairwise challenge cases. Each pair changes exactly one material dimension: medical-use evidence, sterility, material, chapter branch, VAT relief, supplementary unit, origin, currency, Incoterm, additional code, compliance evidence, or description quality.

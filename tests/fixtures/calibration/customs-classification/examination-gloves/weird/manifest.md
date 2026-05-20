@@ -1,0 +1,1 @@
+Calibration fixture surface for customs-classification examination-gloves weird-but-valid cases. Covers mixed tender wording, translation variance, SKU ambiguity, and medical-use evidence that requires review rather than auto-pass.

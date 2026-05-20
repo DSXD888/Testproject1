@@ -1,0 +1,1 @@
+Calibration fixture surface for customs-classification examination-gloves mutated cases. Mutations include HS6 perturbation, sterility evidence removal, material swap, device-class uncertainty, VAT relief evidence removal, origin swap, supplementary-unit removal, currency swap, Incoterm swap, and additional-code evidence removal.
