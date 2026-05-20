@@ -110,13 +110,25 @@ def preflight_health(url, token, tool_label):
     next_action = next_action or ""
     recovery_mode = (recovery.get("mode") or "").lower() if isinstance(recovery, dict) else ""
     write_policy = (recovery.get("write_policy") or "").lower() if isinstance(recovery, dict) else ""
-    if recovery_mode == "degraded_read_only" or write_policy == "reject_all_mutations":
+    # Hard block on the actually-enforced server-side write policy. This is the
+    # only signal that empirically means "mutations are refused" (0.3.0+ sets
+    # both fields together; 0.2.x sets recovery.mode alone as informational and
+    # accepts writes anyway — verified 2026-05-21 on 0.2.51 where the latch
+    # persists after reconstruct+repair while mutations succeed). Blocking on
+    # recovery.mode alone would over-block in 0.2.x.
+    if write_policy == "reject_all_mutations":
         die(
-            "agent-mail is degraded_read_only — refusing to mutate.\n"
+            "agent-mail write_policy=reject_all_mutations — refusing to mutate.\n"
             f"  recovery.mode:        {recovery_mode or '(missing)'}\n"
             f"  recovery.write_policy:{write_policy or '(missing)'}\n"
             f"  recovery.next_action: {next_action}\n"
             "  Do not retry until the operator has repaired the SQLite index."
+        )
+    if recovery_mode == "degraded_read_only" and write_policy != "reject_all_mutations":
+        warn(
+            "agent-mail recovery.mode=degraded_read_only but write_policy does not "
+            "reject mutations; proceeding. If writes start failing, stop and run "
+            "`am doctor reconstruct --yes` (with daemon stopped) and re-check."
         )
     if health_level == "red" and "archive inventory is ahead" in detail:
         die(

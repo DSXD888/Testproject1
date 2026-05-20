@@ -48,7 +48,15 @@ class DiscoverPeersTests(unittest.TestCase):
         cls.token = cls.br_claim.resolve_bearer_token()
 
     def setUp(self):
-        self.project_key = tempfile.mkdtemp(prefix="test-peer-discovery-")
+        # Resolve symlinks (macOS tempfile.mkdtemp uses /var/folders/.../T/ which is
+        # a symlink to /private/var/folders/...). mcp-agent-mail 0.2.51 refuses to
+        # create archive directories through symlinked paths and enters degraded
+        # state, which then makes list_agents/list_contacts fail across the whole
+        # daemon (not just this project). Resolving the symlink up front bypasses
+        # that. Real project paths (e.g. /Users/alinaaitova/Desktop/Testproject1)
+        # don't hit this — only test-tempdir paths do.
+        raw_tmp = tempfile.mkdtemp(prefix="test-peer-discovery-")
+        self.project_key = os.path.realpath(raw_tmp)
         self._mcp_call("ensure_project", {
             "human_key": self.project_key,
         })
