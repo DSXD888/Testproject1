@@ -1,0 +1,64 @@
+category: fasteners
+fixture_surface: calibration-corpus
+test_ids:
+  - L5-T-customs_classification-027
+  - L5-T-customs_classification-028
+  - L5-T-customs_classification-029
+  - L5-T-customs_classification-030
+  - L5-T-customs_classification-031
+  - L5-T-customs_classification-032
+  - L5-T-customs_classification-035
+label_tier_counts:
+  gold: 47
+  silver: 63
+  bronze: 10
+minimum_corpus:
+  gold: 10
+  silver: 15
+  bronze: 10
+  pairwise_pairs: 12
+actual_corpus:
+  total_cases: 120
+  pairwise_pairs: 24
+expected_accuracy_report:
+  duty_outcome_accuracy_bps: 10000
+  trade_remedy_yes_no_bps: 10000
+  additional_code_required_yes_no_bps: 10000
+  supplementary_unit_required_yes_no_bps: 10000
+  review_trigger_recall_bps: 10000
+  catastrophic_understatement_rate_bps: 0
+  unsafe_auto_classification_rate_bps: 0
+  correct_abstention_count: 37
+  wrong_code_success_count: 0
+  production_gate: eligible
+mutation_taxonomy:
+  required_families:
+    - clean
+    - weird
+    - mutated
+    - pairwise
+    - source_identity
+    - page_kind
+    - currency_locale
+    - unit_basis
+    - product_identity
+    - warning_omission
+    - count_mismatch
+    - fabricated_evidence
+    - continuation_integrity
+  customs_specific_dimensions:
+    - hs6_perturbation
+    - exporter_swap
+    - country_of_origin_swap
+    - currency_swap
+    - packaging_weight_perturbation
+    - supplementary_unit_removal
+    - incoterm_swap
+    - additional_code_evidence_removal
+    - vat_relief_evidence_removal
+    - taric_hmrc_disagreement_injection
+promotion_gate:
+  bronze_only_allowed_to_certify_auto_classification: false
+  requires_gold_or_silver_participation: true
+  rule_of_three_upper_bound_bps_max: 300
+  wilson_review_trigger_lower_bound_bps_min: 9500

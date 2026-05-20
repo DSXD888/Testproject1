@@ -1,0 +1,51 @@
+{
+  "category": "fasteners",
+  "version": "1.0.0",
+  "fixture_surface": "calibration-corpus",
+  "operator_decision_date": "2026-05-08",
+  "decision_reference": "Decision 4 in docs/strategy/layers/layer-5-expanded-commercial-intelligence.md L5 Pipeline Decisions Recorded section",
+  "hs_chapters_in_scope": ["73", "76"],
+  "hs_codes_primary": ["7318158898", "7318166098", "7616100000"],
+  "trade_remedy_active": true,
+  "supplementary_unit_required": "kg",
+  "minimum_corpus": {
+    "gold": 10,
+    "silver": 15,
+    "bronze": 10,
+    "pairwise_pairs": 12
+  },
+  "actual_corpus": {
+    "gold": 47,
+    "silver": 63,
+    "bronze": 10,
+    "pairwise_pairs": 24,
+    "total_cases": 120
+  },
+  "mutation_families": [
+    "clean",
+    "weird",
+    "mutated",
+    "pairwise",
+    "source_identity",
+    "page_kind",
+    "currency_locale",
+    "unit_basis",
+    "product_identity",
+    "warning_omission",
+    "count_mismatch",
+    "fabricated_evidence",
+    "continuation_integrity"
+  ],
+  "customs_mutation_dimensions": [
+    "hs6_perturbation",
+    "exporter_swap",
+    "country_of_origin_swap",
+    "currency_swap",
+    "packaging_weight_perturbation",
+    "supplementary_unit_removal",
+    "incoterm_swap",
+    "additional_code_evidence_removal",
+    "vat_relief_evidence_removal",
+    "taric_hmrc_disagreement_injection"
+  ]
+}
