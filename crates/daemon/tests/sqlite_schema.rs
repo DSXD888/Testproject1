@@ -1258,7 +1258,7 @@ fn l4_t_sqlite_schema_017_validation_verdicts_join_provisional_outputs() -> Resu
 
 #[test]
 #[doc = "L4-T-sqlite_schema-018"]
-fn l4_t_sqlite_schema_018_supabase_config_and_eight_migrations_exist() -> Result<()> {
+fn l4_t_sqlite_schema_018_supabase_config_and_migrations_exist() -> Result<()> {
     let root = repo_root()?;
     ensure!(
         root.join("infra/supabase/config.toml").is_file(),
@@ -1280,12 +1280,18 @@ fn l4_t_sqlite_schema_018_supabase_config_and_eight_migrations_exist() -> Result
     });
     names.sort();
 
-    let expected = (1..=8)
+    let expected = (1..=9)
         .map(|ordinal| format!("{ordinal:04}_"))
         .collect::<Vec<_>>();
     ensure!(
-        names.len() == 8,
-        "expected exactly eight Supabase migrations, got {names:?}"
+        names.len() == 9,
+        "expected exactly nine Supabase migrations, got {names:?}"
+    );
+    ensure!(
+        names
+            .iter()
+            .any(|name| name == "0009_l5_field_level_projection.sql"),
+        "expected L5 field-level projection migration, got {names:?}"
     );
     for (name, prefix) in names.iter().zip(expected) {
         ensure!(

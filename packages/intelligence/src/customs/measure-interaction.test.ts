@@ -37,6 +37,15 @@ const rlsPoliciesUrl = new URL(
   ["infra", "supa" + "base", "migrations", "0004_rls_policies.sql"].join("/"),
   repoRoot,
 );
+const l5ProjectionBoundaryUrl = new URL(
+  [
+    "infra",
+    "supa" + "base",
+    "migrations",
+    "0009_l5_field_level_projection.sql",
+  ].join("/"),
+  repoRoot,
+);
 const errorManifestUrl = new URL(
   ["crates", "daemon", "src", "errors", "manifest.rs"].join("/"),
   repoRoot,
@@ -650,16 +659,39 @@ describe("measure interaction redaction sentinels", () => {
     }
   });
 
-  it("L5-T-measure_interaction-020 skeleton maps viewer and operator sentinel boundaries", async () => {
-    const [design, fixture] = await Promise.all([
+  it("L5-T-measure_interaction-020 maps viewer and operator sentinel boundaries", async () => {
+    const [design, fixture, projectionBoundary] = await Promise.all([
       readText(redactionDesignUrl),
       readText(sentinelFixtureUrl),
+      readText(l5ProjectionBoundaryUrl),
     ]);
+    const landedCostViewer = viewDefinitionBlock(
+      projectionBoundary,
+      "landed_cost_estimates_viewer",
+      "landed_cost_estimates",
+    );
+    const commodityCodeViewer = viewDefinitionBlock(
+      projectionBoundary,
+      "product_commodity_codes_viewer",
+      "product_commodity_codes",
+    );
 
     expect(design).toContain("Phase 6 implements the field-level projection boundary");
     expect(design).toContain("table-level RLS as sufficient evidence");
     expect(fixture).toContain("automation_sensitive_fields:");
     expect(fixture).toContain("local_only_sensitive:");
+    expect(projectionBoundary).toContain(
+      "DROP POLICY IF EXISTS landed_cost_estimates_viewer_operator_admin_select",
+    );
+    expect(projectionBoundary).toContain(
+      "CREATE POLICY landed_cost_estimates_operator_admin_daemon_select",
+    );
+    expect(projectionBoundary).toContain(
+      "USING (l4_is_any_role(ARRAY['operator', 'admin', 'daemon']))",
+    );
+    expect(projectionBoundary).toContain(
+      "GRANT SELECT ON landed_cost_estimates_viewer TO anon, authenticated",
+    );
 
     for (const field of automationSensitiveFields) {
       expect(design).toContain(field);
@@ -668,19 +700,41 @@ describe("measure interaction redaction sentinels", () => {
       expect(fixtureFieldBlock(fixture, field)).toContain("operator_visible: true");
     }
 
+    for (const field of automationSensitiveFields.slice(0, 6)) {
+      expect(landedCostViewer).not.toMatch(
+        new RegExp(`\\n\\s+${escapeRegExp(field)},?\\n`),
+      );
+    }
+
+    expect(landedCostViewer).toContain(
+      "l5_viewer_confidence_breakdown(confidence_breakdown) AS confidence_breakdown",
+    );
+    expect(projectionBoundary).toContain("payload - 'evidence_leverage'");
+    expect(commodityCodeViewer).not.toMatch(/\n\s+commodity_code,?\n/);
+    expect(commodityCodeViewer).not.toMatch(/\n\s+evidence_json,?\n/);
+
     for (const field of displayFields) {
       expect(design).toContain(field);
       expect(fixtureFieldBlock(fixture, field)).toContain("viewer_visible: true");
       expect(fixtureFieldBlock(fixture, field)).toContain("operator_visible: true");
+      expect(landedCostViewer).toMatch(
+        new RegExp(`\\n\\s+${escapeRegExp(field)},?\\n`),
+      );
     }
   });
 
-  it("L5-T-measure_interaction-020 skeleton ties sentinels to existing L0/L5 columns without adding landed-cost DDL", async () => {
-    const [sqliteMigration, productCommodityCodesMigration, design] =
+  it("L5-T-measure_interaction-020 ties sentinels to existing L0/L5 columns without adding landed-cost DDL", async () => {
+    const [
+      sqliteMigration,
+      productCommodityCodesMigration,
+      design,
+      projectionBoundary,
+    ] =
       await Promise.all([
         readText(sqliteMigrationUrl),
         readText(productCommodityCodesMigrationUrl),
         readText(redactionDesignUrl),
+        readText(l5ProjectionBoundaryUrl),
       ]);
 
     for (const field of automationSensitiveFields.slice(0, 7)) {
@@ -694,6 +748,13 @@ describe("measure interaction redaction sentinels", () => {
     expect(design).toContain("product_commodity_codes.evidence_json");
     expect(design).toContain("0004_rls_policies.sql");
     expect(design).toContain("0005_sync_rpcs.sql");
+    expect(projectionBoundary).not.toMatch(
+      /ALTER\s+TABLE\s+landed_cost_estimates\s+ADD/i,
+    );
+    expect(projectionBoundary).not.toMatch(
+      /CREATE\s+TABLE\s+landed_cost_estimates/i,
+    );
+    expect(projectionBoundary).toContain("product_commodity_codes_viewer");
   });
 
   it("L5-T-measure_interaction-019 keeps landed-cost push-owned rows inside outbox and RLS semantics", async () => {
@@ -726,6 +787,21 @@ function fixtureFieldBlock(fixture: string, field: string): string {
   const match = fixture.match(pattern);
   expect(match?.groups?.block, `missing sentinel block for ${field}`).toBeTruthy();
   return match?.groups?.block ?? "";
+}
+
+function viewDefinitionBlock(
+  migration: string,
+  viewName: string,
+  baseTable: string,
+): string {
+  const pattern = new RegExp(
+    `CREATE OR REPLACE VIEW ${escapeRegExp(viewName)}[\\s\\S]+?FROM ${escapeRegExp(
+      baseTable,
+    )};`,
+  );
+  const match = migration.match(pattern);
+  expect(match?.[0], `missing ${viewName} definition`).toBeTruthy();
+  return match?.[0] ?? "";
 }
 
 function escapeRegExp(value: string): string {
