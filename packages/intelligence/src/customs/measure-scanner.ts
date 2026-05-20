@@ -1,4 +1,5 @@
 import type { ExporterResolutionResult } from "./exporter-resolution";
+import type { FreightEngineOutputs } from "../logistics/freight-engine";
 
 export const MEASURE_INTERACTION_UNKNOWN = "MEASURE_INTERACTION_UNKNOWN" as const;
 export const SUPPLEMENTARY_UNIT_MISSING = "SUPPLEMENTARY_UNIT_MISSING" as const;
@@ -60,6 +61,66 @@ export interface VatResolution {
   vatRecoveryRateBps: number;
   importVatTreatment: ImportVatTreatment;
   evidenceLeverage: VatEvidenceLeverage[];
+}
+
+export type ConservativeDefaultParameter =
+  | "origin_preference"
+  | "exporter_rate"
+  | "quota_allocation"
+  | "vat_rate"
+  | "incoterm"
+  | "supplementary_units";
+
+export interface EvidenceLeverageItem {
+  parameter: ConservativeDefaultParameter;
+  defaultApplied: string;
+  evidenceRequired: string[];
+  marginDeltaBps: number;
+  unlockable: boolean;
+  netMarginBaseBps: number;
+  resolvedNetMarginBaseBps: number;
+  snapshotId?: string;
+}
+
+export interface ConservativeDefaultSummary {
+  default_applied: boolean;
+  default_applied_value: string;
+  evidence_required: string[];
+  margin_delta_bps: number;
+}
+
+export interface ConfidenceBreakdown {
+  unlockable_margin_bps: number;
+  evidence_leverage: EvidenceLeverageItem[];
+  active_defaults: string[];
+  origin_preference?: ConservativeDefaultSummary;
+  exporter_rate?: ConservativeDefaultSummary;
+  quota_allocation?: ConservativeDefaultSummary;
+  vat_rate?: ConservativeDefaultSummary;
+  incoterm?: ConservativeDefaultSummary;
+  supplementary_units?: ConservativeDefaultSummary;
+}
+
+export interface OriginPreferenceResolution {
+  originProofAvailable: boolean;
+  evidenceRequired?: string[];
+}
+
+export interface EvidenceLeverageMarginSnapshot {
+  snapshotId?: string;
+  netMarginBaseBps: number;
+  resolvedNetMarginBaseBps: Partial<
+    Record<ConservativeDefaultParameter, number>
+  >;
+}
+
+export interface ComputeConfidenceBreakdownInput {
+  exporterResolution: ExporterResolutionResult;
+  vatResolution: VatResolution;
+  measureScanResult: MeasureScanResult;
+  marginSnapshot: EvidenceLeverageMarginSnapshot;
+  originPreference?: OriginPreferenceResolution;
+  freightOutput?: FreightEngineOutputs;
 }
 
 export type ValuationMode = "estimation" | "declaration";
@@ -306,6 +367,135 @@ export function resolveValuation(opts: {
   };
 }
 
+export function computeConfidenceBreakdown(
+  input: ComputeConfidenceBreakdownInput,
+): ConfidenceBreakdown {
+  const confidence: ConfidenceBreakdown = {
+    unlockable_margin_bps: 0,
+    evidence_leverage: [],
+    active_defaults: [],
+  };
+
+  const recordDefault = (
+    parameter: ConservativeDefaultParameter,
+    defaultApplied: string,
+    evidenceRequired: readonly string[],
+    hardBlocker = false,
+  ) => {
+    const uniqueEvidenceRequired = unique(evidenceRequired).sort();
+    const marginDeltaBps = evidenceLeverageMarginDeltaBps(
+      parameter,
+      input.marginSnapshot,
+    );
+    const summary: ConservativeDefaultSummary = {
+      default_applied: true,
+      default_applied_value: defaultApplied,
+      evidence_required: uniqueEvidenceRequired,
+      margin_delta_bps: marginDeltaBps,
+    };
+
+    confidence.active_defaults.push(`${parameter}:${defaultApplied}`);
+    assignDefaultSummary(confidence, parameter, summary);
+
+    if (marginDeltaBps > 0 || hardBlocker) {
+      confidence.evidence_leverage.push({
+        parameter,
+        defaultApplied,
+        evidenceRequired: uniqueEvidenceRequired,
+        marginDeltaBps,
+        unlockable: marginDeltaBps > 0,
+        netMarginBaseBps: input.marginSnapshot.netMarginBaseBps,
+        resolvedNetMarginBaseBps:
+          input.marginSnapshot.resolvedNetMarginBaseBps[parameter] ??
+          input.marginSnapshot.netMarginBaseBps,
+        ...(input.marginSnapshot.snapshotId === undefined
+          ? {}
+          : { snapshotId: input.marginSnapshot.snapshotId }),
+      });
+    }
+  };
+
+  if (input.originPreference?.originProofAvailable === false) {
+    recordDefault(
+      "origin_preference",
+      "MFN",
+      input.originPreference.evidenceRequired ?? [
+        "origin_certificate",
+        "supplier_origin_declaration",
+      ],
+    );
+  }
+
+  if (
+    input.exporterResolution.exporterRateBasis === "residual_default" &&
+    (input.exporterResolution.errorCode !== undefined ||
+      input.exporterResolution.missingEvidence.length > 0 ||
+      input.exporterResolution.evidenceLeverage.length > 0)
+  ) {
+    recordDefault(
+      "exporter_rate",
+      "residual_default",
+      input.exporterResolution.missingEvidence.length === 0
+        ? ["named_exporter_proof"]
+        : input.exporterResolution.missingEvidence,
+    );
+  }
+
+  const quotaEvidenceRequired = input.measureScanResult.measureInteractionJson.conditions
+    .filter((condition) => condition.selectedBranch === "out_of_quota")
+    .flatMap((condition) => condition.evidenceRequired);
+  if (quotaEvidenceRequired.length > 0) {
+    recordDefault("quota_allocation", "out_of_quota", quotaEvidenceRequired);
+  }
+
+  if (
+    input.vatResolution.importVatTreatment === "standard_rate_default" &&
+    (input.vatResolution.vatRateState === "unresolved" ||
+      input.vatResolution.evidenceLeverage.length > 0)
+  ) {
+    const vatEvidenceRequired = input.vatResolution.evidenceLeverage.flatMap(
+      (entry) => entry.evidenceRequired,
+    );
+    recordDefault(
+      "vat_rate",
+      "standard_rate_default",
+      vatEvidenceRequired.length === 0
+        ? ["hmrc_import_vat_measure"]
+        : vatEvidenceRequired,
+    );
+  }
+
+  if (input.freightOutput?.missingLogisticsFacts.includes("incoterm") === true) {
+    recordDefault("incoterm", "boundary_scenarios", ["incoterm"]);
+  }
+
+  if (input.measureScanResult.blockers.includes(SUPPLEMENTARY_UNIT_MISSING)) {
+    const supplementaryEvidence =
+      input.measureScanResult.supplementaryUnitsRequiredJson.map(
+        (unit) => `supplementary_quantity:${unit}`,
+      );
+    recordDefault(
+      "supplementary_units",
+      "abstained",
+      supplementaryEvidence.length === 0
+        ? ["compatible_supplementary_unit_data"]
+        : supplementaryEvidence,
+      true,
+    );
+  }
+
+  confidence.active_defaults = unique(confidence.active_defaults).sort();
+  confidence.evidence_leverage = uniqueEvidenceLeverage(
+    confidence.evidence_leverage,
+  );
+  confidence.unlockable_margin_bps = confidence.evidence_leverage.reduce(
+    (sum, item) => sum + (item.unlockable ? item.marginDeltaBps : 0),
+    0,
+  );
+
+  return confidence;
+}
+
 export function scanMeasures(input: MeasureScanInput): MeasureScanResult {
   const perMeasureClassification = input.measures.map((measure) => ({
     measure,
@@ -402,18 +592,83 @@ export function scanMeasures(input: MeasureScanInput): MeasureScanResult {
     supplementaryUnitsRequiredJson: unique(
       evaluatedMeasures.flatMap((entry) => entry.requiredUnits),
     ).sort(),
-    additionalCodesRequirementsJson: conditions.flatMap((condition) =>
-      condition.additionalCode === undefined
-        ? []
-        : [
-            {
-              code: condition.additionalCode,
-              satisfiability: condition.satisfiability ?? "unknown",
-              evidenceRequired: condition.evidenceRequired,
-            },
-          ],
-    ),
+    additionalCodesRequirementsJson: conditions.flatMap((condition) => {
+      if (condition.additionalCode !== undefined) {
+        return [
+          {
+            code: condition.additionalCode,
+            satisfiability: condition.satisfiability ?? "unknown",
+            evidenceRequired: condition.evidenceRequired,
+          },
+        ];
+      }
+
+      if (condition.quotaCode !== undefined) {
+        return [
+          {
+            code: condition.quotaCode,
+            satisfiability:
+              condition.selectedBranch === "in_quota" ? "satisfied" : "unknown",
+            evidenceRequired: condition.evidenceRequired,
+          },
+        ];
+      }
+
+      return [];
+    }),
   };
+}
+
+function evidenceLeverageMarginDeltaBps(
+  parameter: ConservativeDefaultParameter,
+  marginSnapshot: EvidenceLeverageMarginSnapshot,
+): number {
+  const resolvedNetMarginBps =
+    marginSnapshot.resolvedNetMarginBaseBps[parameter];
+  if (resolvedNetMarginBps === undefined) {
+    return 0;
+  }
+
+  return Math.max(0, resolvedNetMarginBps - marginSnapshot.netMarginBaseBps);
+}
+
+function assignDefaultSummary(
+  confidence: ConfidenceBreakdown,
+  parameter: ConservativeDefaultParameter,
+  summary: ConservativeDefaultSummary,
+): void {
+  switch (parameter) {
+    case "origin_preference":
+      confidence.origin_preference = summary;
+      return;
+    case "exporter_rate":
+      confidence.exporter_rate = summary;
+      return;
+    case "quota_allocation":
+      confidence.quota_allocation = summary;
+      return;
+    case "vat_rate":
+      confidence.vat_rate = summary;
+      return;
+    case "incoterm":
+      confidence.incoterm = summary;
+      return;
+    case "supplementary_units":
+      confidence.supplementary_units = summary;
+      return;
+  }
+}
+
+function uniqueEvidenceLeverage(
+  items: readonly EvidenceLeverageItem[],
+): EvidenceLeverageItem[] {
+  const byParameter = new Map<ConservativeDefaultParameter, EvidenceLeverageItem>();
+  for (const item of items) {
+    byParameter.set(item.parameter, item);
+  }
+  return [...byParameter.values()].sort((left, right) =>
+    left.parameter.localeCompare(right.parameter),
+  );
 }
 
 function classifyMeasure(

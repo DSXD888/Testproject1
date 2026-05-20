@@ -7,7 +7,12 @@ import {
   sweepFreshness,
 } from "./classification-freshness";
 import { EXPORTER_UNRESOLVED, resolveExporter } from "./exporter-resolution";
-import { resolveVat } from "./measure-scanner";
+import {
+  computeConfidenceBreakdown,
+  resolveVat,
+  scanMeasures,
+} from "./measure-scanner";
+import type { FreightEngineOutputs } from "../logistics/freight-engine";
 import {
   InMemoryRecallLatticeStore,
   InMemoryTariffGraph,
@@ -467,6 +472,61 @@ describe("marketplace supplier quote coexistence", () => {
 });
 
 describe("customs classification exporter defaults", () => {
+  it("L5-T-customs_classification-013 applies MFN when origin proof is missing and records origin evidence leverage", () => {
+    const measureScanResult = scanMeasures({
+      uk10: "4819100000",
+      measures: [
+        {
+          id: "mfn-paperboard",
+          measureType: "MFN",
+          dutyExpression: { kind: "ad_valorem", rateBps: 650 },
+        },
+      ],
+      customsValuePence: 1_000_000,
+      supplementaryQuantities: {},
+      exporterResolution: noTradeRemedyExporterResolution("4819100000"),
+    });
+    const confidenceBreakdown = computeConfidenceBreakdown({
+      originPreference: {
+        originProofAvailable: false,
+        evidenceRequired: ["origin_certificate"],
+      },
+      exporterResolution: noTradeRemedyExporterResolution("4819100000"),
+      vatResolution: standardVatResolution("4819100000"),
+      measureScanResult,
+      marginSnapshot: {
+        snapshotId: "origin-default-same-quote-freight-fx",
+        netMarginBaseBps: 1_800,
+        resolvedNetMarginBaseBps: {
+          origin_preference: 2_450,
+        },
+      },
+    });
+
+    expect(measureScanResult.selectedDutyPence).toBe(65_000);
+    expect(confidenceBreakdown.active_defaults).toContain(
+      "origin_preference:MFN",
+    );
+    expect(confidenceBreakdown.origin_preference).toMatchObject({
+      default_applied: true,
+      default_applied_value: "MFN",
+      evidence_required: ["origin_certificate"],
+      margin_delta_bps: 650,
+    });
+    expect(confidenceBreakdown.evidence_leverage).toEqual([
+      {
+        parameter: "origin_preference",
+        defaultApplied: "MFN",
+        evidenceRequired: ["origin_certificate"],
+        marginDeltaBps: 650,
+        unlockable: true,
+        netMarginBaseBps: 1_800,
+        resolvedNetMarginBaseBps: 2_450,
+        snapshotId: "origin-default-same-quote-freight-fx",
+      },
+    ]);
+  });
+
   it("L5-T-customs_classification-016 records unresolved VAT as a standard-rate conservative default", () => {
     const result = resolveVat({
       uk10: "4819100000",
@@ -537,6 +597,209 @@ describe("customs classification exporter defaults", () => {
       },
     ]);
   });
+
+  it("L5-T-customs_classification-015 applies out-of-quota rate and records quota allocation proof leverage", () => {
+    const measureScanResult = scanMeasures({
+      uk10: "7318158898",
+      measures: [
+        {
+          id: "quota-fasteners",
+          measureType: "TRQ",
+          dutyExpression: { kind: "ad_valorem", rateBps: 0 },
+          conditions: {
+            quotaCode: "UKQ-FASTENERS",
+            quotaProofAvailable: false,
+            inQuotaDutyExpression: { kind: "ad_valorem", rateBps: 0 },
+            outOfQuotaDutyExpression: { kind: "ad_valorem", rateBps: 1_200 },
+            evidenceRequired: ["quota_allocation_proof"],
+          },
+        },
+      ],
+      customsValuePence: 1_000_000,
+      supplementaryQuantities: {},
+      exporterResolution: noTradeRemedyExporterResolution("7318158898"),
+    });
+    const confidenceBreakdown = computeConfidenceBreakdown({
+      exporterResolution: noTradeRemedyExporterResolution("7318158898"),
+      vatResolution: standardVatResolution("7318158898"),
+      measureScanResult,
+      marginSnapshot: {
+        snapshotId: "quota-default-same-quote-freight-fx",
+        netMarginBaseBps: 1_000,
+        resolvedNetMarginBaseBps: {
+          quota_allocation: 2_200,
+        },
+      },
+    });
+
+    expect(measureScanResult.selectedDutyPence).toBe(120_000);
+    expect(measureScanResult.additionalCodesRequirementsJson).toEqual([
+      {
+        code: "UKQ-FASTENERS",
+        satisfiability: "unknown",
+        evidenceRequired: ["quota_allocation_proof"],
+      },
+    ]);
+    expect(confidenceBreakdown.quota_allocation).toMatchObject({
+      default_applied: true,
+      default_applied_value: "out_of_quota",
+      evidence_required: ["quota_allocation_proof"],
+      margin_delta_bps: 1_200,
+    });
+    expect(confidenceBreakdown.evidence_leverage).toContainEqual({
+      parameter: "quota_allocation",
+      defaultApplied: "out_of_quota",
+      evidenceRequired: ["quota_allocation_proof"],
+      marginDeltaBps: 1_200,
+      unlockable: true,
+      netMarginBaseBps: 1_000,
+      resolvedNetMarginBaseBps: 2_200,
+      snapshotId: "quota-default-same-quote-freight-fx",
+    });
+  });
+
+  it("L5-T-customs_classification-017 records Incoterm boundary scenarios as conservative logistics evidence", () => {
+    const measureScanResult = scanMeasures({
+      uk10: "4819100000",
+      measures: [
+        {
+          id: "mfn-paperboard",
+          measureType: "MFN",
+          dutyExpression: { kind: "ad_valorem", rateBps: 0 },
+        },
+      ],
+      customsValuePence: 1_000_000,
+      supplementaryQuantities: {},
+      exporterResolution: noTradeRemedyExporterResolution("4819100000"),
+    });
+    const freightOutput = incotermBoundaryFreightOutput();
+    const confidenceBreakdown = computeConfidenceBreakdown({
+      exporterResolution: noTradeRemedyExporterResolution("4819100000"),
+      vatResolution: standardVatResolution("4819100000"),
+      measureScanResult,
+      freightOutput,
+      marginSnapshot: {
+        snapshotId: "incoterm-default-same-quote-freight-fx",
+        netMarginBaseBps: 1_500,
+        resolvedNetMarginBaseBps: {
+          incoterm: 1_900,
+        },
+      },
+    });
+
+    expect(freightOutput.boundaryScenariosRun.map((scenario) => scenario.incoterm)).toEqual([
+      "EXW",
+      "FOB",
+      "CIF",
+    ]);
+    expect(freightOutput.selectedIncoterm).toBe("EXW");
+    expect(freightOutput.selectedEstimate?.baseGbpPence).toBe(250_000);
+    expect(confidenceBreakdown.incoterm).toMatchObject({
+      default_applied: true,
+      default_applied_value: "boundary_scenarios",
+      evidence_required: ["incoterm"],
+      margin_delta_bps: 400,
+    });
+  });
+
+  it("L5-T-customs_classification-019 computes evidence leverage deltas against the same quote, freight, and FX snapshot", () => {
+    const exporterResolution = resolveExporter({
+      commodityCode: "7604210000",
+      countryOfOrigin: "CN",
+      customsValueGbpPence: 1_000_000,
+      supplierQuotes: [
+        {
+          supplierName: "Guangzhou Metals Distributor Ltd",
+          supplierRole: "distributor",
+        },
+      ],
+      measuresAtCommodity: [aluminiumExtrusionMeasure()],
+    });
+    const measureScanResult = scanMeasures({
+      uk10: "7604210000",
+      measures: [
+        {
+          id: "quota-aluminium",
+          measureType: "TRQ",
+          dutyExpression: { kind: "ad_valorem", rateBps: 0 },
+          conditions: {
+            quotaCode: "UKQ-ALUMINIUM",
+            quotaProofAvailable: false,
+            inQuotaDutyExpression: { kind: "ad_valorem", rateBps: 0 },
+            outOfQuotaDutyExpression: { kind: "ad_valorem", rateBps: 1_000 },
+            evidenceRequired: ["quota_allocation_proof"],
+          },
+        },
+        {
+          id: "specific-aluminium-kg",
+          measureType: "specific_duty",
+          dutyExpression: { kind: "specific", unit: "kg", amountPence: 80 },
+        },
+      ],
+      customsValuePence: 1_000_000,
+      supplementaryQuantities: {},
+      exporterResolution,
+    });
+    const confidenceBreakdown = computeConfidenceBreakdown({
+      originPreference: { originProofAvailable: false },
+      exporterResolution,
+      vatResolution: resolveVat({
+        uk10: "7604210000",
+        measures: [],
+        reliefClaims: [{ kind: "VATZ", evidenceArtifactPaths: [] }],
+      }),
+      measureScanResult,
+      freightOutput: incotermBoundaryFreightOutput(),
+      marginSnapshot: {
+        snapshotId: "same-quote-freight-fx-snapshot",
+        netMarginBaseBps: 1_000,
+        resolvedNetMarginBaseBps: {
+          origin_preference: 1_300,
+          exporter_rate: 1_000,
+          quota_allocation: 1_250,
+          vat_rate: 1_200,
+          incoterm: 1_100,
+          supplementary_units: 1_000,
+        },
+      },
+    });
+
+    expect(confidenceBreakdown.active_defaults).toEqual([
+      "exporter_rate:residual_default",
+      "incoterm:boundary_scenarios",
+      "origin_preference:MFN",
+      "quota_allocation:out_of_quota",
+      "supplementary_units:abstained",
+      "vat_rate:standard_rate_default",
+    ]);
+    expect(
+      confidenceBreakdown.evidence_leverage.map((item) => item.parameter),
+    ).toEqual([
+      "incoterm",
+      "origin_preference",
+      "quota_allocation",
+      "supplementary_units",
+      "vat_rate",
+    ]);
+    expect(
+      confidenceBreakdown.evidence_leverage.every(
+        (item) =>
+          item.snapshotId === "same-quote-freight-fx-snapshot" &&
+          item.marginDeltaBps ===
+            item.resolvedNetMarginBaseBps - item.netMarginBaseBps,
+      ),
+    ).toBe(true);
+    expect(confidenceBreakdown.evidence_leverage).not.toContainEqual(
+      expect.objectContaining({ parameter: "exporter_rate" }),
+    );
+    expect(confidenceBreakdown.supplementary_units).toMatchObject({
+      default_applied: true,
+      default_applied_value: "abstained",
+      evidence_required: ["supplementary_quantity:kg_net"],
+      margin_delta_bps: 0,
+    });
+    expect(confidenceBreakdown.unlockable_margin_bps).toBe(850);
+  });
 });
 
 function aluminiumExtrusionMeasure() {
@@ -562,6 +825,78 @@ function aluminiumExtrusionMeasure() {
         ratePctBps: 750,
       },
     ],
+  };
+}
+
+function noTradeRemedyExporterResolution(commodityCode: string) {
+  return resolveExporter({
+    commodityCode,
+    countryOfOrigin: "CN",
+    supplierQuotes: [],
+    measuresAtCommodity: [],
+  });
+}
+
+function standardVatResolution(uk10: string) {
+  return resolveVat({
+    uk10,
+    measures: [
+      {
+        id: "vat-standard",
+        measureType: "import_vat",
+        dutyExpression: { kind: "ad_valorem" as const, rateBps: 2_000 },
+      },
+    ],
+    reliefClaims: [],
+  });
+}
+
+function incotermBoundaryFreightOutput(): FreightEngineOutputs {
+  return {
+    selectedMode: "sea_lcl",
+    selectedEstimate: {
+      provider: "freightos",
+      mode: "sea_lcl",
+      lowGbpPence: 230_000,
+      baseGbpPence: 250_000,
+      highGbpPence: 280_000,
+      checkedAt: "2026-05-19T12:00:00Z",
+    },
+    selectedIncoterm: "EXW",
+    selectedPackagingState: "palletized",
+    boundaryScenariosRun: [
+      freightBoundaryScenario("EXW", 250_000),
+      freightBoundaryScenario("FOB", 180_000),
+      freightBoundaryScenario("CIF", 150_000),
+    ],
+    outcomeKind: "agreed",
+    warningsAndBlockers: [],
+    manualEstimateRequired: false,
+    missingLogisticsFacts: ["incoterm"],
+    unlockableMarginNote: "Clarify incoterm to replace conservative freight boundary scenarios.",
+  };
+}
+
+function freightBoundaryScenario(
+  incoterm: "EXW" | "FOB" | "CIF",
+  baseGbpPence: number,
+): FreightEngineOutputs["boundaryScenariosRun"][number] {
+  return {
+    scenario: `${incoterm}:palletized`,
+    incoterm,
+    packagingState: "palletized",
+    selectedMode: "sea_lcl",
+    estimate: {
+      provider: incoterm === "CIF" ? "searates" : "freightos",
+      mode: "sea_lcl",
+      lowGbpPence: baseGbpPence - 20_000,
+      baseGbpPence,
+      highGbpPence: baseGbpPence + 30_000,
+      checkedAt: "2026-05-19T12:00:00Z",
+    },
+    outcomeKind: "agreed",
+    warningsAndBlockers: [],
+    missingLogisticsFacts: [],
   };
 }
 
