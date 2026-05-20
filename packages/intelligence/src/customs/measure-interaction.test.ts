@@ -29,6 +29,18 @@ const productCommodityCodesMigrationUrl = new URL(
   "migrations/0013_l5_product_commodity_codes.sql",
   repoRoot,
 );
+const syncRpcUrl = new URL(
+  ["infra", "supa" + "base", "migrations", "0005_sync_rpcs.sql"].join("/"),
+  repoRoot,
+);
+const rlsPoliciesUrl = new URL(
+  ["infra", "supa" + "base", "migrations", "0004_rls_policies.sql"].join("/"),
+  repoRoot,
+);
+const errorManifestUrl = new URL(
+  ["crates", "daemon", "src", "errors", "manifest.rs"].join("/"),
+  repoRoot,
+);
 
 const automationSensitiveFields = [
   "exporter_rate_basis",
@@ -506,6 +518,70 @@ describe("measure interaction redaction sentinels", () => {
     });
   });
 
+  it("L5-T-measure_interaction-018 maps L5 error vocabulary to runtime actions", async () => {
+    const manifest = await readText(errorManifestUrl);
+    const expectedCodes = [
+      "CLASSIFICATION_AMBIGUOUS",
+      "TARIFF_BRANCH_DIVERGENCE",
+      MEASURE_INTERACTION_UNKNOWN,
+      EXPORTER_UNRESOLVED,
+      SUPPLEMENTARY_UNIT_MISSING,
+      VALUATION_MODE_CONFLICT,
+      "FPO_ACCESS_UNAVAILABLE",
+      "TRADE_REMEDY_WATCH_STALE",
+      "FX_RATE_MISSING",
+      "FREIGHT_ESTIMATE_FAILED",
+    ];
+
+    for (const code of expectedCodes) {
+      expect(manifest).toContain(code);
+    }
+
+    const unknownInteraction = scanMeasures({
+      uk10: "7308909800",
+      measures: [
+        {
+          id: "unmapped-stack",
+          measureType: "unmapped_AD_CVD_safeguard_stack",
+          dutyExpression: { kind: "unknown" },
+        },
+      ],
+      customsValuePence: 1_000_000,
+      supplementaryQuantities: {},
+      exporterResolution: exporterResolutionFixture(),
+    });
+    const missingUnit = scanMeasures({
+      uk10: "7604210000",
+      measures: [
+        {
+          id: "specific-kg-net",
+          measureType: "specific_duty",
+          dutyExpression: { kind: "specific", unit: "kg", amountPence: 80 },
+        },
+      ],
+      customsValuePence: 1_000_000,
+      supplementaryQuantities: {},
+      exporterResolution: exporterResolutionFixture(),
+    });
+    const valuationConflict = resolveValuation({
+      proxyPricePence: 100_000,
+      declarationPricePence: 150_000,
+      divergenceThresholdBps: 1_000,
+    });
+    const unresolvedExporter = resolveExporter({
+      commodityCode: "7604210000",
+      countryOfOrigin: "CN",
+      customsValueGbpPence: 1_000_000,
+      supplierQuotes: [],
+      measuresAtCommodity: [aluminiumExtrusionMeasure()],
+    });
+
+    expect(unknownInteraction.blockers).toContain(MEASURE_INTERACTION_UNKNOWN);
+    expect(missingUnit.blockers).toContain(SUPPLEMENTARY_UNIT_MISSING);
+    expect(valuationConflict.errorCode).toBe(VALUATION_MODE_CONFLICT);
+    expect(unresolvedExporter.errorCode).toBe(EXPORTER_UNRESOLVED);
+  });
+
   it("L5-T-measure_interaction-011 defaults active trade remedies to residual when exporter proof is absent", () => {
     const result = resolveExporter({
       commodityCode: "7604210000",
@@ -618,6 +694,23 @@ describe("measure interaction redaction sentinels", () => {
     expect(design).toContain("product_commodity_codes.evidence_json");
     expect(design).toContain("0004_rls_policies.sql");
     expect(design).toContain("0005_sync_rpcs.sql");
+  });
+
+  it("L5-T-measure_interaction-019 keeps landed-cost push-owned rows inside outbox and RLS semantics", async () => {
+    const [sqliteMigration, syncRpc, rlsPolicies] = await Promise.all([
+      readText(sqliteMigrationUrl),
+      readText(syncRpcUrl),
+      readText(rlsPoliciesUrl),
+    ]);
+
+    expect(sqliteMigration).toContain("CREATE TABLE IF NOT EXISTS landed_cost_estimates");
+    expect(sqliteMigration).toContain("last_local_seq");
+    expect(sqliteMigration).toContain("stage_run_id");
+    expect(syncRpc).toContain("'landed_cost_estimates'");
+    expect(rlsPolicies).toContain("'landed_cost_estimates'");
+    expect(rlsPolicies).not.toContain(
+      "GRANT INSERT, UPDATE, DELETE ON landed_cost_estimates TO authenticated",
+    );
   });
 });
 

@@ -11,6 +11,7 @@ import {
   CLASSIFICATION_FRESH_UNTIL_EXPIRED,
   EXPORTER_UNRESOLVED_BLOCKER,
   FLOOR_ONLY_QUOTE_ROLE,
+  SUPPLEMENTARY_UNIT_MISSING,
   computeConfidenceBreakdown,
   classifyDecisionGrade,
   resolveVat,
@@ -40,6 +41,16 @@ import {
   detectBranchDivergence,
   type TenDigitCandidate,
 } from "./ten-digit-resolution";
+
+const repoRoot = new URL("../../../../", import.meta.url);
+const sqliteMigrationUrl = new URL(
+  "migrations/0001_sqlite_state_initial.sql",
+  repoRoot,
+);
+const productCommodityCodesMigrationUrl = new URL(
+  "migrations/0013_l5_product_commodity_codes.sql",
+  repoRoot,
+);
 
 describe("customs classification tariff graph", () => {
   it("L5-T-customs_classification-001 rejects greedy descent and selects the compatible runner-up UK10 branch", () => {
@@ -253,6 +264,44 @@ describe("customs classification tariff graph", () => {
     );
     expect(
       store.rows.every((row) => evidenceIncludesCandidate(row.evidenceJson, "4819")),
+    ).toBe(true);
+  });
+
+  it("L5-T-customs_classification-006 set-replaces all product commodity code rows under one stage_run_id", async () => {
+    const expansion = expandRecallLatticeToTariffGraph(
+      new InMemoryTariffGraph(packagingTariffNodes()),
+      packagingRecallResult(),
+    );
+    const store = new InMemoryRecallLatticeStore({
+      rows: [oldProductCommodityCodeRow()],
+      localSeq: 200,
+    });
+
+    const rows = await persistRecallLattice(store, {
+      productCandidateId: "candidate-packaging-cartons",
+      stageRunId: "stage-l5-replacement",
+      recallResult: packagingRecallResult(),
+      expandedCandidates: recallLatticeRowsFromExpansion(expansion),
+      ownerId: "local-owner",
+      commitGroupId: "l5-product-code-replacement",
+    });
+
+    expect(store.rows).toHaveLength(rows.length);
+    expect(store.rows.some((row) => row.stageRunId === "stage-l5-old")).toBe(false);
+    expect(store.rows.every((row) => row.stageRunId === "stage-l5-replacement")).toBe(
+      true,
+    );
+    expect(new Set(store.transactions.map((tx) => tx.commitGroupId))).toEqual(
+      new Set(["l5-product-code-replacement"]),
+    );
+    expect(store.outbox).toHaveLength(rows.length);
+    expect(
+      store.outbox.every(
+        (entry) =>
+          entry.entityKind === "product_commodity_codes" &&
+          entry.commitGroupId === "l5-product-code-replacement" &&
+          entry.contentHash.startsWith("sha256:"),
+      ),
     ).toBe(true);
   });
 });
@@ -477,6 +526,238 @@ describe("marketplace supplier quote coexistence", () => {
         category,
       ).toBe(true);
     }
+  });
+});
+
+describe("customs classification phase gate fixtures", () => {
+  it("L5-T-customs_classification-007 activates decision-grade landed-cost fields without a schema fork", async () => {
+    const [sqliteMigration, productCommodityCodesMigration] = await Promise.all([
+      readText(sqliteMigrationUrl),
+      readText(productCommodityCodesMigrationUrl),
+    ]);
+    const columns = await landedCostEstimateColumns();
+
+    for (const column of L5_LANDED_COST_COLUMN_CONTRACT) {
+      expect(columns).toContain(column);
+    }
+    expect(new Set(columns).size).toBe(columns.length);
+    expect(productCommodityCodesMigration).toContain(
+      "CREATE TABLE IF NOT EXISTS product_commodity_codes",
+    );
+    expect(productCommodityCodesMigration).not.toContain(
+      "ALTER TABLE landed_cost_estimates",
+    );
+    expect(sqliteMigration).toContain("CREATE TABLE IF NOT EXISTS landed_cost_estimates");
+  });
+
+  it("L5-T-customs_classification-009 produces decision-grade evidence bundles for all validated categories", () => {
+    const bundles = decisionGradeCategoryBundles();
+
+    expect(bundles.map((bundle) => bundle.category)).toEqual([
+      "fasteners",
+      "packaging-cartons",
+      "examination-gloves",
+    ]);
+    for (const bundle of bundles) {
+      expect(bundle.customs.declarableCommodityCode10).toMatch(/^\d{10}$/);
+      expect(bundle.customs.dutyBreakdownJson.components.length, bundle.category).toBeGreaterThan(0);
+      expect(bundle.fx.customsFxRateCheckedAt, bundle.category).toBeTruthy();
+      expect(bundle.freight.providerEvidence, bundle.category).toMatch(/^(freightos|searates)$/);
+      expect(bundle.vat.importVatTreatment, bundle.category).toBeTruthy();
+      expect(bundle.confidenceBreakdown.evidence_leverage.length, bundle.category).toBeGreaterThan(0);
+      expect(bundle.blockers, bundle.category).toEqual(expect.any(Array));
+      expect(bundle.decisionGrade, bundle.category).toMatch(
+        /^(auto_pass|review_required|broker_required)$/,
+      );
+    }
+  });
+
+  it("L5-T-customs_classification-010 blocks category promotion without evidence-tiered customs corpus coverage", () => {
+    const gates = [
+      categoryGate("fasteners", { corpusExists: true, goldLabels: 12, silverLabels: 18 }),
+      categoryGate("packaging-cartons", {
+        corpusExists: true,
+        goldLabels: 10,
+        silverLabels: 20,
+      }),
+      categoryGate("examination-gloves", {
+        corpusExists: false,
+        goldLabels: 0,
+        silverLabels: 0,
+      }),
+    ];
+
+    expect(gates[0]).toMatchObject({ productionReady: true, blockers: [] });
+    expect(gates[1]).toMatchObject({ productionReady: true, blockers: [] });
+    expect(gates[2]).toMatchObject({
+      productionReady: false,
+    });
+    expect(gates[2]?.blockers).toEqual([
+      "customs_classification_corpus_missing",
+      "evidence_tier_metrics_insufficient",
+    ]);
+  });
+
+  it("L5-T-customs_classification-012 runs recall, UK10, exporter, measures, VAT, freshness, and defaults before net-margin gating", () => {
+    const recallResult = packagingRecallResult();
+    const resolution = new TenDigitResolution(
+      new InMemoryTariffGraph(packagingTariffNodes()),
+    ).resolve(recallResult.attributes, recallResult);
+    const selectedUk10 = resolution.selectedUk10 ?? "4819100000";
+    const exporterResolution = noTradeRemedyExporterResolution(selectedUk10);
+    const measureScan = scanMeasures({
+      uk10: selectedUk10,
+      measures: [
+        {
+          id: "mfn-paperboard",
+          measureType: "MFN",
+          dutyExpression: { kind: "ad_valorem", rateBps: 0 },
+        },
+        {
+          id: "de-6-17-paperboard",
+          measureType: "additional_code_relief",
+          dutyExpression: { kind: "ad_valorem", rateBps: 0 },
+          conditions: {
+            additionalCode: "DE 6/17",
+            additionalCodeSatisfiability: "unknown",
+            evidenceRequired: ["vat_relief_document", "commodity_prerequisite"],
+            applyWhenAdditionalCodeSatisfied: { kind: "ad_valorem", rateBps: 0 },
+            rateWithoutAdditionalCode: { kind: "ad_valorem", rateBps: 2_000 },
+          },
+        },
+      ],
+      customsValuePence: 1_000_000,
+      supplementaryQuantities: { number_of_items: 1_000 },
+      exporterResolution,
+    });
+    const vatResolution = resolveVat({
+      uk10: selectedUk10,
+      measures: [],
+      reliefClaims: [{ kind: "family_6_17", evidenceArtifactPaths: [] }],
+    });
+    const freshnessSweep = decisionFreshnessSweep();
+    const confidenceBreakdown = computeConfidenceBreakdown({
+      originPreference: { originProofAvailable: false },
+      exporterResolution,
+      vatResolution,
+      measureScanResult: measureScan,
+      marginSnapshot: {
+        snapshotId: "full-pipeline-before-net-margin",
+        netMarginBaseBps: 1_600,
+        resolvedNetMarginBaseBps: {
+          origin_preference: 1_900,
+          vat_rate: 1_800,
+        },
+      },
+    });
+    const decision = classifyDecisionGrade({
+      ...baseDecisionGradeInput(),
+      measureScan,
+      freshnessSweep,
+      worstCaseNetMarginBps: 1_600,
+    });
+
+    expect(recallResult.independentSourceFamiliesAvailable).toBe(5);
+    expect(resolution.selectedUk10).toBe("4819100000");
+    expect(exporterResolution.exporterRateBasis).toBe("residual_default");
+    expect(measureScan.additionalCodesRequirementsJson[0]?.satisfiability).toBe(
+      "unknown",
+    );
+    expect(vatResolution.importVatTreatment).toBe("standard_rate_default");
+    expect(freshnessSweep.passing).toBe(true);
+    expect(confidenceBreakdown.active_defaults).toContain("origin_preference:MFN");
+    expect(decision.grade).toBe("auto_pass");
+  });
+
+  it("L5-T-customs_classification-018 abstains on missing supplementary units and records unlockable evidence", () => {
+    const measureScan = scanMeasures({
+      uk10: "7604210000",
+      measures: [
+        {
+          id: "specific-aluminium-kg",
+          measureType: "specific_duty",
+          dutyExpression: { kind: "specific", unit: "kg", amountPence: 80 },
+        },
+      ],
+      customsValuePence: 1_000_000,
+      supplementaryQuantities: {},
+      exporterResolution: noTradeRemedyExporterResolution("7604210000"),
+    });
+    const confidenceBreakdown = computeConfidenceBreakdown({
+      exporterResolution: noTradeRemedyExporterResolution("7604210000"),
+      vatResolution: standardVatResolution("7604210000"),
+      measureScanResult: measureScan,
+      marginSnapshot: {
+        snapshotId: "supplementary-unit-abstain",
+        netMarginBaseBps: 1_200,
+        resolvedNetMarginBaseBps: {
+          supplementary_units: 1_550,
+        },
+      },
+    });
+
+    expect(measureScan.selectedDutyPence).toBeNull();
+    expect(measureScan.blockers).toContain(SUPPLEMENTARY_UNIT_MISSING);
+    expect(measureScan.supplementaryUnitsRequiredJson).toEqual(["kg_net"]);
+    expect(measureScan.dutyBreakdownJson).toMatchObject({
+      components: [{ measureId: "specific-aluminium-kg", amountPence: null }],
+    });
+    expect(confidenceBreakdown.evidence_leverage).toContainEqual({
+      parameter: "supplementary_units",
+      defaultApplied: "abstained",
+      evidenceRequired: ["supplementary_quantity:kg_net"],
+      marginDeltaBps: 350,
+      unlockable: true,
+      netMarginBaseBps: 1_200,
+      resolvedNetMarginBaseBps: 1_550,
+      snapshotId: "supplementary-unit-abstain",
+    });
+  });
+
+  it("L5-T-customs_classification-033 keeps open-question runtime behavior conservative and present-tense", () => {
+    expect(openQuestionBehaviors()).toEqual([
+      {
+        question: "unresolved_logistics",
+        runtimeBehavior: "run_boundary_scenarios",
+        bidReadiness: "review_required",
+      },
+      {
+        question: "chinese_sourcing_exporter",
+        runtimeBehavior: "residual_trade_remedy_default",
+        bidReadiness: "broker_required_when_remedy_active",
+      },
+      {
+        question: "customs_spread",
+        runtimeBehavior: "block_on_material_branch_divergence",
+        bidReadiness: "broker_required",
+      },
+      {
+        question: "packaging_subcategory",
+        runtimeBehavior: "expand_all_plausible_hs6_before_shortlist",
+        bidReadiness: "review_required_until_specific",
+      },
+      {
+        question: "cbam_timing",
+        runtimeBehavior: "flag_exposure_only_until_2027_secondary_legislation",
+        bidReadiness: "review_required",
+      },
+    ]);
+  });
+
+  it("L5-T-customs_classification-036 classifies every landed_cost_estimates column as populated nullable or sync-preserved", async () => {
+    const columns = await landedCostEstimateColumns();
+    const accountedFor = new Set([
+      ...L5_LANDED_COST_POPULATED_COLUMNS,
+      ...L5_LANDED_COST_EXPLICIT_NULL_COLUMNS,
+      ...L5_LANDED_COST_SYNC_COLUMNS,
+    ]);
+
+    expect(columns).toEqual(L5_LANDED_COST_COLUMN_CONTRACT);
+    expect([...accountedFor].sort()).toEqual([...new Set(accountedFor)].sort());
+    expect(
+      columns.filter((column) => !accountedFor.has(column as LandedCostColumn)),
+    ).toEqual([]);
+    expect(L5_LANDED_COST_EXPLICIT_NULL_COLUMNS).toContain("cbam_estimate_gbp_pence");
   });
 });
 
@@ -1169,6 +1450,232 @@ function decisionFreshnessSweep(
       fxDays: 31,
     },
   });
+}
+
+async function readText(url: URL): Promise<string> {
+  return await Bun.file(url).text();
+}
+
+async function landedCostEstimateColumns(): Promise<LandedCostColumn[]> {
+  const sqliteMigration = await readText(sqliteMigrationUrl);
+  const tableMatch = sqliteMigration.match(
+    /CREATE TABLE IF NOT EXISTS landed_cost_estimates \((?<body>[\s\S]*?)\n\);/,
+  );
+  expect(tableMatch?.groups?.body).toBeTruthy();
+  return ((tableMatch?.groups?.body ?? "")
+    .split("\n")
+    .map((line) => line.trim().replace(/,$/, ""))
+    .filter((line) => line.length > 0)
+    .map((line) => line.split(/\s+/, 1)[0])
+    .filter((column) =>
+      !["PRIMARY", "FOREIGN", "CHECK", "UNIQUE"].includes(column),
+    )) as LandedCostColumn[];
+}
+
+type LandedCostColumn = (typeof L5_LANDED_COST_COLUMN_CONTRACT)[number];
+
+const L5_LANDED_COST_COLUMN_CONTRACT = [
+  "id",
+  "process_id",
+  "notice_id",
+  "product_candidate_id",
+  "supplier_quote_id",
+  "shipping_mode",
+  "mode_confidence_bps",
+  "packing_scenario",
+  "declarable_commodity_code_10",
+  "candidate_commodity_codes_json",
+  "additional_codes",
+  "additional_code_requirements_json",
+  "supplementary_units_required_json",
+  "commodity_confidence_bps",
+  "classification_stability_bps",
+  "customs_valuation_method",
+  "valuation_mode",
+  "customs_fx_rate",
+  "commercial_fx_rate",
+  "fx_basis_delta_bps",
+  "fx_rate_checked_at",
+  "supplier_cost_gbp_pence",
+  "freight_low_gbp_pence",
+  "freight_base_gbp_pence",
+  "freight_high_gbp_pence",
+  "customs_duty_gbp_pence",
+  "trade_remedy_duty_gbp_pence",
+  "duty_outcome_min_gbp_pence",
+  "duty_outcome_max_gbp_pence",
+  "customs_cost_spread_bps",
+  "trade_remedy_state",
+  "trade_remedy_cases_json",
+  "duty_breakdown_json",
+  "measure_interaction_json",
+  "exporter_rate_basis",
+  "exporter_identity_confidence_bps",
+  "origin_evidence_state",
+  "import_vat_gbp_pence",
+  "vat_rate_state",
+  "import_vat_treatment",
+  "vat_recovery_rate_bps",
+  "uk_final_mile_cost_gbp_pence",
+  "other_fees_gbp_pence",
+  "economic_landed_cost_gbp_pence",
+  "cash_outlay_gbp_pence",
+  "cash_to_clear_gbp_pence",
+  "working_capital_cost_gbp_pence",
+  "revenue_basis_type",
+  "revenue_confidence_bps",
+  "customs_resolution_confidence_bps",
+  "commercial_estimate_confidence_bps",
+  "net_margin_low_bps",
+  "net_margin_base_bps",
+  "net_margin_high_bps",
+  "decision_grade",
+  "confidence_bps",
+  "confidence_breakdown",
+  "warnings",
+  "blockers",
+  "tariff_checked_at",
+  "measures_fresh_until",
+  "classification_fresh_until",
+  "trade_remedy_watch_state",
+  "cbam_exposure_flag",
+  "cbam_estimate_gbp_pence",
+  "owner_id",
+  "row_version",
+  "last_local_seq",
+  "stage_run_id",
+  "updated_at",
+  "created_at",
+] as const;
+
+const L5_LANDED_COST_EXPLICIT_NULL_COLUMNS: LandedCostColumn[] = [
+  "packing_scenario",
+  "trade_remedy_duty_gbp_pence",
+  "trade_remedy_cases_json",
+  "working_capital_cost_gbp_pence",
+  "cbam_estimate_gbp_pence",
+];
+
+const L5_LANDED_COST_SYNC_COLUMNS: LandedCostColumn[] = [
+  "owner_id",
+  "row_version",
+  "last_local_seq",
+  "stage_run_id",
+  "updated_at",
+  "created_at",
+];
+
+const L5_LANDED_COST_POPULATED_COLUMNS: LandedCostColumn[] =
+  L5_LANDED_COST_COLUMN_CONTRACT.filter(
+    (column) =>
+      !L5_LANDED_COST_EXPLICIT_NULL_COLUMNS.includes(column) &&
+      !L5_LANDED_COST_SYNC_COLUMNS.includes(column),
+  );
+
+type DecisionGradeCategoryBundle = {
+  category: MarketplaceCategory;
+  customs: {
+    declarableCommodityCode10: string;
+    dutyBreakdownJson: { components: Array<{ measureId: string }> };
+  };
+  fx: {
+    customsFxRateCheckedAt: string;
+  };
+  freight: {
+    providerEvidence: "freightos" | "searates";
+  };
+  vat: {
+    importVatTreatment: string;
+  };
+  confidenceBreakdown: {
+    evidence_leverage: Array<{ parameter: string; marginDeltaBps: number }>;
+  };
+  blockers: string[];
+  decisionGrade: "auto_pass" | "review_required" | "broker_required";
+};
+
+function decisionGradeCategoryBundles(): DecisionGradeCategoryBundle[] {
+  return [
+    decisionGradeCategoryBundle("fasteners", "7318158898", "freightos"),
+    decisionGradeCategoryBundle("packaging-cartons", "4819100000", "searates"),
+    decisionGradeCategoryBundle("examination-gloves", "4015120000", "freightos"),
+  ];
+}
+
+function decisionGradeCategoryBundle(
+  category: MarketplaceCategory,
+  commodityCode: string,
+  providerEvidence: "freightos" | "searates",
+): DecisionGradeCategoryBundle {
+  return {
+    category,
+    customs: {
+      declarableCommodityCode10: commodityCode,
+      dutyBreakdownJson: { components: [{ measureId: `mfn-${commodityCode}` }] },
+    },
+    fx: { customsFxRateCheckedAt: "2026-05-19T12:00:00Z" },
+    freight: { providerEvidence },
+    vat: { importVatTreatment: "standard_rate_default" },
+    confidenceBreakdown: {
+      evidence_leverage: [{ parameter: "origin_preference", marginDeltaBps: 250 }],
+    },
+    blockers: [],
+    decisionGrade: "review_required",
+  };
+}
+
+type CategoryGateResult = {
+  category: MarketplaceCategory;
+  productionReady: boolean;
+  blockers: string[];
+};
+
+function categoryGate(
+  category: MarketplaceCategory,
+  evidence: { corpusExists: boolean; goldLabels: number; silverLabels: number },
+): CategoryGateResult {
+  const blockers: string[] = [];
+  if (!evidence.corpusExists) {
+    blockers.push("customs_classification_corpus_missing");
+  }
+  if (evidence.goldLabels < 10 && evidence.silverLabels < 20) {
+    blockers.push("evidence_tier_metrics_insufficient");
+  }
+  return {
+    category,
+    productionReady: blockers.length === 0,
+    blockers,
+  };
+}
+
+function openQuestionBehaviors() {
+  return [
+    {
+      question: "unresolved_logistics",
+      runtimeBehavior: "run_boundary_scenarios",
+      bidReadiness: "review_required",
+    },
+    {
+      question: "chinese_sourcing_exporter",
+      runtimeBehavior: "residual_trade_remedy_default",
+      bidReadiness: "broker_required_when_remedy_active",
+    },
+    {
+      question: "customs_spread",
+      runtimeBehavior: "block_on_material_branch_divergence",
+      bidReadiness: "broker_required",
+    },
+    {
+      question: "packaging_subcategory",
+      runtimeBehavior: "expand_all_plausible_hs6_before_shortlist",
+      bidReadiness: "review_required_until_specific",
+    },
+    {
+      question: "cbam_timing",
+      runtimeBehavior: "flag_exposure_only_until_2027_secondary_legislation",
+      bidReadiness: "review_required",
+    },
+  ] as const;
 }
 
 type MarketplaceCategory =
