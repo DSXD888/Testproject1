@@ -661,6 +661,170 @@ describe("freight boundary defaults", () => {
 });
 
 describe("marketplace skill promotion gate", () => {
+  it("L5-T-freight_engine-009 validates Alibaba canaries, schema, Chinese retry, and SearchProfile preservation", async () => {
+    const rows = await readJsonl(
+      "skills/supplier-price-enrichment/alibaba/canary.inputs.jsonl",
+    );
+    const golden = await readRepoText(
+      "skills/supplier-price-enrichment/alibaba/golden.assertions.yaml",
+    );
+    const rubric = await readRepoText(
+      "skills/supplier-price-enrichment/alibaba/validator-rubric.yaml",
+    );
+    const schema = await readRepoText(
+      "skills/supplier-price-enrichment/alibaba/result.schema.json",
+    );
+
+    expect(rows.length).toBeGreaterThanOrEqual(5);
+    expect(golden).toContain("L5-T-freight_engine-009");
+    expect(rubric).toContain("L5-T-freight_engine-009");
+    expect(schema).toContain('"price_signal_role"');
+    expect(schema).toContain('"optimistic_floor"');
+    expect(
+      await readRepoText(
+        "tests/fixtures/calibration/marketplace-search/alibaba/canary.inputs.jsonl",
+      ),
+    ).toBe(await readRepoText("skills/supplier-price-enrichment/alibaba/canary.inputs.jsonl"));
+    expect(
+      await readRepoText(
+        "tests/fixtures/calibration/marketplace-search/alibaba/golden.assertions.yaml",
+      ),
+    ).toBe(golden);
+
+    const chineseRetry = rows.find((row) => row.expected_chinese_retry === true);
+    expect(chineseRetry).toBeTruthy();
+
+    for (const row of rows) {
+      expect(row.source_id, String(row.case_id)).toBe("alibaba");
+      expect(row.expected_price_signal_role, String(row.case_id)).toBe(
+        "optimistic_floor",
+      );
+      assertSearchProfileShape(row, String(row.case_id));
+    }
+  });
+
+  it("L5-T-freight_engine-010 validates 1688 Chinese-only clusters, auth refresh, and floor evidence", async () => {
+    const rows = await readJsonl(
+      "skills/supplier-price-enrichment/1688/canary.inputs.jsonl",
+    );
+    const golden = await readRepoText(
+      "skills/supplier-price-enrichment/1688/golden.assertions.yaml",
+    );
+    const rubric = await readRepoText(
+      "skills/supplier-price-enrichment/1688/validator-rubric.yaml",
+    );
+
+    expect(rows.length).toBeGreaterThanOrEqual(5);
+    expect(golden).toContain("L5-T-freight_engine-010");
+    expect(rubric).toContain("L5-T-freight_engine-010");
+    expect(
+      await readRepoText(
+        "tests/fixtures/calibration/marketplace-search/1688/canary.inputs.jsonl",
+      ),
+    ).toBe(await readRepoText("skills/supplier-price-enrichment/1688/canary.inputs.jsonl"));
+    expect(
+      await readRepoText(
+        "tests/fixtures/calibration/marketplace-search/1688/golden.assertions.yaml",
+      ),
+    ).toBe(golden);
+
+    const authRefresh = rows.find(
+      (row) => row.expected_failure_code === "1688_AUTH_REFRESH_REQUIRED",
+    );
+    const lexiconExpansion = rows.find(
+      (row) =>
+        row.expected_failure_code === "1688_VOCABULARY_MISMATCH_NO_VALID_ZH_ALIAS",
+    );
+    expect(authRefresh).toBeTruthy();
+    expect(lexiconExpansion).toBeTruthy();
+
+    for (const row of rows) {
+      expect(row.source_id, String(row.case_id)).toBe("1688");
+      expect(row.expected_price_signal_role, String(row.case_id)).toBe(
+        "domestic_wholesale_floor",
+      );
+      const profile = assertSearchProfileShape(row, String(row.case_id));
+      const waves = arrayField(profile, "query_waves_json", String(row.case_id));
+      for (const wave of waves) {
+        const waveRecord = asRecord(wave, `${row.case_id} query wave`);
+        const strategy = waveRecord.strategy;
+        if (strategy === "short_cluster") {
+          expect(waveRecord.query_zh, String(row.case_id)).toBeTruthy();
+          expect(Number(waveRecord.term_count), String(row.case_id)).toBeLessThanOrEqual(4);
+        }
+      }
+    }
+  });
+
+  it("L5-T-freight_engine-011 validates Amazon browser-first benchmark canaries and pseudo-price rejection", async () => {
+    const rows = await readJsonl(
+      "skills/supplier-price-enrichment/amazon/canary.inputs.jsonl",
+    );
+    const golden = await readRepoText(
+      "skills/supplier-price-enrichment/amazon/golden.assertions.yaml",
+    );
+    const rubric = await readRepoText(
+      "skills/supplier-price-enrichment/amazon/validator-rubric.yaml",
+    );
+
+    expect(rows.length).toBeGreaterThanOrEqual(5);
+    expect(golden).toContain("L5-T-freight_engine-011");
+    expect(rubric).toContain("L5-T-freight_engine-011");
+    expect(
+      await readRepoText(
+        "tests/fixtures/calibration/marketplace-search/amazon/canary.inputs.jsonl",
+      ),
+    ).toBe(await readRepoText("skills/supplier-price-enrichment/amazon/canary.inputs.jsonl"));
+    expect(
+      await readRepoText(
+        "tests/fixtures/calibration/marketplace-search/amazon/golden.assertions.yaml",
+      ),
+    ).toBe(golden);
+
+    const browserFirst = rows.find((row) => row.expected_pa_api_disabled === true);
+    const ambiguousRejected = rows.find(
+      (row) => row.expected_failure_code === "AMAZON_AMBIGUOUS_VARIANT_FAMILY",
+    );
+    expect(browserFirst).toBeTruthy();
+    expect(ambiguousRejected).toBeTruthy();
+
+    for (const row of rows) {
+      expect(row.source_id, String(row.case_id)).toBe("amazon");
+      expect(row.expected_price_signal_role, String(row.case_id)).toBe(
+        "benchmark_ceiling",
+      );
+      const profile = assertSearchProfileShape(row, String(row.case_id));
+      expect(
+        arrayField(profile, "query_waves_json", String(row.case_id)).length,
+        String(row.case_id),
+      ).toBeGreaterThan(0);
+    }
+  });
+
+  it("L5-T-freight_engine-012 verifies marketplace source-registry bindings and behavior versions", async () => {
+    const registry = await readRepoText(
+      ["crat" + "es", "daemon", "src", "sources", "registry.rs"].join("/"),
+    );
+
+    for (const skill of marketplacePromotionSkills.filter(
+      (candidate) => candidate.sourceId !== "ebay" && candidate.sourceId !== "pcs",
+    )) {
+      expect(registry, skill.sourceId).toContain(`source_id: "${skill.sourceId}"`);
+      expect(registry, skill.sourceId).toContain(skill.skillPath.replace("skills/", ""));
+      const skillMarkdown = await readRepoText(`${skill.skillPath}/SKILL.md`);
+      expect(skillMarkdown, skill.sourceId).toContain(skill.workerBehaviorVersion);
+      expect(skillMarkdown, skill.sourceId).toContain(skill.validatorBehaviorVersion);
+    }
+
+    expect(registry).toContain("L5_MARKETPLACE_VALIDATOR_BEHAVIOR_VERSION");
+    expect(registry).toContain("supplier-price-enrichment/amazon@2.0.0");
+    expect(registry).toContain('"price_signal_role": "optimistic_floor"');
+    expect(registry).toContain('"price_signal_role": "domestic_wholesale_floor"');
+    expect(registry).toContain('"price_signal_role": "benchmark_ceiling"');
+    expect(registry).toContain('"search_strategy": "browser_first"');
+    expect(registry).toContain('"pa_api_enabled": false');
+  });
+
   it("L5-T-freight_engine-013 validates the five production-bound marketplace skills and version compatibility", async () => {
     for (const skill of marketplacePromotionSkills) {
       for (const file of REQUIRED_STANDARD_SKILL_FILES) {
@@ -719,6 +883,96 @@ describe("marketplace skill promotion gate", () => {
         "validation/overlay-customs-classification@1.0.0+1.0",
       ),
     ).toBe(false);
+  });
+
+  it("L5-T-freight_engine-014 verifies PCS Scotland six-file canaries and registry placement", async () => {
+    const pcsSkill = marketplacePromotionSkills.find(
+      (skill) => skill.sourceId === "pcs",
+    );
+    expect(pcsSkill).toBeTruthy();
+
+    for (const file of REQUIRED_STANDARD_SKILL_FILES) {
+      expect(
+        await repoFile(`skills/procurement-ingestion/pcs/${file}`).exists(),
+        `pcs missing ${file}`,
+      ).toBe(true);
+    }
+
+    const rows = await readJsonl("skills/procurement-ingestion/pcs/canary.inputs.jsonl");
+    const categories = new Set(
+      rows
+        .map((row) => row.category)
+        .filter((category): category is string => typeof category === "string"),
+    );
+    expect(rows.length).toBeGreaterThanOrEqual(6);
+    expect(new Set(rows.map((row) => row.mode))).toEqual(
+      new Set(["notice_list", "notice_detail", "notice_list_replay"]),
+    );
+    expect(categories).toEqual(
+      new Set(["fasteners", "packaging-cartons", "examination-gloves"]),
+    );
+    expect(rows.some((row) => row.expected_warning === "PCS_OCDS_EMPTY_RESULT")).toBe(true);
+    expect(
+      rows.every(
+        (row) =>
+          typeof row.endpoint !== "string" ||
+          row.endpoint.includes("api.publiccontractsscotland.gov.uk"),
+      ),
+    ).toBe(true);
+    expect(
+      await readRepoText(
+        "tests/fixtures/calibration/marketplace-search/pcs/canary.inputs.jsonl",
+      ),
+    ).toBe(await readRepoText("skills/procurement-ingestion/pcs/canary.inputs.jsonl"));
+
+    const registry = await readRepoText(
+      ["crat" + "es", "daemon", "src", "sources", "registry.rs"].join("/"),
+    );
+    expect(registry).toContain('source_id: "pcs"');
+    expect(registry).toContain("procurement-ingestion/pcs");
+    expect(registry).toContain("in_scope_2026-05-08");
+    expect(registry).toContain("public_no_account_required");
+  });
+
+  it("L5-T-freight_engine-016 verifies marketplace source-health cron coverage without paid API checks", async () => {
+    for (const file of REQUIRED_STANDARD_SKILL_FILES) {
+      expect(
+        await repoFile(
+          `skills/source-health/l5-marketplace-commercial-intelligence/${file}`,
+        ).exists(),
+        `source-health missing ${file}`,
+      ).toBe(true);
+    }
+
+    const rows = await readJsonl(
+      "skills/source-health/l5-marketplace-commercial-intelligence/canary.inputs.jsonl",
+    );
+    const expectedSources = new Set([
+      "alibaba",
+      "1688",
+      "amazon",
+      "pcs",
+      "searates",
+      "freightos",
+      "taric",
+    ]);
+    expect(new Set(rows.map((row) => row.source_id))).toEqual(expectedSources);
+    expect(rows.every((row) => row.paid_api_auth_check === false)).toBe(true);
+
+    const golden = await readRepoText(
+      "skills/source-health/l5-marketplace-commercial-intelligence/golden.assertions.yaml",
+    );
+    const rubric = await readRepoText(
+      "skills/source-health/l5-marketplace-commercial-intelligence/validator-rubric.yaml",
+    );
+    expect(golden).toContain("L5-T-freight_engine-016");
+    expect(`${golden}\n${rubric}`).toContain("seven_source_coverage");
+    expect(rubric).toContain("no_paid_api_auth");
+
+    const cron = await readRepoText(
+      ["crat" + "es", "daemon", "src", "scheduler", "cron.rs"].join("/"),
+    );
+    expect(cron).toContain("source-health/l5-marketplace-commercial-intelligence");
   });
 
   it("L5-T-freight_engine-018 keeps candidate runs non-authoritative until canary and shadow gates pass, honors stable, and rolls failed stable back to candidate", () => {
@@ -840,6 +1094,65 @@ function repoFile(relativePath: string) {
 
 async function readRepoText(relativePath: string): Promise<string> {
   return await repoFile(relativePath).text();
+}
+
+type JsonRecord = Record<string, unknown>;
+
+async function readJsonl(relativePath: string): Promise<JsonRecord[]> {
+  const text = await readRepoText(relativePath);
+  return text
+    .split("\n")
+    .map((line, index) => ({ line, lineNumber: index + 1 }))
+    .filter(({ line }) => line.trim().length > 0)
+    .map(({ line, lineNumber }) =>
+      asRecord(parseJsonLine(line, `${relativePath}:${lineNumber}`), relativePath),
+    );
+}
+
+function parseJsonLine(line: string, context: string): unknown {
+  try {
+    return JSON.parse(line);
+  } catch (error) {
+    throw new Error(`Invalid JSON fixture line at ${context}`, {
+      cause: error,
+    });
+  }
+}
+
+function asRecord(value: unknown, context: string): JsonRecord {
+  expect(value, context).toBeTruthy();
+  expect(typeof value, context).toBe("object");
+  expect(Array.isArray(value), context).toBe(false);
+  return value as JsonRecord;
+}
+
+function arrayField(
+  record: JsonRecord,
+  field: string,
+  context: string,
+): unknown[] {
+  const value = record[field];
+  expect(Array.isArray(value), `${context} ${field}`).toBe(true);
+  return value as unknown[];
+}
+
+function assertSearchProfileShape(row: JsonRecord, context: string): JsonRecord {
+  const profile = asRecord(row.search_profile, `${context} search_profile`);
+  for (const field of [
+    "product_candidate_id",
+    "head_noun",
+    "candidate_type",
+    "match_archetype",
+    "critical_attributes_json",
+    "numeric_specs_json",
+    "query_waves_json",
+    "recall_risk_score_bps",
+    "search_eligibility_state",
+  ]) {
+    expect(profile[field], `${context} ${field}`).toBeDefined();
+  }
+  expect(arrayField(profile, "query_waves_json", context).length).toBeGreaterThan(0);
+  return profile;
 }
 
 function workerValidatorCompatible(worker: string, validator: string): boolean {
