@@ -1,9 +1,25 @@
-import type { ExporterResolutionResult } from "./exporter-resolution";
+import type { FreshnessSweepResult } from "./classification-freshness";
+import type {
+  ExporterRateBasis,
+  ExporterResolutionResult,
+} from "./exporter-resolution";
+import {
+  CLASSIFICATION_AMBIGUOUS,
+  CUSTOMS_BRANCH_DIVERGENCE_BPS,
+  TARIFF_BRANCH_DIVERGENCE,
+  type DivergenceCheckResult,
+} from "./ten-digit-resolution";
 import type { FreightEngineOutputs } from "../logistics/freight-engine";
 
 export const MEASURE_INTERACTION_UNKNOWN = "MEASURE_INTERACTION_UNKNOWN" as const;
 export const SUPPLEMENTARY_UNIT_MISSING = "SUPPLEMENTARY_UNIT_MISSING" as const;
 export const VALUATION_MODE_CONFLICT = "VALUATION_MODE_CONFLICT" as const;
+export const CLASSIFICATION_FRESH_UNTIL_EXPIRED =
+  "classification_fresh_until_expired" as const;
+export const FLOOR_ONLY_QUOTE_ROLE = "FLOOR_ONLY_QUOTE_ROLE" as const;
+export const ADDITIONAL_CODE_UNSATISFIED =
+  "ADDITIONAL_CODE_UNSATISFIED" as const;
+export const EXPORTER_UNRESOLVED_BLOCKER = "EXPORTER_UNRESOLVED" as const;
 
 export const STANDARD_IMPORT_VAT_RATE_BPS = 2_000;
 
@@ -121,6 +137,36 @@ export interface ComputeConfidenceBreakdownInput {
   marginSnapshot: EvidenceLeverageMarginSnapshot;
   originPreference?: OriginPreferenceResolution;
   freightOutput?: FreightEngineOutputs;
+}
+
+export type DecisionGrade = "auto_pass" | "review_required" | "broker_required";
+
+export type MarketplaceQuoteRole =
+  | "benchmark_ceiling"
+  | "optimistic_floor"
+  | "domestic_wholesale_floor"
+  | "executable_wholesale";
+
+export interface DecisionGradeInput {
+  divergence: DivergenceCheckResult;
+  measureScan: MeasureScanResult;
+  exporterRateBasis: ExporterRateBasis;
+  freshnessSweep: FreshnessSweepResult;
+  worstCaseNetMarginBps: number;
+  gateBps: number;
+  customsCostSpreadBps: number;
+  netGateCoverage: {
+    allBranchesSameFamily: boolean;
+  };
+  activeTradeRemedy?: boolean;
+  quoteRoles?: MarketplaceQuoteRole[];
+  operatorOverrideFloorQuoteRole?: boolean;
+}
+
+export interface DecisionGradeResult {
+  grade: DecisionGrade;
+  blockers: string[];
+  warnings: string[];
 }
 
 export type ValuationMode = "estimation" | "declaration";
@@ -496,6 +542,63 @@ export function computeConfidenceBreakdown(
   return confidence;
 }
 
+export function classifyDecisionGrade(
+  input: DecisionGradeInput,
+): DecisionGradeResult {
+  const blockers = unique([
+    ...input.divergence.emittedCodes,
+    ...measureScanBlockers(input.measureScan),
+    ...freshnessReadinessBlockers(input.freshnessSweep),
+    ...exporterReadinessBlockers(input),
+    ...quoteRoleReadinessBlockers(input),
+    ...(input.customsCostSpreadBps >= CUSTOMS_BRANCH_DIVERGENCE_BPS
+      ? [TARIFF_BRANCH_DIVERGENCE]
+      : []),
+    ...(input.netGateCoverage.allBranchesSameFamily
+      ? []
+      : [CLASSIFICATION_AMBIGUOUS]),
+  ]).sort();
+  const hasResidualExporterDefaultWarning =
+    input.exporterRateBasis === "residual_default" &&
+    input.activeTradeRemedy !== true;
+
+  const warnings = unique([
+    ...additionalCodeWarnings(input.measureScan),
+    ...(input.worstCaseNetMarginBps < input.gateBps
+      ? ["worst_case_net_margin_below_gate"]
+      : []),
+    ...(hasResidualExporterDefaultWarning
+      ? ["residual_exporter_rate_default_no_active_remedy"]
+      : []),
+  ]).sort();
+
+  if (blockers.length > 0) {
+    return {
+      grade: "broker_required",
+      blockers,
+      warnings,
+    };
+  }
+
+  if (
+    input.worstCaseNetMarginBps >= input.gateBps &&
+    input.customsCostSpreadBps < CUSTOMS_BRANCH_DIVERGENCE_BPS &&
+    input.netGateCoverage.allBranchesSameFamily
+  ) {
+    return {
+      grade: "auto_pass",
+      blockers: [],
+      warnings,
+    };
+  }
+
+  return {
+    grade: "review_required",
+    blockers: [],
+    warnings,
+  };
+}
+
 export function scanMeasures(input: MeasureScanInput): MeasureScanResult {
   const perMeasureClassification = input.measures.map((measure) => ({
     measure,
@@ -669,6 +772,63 @@ function uniqueEvidenceLeverage(
   return [...byParameter.values()].sort((left, right) =>
     left.parameter.localeCompare(right.parameter),
   );
+}
+
+function measureScanBlockers(result: MeasureScanResult): string[] {
+  return [
+    ...result.blockers,
+    ...result.additionalCodesRequirementsJson.flatMap((requirement) =>
+      requirement.satisfiability === "unsatisfied"
+        ? [ADDITIONAL_CODE_UNSATISFIED]
+        : [],
+    ),
+  ];
+}
+
+function freshnessReadinessBlockers(
+  freshnessSweep: FreshnessSweepResult,
+): string[] {
+  if (!freshnessSweep.blocksL6Readiness) {
+    return [];
+  }
+
+  return [CLASSIFICATION_FRESH_UNTIL_EXPIRED, ...freshnessSweep.blockers];
+}
+
+function exporterReadinessBlockers(input: DecisionGradeInput): string[] {
+  if (
+    input.activeTradeRemedy === true &&
+    input.exporterRateBasis === "residual_default"
+  ) {
+    return [EXPORTER_UNRESOLVED_BLOCKER];
+  }
+
+  return [];
+}
+
+function quoteRoleReadinessBlockers(input: DecisionGradeInput): string[] {
+  const roles = input.quoteRoles ?? [];
+  if (
+    roles.length > 0 &&
+    roles.every(isFloorOnlyQuoteRole) &&
+    input.operatorOverrideFloorQuoteRole !== true
+  ) {
+    return [FLOOR_ONLY_QUOTE_ROLE];
+  }
+
+  return [];
+}
+
+function additionalCodeWarnings(result: MeasureScanResult): string[] {
+  return result.additionalCodesRequirementsJson.flatMap((requirement) =>
+    requirement.satisfiability === "unknown"
+      ? [`additional_code_unknown:${requirement.code}`]
+      : [],
+  );
+}
+
+function isFloorOnlyQuoteRole(role: MarketplaceQuoteRole): boolean {
+  return role === "optimistic_floor" || role === "domestic_wholesale_floor";
 }
 
 function classifyMeasure(

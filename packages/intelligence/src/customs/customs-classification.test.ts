@@ -8,9 +8,14 @@ import {
 } from "./classification-freshness";
 import { EXPORTER_UNRESOLVED, resolveExporter } from "./exporter-resolution";
 import {
+  CLASSIFICATION_FRESH_UNTIL_EXPIRED,
+  EXPORTER_UNRESOLVED_BLOCKER,
+  FLOOR_ONLY_QUOTE_ROLE,
   computeConfidenceBreakdown,
+  classifyDecisionGrade,
   resolveVat,
   scanMeasures,
+  type DecisionGradeInput,
 } from "./measure-scanner";
 import type { FreightEngineOutputs } from "../logistics/freight-engine";
 import {
@@ -28,8 +33,12 @@ import {
   type TariffNode,
 } from "./multi-source-recall";
 import {
+  CLASSIFICATION_AMBIGUOUS,
+  TARIFF_BRANCH_DIVERGENCE,
   TenDigitResolution,
   createTenDigitOperatorSurface,
+  detectBranchDivergence,
+  type TenDigitCandidate,
 } from "./ten-digit-resolution";
 
 describe("customs classification tariff graph", () => {
@@ -802,6 +811,193 @@ describe("customs classification exporter defaults", () => {
   });
 });
 
+describe("customs classification divergence readiness", () => {
+  it("L5-T-customs_classification-020 treats material tariff branch divergence as a hard blocker without averaging", () => {
+    const remedyDivergence = detectBranchDivergence([
+      branchCandidate({
+        uk10Code: "7318158898",
+        parentHs6: "7318",
+        rank: 1,
+        dutyOutcomePence: 120_000,
+        dutyType: "ad_valorem",
+        hasTradeRemedy: false,
+      }),
+      branchCandidate({
+        uk10Code: "7318159599",
+        parentHs6: "7318",
+        rank: 2,
+        dutyOutcomePence: 420_000,
+        dutyType: "ad_valorem",
+        hasTradeRemedy: true,
+      }),
+    ]);
+
+    expect(remedyDivergence).toMatchObject({
+      divergent: true,
+      divergenceKind: "remedy_no_remedy",
+      selectedBranchAuto: null,
+      worstCaseDutyPence: 420_000,
+      bestCaseDutyPence: 120_000,
+    });
+    expect(remedyDivergence.emittedCodes).toContain(TARIFF_BRANCH_DIVERGENCE);
+    expect(
+      (remedyDivergence as { averagedDutyPence?: number }).averagedDutyPence,
+    ).toBeUndefined();
+
+    const familyDivergence = detectBranchDivergence([
+      branchCandidate({
+        uk10Code: "4819100000",
+        parentHs6: "4819",
+        dutyOutcomePence: 40_000,
+      }),
+      branchCandidate({
+        uk10Code: "3923100000",
+        parentHs6: "3923",
+        dutyOutcomePence: 140_000,
+      }),
+    ]);
+
+    expect(familyDivergence.divergent).toBe(true);
+    expect(familyDivergence.divergenceKind).toBe("material_spread");
+    expect(familyDivergence.emittedCodes).toEqual([
+      CLASSIFICATION_AMBIGUOUS,
+      TARIFF_BRANCH_DIVERGENCE,
+    ]);
+  });
+
+  it("L5-T-customs_classification-021 auto-passes only when divergence, measures, freshness, and net gate coverage are clean", () => {
+    const divergence = detectBranchDivergence([
+      branchCandidate({
+        uk10Code: "4819100000",
+        parentHs6: "4819",
+        dutyOutcomePence: 60_000,
+      }),
+      branchCandidate({
+        uk10Code: "4819200000",
+        parentHs6: "4819",
+        rank: 2,
+        dutyOutcomePence: 62_000,
+      }),
+    ]);
+    const result = classifyDecisionGrade({
+      ...baseDecisionGradeInput(),
+      divergence,
+      customsCostSpreadBps: divergence.customsCostSpreadBps,
+    });
+
+    expect(divergence.selectedBranchAuto?.uk10Code).toBe("4819100000");
+    expect(result).toEqual({
+      grade: "auto_pass",
+      blockers: [],
+      warnings: [],
+    });
+
+    const marginReview = classifyDecisionGrade({
+      ...baseDecisionGradeInput(),
+      worstCaseNetMarginBps: 1_099,
+      gateBps: 1_100,
+    });
+
+    expect(marginReview).toMatchObject({
+      grade: "review_required",
+      blockers: [],
+      warnings: ["worst_case_net_margin_below_gate"],
+    });
+  });
+
+  it("L5-T-customs_classification-034 produces every L5-to-L6 readiness blocker and blocks floor-only quotes without override", () => {
+    const ambiguousDivergence = detectBranchDivergence([
+      branchCandidate({
+        uk10Code: "4819100000",
+        parentHs6: "4819",
+        dutyOutcomePence: 40_000,
+      }),
+      branchCandidate({
+        uk10Code: "3923100000",
+        parentHs6: "3923",
+        rank: 2,
+        dutyOutcomePence: 140_000,
+      }),
+    ]);
+    const ambiguous = classifyDecisionGrade({
+      ...baseDecisionGradeInput(),
+      divergence: ambiguousDivergence,
+      customsCostSpreadBps: ambiguousDivergence.customsCostSpreadBps,
+      netGateCoverage: { allBranchesSameFamily: false },
+    });
+
+    expect(ambiguous.grade).toBe("broker_required");
+    expect(ambiguous.blockers).toEqual(
+      expect.arrayContaining([
+        CLASSIFICATION_AMBIGUOUS,
+        TARIFF_BRANCH_DIVERGENCE,
+      ]),
+    );
+
+    const supplementaryUnitMissing = classifyDecisionGrade({
+      ...baseDecisionGradeInput(),
+      measureScan: scanMeasures({
+        uk10: "7604210000",
+        measures: [
+          {
+            id: "specific-aluminium-kg",
+            measureType: "specific_duty",
+            dutyExpression: { kind: "specific", unit: "kg", amountPence: 80 },
+          },
+        ],
+        customsValuePence: 1_000_000,
+        supplementaryQuantities: {},
+        exporterResolution: noTradeRemedyExporterResolution("7604210000"),
+      }),
+    });
+
+    expect(supplementaryUnitMissing.grade).toBe("broker_required");
+    expect(supplementaryUnitMissing.blockers).toContain(
+      "SUPPLEMENTARY_UNIT_MISSING",
+    );
+
+    const residualExporter = classifyDecisionGrade({
+      ...baseDecisionGradeInput(),
+      exporterRateBasis: "residual_default",
+      activeTradeRemedy: true,
+    });
+
+    expect(residualExporter.grade).toBe("broker_required");
+    expect(residualExporter.blockers).toContain(EXPORTER_UNRESOLVED_BLOCKER);
+
+    const expiredFreshness = classifyDecisionGrade({
+      ...baseDecisionGradeInput(),
+      freshnessSweep: decisionFreshnessSweep({
+        measuresFreshUntil: "2026-05-19T00:00:00Z",
+      }),
+    });
+
+    expect(expiredFreshness.grade).toBe("broker_required");
+    expect(expiredFreshness.blockers).toContain(
+      CLASSIFICATION_FRESH_UNTIL_EXPIRED,
+    );
+
+    const floorOnlyQuotes = classifyDecisionGrade({
+      ...baseDecisionGradeInput(),
+      quoteRoles: ["optimistic_floor", "domestic_wholesale_floor"],
+    });
+
+    expect(floorOnlyQuotes.grade).toBe("broker_required");
+    expect(floorOnlyQuotes.blockers).toContain(FLOOR_ONLY_QUOTE_ROLE);
+
+    const operatorOverride = classifyDecisionGrade({
+      ...baseDecisionGradeInput(),
+      quoteRoles: ["optimistic_floor", "domestic_wholesale_floor"],
+      operatorOverrideFloorQuoteRole: true,
+    });
+
+    expect(operatorOverride).toMatchObject({
+      grade: "auto_pass",
+      blockers: [],
+    });
+  });
+});
+
 function aluminiumExtrusionMeasure() {
   return {
     id: "uk-ad-aluminium-extrusions-cn-residual",
@@ -898,6 +1094,81 @@ function freightBoundaryScenario(
     warningsAndBlockers: [],
     missingLogisticsFacts: [],
   };
+}
+
+function branchCandidate(
+  overrides: Partial<TenDigitCandidate> = {},
+): TenDigitCandidate {
+  return {
+    uk10Code: "4819100000",
+    parentHs6: "4819",
+    rank: 1,
+    scoreBps: 9_000,
+    dutyOutcomePence: 60_000,
+    dutyType: "ad_valorem",
+    hasTradeRemedy: false,
+    slotCompatibility: {
+      descriptionMatchBps: 10_000,
+      materialMatchBps: 10_000,
+      unitCompatibility: "ok",
+      exclusionsTriggered: [],
+      scopeNoteFlags: [],
+    },
+    candidateRecallAgreement: [],
+    ...overrides,
+  };
+}
+
+function cleanMeasureScan() {
+  return scanMeasures({
+    uk10: "4819100000",
+    measures: [
+      {
+        id: "mfn-paperboard",
+        measureType: "MFN",
+        dutyExpression: { kind: "ad_valorem", rateBps: 0 },
+      },
+    ],
+    customsValuePence: 1_000_000,
+    supplementaryQuantities: {},
+    exporterResolution: noTradeRemedyExporterResolution("4819100000"),
+  });
+}
+
+function baseDecisionGradeInput(): DecisionGradeInput {
+  const divergence = detectBranchDivergence([branchCandidate()]);
+  return {
+    divergence,
+    measureScan: cleanMeasureScan(),
+    exporterRateBasis: "named_exporter",
+    freshnessSweep: decisionFreshnessSweep(),
+    worstCaseNetMarginBps: 1_600,
+    gateBps: 1_100,
+    customsCostSpreadBps: divergence.customsCostSpreadBps,
+    netGateCoverage: { allBranchesSameFamily: true },
+    activeTradeRemedy: false,
+    quoteRoles: ["benchmark_ceiling"],
+  };
+}
+
+function decisionFreshnessSweep(
+  overrides: Partial<Parameters<typeof sweepFreshness>[0]["vectors"]> = {},
+) {
+  return sweepFreshness({
+    uk10: "4819100000",
+    vectors: freshnessVectors(overrides),
+    expectedImportWindow: {
+      start: "2026-05-20T00:00:00Z",
+      end: "2026-05-24T00:00:00Z",
+    },
+    now: new Date("2026-05-19T12:00:00Z"),
+    configuredWindow: {
+      structureDays: 14,
+      measuresDays: 14,
+      remedyDays: 14,
+      fxDays: 31,
+    },
+  });
 }
 
 type MarketplaceCategory =

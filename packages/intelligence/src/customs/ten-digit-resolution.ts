@@ -7,6 +7,10 @@ import type {
   SourceFamilyResult,
 } from "./multi-source-recall";
 
+export const CLASSIFICATION_AMBIGUOUS = "CLASSIFICATION_AMBIGUOUS" as const;
+export const TARIFF_BRANCH_DIVERGENCE = "TARIFF_BRANCH_DIVERGENCE" as const;
+export const CUSTOMS_BRANCH_DIVERGENCE_BPS = 1_500;
+
 export type TariffNodeLevel = "chapter" | "heading" | "subheading" | "cn8" | "uk10";
 
 export interface TariffMeasure {
@@ -92,6 +96,9 @@ export interface UkTenDigitCandidate {
   parentHs6: string;
   rank: number;
   scoreBps: number;
+  dutyOutcomePence?: number;
+  dutyType?: "ad_valorem" | "specific" | "compound" | "unknown";
+  hasTradeRemedy?: boolean;
   slotCompatibility: {
     descriptionMatchBps: number;
     materialMatchBps: number;
@@ -100,6 +107,27 @@ export interface UkTenDigitCandidate {
     scopeNoteFlags: string[];
   };
   candidateRecallAgreement: SourceFamilyResult[];
+}
+
+export type TenDigitCandidate = UkTenDigitCandidate;
+
+export type DivergenceKind =
+  | "remedy_no_remedy"
+  | "duty_type"
+  | "material_spread";
+
+export type DivergenceErrorCode =
+  | typeof CLASSIFICATION_AMBIGUOUS
+  | typeof TARIFF_BRANCH_DIVERGENCE;
+
+export interface DivergenceCheckResult {
+  divergent: boolean;
+  divergenceKind?: DivergenceKind;
+  customsCostSpreadBps: number;
+  emittedCodes: DivergenceErrorCode[];
+  selectedBranchAuto: TenDigitCandidate | null;
+  worstCaseDutyPence: number;
+  bestCaseDutyPence: number;
 }
 
 export interface FamilyClusterSummary {
@@ -365,6 +393,61 @@ export function createTenDigitOperatorSurface(
   return {
     kind: "family_clusters",
     clusters: result.perFamilyClusters,
+  };
+}
+
+export function detectBranchDivergence(
+  branches: readonly TenDigitCandidate[],
+): DivergenceCheckResult {
+  if (branches.length === 0) {
+    return {
+      divergent: false,
+      customsCostSpreadBps: 0,
+      emittedCodes: [],
+      selectedBranchAuto: null,
+      worstCaseDutyPence: 0,
+      bestCaseDutyPence: 0,
+    };
+  }
+
+  const sortedBranches = [...branches].sort(compareTenDigitCandidates);
+  const dutyOutcomes = sortedBranches.map((branch) => branch.dutyOutcomePence ?? 0);
+  const worstCaseDutyPence = Math.max(...dutyOutcomes);
+  const bestCaseDutyPence = Math.min(...dutyOutcomes);
+  const customsCostSpreadBps = dutySpreadBps(
+    bestCaseDutyPence,
+    worstCaseDutyPence,
+  );
+  const hasRemedyBranch = sortedBranches.some(
+    (branch) => branch.hasTradeRemedy === true,
+  );
+  const hasNoRemedyBranch = sortedBranches.some(
+    (branch) => branch.hasTradeRemedy === false,
+  );
+  const dutyTypeCount = new Set(
+    sortedBranches.flatMap((branch) =>
+      branch.dutyType === undefined ? [] : [branch.dutyType],
+    ),
+  ).size;
+
+  const divergenceKind = branchDivergenceKind({
+    hasRemedyBranch,
+    hasNoRemedyBranch,
+    dutyTypeCount,
+    customsCostSpreadBps,
+  });
+  const divergent = divergenceKind !== undefined;
+
+  return {
+    divergent,
+    ...(divergenceKind === undefined ? {} : { divergenceKind }),
+    customsCostSpreadBps,
+    emittedCodes: divergent
+      ? divergenceErrorCodes(sortedBranches)
+      : [],
+    selectedBranchAuto: divergent ? null : sortedBranches[0] ?? null,
+    worstCaseDutyPence,
+    bestCaseDutyPence,
   };
 }
 
@@ -639,6 +722,8 @@ function toUkTenDigitCandidate(
     parentHs6: candidate.familyCode,
     rank: candidate.rankOrdinal,
     scoreBps: candidate.scoreBps,
+    dutyType: dutyTypeForMeasures(candidate.node.measures),
+    hasTradeRemedy: candidate.node.measures.some(isTradeRemedyMeasure),
     slotCompatibility: scoreSlotCompatibility(candidate.node, attributes),
     candidateRecallAgreement: agreementForFamily(recall, candidate.familyCode),
   };
@@ -855,6 +940,82 @@ function compareScoredTariffNodes(
   return right.scoreBps - left.scoreBps || left.node.code.localeCompare(right.node.code);
 }
 
+function compareTenDigitCandidates(
+  left: TenDigitCandidate,
+  right: TenDigitCandidate,
+): number {
+  return (
+    left.rank - right.rank ||
+    right.scoreBps - left.scoreBps ||
+    left.uk10Code.localeCompare(right.uk10Code)
+  );
+}
+
+function dutySpreadBps(bestCaseDutyPence: number, worstCaseDutyPence: number): number {
+  if (bestCaseDutyPence <= 0) {
+    return worstCaseDutyPence <= 0 ? 0 : Number.MAX_SAFE_INTEGER;
+  }
+
+  return Math.round(
+    ((worstCaseDutyPence - bestCaseDutyPence) * 10_000) / bestCaseDutyPence,
+  );
+}
+
+function branchDivergenceKind(input: {
+  hasRemedyBranch: boolean;
+  hasNoRemedyBranch: boolean;
+  dutyTypeCount: number;
+  customsCostSpreadBps: number;
+}): DivergenceKind | undefined {
+  if (input.hasRemedyBranch && input.hasNoRemedyBranch) {
+    return "remedy_no_remedy";
+  }
+  if (input.dutyTypeCount > 1) {
+    return "duty_type";
+  }
+  if (input.customsCostSpreadBps >= CUSTOMS_BRANCH_DIVERGENCE_BPS) {
+    return "material_spread";
+  }
+  return undefined;
+}
+
+function divergenceErrorCodes(
+  branches: readonly TenDigitCandidate[],
+): DivergenceErrorCode[] {
+  const codes: DivergenceErrorCode[] = [TARIFF_BRANCH_DIVERGENCE];
+  const familyCount = new Set(branches.map((branch) => branch.parentHs6)).size;
+  if (familyCount > 1) {
+    codes.push(CLASSIFICATION_AMBIGUOUS);
+  }
+  return uniqueSorted(codes);
+}
+
+function dutyTypeForMeasures(
+  measures: readonly TariffMeasure[],
+): TenDigitCandidate["dutyType"] {
+  if (measures.some((measure) => measure.dutyExpression?.includes("+"))) {
+    return "compound";
+  }
+  if (
+    measures.some((measure) =>
+      /\b(per|\/)\b/i.test(measure.dutyExpression ?? ""),
+    )
+  ) {
+    return "specific";
+  }
+  if (measures.some((measure) => measure.dutyExpression?.includes("%"))) {
+    return "ad_valorem";
+  }
+  if (measures.length > 0) {
+    return "unknown";
+  }
+  return undefined;
+}
+
+function isTradeRemedyMeasure(measure: TariffMeasure): boolean {
+  return measure.kind === "anti_dumping";
+}
+
 function dedupePersistenceCandidates(
   candidates: RecallLatticePersistenceCandidate[],
 ): RecallLatticePersistenceCandidate[] {
@@ -938,7 +1099,7 @@ function uniqueBy<T>(items: T[], key: (item: T) => string): T[] {
   });
 }
 
-function uniqueSorted(items: string[]): string[] {
+function uniqueSorted<T extends string>(items: readonly T[]): T[] {
   return [...new Set(items)].sort((left, right) => left.localeCompare(right));
 }
 
