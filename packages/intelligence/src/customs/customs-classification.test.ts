@@ -1,6 +1,17 @@
 import { describe, expect, it } from "bun:test";
 
 import {
+  CUSTOMS_ACCURACY_MUTATION_FAMILIES,
+  CUSTOMS_SPECIFIC_MUTATION_DIMENSIONS,
+  auditMutationTaxonomy,
+  calculateDemotionThresholdBps,
+  calculateRuleOfThreeUpperBoundBps,
+  calculateWilsonLowerBoundBps,
+  scoreCategory,
+  toAccuracyHarnessMetricContract,
+  type AccuracyCase,
+} from "./accuracy";
+import {
   TRADE_REMEDY_WATCH_STALE,
   createTariffChangeEvent,
   createTradeRemedyCaseOpeningEvent,
@@ -758,6 +769,168 @@ describe("customs classification phase gate fixtures", () => {
       columns.filter((column) => !accountedFor.has(column as LandedCostColumn)),
     ).toEqual([]);
     expect(L5_LANDED_COST_EXPLICIT_NULL_COLUMNS).toContain("cbam_estimate_gbp_pence");
+  });
+});
+
+describe("customs classification accuracy harness", () => {
+  it("L5-T-customs_classification-028 reports gold-tier labels separately and gates auto-classification safety", () => {
+    const report = scoreCategory(
+      repeatedAccuracyCases(120, { labelTier: "gold", casePrefix: "gold" }),
+    );
+
+    expect(report.labelTierCounts).toEqual({
+      gold: 120,
+      silver: 0,
+      bronze: 0,
+    });
+    expect(report.productionGate).toBe("eligible");
+    expect(report.wilsonLowerBounds.reviewTriggerRecallBps).toBeGreaterThanOrEqual(
+      9_500,
+    );
+    expect(toAccuracyHarnessMetricContract(report)).toMatchObject({
+      category: "fasteners",
+      label_tier_counts: { gold: 120, silver: 0, bronze: 0 },
+      duty_outcome_accuracy_bps: 10_000,
+      production_gate: "eligible",
+    });
+  });
+
+  it("L5-T-customs_classification-029 requires silver-tier independent reviewer reasoning and separates it from gold", () => {
+    expect(() =>
+      scoreCategory([
+        accuracyCase({
+          caseId: "silver-without-two-reviewers",
+          labelTier: "silver",
+          reviewers: [{ reviewerId: "reviewer-a", reasoning: "single pass" }],
+        }),
+      ]),
+    ).toThrow("requires two independent reviewers");
+
+    const report = scoreCategory(
+      repeatedAccuracyCases(120, { labelTier: "silver", casePrefix: "silver" }),
+    );
+
+    expect(report.labelTierCounts).toEqual({
+      gold: 0,
+      silver: 120,
+      bronze: 0,
+    });
+    expect(report.productionGate).toBe("eligible");
+  });
+
+  it("L5-T-customs_classification-030 prevents bronze-only labels from satisfying production auto-classification safety", () => {
+    const report = scoreCategory(
+      repeatedAccuracyCases(120, { labelTier: "bronze", casePrefix: "bronze" }),
+    );
+
+    expect(report.labelTierCounts).toEqual({
+      gold: 0,
+      silver: 0,
+      bronze: 120,
+    });
+    expect(report.productionGate).toBe("ineligible_bronze_only");
+  });
+
+  it("L5-T-customs_classification-031 scores abstention as positive class and fails fabricated actionable estimates", () => {
+    const report = scoreCategory([
+      accuracyCase({
+        caseId: "correct-broker-abstention",
+        groundTruth: {
+          expectedDecision: "broker_required",
+          expectedDutyRange: { minPence: 80_000, maxPence: 120_000 },
+        },
+        systemOutput: {
+          abstained: true,
+          decisionGrade: "broker_required",
+          dutyPence: 0,
+        },
+      }),
+      accuracyCase({
+        caseId: "fabricated-actionable-estimate",
+        groundTruth: {
+          expectedUk10: "7318158898",
+          expectedDecision: "broker_required",
+          expectedDutyRange: { minPence: 40_000, maxPence: 60_000 },
+        },
+        systemOutput: {
+          selectedUk10: "3923100000",
+          decisionGrade: "auto_pass",
+          abstained: false,
+          dutyPence: 50_000,
+        },
+        mutationFamily: "fabricated_evidence",
+      }),
+    ]);
+
+    expect(report.correctAbstentionCount).toBe(1);
+    expect(report.wrongCodeSuccessCount).toBe(1);
+    expect(report.unsafeAutoClassificationRateBps).toBeGreaterThan(0);
+    expect(report.productionGate).toBe("ineligible_catastrophic");
+  });
+
+  it("L5-T-customs_classification-032 exposes all eight accuracy measures plus catastrophic and unsafe auto-classification rates", () => {
+    const report = scoreCategory([
+      accuracyCase({ caseId: "clean-success" }),
+      accuracyCase({
+        caseId: "catastrophic-understatement",
+        groundTruth: {
+          expectedDecision: "broker_required",
+          expectedDutyRange: { minPence: 120_000, maxPence: 150_000 },
+          customsValuePence: 1_000_000,
+          expectedTradeRemedy: true,
+          expectedAdditionalCodeRequired: true,
+          expectedSupplementaryUnitRequired: true,
+        },
+        systemOutput: {
+          decisionGrade: "auto_pass",
+          abstained: false,
+          dutyPence: 10_000,
+          tradeRemedyActive: false,
+          additionalCodeRequired: false,
+          supplementaryUnitRequired: false,
+        },
+        mutationFamily: "mutated",
+      }),
+    ]);
+
+    expect(report.dutyOutcomeAccuracyBps).toBeLessThan(10_000);
+    expect(report.tradeRemedyYesNoBps).toBeLessThan(10_000);
+    expect(report.additionalCodeRequiredYesNoBps).toBeLessThan(10_000);
+    expect(report.supplementaryUnitRequiredYesNoBps).toBeLessThan(10_000);
+    expect(report.reviewTriggerRecallBps).toBeLessThan(10_000);
+    expect(report.catastrophicUnderstatementRateBps).toBeGreaterThan(0);
+    expect(report.unsafeAutoClassificationRateBps).toBeGreaterThan(0);
+    expect(report.correctAbstentionCount).toBe(0);
+  });
+
+  it("L5-T-customs_classification-035 covers mutation taxonomy and promotion math helpers", () => {
+    const taxonomyCases = CUSTOMS_ACCURACY_MUTATION_FAMILIES.map(
+      (mutationFamily) =>
+        accuracyCase({
+          caseId: `taxonomy-${mutationFamily}`,
+          mutationFamily,
+          pairId: mutationFamily === "pairwise" ? "pair-001" : undefined,
+        }),
+    );
+    const audit = auditMutationTaxonomy(taxonomyCases);
+
+    expect(audit.missingFamilies).toEqual([]);
+    expect(audit.requiredFamilies).toEqual(CUSTOMS_ACCURACY_MUTATION_FAMILIES);
+    expect(audit.requiredCustomsMutationDimensions).toEqual(
+      CUSTOMS_SPECIFIC_MUTATION_DIMENSIONS,
+    );
+    expect(audit.hasPairwiseCoverage).toBe(true);
+    expect(audit.hasCrossModelAudit).toBe(true);
+    expect(audit.hasOverrideFeedback).toBe(true);
+    expect(audit.hasDemotionThresholdCalculation).toBe(true);
+    expect(calculateWilsonLowerBoundBps(120, 120)).toBeGreaterThanOrEqual(9_500);
+    expect(calculateRuleOfThreeUpperBoundBps(0, 100)).toBe(300);
+    expect(
+      calculateDemotionThresholdBps({
+        catastrophicUnderstatementRateBps: 0,
+        unsafeAutoClassificationRateBps: 0,
+      }),
+    ).toBe(300);
   });
 });
 
@@ -2348,5 +2521,69 @@ function oldProductCommodityCodeRow(): ProductCommodityCodeRow {
     rowVersion: 1,
     lastLocalSeq: 49,
     stageRunId: "stage-l5-old",
+  };
+}
+
+type AccuracyCaseOverrides = Partial<
+  Omit<AccuracyCase, "groundTruth" | "systemOutput">
+> & {
+  groundTruth?: Partial<AccuracyCase["groundTruth"]>;
+  systemOutput?: Partial<AccuracyCase["systemOutput"]>;
+};
+
+function repeatedAccuracyCases(
+  count: number,
+  options: { labelTier: AccuracyCase["labelTier"]; casePrefix: string },
+): AccuracyCase[] {
+  return Array.from({ length: count }, (_, index) =>
+    accuracyCase({
+      caseId: `${options.casePrefix}-${index + 1}`,
+      labelTier: options.labelTier,
+    }),
+  );
+}
+
+function accuracyCase(overrides: AccuracyCaseOverrides = {}): AccuracyCase {
+  const labelTier = overrides.labelTier ?? "gold";
+  return {
+    caseId: overrides.caseId ?? "accuracy-case-001",
+    category: overrides.category ?? "fasteners",
+    labelTier,
+    reviewers:
+      overrides.reviewers ??
+      (labelTier === "silver"
+        ? [
+            {
+              reviewerId: "reviewer-a",
+              reasoning: "HMRC family and measure evidence reviewed.",
+            },
+            {
+              reviewerId: "reviewer-b",
+              reasoning: "Broker-style classification reasoning cross-checked.",
+            },
+          ]
+        : undefined),
+    groundTruth: {
+      expectedUk10: "7318158898",
+      expectedDutyRange: { minPence: 90_000, maxPence: 110_000 },
+      customsValuePence: 1_000_000,
+      expectedTradeRemedy: false,
+      expectedAdditionalCodeRequired: false,
+      expectedSupplementaryUnitRequired: false,
+      expectedDecision: "auto_pass",
+      ...overrides.groundTruth,
+    },
+    systemOutput: {
+      selectedUk10: "7318158898",
+      dutyPence: 100_000,
+      tradeRemedyActive: false,
+      additionalCodeRequired: false,
+      supplementaryUnitRequired: false,
+      decisionGrade: "auto_pass",
+      abstained: false,
+      ...overrides.systemOutput,
+    },
+    mutationFamily: overrides.mutationFamily ?? "clean",
+    pairId: overrides.pairId,
   };
 }
