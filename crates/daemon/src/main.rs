@@ -5249,6 +5249,75 @@ struct LandedCostEstimateWrite {
     force_pricing_assessment_zero_gross_margin: bool,
 }
 
+pub const L5_DECISION_GRADE_LANDED_COST_FEATURE_FLAG_ENV: &str =
+    "L5_ENABLE_DECISION_GRADE_LANDED_COST";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LandedCostPathMode {
+    ScreeningGradeOnly,
+    ShadowCompare,
+    DecisionGrade,
+}
+
+impl LandedCostPathMode {
+    fn from_env_value(raw: Option<&str>) -> Self {
+        let Some(value) = raw.map(str::trim).filter(|value| !value.is_empty()) else {
+            return Self::ScreeningGradeOnly;
+        };
+        match value.to_ascii_lowercase().replace('-', "_").as_str() {
+            "shadow" | "shadow_compare" => Self::ShadowCompare,
+            "decision_grade" => Self::DecisionGrade,
+            _ => Self::ScreeningGradeOnly,
+        }
+    }
+
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::ScreeningGradeOnly => "screening_grade_only",
+            Self::ShadowCompare => "shadow_compare",
+            Self::DecisionGrade => "decision_grade",
+        }
+    }
+
+    const fn authoritative_path(self) -> &'static str {
+        match self {
+            Self::DecisionGrade => "decision_grade",
+            Self::ScreeningGradeOnly | Self::ShadowCompare => "screening_grade",
+        }
+    }
+
+    const fn records_path_comparison(self) -> bool {
+        matches!(self, Self::ShadowCompare | Self::DecisionGrade)
+    }
+}
+
+fn read_landed_cost_mode_from_env() -> LandedCostPathMode {
+    LandedCostPathMode::from_env_value(
+        std::env::var(L5_DECISION_GRADE_LANDED_COST_FEATURE_FLAG_ENV)
+            .ok()
+            .as_deref(),
+    )
+}
+
+fn build_decision_grade_landed_cost_candidate(
+    screening_estimate: &LandedCostEstimateWrite,
+) -> LandedCostEstimateWrite {
+    screening_estimate.clone()
+}
+
+const fn authoritative_landed_cost_estimate<'a>(
+    mode: LandedCostPathMode,
+    screening_estimate: &'a LandedCostEstimateWrite,
+    decision_grade_estimate: &'a LandedCostEstimateWrite,
+) -> &'a LandedCostEstimateWrite {
+    match mode {
+        LandedCostPathMode::DecisionGrade => decision_grade_estimate,
+        LandedCostPathMode::ScreeningGradeOnly | LandedCostPathMode::ShadowCompare => {
+            screening_estimate
+        }
+    }
+}
+
 fn clamp_bps(value: i64) -> i64 {
     value.clamp(0, 10_000)
 }
@@ -5271,6 +5340,246 @@ fn json_array_string(values: &[Stage11Issue]) -> Result<String> {
 fn parse_json_or_null(raw: Option<&str>) -> Value {
     raw.and_then(|text| serde_json::from_str::<Value>(text).ok())
         .unwrap_or(Value::Null)
+}
+
+fn landed_cost_path_projection(estimate: &LandedCostEstimateWrite) -> Value {
+    json!({
+        "id": estimate.id,
+        "process_id": estimate.process_id,
+        "notice_id": estimate.notice_id,
+        "product_candidate_id": estimate.product_candidate_id,
+        "supplier_quote_id": estimate.supplier_quote_id,
+        "shipping_mode": estimate.shipping_mode,
+        "declarable_commodity_code_10": estimate.declarable_commodity_code_10,
+        "customs_duty_gbp_pence": estimate.customs_duty_gbp_pence,
+        "trade_remedy_duty_gbp_pence": estimate.trade_remedy_duty_gbp_pence,
+        "freight_base_gbp_pence": estimate.freight_base_gbp_pence,
+        "import_vat_gbp_pence": estimate.import_vat_gbp_pence,
+        "economic_landed_cost_gbp_pence": estimate.economic_landed_cost_gbp_pence,
+        "cash_to_clear_gbp_pence": estimate.cash_to_clear_gbp_pence,
+        "net_margin_base_bps": estimate.net_margin_base_bps,
+        "decision_grade": estimate.decision_grade,
+        "confidence_bps": estimate.confidence_bps,
+        "classification_fresh_until": estimate.classification_fresh_until,
+        "cbam_exposure_flag": estimate.cbam_exposure_flag,
+        "warnings": parse_json_or_null(Some(&estimate.warnings)),
+        "blockers": parse_json_or_null(Some(&estimate.blockers)),
+    })
+}
+
+fn push_landed_cost_path_divergence<T>(
+    divergences: &mut Vec<Value>,
+    field_name: &str,
+    screening_value: &T,
+    decision_grade_value: &T,
+) where
+    T: PartialEq + Serialize,
+{
+    if screening_value != decision_grade_value {
+        divergences.push(json!({
+            "field": field_name,
+            "screening_grade": screening_value,
+            "decision_grade": decision_grade_value,
+        }));
+    }
+}
+
+fn landed_cost_path_divergence_json(
+    screening_estimate: &LandedCostEstimateWrite,
+    decision_grade_estimate: &LandedCostEstimateWrite,
+) -> Value {
+    let mut divergences = Vec::new();
+    push_landed_cost_path_divergence(
+        &mut divergences,
+        "shipping_mode",
+        &screening_estimate.shipping_mode,
+        &decision_grade_estimate.shipping_mode,
+    );
+    push_landed_cost_path_divergence(
+        &mut divergences,
+        "declarable_commodity_code_10",
+        &screening_estimate.declarable_commodity_code_10,
+        &decision_grade_estimate.declarable_commodity_code_10,
+    );
+    push_landed_cost_path_divergence(
+        &mut divergences,
+        "customs_duty_gbp_pence",
+        &screening_estimate.customs_duty_gbp_pence,
+        &decision_grade_estimate.customs_duty_gbp_pence,
+    );
+    push_landed_cost_path_divergence(
+        &mut divergences,
+        "trade_remedy_duty_gbp_pence",
+        &screening_estimate.trade_remedy_duty_gbp_pence,
+        &decision_grade_estimate.trade_remedy_duty_gbp_pence,
+    );
+    push_landed_cost_path_divergence(
+        &mut divergences,
+        "freight_base_gbp_pence",
+        &screening_estimate.freight_base_gbp_pence,
+        &decision_grade_estimate.freight_base_gbp_pence,
+    );
+    push_landed_cost_path_divergence(
+        &mut divergences,
+        "import_vat_gbp_pence",
+        &screening_estimate.import_vat_gbp_pence,
+        &decision_grade_estimate.import_vat_gbp_pence,
+    );
+    push_landed_cost_path_divergence(
+        &mut divergences,
+        "economic_landed_cost_gbp_pence",
+        &screening_estimate.economic_landed_cost_gbp_pence,
+        &decision_grade_estimate.economic_landed_cost_gbp_pence,
+    );
+    push_landed_cost_path_divergence(
+        &mut divergences,
+        "cash_to_clear_gbp_pence",
+        &screening_estimate.cash_to_clear_gbp_pence,
+        &decision_grade_estimate.cash_to_clear_gbp_pence,
+    );
+    push_landed_cost_path_divergence(
+        &mut divergences,
+        "net_margin_base_bps",
+        &screening_estimate.net_margin_base_bps,
+        &decision_grade_estimate.net_margin_base_bps,
+    );
+    push_landed_cost_path_divergence(
+        &mut divergences,
+        "decision_grade",
+        &screening_estimate.decision_grade,
+        &decision_grade_estimate.decision_grade,
+    );
+    push_landed_cost_path_divergence(
+        &mut divergences,
+        "confidence_bps",
+        &screening_estimate.confidence_bps,
+        &decision_grade_estimate.confidence_bps,
+    );
+    push_landed_cost_path_divergence(
+        &mut divergences,
+        "classification_fresh_until",
+        &screening_estimate.classification_fresh_until,
+        &decision_grade_estimate.classification_fresh_until,
+    );
+    push_landed_cost_path_divergence(
+        &mut divergences,
+        "cbam_exposure_flag",
+        &screening_estimate.cbam_exposure_flag,
+        &decision_grade_estimate.cbam_exposure_flag,
+    );
+
+    json!({
+        "divergence_count": divergences.len(),
+        "fields": divergences,
+    })
+}
+
+fn ensure_landed_cost_path_comparison_table(tx: &Transaction<'_>) -> Result<()> {
+    tx.execute_batch(
+        "\
+        CREATE TABLE IF NOT EXISTS landed_cost_path_comparison (
+          id TEXT PRIMARY KEY,
+          process_id TEXT NOT NULL,
+          notice_id TEXT NOT NULL,
+          product_candidate_id TEXT NOT NULL,
+          supplier_quote_id TEXT NOT NULL,
+          estimate_id TEXT NOT NULL,
+          mode TEXT NOT NULL CHECK (mode IN ('shadow_compare', 'decision_grade')),
+          authoritative_path TEXT NOT NULL CHECK (
+            authoritative_path IN ('screening_grade', 'decision_grade')
+          ),
+          screening_grade_estimate_json TEXT NOT NULL,
+          decision_grade_estimate_json TEXT NOT NULL,
+          divergence_json TEXT NOT NULL,
+          has_divergence INTEGER NOT NULL CHECK (has_divergence IN (0, 1)),
+          stage_run_id TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_landed_cost_path_comparison_candidate
+          ON landed_cost_path_comparison(product_candidate_id, supplier_quote_id, created_at);
+
+        CREATE INDEX IF NOT EXISTS idx_landed_cost_path_comparison_stage
+          ON landed_cost_path_comparison(stage_run_id);
+        ",
+    )
+    .context("ensuring L5 landed cost path comparison table")?;
+    Ok(())
+}
+
+fn persist_landed_cost_path_comparison(
+    state_db: &mut StateDb,
+    mode: LandedCostPathMode,
+    screening_estimate: &LandedCostEstimateWrite,
+    decision_grade_estimate: &LandedCostEstimateWrite,
+) -> Result<()> {
+    if !mode.records_path_comparison() {
+        return Ok(());
+    }
+
+    let divergence = landed_cost_path_divergence_json(screening_estimate, decision_grade_estimate);
+    let has_divergence = i64::from(
+        divergence
+            .get("fields")
+            .and_then(Value::as_array)
+            .is_some_and(|fields| !fields.is_empty()),
+    );
+    let comparison_id = format!(
+        "l5-landed-cost-path-comparison-{}-{}",
+        mode.as_str(),
+        screening_estimate.stage_run_id
+    );
+    let screening_projection = landed_cost_path_projection(screening_estimate).to_string();
+    let decision_grade_projection =
+        landed_cost_path_projection(decision_grade_estimate).to_string();
+    let divergence_json = divergence.to_string();
+
+    state_db.with_write_transaction(|tx| {
+        ensure_landed_cost_path_comparison_table(tx)?;
+        tx.execute(
+            "\
+            INSERT INTO landed_cost_path_comparison (
+              id, process_id, notice_id, product_candidate_id, supplier_quote_id,
+              estimate_id, mode, authoritative_path, screening_grade_estimate_json,
+              decision_grade_estimate_json, divergence_json, has_divergence, stage_run_id
+            ) VALUES (
+              ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13
+            )
+            ON CONFLICT(id) DO UPDATE SET
+              process_id = excluded.process_id,
+              notice_id = excluded.notice_id,
+              product_candidate_id = excluded.product_candidate_id,
+              supplier_quote_id = excluded.supplier_quote_id,
+              estimate_id = excluded.estimate_id,
+              mode = excluded.mode,
+              authoritative_path = excluded.authoritative_path,
+              screening_grade_estimate_json = excluded.screening_grade_estimate_json,
+              decision_grade_estimate_json = excluded.decision_grade_estimate_json,
+              divergence_json = excluded.divergence_json,
+              has_divergence = excluded.has_divergence,
+              stage_run_id = excluded.stage_run_id,
+              updated_at = CURRENT_TIMESTAMP
+            ",
+            params![
+                comparison_id,
+                screening_estimate.process_id,
+                screening_estimate.notice_id,
+                screening_estimate.product_candidate_id,
+                screening_estimate.supplier_quote_id,
+                screening_estimate.id,
+                mode.as_str(),
+                mode.authoritative_path(),
+                screening_projection,
+                decision_grade_projection,
+                divergence_json,
+                has_divergence,
+                screening_estimate.stage_run_id,
+            ],
+        )?;
+        Ok(())
+    })?;
+    Ok(())
 }
 
 fn stage11_scope_id(row: &LandedCostAssessmentRow) -> String {
@@ -7983,6 +8292,7 @@ async fn run_landed_cost_live_loop(
         "skills/landed-cost/simple-fx-lookup/SKILL.md",
     )?;
     let job_parameters = parse_job_parameters(cli.job_parameters_json.as_deref())?;
+    let landed_cost_path_mode = read_landed_cost_mode_from_env();
 
     let assessments =
         load_landed_cost_assessments(runtime.state_db.connection(), LANDED_COST_BATCH_SIZE)?;
@@ -8019,14 +8329,27 @@ async fn run_landed_cost_live_loop(
 
         if is_domestic_uk_quote(row) {
             domestic += 1;
-            let estimate = build_domestic_landed_cost_estimate(
+            let screening_estimate = build_domestic_landed_cost_estimate(
                 row,
                 &supplier_cost,
                 &stage_run_id,
                 &order_quantity_basis,
                 &skill_versions,
             )?;
-            persist_landed_cost_estimate(&mut runtime.state_db, &estimate)?;
+            let decision_grade_estimate =
+                build_decision_grade_landed_cost_candidate(&screening_estimate);
+            let estimate = authoritative_landed_cost_estimate(
+                landed_cost_path_mode,
+                &screening_estimate,
+                &decision_grade_estimate,
+            );
+            persist_landed_cost_estimate(&mut runtime.state_db, estimate)?;
+            persist_landed_cost_path_comparison(
+                &mut runtime.state_db,
+                landed_cost_path_mode,
+                &screening_estimate,
+                &decision_grade_estimate,
+            )?;
             completed += 1;
             continue;
         }
@@ -8269,7 +8592,7 @@ async fn run_landed_cost_live_loop(
             "simple_fx": fx_skill.metadata.skill_version,
         });
 
-        let estimate = build_import_landed_cost_estimate(
+        let screening_estimate = build_import_landed_cost_estimate(
             row,
             &supplier_cost,
             &stage_run_id,
@@ -8280,12 +8603,25 @@ async fn run_landed_cost_live_loop(
             &skill_versions,
             &skill_session_ids,
         )?;
+        let decision_grade_estimate =
+            build_decision_grade_landed_cost_candidate(&screening_estimate);
+        let estimate = authoritative_landed_cost_estimate(
+            landed_cost_path_mode,
+            &screening_estimate,
+            &decision_grade_estimate,
+        );
         if estimate.decision_grade == "blocked" {
             blocked += 1;
         } else {
             completed += 1;
         }
-        persist_landed_cost_estimate(&mut runtime.state_db, &estimate)?;
+        persist_landed_cost_estimate(&mut runtime.state_db, estimate)?;
+        persist_landed_cost_path_comparison(
+            &mut runtime.state_db,
+            landed_cost_path_mode,
+            &screening_estimate,
+            &decision_grade_estimate,
+        )?;
     }
 
     Ok(LiveLoopReport {
@@ -27063,6 +27399,108 @@ mod tests {
             |row| row.get(0),
         )?;
         assert_eq!(stage_heads, 1);
+        Ok(())
+    }
+
+    #[test]
+    fn l5_decision_grade_feature_flag_defaults_to_screening() {
+        assert!(matches!(
+            super::LandedCostPathMode::from_env_value(None),
+            super::LandedCostPathMode::ScreeningGradeOnly
+        ));
+        assert!(matches!(
+            super::LandedCostPathMode::from_env_value(Some("")),
+            super::LandedCostPathMode::ScreeningGradeOnly
+        ));
+        assert!(matches!(
+            super::LandedCostPathMode::from_env_value(Some("shadow")),
+            super::LandedCostPathMode::ShadowCompare
+        ));
+        assert!(matches!(
+            super::LandedCostPathMode::from_env_value(Some("decision_grade")),
+            super::LandedCostPathMode::DecisionGrade
+        ));
+    }
+
+    #[test]
+    fn l5_shadow_compare_records_divergence_for_gold_set_categories() -> Result<()> {
+        let (_temp, mut runtime) = bootstrap_validation_runtime()?;
+        seed_stage11_minimal_graph(runtime.state_db.connection(), "GB")?;
+        let rows = super::load_landed_cost_assessments(runtime.state_db.connection(), 10)?;
+        let supplier_cost = super::compute_supplier_cost_basis(&rows[0]);
+        let order_quantity_basis = super::infer_order_quantity_basis(&rows[0]);
+        let base_estimate = super::build_domestic_landed_cost_estimate(
+            &rows[0],
+            &supplier_cost,
+            "stage-run-shadow-base",
+            &order_quantity_basis,
+            &json!({
+                "hmrc_customs": "1.0.0",
+                "shipment_sizing": "1.0.0",
+                "searates_freight": "1.0.0",
+                "simple_fx": "1.0.0",
+            }),
+        )?;
+
+        for (category, customs_duty, freight_base, decision_grade) in [
+            ("fasteners", 420_i64, 2_700_i64, "review"),
+            ("packaging-cartons", 900_i64, 4_800_i64, "broker_required"),
+            ("examination-gloves", 1_350_i64, 6_200_i64, "blocked"),
+        ] {
+            let mut screening_estimate = base_estimate.clone();
+            screening_estimate.id = format!("landed-shadow-screening-{category}");
+            screening_estimate.product_candidate_id = format!("l5-{category}");
+            screening_estimate.supplier_quote_id = format!("l5-quote-{category}");
+            screening_estimate.stage_run_id = format!("stage-run-shadow-{category}");
+
+            let mut decision_grade_estimate =
+                super::build_decision_grade_landed_cost_candidate(&screening_estimate);
+            decision_grade_estimate.customs_duty_gbp_pence = customs_duty;
+            decision_grade_estimate.freight_base_gbp_pence = freight_base;
+            decision_grade_estimate.decision_grade = decision_grade.to_owned();
+            decision_grade_estimate.economic_landed_cost_gbp_pence = screening_estimate
+                .economic_landed_cost_gbp_pence
+                .saturating_add(customs_duty)
+                .saturating_add(freight_base);
+
+            super::persist_landed_cost_path_comparison(
+                &mut runtime.state_db,
+                super::LandedCostPathMode::ShadowCompare,
+                &screening_estimate,
+                &decision_grade_estimate,
+            )?;
+        }
+
+        let comparison_rows: i64 = runtime.state_db.connection().query_row(
+            "SELECT COUNT(*) FROM landed_cost_path_comparison",
+            [],
+            |row| row.get(0),
+        )?;
+        assert_eq!(comparison_rows, 3);
+        let divergent_rows: i64 = runtime.state_db.connection().query_row(
+            "SELECT COUNT(*) FROM landed_cost_path_comparison WHERE has_divergence = 1",
+            [],
+            |row| row.get(0),
+        )?;
+        assert_eq!(divergent_rows, 3);
+        let outbox_rows: i64 = runtime.state_db.connection().query_row(
+            "SELECT COUNT(*) FROM local_outbox WHERE entity_kind = 'landed_cost_path_comparison'",
+            [],
+            |row| row.get(0),
+        )?;
+        assert_eq!(outbox_rows, 0);
+        let divergence_json: String = runtime.state_db.connection().query_row(
+            "\
+            SELECT divergence_json
+            FROM landed_cost_path_comparison
+            WHERE product_candidate_id = 'l5-packaging-cartons'
+            ",
+            [],
+            |row| row.get(0),
+        )?;
+        assert!(divergence_json.contains("customs_duty_gbp_pence"));
+        assert!(divergence_json.contains("freight_base_gbp_pence"));
+        assert!(divergence_json.contains("decision_grade"));
         Ok(())
     }
 

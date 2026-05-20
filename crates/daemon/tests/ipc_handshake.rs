@@ -1112,6 +1112,13 @@ impl HandshakeHarness {
             drain_available_frames(&mut reader, &mut frames)?;
         }
         client.shutdown(Shutdown::Write)?;
+        // Parallel integration targets can delay router startup beyond the short per-write
+        // polling timeout. After write shutdown, wait long enough for the server to flush and
+        // close the socket so the default test target does not drop late frames.
+        reader
+            .get_mut()
+            .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+            .context("extending router drain timeout after client write shutdown")?;
         drain_remaining_frames(reader, &mut frames)?;
 
         handle
