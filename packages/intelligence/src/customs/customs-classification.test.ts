@@ -62,6 +62,10 @@ const productCommodityCodesMigrationUrl = new URL(
   "migrations/0013_l5_product_commodity_codes.sql",
   repoRoot,
 );
+const packagingCartonsCorpusRootUrl = new URL(
+  "tests/fixtures/calibration/customs-classification/packaging-cartons/",
+  repoRoot,
+);
 
 describe("customs classification tariff graph", () => {
   it("L5-T-customs_classification-001 rejects greedy descent and selects the compatible runner-up UK10 branch", () => {
@@ -934,6 +938,157 @@ describe("customs classification accuracy harness", () => {
   });
 });
 
+describe("customs classification gold-set corpora", () => {
+  it("L5-T-customs_classification-027 verifies the packaging-cartons calibration corpus", async () => {
+    const requiredRootFiles = [
+      "canary.inputs.jsonl",
+      "golden.assertions.yaml",
+      "metadata.json",
+      "manifest.md",
+    ];
+    const variantDirectories = ["clean", "weird", "mutated", "pairwise"];
+
+    for (const fileName of requiredRootFiles) {
+      expect(
+        await fileExists(new URL(fileName, packagingCartonsCorpusRootUrl)),
+        fileName,
+      ).toBe(true);
+    }
+    for (const variant of variantDirectories) {
+      expect(
+        await fileExists(
+          new URL(`${variant}/manifest.md`, packagingCartonsCorpusRootUrl),
+        ),
+        `${variant}/manifest.md`,
+      ).toBe(true);
+      const metadata = await readJson<CalibrationVariantMetadata>(
+        new URL(`${variant}/metadata.json`, packagingCartonsCorpusRootUrl),
+      );
+      expect(metadata).toMatchObject({
+        category: "packaging-cartons",
+        corpus_kind: variant,
+        fixture_surface: "calibration-corpus",
+      });
+    }
+
+    const [manifest, corpusMetadata, goldenAssertions, canaryRows] = await Promise.all([
+      readText(new URL("manifest.md", packagingCartonsCorpusRootUrl)),
+      readJson<PackagingCartonsMetadata>(
+        new URL("metadata.json", packagingCartonsCorpusRootUrl),
+      ),
+      readText(
+        new URL("golden.assertions.yaml", packagingCartonsCorpusRootUrl),
+      ),
+      readJsonl<PackagingCartonsCanaryRow>(
+        new URL("canary.inputs.jsonl", packagingCartonsCorpusRootUrl),
+      ),
+    ]);
+
+    expect(corpusMetadata).toMatchObject({
+      category: "packaging-cartons",
+      fixture_surface: "calibration-corpus",
+      trade_remedy_active: false,
+      minimum_corpus: {
+        gold: 10,
+        silver: 15,
+        bronze: 10,
+        pairwise_pairs: 12,
+      },
+    });
+    expect(corpusMetadata.explicitly_excluded).toEqual([
+      "aluminium_foil_packaging",
+      "glass_packaging",
+      "tin_mill_packaging",
+      "metal_cans",
+      "composite_packaging",
+    ]);
+    for (const excluded of corpusMetadata.explicitly_excluded) {
+      expect(manifest).toContain(excluded);
+    }
+    expect(manifest).toContain('fixture_surface: "calibration-corpus"');
+    expect(goldenAssertions).toContain("production_gate: eligible");
+    expect(goldenAssertions).toContain("dangerous_subfamilies_route_to_broker");
+
+    expect(new Set(canaryRows.map((row) => row.case_id)).size).toBe(
+      canaryRows.length,
+    );
+    expect(
+      canaryRows.every((row) => row.category === "packaging-cartons"),
+    ).toBe(true);
+    expect(countCorpusRows(canaryRows, (row) => row.label_tier === "gold")).toBeGreaterThanOrEqual(10);
+    expect(countCorpusRows(canaryRows, (row) => row.label_tier === "silver")).toBeGreaterThanOrEqual(15);
+    expect(countCorpusRows(canaryRows, (row) => row.label_tier === "bronze")).toBeGreaterThanOrEqual(10);
+    expect(
+      countCorpusRows(canaryRows, (row) => row.expected_uk10.startsWith("4819")),
+    ).toBeGreaterThan(0);
+    expect(
+      countCorpusRows(canaryRows, (row) => row.expected_uk10.startsWith("4823")),
+    ).toBeGreaterThan(0);
+    expect(
+      countCorpusRows(canaryRows, (row) => row.rejected_hs6 === "3923"),
+    ).toBeGreaterThan(0);
+    expect(
+      countCorpusRows(canaryRows, (row) => row.dangerous_subfamily),
+    ).toBe(0);
+
+    const pairwiseRowsById = groupPairwiseRows(canaryRows);
+    expect(pairwiseRowsById.size).toBeGreaterThanOrEqual(12);
+    for (const rows of pairwiseRowsById.values()) {
+      expect(rows).toHaveLength(2);
+      expect(new Set(rows.map((row) => row.pair_dimension))).toHaveLength(1);
+    }
+
+    const mutationDimensions = new Set(
+      canaryRows
+        .map((row) => row.mutation_dimension)
+        .filter((value): value is string => typeof value === "string"),
+    );
+    expect(mutationDimensions.size).toBeGreaterThanOrEqual(5);
+    expect([...mutationDimensions]).toEqual(
+      expect.arrayContaining([
+        "hs6_perturbation",
+        "material_perturbation",
+        "currency_swap",
+        "supplementary_unit_removal",
+        "incoterm_swap",
+      ]),
+    );
+
+    const report = scoreCategory(
+      canaryRows.map((row) =>
+        accuracyCase({
+          caseId: row.case_id,
+          category: "packaging-cartons",
+          labelTier: row.label_tier,
+          mutationFamily: row.mutation_family,
+          pairId: row.pair_id,
+          groundTruth: {
+            expectedUk10: row.expected_uk10,
+            expectedDutyRange: { minPence: 3_000, maxPence: 5_000 },
+            expectedTradeRemedy: false,
+            expectedAdditionalCodeRequired: false,
+            expectedSupplementaryUnitRequired:
+              row.expected_supplementary_unit_required,
+            expectedDecision: "auto_pass",
+          },
+          systemOutput: {
+            selectedUk10: row.expected_uk10,
+            dutyPence: 4_000,
+            tradeRemedyActive: false,
+            additionalCodeRequired: false,
+            supplementaryUnitRequired:
+              row.expected_supplementary_unit_required,
+            decisionGrade: "auto_pass",
+            abstained: false,
+          },
+        }),
+      ),
+    );
+    expect(report.productionGate).toBe("eligible");
+    expect(report.category).toBe("packaging-cartons");
+  });
+});
+
 describe("customs classification exporter defaults", () => {
   it("L5-T-customs_classification-013 applies MFN when origin proof is missing and records origin evidence leverage", () => {
     const measureScanResult = scanMeasures({
@@ -1629,6 +1784,34 @@ async function readText(url: URL): Promise<string> {
   return await Bun.file(url).text();
 }
 
+async function fileExists(url: URL): Promise<boolean> {
+  return await Bun.file(url).exists();
+}
+
+async function readJson<T>(url: URL): Promise<T> {
+  return parseJsonFixture<T>(await readText(url), url.pathname);
+}
+
+async function readJsonl<T>(url: URL): Promise<T[]> {
+  const text = await readText(url);
+  return text
+    .trim()
+    .split("\n")
+    .filter((line) => line.trim().length > 0)
+    .map((line, index) =>
+      parseJsonFixture<T>(line, `${url.pathname}:${index + 1}`),
+    );
+}
+
+function parseJsonFixture<T>(text: string, label: string): T {
+  try {
+    return JSON.parse(text) as T;
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to parse JSON fixture ${label}: ${reason}`);
+  }
+}
+
 async function landedCostEstimateColumns(): Promise<LandedCostColumn[]> {
   const sqliteMigration = await readText(sqliteMigrationUrl);
   const tableMatch = sqliteMigration.match(
@@ -1646,6 +1829,59 @@ async function landedCostEstimateColumns(): Promise<LandedCostColumn[]> {
 }
 
 type LandedCostColumn = (typeof L5_LANDED_COST_COLUMN_CONTRACT)[number];
+
+type CalibrationVariantMetadata = {
+  category: string;
+  corpus_kind: string;
+  fixture_surface: string;
+};
+
+type PackagingCartonsMetadata = {
+  category: "packaging-cartons";
+  fixture_surface: "calibration-corpus";
+  trade_remedy_active: boolean;
+  explicitly_excluded: string[];
+  minimum_corpus: {
+    gold: number;
+    silver: number;
+    bronze: number;
+    pairwise_pairs: number;
+  };
+};
+
+type PackagingCartonsCanaryRow = {
+  case_id: string;
+  category: "packaging-cartons";
+  label_tier: AccuracyCase["labelTier"];
+  mutation_family: AccuracyCase["mutationFamily"];
+  expected_uk10: string;
+  rejected_hs6?: string;
+  dangerous_subfamily: boolean;
+  expected_supplementary_unit_required: boolean;
+  mutation_dimension?: string;
+  pair_id?: string;
+  pair_dimension?: string;
+};
+
+function countCorpusRows(
+  rows: PackagingCartonsCanaryRow[],
+  predicate: (row: PackagingCartonsCanaryRow) => boolean,
+): number {
+  return rows.filter(predicate).length;
+}
+
+function groupPairwiseRows(
+  rows: PackagingCartonsCanaryRow[],
+): Map<string, PackagingCartonsCanaryRow[]> {
+  const grouped = new Map<string, PackagingCartonsCanaryRow[]>();
+  for (const row of rows) {
+    if (row.mutation_family !== "pairwise" || typeof row.pair_id !== "string") {
+      continue;
+    }
+    grouped.set(row.pair_id, [...(grouped.get(row.pair_id) ?? []), row]);
+  }
+  return grouped;
+}
 
 const L5_LANDED_COST_COLUMN_CONTRACT = [
   "id",

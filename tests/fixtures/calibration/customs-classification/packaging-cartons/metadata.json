@@ -1,0 +1,30 @@
+{
+  "category": "packaging-cartons",
+  "version": "1.0.0",
+  "fixture_surface": "calibration-corpus",
+  "operator_decision_date": "2026-05-08",
+  "decision_reference": "Decision 4 in docs/strategy/layers/layer-5-expanded-commercial-intelligence.md",
+  "hs_chapters_in_scope": ["48"],
+  "hs_codes_primary": ["4819100000", "4819200000", "4823908580"],
+  "explicitly_excluded": [
+    "aluminium_foil_packaging",
+    "glass_packaging",
+    "tin_mill_packaging",
+    "metal_cans",
+    "composite_packaging"
+  ],
+  "trade_remedy_active": false,
+  "minimum_corpus": {
+    "gold": 10,
+    "silver": 15,
+    "bronze": 10,
+    "pairwise_pairs": 12
+  },
+  "observed_corpus": {
+    "gold": 40,
+    "silver": 40,
+    "bronze": 40,
+    "pairwise_pairs": 12,
+    "total_cases": 120
+  }
+}

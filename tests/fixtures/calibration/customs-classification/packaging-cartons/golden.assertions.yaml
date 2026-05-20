@@ -1,0 +1,62 @@
+category: packaging-cartons
+fixture_surface: calibration-corpus
+production_gate: eligible
+label_tier_counts:
+  gold: 40
+  silver: 40
+  bronze: 40
+accuracy_expectations:
+  duty_outcome_accuracy_bps: 10000
+  trade_remedy_yes_no_bps: 10000
+  additional_code_required_yes_no_bps: 10000
+  supplementary_unit_required_yes_no_bps: 10000
+  review_trigger_recall_bps: 10000
+  catastrophic_understatement_rate_bps: 0
+  unsafe_auto_classification_rate_bps: 0
+tariff_expectations:
+  selected_families:
+    - "4819"
+    - "4823"
+  rejected_families:
+    - "3923"
+  dangerous_subfamilies_route_to_broker:
+    - aluminium_foil_packaging
+    - glass_packaging
+    - tin_mill_packaging
+    - metal_cans
+    - composite_packaging
+pairwise_expectations:
+  pair_count: 12
+  rows_per_pair: 2
+  one_changed_material_dimension_per_pair: true
+case_assertions:
+  pc-g001:
+    expected_uk10: "4819100000"
+    label_tier: gold
+    mutation_family: clean
+  pc-g026:
+    expected_uk10: "4823908580"
+    label_tier: gold
+    mutation_family: weird
+  pc-s001:
+    expected_uk10: "4819100000"
+    label_tier: silver
+    mutation_family: mutated
+    mutation_dimension: hs6_perturbation
+    rejected_hs6: "3923"
+  pc-p001-a:
+    expected_uk10: "4819100000"
+    label_tier: silver
+    mutation_family: pairwise
+    pair_id: pc-pair-001
+    pair_dimension: wall_grade
+  pc-b001:
+    expected_uk10: "4819100000"
+    label_tier: bronze
+    mutation_family: clean
+  pc-p012-b:
+    expected_uk10: "4823908580"
+    label_tier: bronze
+    mutation_family: pairwise
+    pair_id: pc-pair-012
+    pair_dimension: fsc_claim
