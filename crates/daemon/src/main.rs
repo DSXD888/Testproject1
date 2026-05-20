@@ -5251,6 +5251,13 @@ struct LandedCostEstimateWrite {
 
 pub const L5_DECISION_GRADE_LANDED_COST_FEATURE_FLAG_ENV: &str =
     "L5_ENABLE_DECISION_GRADE_LANDED_COST";
+const L5_DECISION_GRADE_BRIDGE_SCHEMA: &str = "l5_decision_grade_landed_cost_bridge_v1";
+const CLASSIFICATION_FRESH_UNTIL_EXPIRED: &str = "CLASSIFICATION_FRESH_UNTIL_EXPIRED";
+const CLASSIFICATION_AMBIGUOUS: &str = "CLASSIFICATION_AMBIGUOUS";
+const TARIFF_BRANCH_DIVERGENCE: &str = "TARIFF_BRANCH_DIVERGENCE";
+const MEASURE_INTERACTION_UNKNOWN: &str = "MEASURE_INTERACTION_UNKNOWN";
+const EXPORTER_UNRESOLVED: &str = "EXPORTER_UNRESOLVED";
+const SUPPLEMENTARY_UNIT_MISSING: &str = "SUPPLEMENTARY_UNIT_MISSING";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum LandedCostPathMode {
@@ -5302,7 +5309,573 @@ fn read_landed_cost_mode_from_env() -> LandedCostPathMode {
 fn build_decision_grade_landed_cost_candidate(
     screening_estimate: &LandedCostEstimateWrite,
 ) -> LandedCostEstimateWrite {
-    screening_estimate.clone()
+    let mut estimate = screening_estimate.clone();
+    let mut warnings = stage11_issues_from_json(&estimate.warnings);
+    let mut blockers = stage11_issues_from_json(&estimate.blockers);
+
+    project_decision_grade_field_defaults(&mut estimate, &mut warnings, &mut blockers);
+    estimate.fx_basis_delta_bps =
+        fx_basis_delta_bps(estimate.customs_fx_rate, estimate.commercial_fx_rate);
+
+    let readiness_blockers = l5_readiness_blocker_codes(&estimate, &blockers);
+    for code in &readiness_blockers {
+        push_unique_stage11_issue(&mut blockers, decision_grade_blocker_for_code(code));
+    }
+
+    if exporter_unresolved_blocks_readiness(&estimate) {
+        push_unique_stage11_issue(
+            &mut blockers,
+            Stage11Issue::blocked(
+                EXPORTER_UNRESOLVED,
+                "Active trade-remedy exposure is present but named-exporter proof is unresolved; residual exporter rate remains authoritative.",
+            ),
+        );
+    } else if estimate.exporter_rate_basis.as_deref() == Some("residual_default")
+        && decision_grade_import_estimate(&estimate)
+    {
+        push_unique_stage11_issue(
+            &mut warnings,
+            Stage11Issue::warning(
+                "RESIDUAL_EXPORTER_RATE_DEFAULT_NO_ACTIVE_REMEDY",
+                "Exporter evidence is unresolved; residual default is recorded without blocking because no active remedy duty is present.",
+            ),
+        );
+    }
+
+    if decision_grade_unknown_measure_interaction(&estimate) {
+        push_unique_stage11_issue(
+            &mut blockers,
+            Stage11Issue::blocked(
+                MEASURE_INTERACTION_UNKNOWN,
+                "HMRC measure evidence exists but measure interaction is not resolved to additive, substitutive, conditional, or documentary-only.",
+            ),
+        );
+    }
+
+    let blocker_codes = stage11_issue_codes(&blockers);
+    estimate.decision_grade = decision_grade_for_l5_projection(&estimate, &blocker_codes);
+    estimate.confidence_bps = decision_grade_confidence_bps(&estimate, &blocker_codes);
+    estimate.confidence_breakdown =
+        decision_grade_confidence_breakdown(screening_estimate, &estimate, &warnings, &blockers);
+    estimate.warnings = stage11_issues_to_json(&warnings);
+    estimate.blockers = stage11_issues_to_json(&blockers);
+    estimate
+}
+
+fn stage11_issues_from_json(raw: &str) -> Vec<Stage11Issue> {
+    serde_json::from_str(raw).unwrap_or_default()
+}
+
+fn stage11_issues_to_json(issues: &[Stage11Issue]) -> String {
+    serde_json::to_string(issues).unwrap_or_else(|_| "[]".to_owned())
+}
+
+fn stage11_issue_codes(issues: &[Stage11Issue]) -> BTreeSet<String> {
+    issues.iter().map(|issue| issue.code.clone()).collect()
+}
+
+fn push_unique_stage11_issue(issues: &mut Vec<Stage11Issue>, issue: Stage11Issue) {
+    if issues
+        .iter()
+        .any(|existing| existing.code.eq_ignore_ascii_case(&issue.code))
+    {
+        return;
+    }
+    issues.push(issue);
+}
+
+fn decision_grade_import_estimate(estimate: &LandedCostEstimateWrite) -> bool {
+    estimate.shipping_mode != "domestic" || estimate.declarable_commodity_code_10.is_some()
+}
+
+fn project_decision_grade_field_defaults(
+    estimate: &mut LandedCostEstimateWrite,
+    warnings: &mut Vec<Stage11Issue>,
+    blockers: &mut Vec<Stage11Issue>,
+) {
+    if decision_grade_import_estimate(estimate) {
+        estimate.exporter_rate_basis = Some(
+            estimate
+                .exporter_rate_basis
+                .clone()
+                .unwrap_or_else(|| "residual_default".to_owned()),
+        );
+        estimate.exporter_identity_confidence_bps =
+            Some(estimate.exporter_identity_confidence_bps.unwrap_or(1500));
+        estimate.origin_evidence_state = Some(
+            estimate
+                .origin_evidence_state
+                .clone()
+                .unwrap_or_else(|| "origin_unresolved_mfn_default".to_owned()),
+        );
+        estimate.trade_remedy_watch_state = Some(
+            estimate
+                .trade_remedy_watch_state
+                .clone()
+                .unwrap_or_else(|| "not_watched_l5_bridge".to_owned()),
+        );
+        estimate.trade_remedy_cases_json = Some(
+            estimate
+                .trade_remedy_cases_json
+                .clone()
+                .unwrap_or_else(|| "[]".to_owned()),
+        );
+        estimate.duty_breakdown_json = Some(
+            estimate
+                .duty_breakdown_json
+                .clone()
+                .unwrap_or_else(|| "[]".to_owned()),
+        );
+        estimate.customs_cost_spread_bps = Some(estimate.customs_cost_spread_bps.unwrap_or(0));
+
+        if supplementary_units_required(estimate.supplementary_units_required_json.as_deref()) {
+            push_unique_stage11_issue(
+                blockers,
+                Stage11Issue::blocked(
+                    SUPPLEMENTARY_UNIT_MISSING,
+                    "Supplementary units are required but compatible supplementary quantity evidence is unavailable.",
+                ),
+            );
+        }
+    } else {
+        estimate.measure_interaction_json = Some(
+            estimate
+                .measure_interaction_json
+                .clone()
+                .unwrap_or_else(|| {
+                    json!({
+                        "family": "documentary_only",
+                        "status": "not_required_domestic"
+                    })
+                    .to_string()
+                }),
+        );
+        estimate.exporter_rate_basis = Some(
+            estimate
+                .exporter_rate_basis
+                .clone()
+                .unwrap_or_else(|| "not_applicable_domestic".to_owned()),
+        );
+        estimate.exporter_identity_confidence_bps =
+            Some(estimate.exporter_identity_confidence_bps.unwrap_or(10_000));
+        estimate.trade_remedy_cases_json = Some(
+            estimate
+                .trade_remedy_cases_json
+                .clone()
+                .unwrap_or_else(|| "[]".to_owned()),
+        );
+    }
+
+    if cbam_exposed_commodity(estimate.declarable_commodity_code_10.as_deref()) {
+        estimate.cbam_exposure_flag = Some(1);
+        estimate.cbam_estimate_gbp_pence = None;
+        push_unique_stage11_issue(
+            warnings,
+            Stage11Issue::warning(
+                "CBAM_FORWARD_PLACEHOLDER",
+                "CBAM-exposed commodity family detected; L5 records exposure only and leaves CBAM estimate null pending 2027 secondary legislation.",
+            ),
+        );
+    } else {
+        estimate.cbam_exposure_flag = Some(estimate.cbam_exposure_flag.unwrap_or(0));
+    }
+}
+
+#[allow(clippy::cast_possible_truncation)]
+fn fx_basis_delta_bps(customs_fx_rate: f64, commercial_fx_rate: f64) -> i64 {
+    if customs_fx_rate <= 0.0 || commercial_fx_rate <= 0.0 {
+        return 0;
+    }
+    (((commercial_fx_rate - customs_fx_rate) / customs_fx_rate) * 10_000.0).round() as i64
+}
+
+fn l5_readiness_blocker_codes(
+    estimate: &LandedCostEstimateWrite,
+    existing_blockers: &[Stage11Issue],
+) -> BTreeSet<String> {
+    let mut codes = stage11_issue_codes(existing_blockers);
+    if classification_fresh_until_expired(estimate.classification_fresh_until.as_deref()) {
+        codes.insert(CLASSIFICATION_FRESH_UNTIL_EXPIRED.to_owned());
+    }
+    codes
+}
+
+fn decision_grade_blocker_for_code(code: &str) -> Stage11Issue {
+    match code {
+        CLASSIFICATION_FRESH_UNTIL_EXPIRED => Stage11Issue::blocked(
+            CLASSIFICATION_FRESH_UNTIL_EXPIRED,
+            "classification_fresh_until is expired; L6 bid readiness must remain blocked until classification freshness is renewed.",
+        ),
+        CLASSIFICATION_AMBIGUOUS => Stage11Issue::blocked(
+            CLASSIFICATION_AMBIGUOUS,
+            "Top HS/CN families remain ambiguous across recall sources; manual customs classification is required.",
+        ),
+        TARIFF_BRANCH_DIVERGENCE => Stage11Issue::blocked(
+            TARIFF_BRANCH_DIVERGENCE,
+            "UK10 branches diverge on duty, remedy, or measure treatment; divergence is a hard blocker, not a scenario band.",
+        ),
+        MEASURE_INTERACTION_UNKNOWN => Stage11Issue::blocked(
+            MEASURE_INTERACTION_UNKNOWN,
+            "Active measure interaction rules are unclear; manual customs review is required before any auto-decision.",
+        ),
+        EXPORTER_UNRESOLVED => Stage11Issue::blocked(
+            EXPORTER_UNRESOLVED,
+            "A trade-remedy exporter or manufacturer is unresolved; residual rate basis blocks automatic bid readiness.",
+        ),
+        SUPPLEMENTARY_UNIT_MISSING => Stage11Issue::blocked(
+            SUPPLEMENTARY_UNIT_MISSING,
+            "Required supplementary-unit evidence is unavailable; abstain on the affected duty component.",
+        ),
+        other => Stage11Issue::blocked(
+            other,
+            "Decision-grade readiness blocker carried from L5 evidence.",
+        ),
+    }
+}
+
+fn classification_fresh_until_expired(value: Option<&str>) -> bool {
+    value
+        .and_then(|raw| DateTime::parse_from_rfc3339(raw).ok())
+        .is_some_and(|fresh_until| fresh_until.with_timezone(&Utc) < Utc::now())
+}
+
+fn exporter_unresolved_blocks_readiness(estimate: &LandedCostEstimateWrite) -> bool {
+    estimate.exporter_rate_basis.as_deref() == Some("residual_default")
+        && active_trade_remedy_evidence(estimate)
+}
+
+fn active_trade_remedy_evidence(estimate: &LandedCostEstimateWrite) -> bool {
+    estimate.trade_remedy_duty_gbp_pence.unwrap_or(0) > 0
+        || estimate.trade_remedy_state.as_deref().is_some_and(|state| {
+            matches!(
+                state,
+                "active"
+                    | "applied"
+                    | "possible_or_applied"
+                    | "investigation_open"
+                    | "residual_default"
+            )
+        })
+}
+
+fn decision_grade_unknown_measure_interaction(estimate: &LandedCostEstimateWrite) -> bool {
+    decision_grade_import_estimate(estimate)
+        && measure_interaction_missing(estimate.measure_interaction_json.as_deref())
+        && (active_trade_remedy_evidence(estimate)
+            || json_array_string_is_non_empty(estimate.duty_breakdown_json.as_deref())
+            || json_array_string_is_non_empty(
+                estimate.additional_code_requirements_json.as_deref(),
+            ))
+}
+
+fn measure_interaction_missing(raw: Option<&str>) -> bool {
+    match raw.and_then(|value| serde_json::from_str::<Value>(value).ok()) {
+        Some(Value::Object(map)) => map.is_empty(),
+        Some(Value::Null) | None => true,
+        Some(_) => false,
+    }
+}
+
+fn supplementary_units_required(raw: Option<&str>) -> bool {
+    json_array_string_is_non_empty(raw)
+}
+
+fn json_array_string_is_non_empty(raw: Option<&str>) -> bool {
+    raw.and_then(|value| serde_json::from_str::<Value>(value).ok())
+        .and_then(|value| match value {
+            Value::Array(items) => Some(!items.is_empty()),
+            _ => None,
+        })
+        .unwrap_or(false)
+}
+
+fn cbam_exposed_commodity(code: Option<&str>) -> bool {
+    code.is_some_and(|value| {
+        value.starts_with("72") || value.starts_with("73") || value.starts_with("76")
+    })
+}
+
+fn decision_grade_for_l5_projection(
+    estimate: &LandedCostEstimateWrite,
+    blocker_codes: &BTreeSet<String>,
+) -> String {
+    if !blocker_codes.is_empty()
+        || matches!(
+            estimate.decision_grade.as_str(),
+            "blocked" | "broker_required"
+        )
+    {
+        return "broker_required".to_owned();
+    }
+    if estimate.net_margin_low_bps >= NET_MARGIN_PASS_THRESHOLD_BPS
+        && estimate.confidence_bps >= NET_MARGIN_PRICING_INPUT_CONFIDENCE_FLOOR_BPS
+        && estimate.customs_resolution_confidence_bps.unwrap_or(0)
+            >= NET_MARGIN_CUSTOMS_RESOLUTION_CONFIDENCE_FLOOR_BPS
+        && estimate.commercial_estimate_confidence_bps.unwrap_or(0)
+            >= NET_MARGIN_COMMERCIAL_ESTIMATE_CONFIDENCE_FLOOR_BPS
+    {
+        return "auto_pass".to_owned();
+    }
+    "review_required".to_owned()
+}
+
+fn decision_grade_confidence_bps(
+    estimate: &LandedCostEstimateWrite,
+    blocker_codes: &BTreeSet<String>,
+) -> i64 {
+    let base = estimate.confidence_bps;
+    if blocker_codes.is_empty() {
+        clamp_bps(base)
+    } else {
+        clamp_bps(base.min(4000))
+    }
+}
+
+fn decision_grade_confidence_breakdown(
+    screening_estimate: &LandedCostEstimateWrite,
+    estimate: &LandedCostEstimateWrite,
+    warnings: &[Stage11Issue],
+    blockers: &[Stage11Issue],
+) -> String {
+    let mut breakdown = parse_json_or_null(Some(&screening_estimate.confidence_breakdown));
+    let Some(map) = breakdown.as_object_mut() else {
+        return json!({
+            "schema": L5_DECISION_GRADE_BRIDGE_SCHEMA,
+            "parse_error": "screening_confidence_breakdown_unavailable"
+        })
+        .to_string();
+    };
+    let evidence_leverage = decision_grade_evidence_leverage(estimate, blockers);
+    let unlockable_margin_bps = evidence_leverage
+        .iter()
+        .filter(|item| {
+            item.get("unlockable")
+                .and_then(Value::as_bool)
+                .unwrap_or(false)
+        })
+        .filter_map(|item| item.get("marginDeltaBps").and_then(Value::as_i64))
+        .sum::<i64>();
+    let active_defaults = decision_grade_active_defaults(estimate, blockers);
+    map.insert("schema".to_owned(), json!(L5_DECISION_GRADE_BRIDGE_SCHEMA));
+    map.insert(
+        "package_engine_delegation".to_owned(),
+        package_engine_delegation_projection(),
+    );
+    map.insert(
+        "fx_engine_projection".to_owned(),
+        fx_engine_projection(estimate),
+    );
+    map.insert(
+        "freight_engine_projection".to_owned(),
+        freight_engine_projection(estimate, warnings, blockers),
+    );
+    map.insert(
+        "customs_engine_projection".to_owned(),
+        customs_engine_projection(estimate),
+    );
+    map.insert(
+        "l5_to_l6_readiness".to_owned(),
+        l5_to_l6_readiness_projection(estimate, blockers),
+    );
+    map.insert("active_defaults".to_owned(), json!(active_defaults));
+    map.insert("evidence_leverage".to_owned(), json!(evidence_leverage));
+    map.insert(
+        "unlockable_margin_bps".to_owned(),
+        json!(unlockable_margin_bps),
+    );
+    breakdown.to_string()
+}
+
+fn package_engine_delegation_projection() -> Value {
+    json!({
+        "boundary": "stage11_skill_result_contract_to_packages_intelligence_projection",
+        "why": "The package engines are TypeScript-only; the daemon keeps the durable Stage 11 skill/subprocess boundary and projects those typed result contracts onto the package engine field contracts.",
+        "fx_engine": "packages/intelligence/src/fx/fx-engine.ts",
+        "freight_engine": "packages/intelligence/src/logistics/freight-engine.ts",
+        "customs_engines": [
+            "packages/intelligence/src/customs/multi-source-recall.ts",
+            "packages/intelligence/src/customs/ten-digit-resolution.ts",
+            "packages/intelligence/src/customs/measure-scanner.ts",
+            "packages/intelligence/src/customs/exporter-resolution.ts",
+            "packages/intelligence/src/customs/classification-freshness.ts",
+            "packages/intelligence/src/customs/accuracy.ts"
+        ],
+        "sync_authority": "l4_push_owned_reseed",
+        "feature_flag": L5_DECISION_GRADE_LANDED_COST_FEATURE_FLAG_ENV
+    })
+}
+
+fn fx_engine_projection(estimate: &LandedCostEstimateWrite) -> Value {
+    json!({
+        "customs_fx_rate": estimate.customs_fx_rate,
+        "commercial_fx_rate": estimate.commercial_fx_rate,
+        "fx_basis_delta_bps": estimate.fx_basis_delta_bps,
+        "fx_rate_checked_at": estimate.fx_rate_checked_at,
+        "provider_policy": {
+            "hmrc_monthly": "public_free_no_key",
+            "frankfurter": "public_free_no_key"
+        }
+    })
+}
+
+fn freight_engine_projection(
+    estimate: &LandedCostEstimateWrite,
+    warnings: &[Stage11Issue],
+    blockers: &[Stage11Issue],
+) -> Value {
+    json!({
+        "selectedMode": estimate.shipping_mode,
+        "selectedEstimate": {
+            "low_gbp_pence": estimate.freight_low_gbp_pence,
+            "base_gbp_pence": estimate.freight_base_gbp_pence,
+            "high_gbp_pence": estimate.freight_high_gbp_pence
+        },
+        "selectedPackagingState": estimate.packing_scenario,
+        "outcomeKind": if estimate.freight_base_gbp_pence > 0 { "single_provider" } else { "manual_required" },
+        "warningsAndBlockers": stage11_issue_codes(warnings)
+            .into_iter()
+            .chain(stage11_issue_codes(blockers))
+            .collect::<Vec<_>>(),
+        "manualEstimateRequired": estimate.freight_base_gbp_pence == 0
+            && decision_grade_import_estimate(estimate)
+    })
+}
+
+fn customs_engine_projection(estimate: &LandedCostEstimateWrite) -> Value {
+    json!({
+        "recall": {
+            "candidate_commodity_codes_json": parse_json_or_null(estimate.candidate_commodity_codes_json.as_deref())
+        },
+        "ten_digit_resolution": {
+            "declarable_commodity_code_10": estimate.declarable_commodity_code_10,
+            "customs_cost_spread_bps": estimate.customs_cost_spread_bps
+        },
+        "measure_scanner": {
+            "duty_breakdown_json": parse_json_or_null(estimate.duty_breakdown_json.as_deref()),
+            "measure_interaction_json": parse_json_or_null(estimate.measure_interaction_json.as_deref()),
+            "additional_code_requirements_json": parse_json_or_null(estimate.additional_code_requirements_json.as_deref()),
+            "supplementary_units_required_json": parse_json_or_null(estimate.supplementary_units_required_json.as_deref())
+        },
+        "exporter_resolution": {
+            "exporter_rate_basis": estimate.exporter_rate_basis,
+            "exporter_identity_confidence_bps": estimate.exporter_identity_confidence_bps,
+            "origin_evidence_state": estimate.origin_evidence_state
+        },
+        "classification_freshness": {
+            "tariff_checked_at": estimate.tariff_checked_at,
+            "measures_fresh_until": estimate.measures_fresh_until,
+            "classification_fresh_until": estimate.classification_fresh_until,
+            "trade_remedy_watch_state": estimate.trade_remedy_watch_state,
+            "fx_rate_checked_at": estimate.fx_rate_checked_at
+        },
+        "decision_grade": estimate.decision_grade
+    })
+}
+
+fn l5_to_l6_readiness_projection(
+    estimate: &LandedCostEstimateWrite,
+    blockers: &[Stage11Issue],
+) -> Value {
+    json!({
+        "blocks_ready_to_bid": estimate.decision_grade == "broker_required",
+        "blocker_codes": stage11_issue_codes(blockers).into_iter().collect::<Vec<_>>(),
+        "gate_conditions": [
+            CLASSIFICATION_AMBIGUOUS,
+            TARIFF_BRANCH_DIVERGENCE,
+            SUPPLEMENTARY_UNIT_MISSING,
+            "decision_grade=broker_required",
+            CLASSIFICATION_FRESH_UNTIL_EXPIRED
+        ]
+    })
+}
+
+fn decision_grade_active_defaults(
+    estimate: &LandedCostEstimateWrite,
+    blockers: &[Stage11Issue],
+) -> Vec<String> {
+    let mut defaults = BTreeSet::new();
+    if estimate.exporter_rate_basis.as_deref() == Some("residual_default") {
+        defaults.insert("exporter_rate:residual_default".to_owned());
+    }
+    if estimate.origin_evidence_state.as_deref() == Some("origin_unresolved_mfn_default") {
+        defaults.insert("origin_preference:MFN".to_owned());
+    }
+    if estimate.vat_rate_state.as_deref() == Some("standard_or_hmrc_rate") {
+        defaults.insert("vat_rate:standard_rate_default".to_owned());
+    }
+    for issue in blockers {
+        if issue.code == SUPPLEMENTARY_UNIT_MISSING {
+            defaults.insert("supplementary_units:abstained".to_owned());
+        }
+    }
+    defaults.into_iter().collect()
+}
+
+fn decision_grade_evidence_leverage(
+    estimate: &LandedCostEstimateWrite,
+    blockers: &[Stage11Issue],
+) -> Vec<Value> {
+    let mut leverage = Vec::new();
+    if estimate.exporter_rate_basis.as_deref() == Some("residual_default") {
+        leverage.push(evidence_leverage_item(
+            "exporter_rate",
+            "residual_default",
+            &["named_exporter_or_manufacturer_proof"],
+            i64::from(active_trade_remedy_evidence(estimate)) * estimate.net_margin_base_bps.abs(),
+            active_trade_remedy_evidence(estimate),
+            estimate,
+        ));
+    }
+    if estimate.origin_evidence_state.as_deref() == Some("origin_unresolved_mfn_default") {
+        leverage.push(evidence_leverage_item(
+            "origin_preference",
+            "MFN",
+            &["origin_certificate", "supplier_origin_declaration"],
+            0,
+            false,
+            estimate,
+        ));
+    }
+    for issue in blockers {
+        if issue.code == SUPPLEMENTARY_UNIT_MISSING {
+            leverage.push(evidence_leverage_item(
+                "supplementary_units",
+                "abstained",
+                &["compatible_supplementary_unit_data"],
+                0,
+                false,
+                estimate,
+            ));
+        }
+    }
+    leverage
+}
+
+fn evidence_leverage_item(
+    parameter: &str,
+    default_applied: &str,
+    evidence_required: &[&str],
+    margin_delta_bps: i64,
+    unlockable: bool,
+    estimate: &LandedCostEstimateWrite,
+) -> Value {
+    json!({
+        "parameter": parameter,
+        "defaultApplied": default_applied,
+        "evidenceRequired": evidence_required,
+        "marginDeltaBps": margin_delta_bps,
+        "unlockable": unlockable,
+        "netMarginBaseBps": estimate.net_margin_base_bps,
+        "resolvedNetMarginBaseBps": estimate.net_margin_base_bps.saturating_add(margin_delta_bps),
+        "snapshotId": estimate.stage_run_id
+    })
+}
+
+fn landed_cost_bid_readiness_blocked(estimate: &LandedCostEstimateWrite) -> bool {
+    matches!(
+        estimate.decision_grade.as_str(),
+        "blocked" | "broker_required"
+    )
 }
 
 const fn authoritative_landed_cost_estimate<'a>(
@@ -8610,7 +9183,7 @@ async fn run_landed_cost_live_loop(
             &screening_estimate,
             &decision_grade_estimate,
         );
-        if estimate.decision_grade == "blocked" {
+        if landed_cost_bid_readiness_blocked(estimate) {
             blocked += 1;
         } else {
             completed += 1;
@@ -27420,6 +27993,216 @@ mod tests {
             super::LandedCostPathMode::from_env_value(Some("decision_grade")),
             super::LandedCostPathMode::DecisionGrade
         ));
+    }
+
+    #[test]
+    fn l5_decision_grade_candidate_projects_package_engine_contracts() -> Result<()> {
+        let mut row = stage11_row_fixture();
+        row.expected_addressable_revenue_ex_vat_pence = 50_000;
+        row.revenue_basis_type = "expected_value".to_owned();
+        row.revenue_confidence_bps = 9000;
+        row.pricing_input_confidence_bps = 8000;
+        row.gross_estimate_confidence_bps = 8000;
+        let supplier_cost = super::SupplierCostBasis {
+            supplier_cost_gbp_pence: 10_000,
+            basis: "test".to_owned(),
+            quantity: 10.0,
+            quantity_unit: Some("unit".to_owned()),
+            warnings: Vec::new(),
+        };
+        let mut customs = classified_customs_for(&row);
+        customs.customs_duty_gbp_pence = Some(1_000);
+        customs.duty_breakdown = vec![json!({
+            "measureType": "third_country_duty",
+            "family": "additive",
+            "amountPence": 1_000
+        })];
+        customs.measure_interaction = Some(json!({
+            "family": "additive",
+            "status": "resolved"
+        }));
+        customs.classification_fresh_until = Some("2099-01-01T00:00:00Z".to_owned());
+        customs.measures_fresh_until = Some("2099-01-01T00:00:00Z".to_owned());
+        let freight = super::FreightScenarioGbp {
+            low_gbp_pence: 1_000,
+            base_gbp_pence: 2_000,
+            high_gbp_pence: 3_000,
+            fx_rate: 0.807,
+            fx_checked_at: Some("2026-05-19T12:00:00Z".to_owned()),
+            fx_status: "converted".to_owned(),
+            fx_session_id: Some("session-fx-decision-grade".to_owned()),
+            fx_job_id: Some("job-fx-decision-grade".to_owned()),
+            warnings: Vec::new(),
+            blockers: Vec::new(),
+        };
+        let screening = super::build_import_landed_cost_estimate(
+            &row,
+            &supplier_cost,
+            "stage-run-decision-grade-package-projection",
+            Some(&customs),
+            Some(&sized_shipment_for(&row)),
+            &freight,
+            &super::infer_order_quantity_basis(&row),
+            &json!({
+                "hmrc_customs": "1.0.0",
+                "shipment_sizing": "1.0.0",
+                "searates_freight": "1.0.0",
+                "simple_fx": "1.0.0",
+            }),
+            &json!({
+                "hmrc_customs": "session-customs",
+                "shipment_sizing": "session-sizing",
+                "searates_freight": "session-searates",
+                "simple_fx": "session-fx-decision-grade",
+            }),
+        )?;
+
+        assert_eq!(screening.decision_grade, "review");
+        let decision_grade = super::build_decision_grade_landed_cost_candidate(&screening);
+        assert_eq!(decision_grade.decision_grade, "auto_pass");
+        assert_eq!(
+            decision_grade.exporter_rate_basis.as_deref(),
+            Some("residual_default")
+        );
+        assert!(decision_grade.fx_basis_delta_bps != 0);
+
+        let confidence: Value = serde_json::from_str(&decision_grade.confidence_breakdown)?;
+        assert_eq!(
+            confidence["schema"],
+            json!(super::L5_DECISION_GRADE_BRIDGE_SCHEMA)
+        );
+        assert_eq!(
+            confidence["package_engine_delegation"]["fx_engine"],
+            json!("packages/intelligence/src/fx/fx-engine.ts")
+        );
+        assert_eq!(
+            confidence["package_engine_delegation"]["freight_engine"],
+            json!("packages/intelligence/src/logistics/freight-engine.ts")
+        );
+        assert!(
+            confidence["package_engine_delegation"]["customs_engines"]
+                .as_array()
+                .is_some_and(|engines| {
+                    engines.iter().any(|engine| {
+                        engine == "packages/intelligence/src/customs/measure-scanner.ts"
+                    })
+                })
+        );
+        assert_eq!(
+            confidence["l5_to_l6_readiness"]["blocks_ready_to_bid"],
+            json!(false)
+        );
+        Ok(())
+    }
+
+    #[test]
+    #[allow(clippy::too_many_lines)]
+    fn l5_decision_grade_candidate_blocks_l6_readiness_conditions() -> Result<()> {
+        let screening = super::LandedCostEstimateWrite {
+            id: "landed-readiness-blockers".to_owned(),
+            process_id: "process-readiness".to_owned(),
+            notice_id: "notice-readiness".to_owned(),
+            product_candidate_id: "candidate-readiness".to_owned(),
+            supplier_quote_id: "quote-readiness".to_owned(),
+            shipping_mode: "sea_freight".to_owned(),
+            mode_confidence_bps: 7000,
+            packing_scenario: Some("palletized".to_owned()),
+            declarable_commodity_code_10: Some("7214200020".to_owned()),
+            candidate_commodity_codes_json: Some(json!([{"code": "7214200020"}]).to_string()),
+            additional_codes: None,
+            additional_code_requirements_json: None,
+            supplementary_units_required_json: Some(json!(["kg"]).to_string()),
+            commodity_confidence_bps: 7100,
+            classification_stability_bps: 6800,
+            customs_valuation_method: Some("transaction_value_proxy".to_owned()),
+            valuation_mode: Some("mvp_proxy".to_owned()),
+            customs_fx_rate: 0.7834,
+            commercial_fx_rate: 0.8070,
+            fx_basis_delta_bps: 0,
+            fx_rate_checked_at: Some("2026-05-19T12:00:00Z".to_owned()),
+            supplier_cost_gbp_pence: 100_000,
+            freight_low_gbp_pence: 18_000,
+            freight_base_gbp_pence: 22_000,
+            freight_high_gbp_pence: 30_000,
+            customs_duty_gbp_pence: 4_700,
+            trade_remedy_duty_gbp_pence: Some(35_100),
+            duty_outcome_min_gbp_pence: Some(4_700),
+            duty_outcome_max_gbp_pence: Some(39_800),
+            customs_cost_spread_bps: Some(2100),
+            trade_remedy_state: Some("investigation_open".to_owned()),
+            trade_remedy_cases_json: Some(json!([{"case": "TR-001"}]).to_string()),
+            duty_breakdown_json: Some(
+                json!([{"measureType": "safeguard", "amountPence": 35100}]).to_string(),
+            ),
+            measure_interaction_json: None,
+            exporter_rate_basis: None,
+            exporter_identity_confidence_bps: None,
+            origin_evidence_state: None,
+            import_vat_gbp_pence: 25_000,
+            vat_rate_state: Some("standard_or_hmrc_rate".to_owned()),
+            import_vat_treatment: "recoverability_unknown".to_owned(),
+            vat_recovery_rate_bps: None,
+            uk_final_mile_cost_gbp_pence: 0,
+            other_fees_gbp_pence: 0,
+            economic_landed_cost_gbp_pence: 202_700,
+            cash_outlay_gbp_pence: 202_700,
+            cash_to_clear_gbp_pence: 64_800,
+            working_capital_cost_gbp_pence: None,
+            revenue_basis_type: "expected_value".to_owned(),
+            revenue_confidence_bps: 9000,
+            customs_resolution_confidence_bps: Some(7100),
+            commercial_estimate_confidence_bps: Some(8200),
+            net_margin_low_bps: 700,
+            net_margin_base_bps: 1000,
+            net_margin_high_bps: 1300,
+            decision_grade: "review".to_owned(),
+            confidence_bps: 7000,
+            confidence_breakdown: json!({
+                "schema": "stage11_mvp_confidence_breakdown_v1"
+            })
+            .to_string(),
+            warnings: "[]".to_owned(),
+            blockers: json!([
+                {"code": "CLASSIFICATION_AMBIGUOUS", "severity": "blocked"},
+                {"code": "TARIFF_BRANCH_DIVERGENCE", "severity": "blocked"}
+            ])
+            .to_string(),
+            tariff_checked_at: Some("2026-05-19T12:00:00Z".to_owned()),
+            measures_fresh_until: Some("2026-05-19T00:00:00Z".to_owned()),
+            classification_fresh_until: Some("2026-05-19T00:00:00Z".to_owned()),
+            trade_remedy_watch_state: Some("investigation_open".to_owned()),
+            cbam_exposure_flag: Some(1),
+            cbam_estimate_gbp_pence: None,
+            stage_run_id: "stage-run-readiness-blockers".to_owned(),
+            pricing_assessment_id: "pricing-readiness".to_owned(),
+            force_pricing_assessment_zero_gross_margin: false,
+        };
+
+        let decision_grade = super::build_decision_grade_landed_cost_candidate(&screening);
+        assert_eq!(decision_grade.decision_grade, "broker_required");
+        let blockers = super::stage11_issues_from_json(&decision_grade.blockers);
+        let codes = super::stage11_issue_codes(&blockers);
+        for required in [
+            "CLASSIFICATION_AMBIGUOUS",
+            "TARIFF_BRANCH_DIVERGENCE",
+            "SUPPLEMENTARY_UNIT_MISSING",
+            "CLASSIFICATION_FRESH_UNTIL_EXPIRED",
+            "EXPORTER_UNRESOLVED",
+            "MEASURE_INTERACTION_UNKNOWN",
+        ] {
+            assert!(codes.contains(required), "missing blocker {required}");
+        }
+        let confidence: Value = serde_json::from_str(&decision_grade.confidence_breakdown)?;
+        assert_eq!(
+            confidence["l5_to_l6_readiness"]["blocks_ready_to_bid"],
+            json!(true)
+        );
+        assert!(
+            confidence["evidence_leverage"]
+                .as_array()
+                .is_some_and(|items| !items.is_empty())
+        );
+        Ok(())
     }
 
     #[test]
