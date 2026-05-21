@@ -275,7 +275,18 @@ def _normalize_peer_list(payload, *, exclude):
         if isinstance(entry, str):
             _add(entry)
         elif isinstance(entry, dict):
-            _add(entry.get("name") or entry.get("agent_name"))
+            # Schema varies by source tool:
+            #   list_agents → {"name": ..., "program": ..., "last_active_ts": ...}
+            #   list_contacts (am 0.2.51) → {"to": <peer>, "status": "approved", ...}
+            #                                 (outgoing requests; peer name in `to`)
+            # Some response shapes also use `from` for inbound. Try in priority order.
+            _add(
+                entry.get("name")
+                or entry.get("agent_name")
+                or entry.get("to")
+                or entry.get("peer_name")
+                or entry.get("from")
+            )
     return out
 
 
