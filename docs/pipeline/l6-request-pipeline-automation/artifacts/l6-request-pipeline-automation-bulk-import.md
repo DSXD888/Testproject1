@@ -295,6 +295,7 @@ L6 is COMPLETE only when:
 
 - All 7 phase review gates closed via `bin/br-complete` (3yqf.1.9, .2.7, .3.11, .4.10, .5.10, .6.9, .7.7).
 - All 10 CI-L6-* static gates green (`l6-p7-static-gates-sweep` evidence retained).
+- Static gate evidence explicitly re-checks the Phase 7 operator-action gates: persistent CDP profile credential, Touch ID password autofill state, Procontract opportunity ref, `bin/ensure-cdp-9222`, AgentMail health, `sideEffectCap=REMOTE_DRAFT` first-run default, and separate explicit `FORMAL_SUBMISSION` authorization.
 - All 11 DoD rows (L6-FR-2.1.1..L6-FR-2.1.11) green in one walkthrough (`l6-p7-dod-walkthrough`).
 - Live REMOTE_DRAFT run evidence captured under `docs/pipeline/l6-request-pipeline-automation/live-demo/first-run-REMOTE_DRAFT-YYYY-MM-DD/`.
 - Operator-authorized FORMAL_SUBMISSION run evidence captured under `docs/pipeline/l6-request-pipeline-automation/live-demo/second-run-FORMAL_SUBMISSION-YYYY-MM-DD/` (only if operator authorizes — DoD #8 separation).
@@ -645,6 +646,26 @@ Verification:
 | L6-T ownership | PASS (153/153, exactly one owner per test ID) |
 | `bin/br-claim --dry-run` across 63 task beads | PASS (0 failures, 0 suspicious paths, 7 gate beads parse concrete paths) |
 | Phase 7 operator gates and side-effect caps | PASS (all 7 Phase 7 beads make operator gate and cap evidence explicit) |
+| §1.10 invariants | PASS (8/8 have enforcing beads) |
+| Orphan task bead check | PASS (0 task beads without parent-child edge) |
+| Banned scope-language scan | PASS (0 hits) |
+
+### E23 — Step 08 second repeat follow-up pass: Phase 7 static gate AC tightened
+
+Second repeat follow-up audit re-read all Phase 7 beads after E22. `l6-p7-static-gates-sweep` (`testproject1-3yqf.7.5`) already depended on `l6-p7-preflight-evidence` and named the side-effect cap defaults, but its own ACs did not explicitly restate the operator-action gates. This was tightened directly in the bead body via `br update --description`.
+
+Verification:
+
+| Check | Verdict |
+|-------|---------|
+| L6 inventory | PASS (71 total: 63 task beads, 7 phase epics, 1 implementation epic) |
+| `br lint --status all` across all L6 beads | PASS (0 issues after the AC edit + `bin/br-sync`) |
+| `br dep cycles --json` | PASS (0 cycles after the AC edit + `bin/br-sync`) |
+| Alias-map dependencies vs live Beads dependencies | PASS (0 mismatches) |
+| L6-FR coverage | PASS (127/127) |
+| L6-T ownership | PASS (153/153, exactly one owner per test ID) |
+| `bin/br-claim --dry-run` across 63 task beads | PASS (0 failures) |
+| Phase 7 operator gates and side-effect caps | FIXED (`testproject1-3yqf.7.5` now restates CDP profile, Touch ID password autofill, opportunity ref, `bin/ensure-cdp-9222`, AgentMail health, `REMOTE_DRAFT`, and explicit `FORMAL_SUBMISSION` authorization) |
 | §1.10 invariants | PASS (8/8 have enforcing beads) |
 | Orphan task bead check | PASS (0 task beads without parent-child edge) |
 | Banned scope-language scan | PASS (0 hits) |
