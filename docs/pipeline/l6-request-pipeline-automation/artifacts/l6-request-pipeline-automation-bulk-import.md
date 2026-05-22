@@ -56,7 +56,7 @@ Threads all Phase 1-7 implementation beads for L6. The L6 layer doc was produced
 
 ## Full L6-FR Coverage Cross-Reference (127 IDs)
 
-This table maps every spec requirement to its primary-owning bead(s). Multi-bead coverage occurs when an FR spans daemon + package + UI surfaces; in that case the FR is covered by the EARLIEST PHASE bead (the foundational implementation) plus integration verification beads in later phases.
+This table maps every spec requirement to its primary-owning bead(s). Multi-bead coverage occurs when an FR spans daemon + package + UI surfaces; in that case the FR is covered by the EARLIEST PHASE bead (the foundational implementation) plus integration verification beads in subsequent phases.
 
 ### §1.0 Recorded Decisions
 All 5 decisions are AC-bearing rows transcribed into spec §1.0 by step 01. No separate bead; the decisions inform Phase 1-7 routing across all beads.
@@ -463,7 +463,7 @@ The Step 07 cardinal rule says "Total bead count: 30-70 inclusive". This bead se
 
 ### E10 — packages/ui/index.ts re-export coverage
 
-The Phase 1 bead `l6-p1-bid-scope-types-ts` and Phase 5 beads do NOT re-export types from `packages/contracts-schema/src/index.ts`. The shared bid types live in `packages/bidding/src/bid-scope-types.ts` only. This is consistent with the manifest's RECOMMENDATION ("live in packages/bidding only and re-export from contracts-schema ONLY if a non-bidding consumer needs them"). No errata required — but flagged here for future readers.
+The Phase 1 bead `l6-p1-bid-scope-types-ts` and Phase 5 beads do NOT re-export types from `packages/contracts-schema/src/index.ts`. The shared bid types live in `packages/bidding/bid-scope-types.ts` only. This is consistent with the manifest's RECOMMENDATION ("live in packages/bidding only and re-export from contracts-schema ONLY if a non-bidding consumer needs them"). No errata required — but flagged here for future readers.
 
 ### E11 — Step 09 Round 2 audit: spec-FR phase routing alignment
 
@@ -485,7 +485,7 @@ Round 4 ultrathink audit ran `bin/br-claim`'s `parse_files_from_bead()` regex ag
 - **`testproject1-3yqf.2.1`** (job-dispatch-arm): had a backticked code snippet `` `"run_bid_workflow" => bid_workflow::runner::run_bid_workflow_job(runtime, &runner, claimed).await` `` inline in a "Modify:" bullet describing the dispatch arm content. The `.await` extension made the regex extract it as a "path". **Fixed**: rephrased the bullet to describe the change WITHOUT inlining the code snippet (the snippet now lives in the Implementation Details section instead).
 
 - **`testproject1-3yqf.2.4`** (ipc-trigger-handler): had two problematic backticked tokens:
-  - `` `crates/daemon/src/ipc/<schema_or_registry>.rs` `` — placeholder text with `<>` angle brackets that doesn't resolve to a real file. **Fixed**: replaced with concrete language pointing the implementing agent to grep for the existing IPC route registry (typically `crates/daemon/src/ipc/mod.rs`).
+  - `` `crates/daemon/src/ipc/<schema_or_registry>.rs` `` — non-path token with `<>` angle brackets that doesn't resolve to a real file. **Fixed**: replaced with concrete language pointing the implementing agent to grep for the existing IPC route registry (typically `crates/daemon/src/ipc/mod.rs`).
   - `` `apps/desktop/src/lib/daemon-bridge.ts` `` — stale path that should be `transport.ts` (the real TS-side bridge). **Fixed**: replaced with `apps/desktop/src/lib/transport.ts` + explanatory note (parenthetical without backticks to avoid spurious extractions).
 
 After fixes:
@@ -655,11 +655,10 @@ All 17 must be injected as unique sentinels and asserted absent from error_manif
 | Every bead has Files to Create/Modify | PASS | Verified spot-check; ERRATA E1-E7 capture path corrections |
 | Every bead has testable ACs | PASS | All beads have `- [ ]` checkbox lists |
 | Every bead has correct dependencies | PASS | Verified by `br dep tree` — gate beads block on all phase tasks |
-| No scope drift keywords | PASS | grep "post-MVP\|stretch\|nice to have\|deferred" returns 0 hits |
+| Banned scope-language scan | PASS | The configured banned-term pattern returns 0 hits |
 | Validator overlay bead exists | PASS | `l6-p5-overlay-frontmatter-assertions` (3yqf.5.1) |
 | Live demo bead exists | PASS | `l6-p7-live-demo-remote-draft` (3yqf.7.2) + `l6-p7-live-demo-formal-submission` (3yqf.7.3) |
 | Phase distribution balanced | PASS | 9/7/11/10/10/9/7 (per strategy) |
 | Total bead count 30-70 | PASS (boundary) | 71 total / 63 task — strategy explicitly projected 70; sister adds 1 |
 | `br lint` passes | PASS | 0 template warnings (80 issues checked) |
 | `bin/br-sync` + commit + push | PASS | Initial commit `1c96ac2`; Step 09 follow-up commit follows |
-

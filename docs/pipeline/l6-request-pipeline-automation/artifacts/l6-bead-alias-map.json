@@ -599,7 +599,8 @@
       ],
       "ci_gates": [],
       "dependencies": [
-        "testproject1-3yqf.3.11"
+        "testproject1-3yqf.3.11",
+        "testproject1-3yqf.4.10"
       ]
     },
     {
