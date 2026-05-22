@@ -1518,6 +1518,9 @@ async fn run_next_workflow_job(
         "extract_document_semantics" => {
             run_extract_document_semantics_job(runtime, &runner, claimed, cli).await
         }
+        "run_bid_workflow" => {
+            bid_workflow::runner::run_bid_workflow_job(runtime, &runner, claimed).await
+        }
         other => fail_job(
             runtime,
             &claimed.id,
@@ -24457,6 +24460,25 @@ mod tests {
             Some("opus")
         );
         assert_eq!(skill.metadata.interaction_profile, "pty_interactive");
+    }
+
+    #[test]
+    fn l6_t_daemon_runner_003_run_bid_workflow_dispatch_stays_in_main() {
+        let source = include_str!("main.rs");
+        let dispatch_start = source
+            .find("async fn run_next_workflow_job")
+            .expect("run_next_workflow_job remains in main.rs");
+        let extraction_start = source[dispatch_start..]
+            .find("async fn run_extract_document_structure_job")
+            .expect("extract_document_structure dispatch handler remains in main.rs");
+        let dispatch_body = &source[dispatch_start..dispatch_start + extraction_start];
+
+        assert!(dispatch_body.contains("\"extract_document_structure\""));
+        assert!(dispatch_body.contains("\"extract_document_semantics\""));
+        assert!(dispatch_body.contains(
+            "\"run_bid_workflow\" => {\n            bid_workflow::runner::run_bid_workflow_job(runtime, &runner, claimed).await\n        }"
+        ));
+        assert!(dispatch_body.contains("unsupported queued job kind"));
     }
 
     #[test]
