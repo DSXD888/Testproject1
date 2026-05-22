@@ -308,7 +308,11 @@ This is the M6 capstone. No L7 exists per `cross_layer_context.next_layer_after_
 
 ## ERRATA — Step 09 Sub-Optimization Audit (2026-05-22)
 
-The Step 09 fresh-eyes audit re-verified bead claims against the actual codebase state. The findings below are corrections to specific bead descriptions. Implementing agents MUST consult this errata before claiming any affected bead. The bead body's `Files to Create/Modify` section reflects the original draft; the corrections below supersede.
+The Step 09 fresh-eyes audit re-verified bead claims against the actual codebase state.
+
+**STATUS UPDATE (Round 3, 2026-05-22):** `bin/br-claim` parses `### Files to Create/Modify` headers from bead descriptions to compute file reservations. Round 3 audit confirmed this — see `bin/br-claim:420 parse_files_from_bead()`. Therefore the Phase 6 bead path corrections (E1, E2, E3, E4 below) have been APPLIED directly to bead bodies via `br update --description` so that `bin/br-claim` reserves the correct paths. The errata text below remains as historical context + explanation; the bead bodies themselves are now accurate.
+
+Errata E5, E6, E7 (manifest.rs line refs, IPC handler signatures, runner signatures) remain advisory — those errors are in CODE EXAMPLES inside bead bodies that don't affect `bin/br-claim` reservation parsing. Implementing agents will notice the issues when running `cargo check` and adjust to match existing patterns.
 
 ### E1 — Phase 6 shared UI components (`l6-p6-shared-ui-components`, `testproject1-3yqf.6.1`)
 
