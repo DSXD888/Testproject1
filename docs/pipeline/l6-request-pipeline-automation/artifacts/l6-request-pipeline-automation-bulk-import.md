@@ -606,6 +606,29 @@ Round 6 narrative-text sweep across ALL 71 L6 bead descriptions (not just Files 
 | bin/br-claim false-positive paths | PASS (0/97 unique extracted paths) |
 | Stale-reference narrative sweep (9 patterns) | PASS (0 hits after fix) |
 
+### E21 — Step 08 follow-up pass: dependency parity + claim parser closure
+
+Follow-up audit re-ran dependency parity between live Beads and `l6-bead-alias-map.json`, then executed `AGENT_NAME=CobaltGorge AGENT_MAIL_NAME=CobaltGorge bin/br-claim --dry-run <id>` across all 63 task beads.
+
+Fixes applied:
+
+- `testproject1-3yqf.4.1` alias-map dependency corrected: removed the erroneous `testproject1-3yqf.4.10` self-phase gate edge. Live Beads correctly has only the Phase 3 review gate blocker.
+- `testproject1-3yqf.5.1` alias-map dependency corrected: added the live `testproject1-3yqf.4.10` blocker so the validator overlay explicitly waits for the frozen Phase 4 worker behavior contract.
+- `testproject1-3yqf.6.8` live dependency corrected: added the missing `testproject1-3yqf.6.6` blocker to match the bead body and alias map.
+- All seven phase/final gate beads now have parseable `Files to Create/Modify` path entries; `bin/br-claim --dry-run` succeeds for 63/63 task beads with 0 suspicious extracted paths.
+- Phase 7 ACs now explicitly preserve `sideEffectCap=REMOTE_DRAFT` as the default live-run cap and require separate written operator authorization for `sideEffectCap=FORMAL_SUBMISSION`.
+
+Verification after fixes:
+
+| Check | Verdict |
+|-------|---------|
+| `br lint` across all L6 beads | PASS (0 issues) |
+| `br dep cycles --json` | PASS (0 cycles) |
+| Alias-map dependencies vs live Beads dependencies | PASS (0 alias-only, 0 live-only) |
+| `bin/br-claim --dry-run` across 63 task beads | PASS (0 failures) |
+| §1.10 invariants | PASS (8/8 have enforcing beads) |
+| Banned scope-language scan | PASS (0 hits) |
+
 ### E17 — bin/br-complete behavior verified
 
 Round 5 confirmed `bin/br-complete` does NOT parse bead body for file paths. It calls `release_file_reservations(agent_name=<self>)` which releases ALL of the agent's outstanding reservations (the `agent_name` filter alone). Bead body errors therefore only affect `bin/br-claim` (the file-reservation creator), not `bin/br-complete` (the bulk releaser). The Round 3 + Round 4 bead body path fixes are sufficient.
