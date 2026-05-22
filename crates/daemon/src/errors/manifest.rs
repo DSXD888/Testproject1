@@ -205,6 +205,7 @@ impl ErrorManifestStore {
         validate_draft(draft)?;
         let id = format!("error-{}", Uuid::new_v4());
         let markdown_path = self.markdown_path(&id, created_at)?;
+        let error_context = sanitize_error_context(draft.error_type, &draft.error_context);
         let record = ErrorManifestRecord {
             id: id.clone(),
             job_id: draft.job_id.clone(),
@@ -213,7 +214,7 @@ impl ErrorManifestStore {
             workflow_step: draft.workflow_step.clone(),
             error_type: draft.error_type,
             error_message: draft.error_message.clone(),
-            error_context: draft.error_context.clone(),
+            error_context,
             skill_path: draft.skill_path.clone(),
             agent_session_id: draft.agent_session_id.clone(),
             markdown_path: markdown_path.clone(),
@@ -244,7 +245,7 @@ impl ErrorManifestStore {
                 draft.workflow_step,
                 draft.error_type.as_str(),
                 draft.error_message,
-                draft.error_context.to_string(),
+                record.error_context.to_string(),
                 draft.skill_path,
                 draft.agent_session_id,
                 markdown_path.to_string_lossy(),
@@ -361,6 +362,61 @@ fn validate_draft(draft: &ErrorManifestDraft) -> Result<()> {
         "next_debugging_action must not be empty"
     );
     Ok(())
+}
+
+fn sanitize_error_context(error_type: ErrorCode, error_context: &Value) -> Value {
+    if is_bid_error_code(error_type) {
+        redact_bid_context_value(error_context)
+    } else {
+        error_context.clone()
+    }
+}
+
+const fn is_bid_error_code(error_type: ErrorCode) -> bool {
+    matches!(
+        error_type,
+        ErrorCode::BidSubmissionFailed
+            | ErrorCode::BidDuplicateDetected
+            | ErrorCode::BidSideEffectCapExceeded
+            | ErrorCode::BidReadinessGateFailed
+            | ErrorCode::BidPortalChanged
+            | ErrorCode::BidPortalAuthExpired
+    )
+}
+
+fn redact_bid_context_value(value: &Value) -> Value {
+    match value {
+        Value::Array(items) => Value::Array(items.iter().map(redact_bid_context_value).collect()),
+        Value::Object(map) => Value::Object(
+            map.iter()
+                .map(|(key, value)| {
+                    let value = if is_sensitive_bid_context_key(key) {
+                        Value::String("[REDACTED]".to_owned())
+                    } else {
+                        redact_bid_context_value(value)
+                    };
+                    (key.clone(), value)
+                })
+                .collect(),
+        ),
+        _ => value.clone(),
+    }
+}
+
+fn is_sensitive_bid_context_key(key: &str) -> bool {
+    let normalized = key.replace(['_', '-'], "").to_ascii_lowercase();
+    matches!(
+        normalized.as_str(),
+        "address"
+            | "email"
+            | "operatoremail"
+            | "phone"
+            | "postcode"
+            | "primarycontact"
+            | "registrationnumber"
+            | "vatnumber"
+            | "companyprofile"
+    )
 }
 
 fn write_markdown(path: &Path, markdown: &str) -> Result<()> {

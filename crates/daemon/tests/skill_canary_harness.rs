@@ -18,6 +18,12 @@ const AUTH_STATE_STALE: &str = "AUTH_STATE_STALE";
 const PAGE_SHAPE_DRIFT: &str = "PAGE_SHAPE_DRIFT";
 const LOCALE_OR_CURRENCY_DRIFT: &str = "LOCALE_OR_CURRENCY_DRIFT";
 const AGENT_SKILL_FAILED: &str = "AGENT_SKILL_FAILED";
+const BID_SUBMISSION_FAILED: &str = "BID_SUBMISSION_FAILED";
+const BID_DUPLICATE_DETECTED: &str = "BID_DUPLICATE_DETECTED";
+const BID_SIDE_EFFECT_CAP_EXCEEDED: &str = "BID_SIDE_EFFECT_CAP_EXCEEDED";
+const BID_READINESS_GATE_FAILED: &str = "BID_READINESS_GATE_FAILED";
+const BID_PORTAL_CHANGED: &str = "BID_PORTAL_CHANGED";
+const BID_PORTAL_AUTH_EXPIRED: &str = "BID_PORTAL_AUTH_EXPIRED";
 
 fn repo_root() -> Result<PathBuf> {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -71,6 +77,39 @@ const fn auth_state_valid(required: bool, privileged_data_present: bool) -> bool
 
 fn locale_currency_match(locale: &str, currency: &str) -> bool {
     locale == "en-GB" && currency == "GBP"
+}
+
+const fn bid_portal_canary_failure_codes() -> [(&'static str, &'static str); 6] {
+    [
+        ("submission_confirmation_missing", BID_SUBMISSION_FAILED),
+        ("duplicate_remote_draft", BID_DUPLICATE_DETECTED),
+        ("side_effect_cap_breach", BID_SIDE_EFFECT_CAP_EXCEEDED),
+        ("readiness_gate_blocker", BID_READINESS_GATE_FAILED),
+        ("portal_shape_drift", BID_PORTAL_CHANGED),
+        ("portal_auth_expired", BID_PORTAL_AUTH_EXPIRED),
+    ]
+}
+
+fn bid_portal_changed_context() -> Value {
+    json!({
+        "portalOpportunityRef": "DN-OPP-123",
+        "selector": "#response-form button.submit",
+        "expectedSourceStructureVersion": "procontract-bid-portal-2026-05-22",
+        "observedShape": {
+            "pageKind": "unexpected-login-or-form-layout",
+            "fingerprintDeltaBps": 9_000,
+        },
+        "lastUrl": "https://procontract.due-north.com/Opportunities/Index",
+    })
+}
+
+fn bid_portal_auth_expired_context() -> Value {
+    json!({
+        "portalOpportunityRef": "DN-OPP-123",
+        "lastUrl": "https://procontract.due-north.com/Supplier/Response",
+        "authState": "expired",
+        "daemonRetry": "auth-signin/procontract",
+    })
 }
 
 #[test]
@@ -251,5 +290,53 @@ fn e2e_can_009_declared_canary_step_failure_emits_agent_skill_failed_with_contex
         markdown.contains("canary-step"),
         "error context missing workflow_step"
     );
+    Ok(())
+}
+
+#[test]
+fn e2e_can_010_bid_portal_canary_constants_cover_l6_error_codes() -> Result<()> {
+    let cases = bid_portal_canary_failure_codes();
+    let observed_codes = cases
+        .iter()
+        .map(|(_, error_code)| *error_code)
+        .collect::<Vec<_>>();
+
+    ensure!(
+        observed_codes
+            == vec![
+                BID_SUBMISSION_FAILED,
+                BID_DUPLICATE_DETECTED,
+                BID_SIDE_EFFECT_CAP_EXCEEDED,
+                BID_READINESS_GATE_FAILED,
+                BID_PORTAL_CHANGED,
+                BID_PORTAL_AUTH_EXPIRED,
+            ],
+        "bid portal canaries must exercise every L6 bid error code once"
+    );
+    ensure!(
+        BID_PORTAL_CHANGED != PAGE_SHAPE_DRIFT,
+        "portal bid drift must remain distinct from generic page-shape drift"
+    );
+    ensure!(
+        BID_PORTAL_AUTH_EXPIRED != AUTH_STATE_STALE,
+        "portal bid auth expiry must remain distinct from generic stale auth"
+    );
+
+    let portal_changed = bid_portal_changed_context();
+    ensure!(
+        portal_changed["selector"].is_string()
+            && portal_changed["expectedSourceStructureVersion"].is_string()
+            && portal_changed["observedShape"].is_object()
+            && portal_changed["portalOpportunityRef"].is_string(),
+        "BID_PORTAL_CHANGED canary context must carry bid-specific portal diagnostics"
+    );
+    let auth_expired = bid_portal_auth_expired_context();
+    ensure!(
+        auth_expired["portalOpportunityRef"].is_string()
+            && auth_expired["lastUrl"].is_string()
+            && auth_expired["daemonRetry"] == "auth-signin/procontract",
+        "BID_PORTAL_AUTH_EXPIRED canary context must carry opportunity and retry diagnostics"
+    );
+
     Ok(())
 }

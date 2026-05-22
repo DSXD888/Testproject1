@@ -116,6 +116,67 @@ const fn l5_operator_alert_cases() -> [(ErrorCode, &'static str); 10] {
     ]
 }
 
+const fn l6_bid_operator_alert_cases() -> [(ErrorCode, &'static str); 6] {
+    [
+        (
+            ErrorCode::BidSubmissionFailed,
+            "could not prove draft save or final submission",
+        ),
+        (
+            ErrorCode::BidDuplicateDetected,
+            "already shows a draft or submission for this opportunity",
+        ),
+        (
+            ErrorCode::BidSideEffectCapExceeded,
+            "attempted to exceed the approved side-effect cap",
+        ),
+        (
+            ErrorCode::BidReadinessGateFailed,
+            "bid-readiness prerequisites failed",
+        ),
+        (
+            ErrorCode::BidPortalChanged,
+            "Procontract bid portal shape no longer matches",
+        ),
+        (
+            ErrorCode::BidPortalAuthExpired,
+            "Procontract session expired during bid automation",
+        ),
+    ]
+}
+
+fn bid_error_context() -> serde_json::Value {
+    json!({
+        "portalOpportunityRef": "DN-OPP-123",
+        "selector": "#response-form button.submit",
+        "expectedSourceStructureVersion": "procontract-bid-portal-2026-05-22",
+        "observedShape": {
+            "formFingerprint": "changed",
+            "lastUrl": "https://procontract.due-north.com/Opportunities/Index",
+        },
+        "bidScopePayload": {
+            "processId": "process-1",
+            "lotIds": ["lot-1"],
+            "candidateIds": ["candidate-1"],
+            "selectedQuoteIds": ["quote-1"],
+            "operatorEmail": "operator-secret:l6@example.test",
+            "companyProfileVersion": "company-profile-v7",
+        },
+        "companyProfile": {
+            "registrationNumber": "registration-secret:12345678",
+            "vatNumber": "vat-secret:GB123456789",
+            "primaryContact": {
+                "email": "sales-secret@sorelon.example",
+                "phone": "+44-secret-phone",
+            },
+            "address": {
+                "line1": "secret-address-line",
+                "postcode": "SW1A-secret",
+            },
+        },
+    })
+}
+
 #[test]
 fn ag_err_001_store_create_persists_error_manifest_row_and_markdown() -> Result<()> {
     let (temp, state_db) = open_temp_db()?;
@@ -211,6 +272,60 @@ fn l5_error_manifest_operator_alerts_cover_decision_grade_codes() -> Result<()> 
             "operator alert for {} should explain `{expected_phrase}`",
             error_code.as_str()
         );
+    }
+
+    Ok(())
+}
+
+#[test]
+fn l6_error_manifest_operator_alerts_cover_bid_codes_and_redact_context() -> Result<()> {
+    let (temp, state_db) = open_temp_db()?;
+    seed_process(state_db.connection())?;
+    let store = ErrorManifestStore::new(temp.path().join("artifacts"))?;
+    let sensitive_markers = [
+        "operator-secret:l6@example.test",
+        "registration-secret:12345678",
+        "vat-secret:GB123456789",
+        "sales-secret@sorelon.example",
+        "+44-secret-phone",
+        "secret-address-line",
+        "SW1A-secret",
+    ];
+
+    for (error_code, expected_phrase) in l6_bid_operator_alert_cases() {
+        let mut draft = draft(error_code);
+        draft.pipeline_stage = "Bid workflow".to_owned();
+        draft.workflow_step = "portal_submit".to_owned();
+        draft.error_context = bid_error_context();
+        draft.skill_path = Some("skills/bid-portal-procontract/SKILL.md".to_owned());
+        let stored = store.create(state_db.connection(), &draft, Utc::now())?;
+        let record = ErrorManifestStore::load_record(state_db.connection(), &stored.id)?;
+        let markdown = std::fs::read_to_string(&stored.markdown_path)?;
+        let stored_context = record.error_context.to_string();
+
+        assert_eq!(record.error_type, error_code);
+        assert!(markdown.contains("## Operator Alert"));
+        assert!(markdown.contains(error_code.as_str()));
+        assert!(
+            markdown.contains(expected_phrase),
+            "operator alert for {} should explain `{expected_phrase}`",
+            error_code.as_str()
+        );
+        assert!(
+            markdown.contains("DN-OPP-123")
+                && markdown.contains("#response-form button.submit")
+                && markdown.contains("procontract-bid-portal-2026-05-22")
+                && markdown.contains("https://procontract.due-north.com/Opportunities/Index"),
+            "bid context should preserve portal-safe diagnostics for {}",
+            error_code.as_str()
+        );
+        for marker in sensitive_markers {
+            assert!(
+                !markdown.contains(marker) && !stored_context.contains(marker),
+                "{} leaked sensitive marker `{marker}`",
+                error_code.as_str()
+            );
+        }
     }
 
     Ok(())

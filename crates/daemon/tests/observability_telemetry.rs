@@ -215,6 +215,12 @@ mod tests {
             ErrorCode::TradeRemedyWatchStale.as_str(),
             ErrorCode::FxRateMissing.as_str(),
             ErrorCode::FreightEstimateFailed.as_str(),
+            ErrorCode::BidSubmissionFailed.as_str(),
+            ErrorCode::BidDuplicateDetected.as_str(),
+            ErrorCode::BidSideEffectCapExceeded.as_str(),
+            ErrorCode::BidReadinessGateFailed.as_str(),
+            ErrorCode::BidPortalChanged.as_str(),
+            ErrorCode::BidPortalAuthExpired.as_str(),
             ErrorCode::AgentStalled.as_str(),
             ErrorCode::AgentAuthChallenge.as_str(),
             ErrorCode::AgentSkillFailed.as_str(),
@@ -261,6 +267,31 @@ mod tests {
             (ErrorCode::TradeRemedyWatchStale, "decision_grade_blocker"),
             (ErrorCode::FxRateMissing, "decision_grade_blocker"),
             (ErrorCode::FreightEstimateFailed, "evidence_gap"),
+        ]
+    }
+
+    const fn l6_bid_error_class_cases() -> [(ErrorCode, &'static str); 6] {
+        [
+            (ErrorCode::BidSubmissionFailed, "portal_workflow"),
+            (ErrorCode::BidDuplicateDetected, "portal_workflow"),
+            (ErrorCode::BidSideEffectCapExceeded, "portal_workflow"),
+            (ErrorCode::BidReadinessGateFailed, "portal_workflow"),
+            (ErrorCode::BidPortalChanged, "portal_workflow"),
+            (ErrorCode::BidPortalAuthExpired, "portal_workflow"),
+        ]
+    }
+
+    fn l6_error_propagation_sites() -> Vec<&'static str> {
+        vec![
+            "ErrorCode enum",
+            "ErrorCode::as_str",
+            "parse_error_code",
+            "agent_error_manifest.rs",
+            "skill_drift_monitor.rs",
+            "observability_telemetry.rs",
+            "skill_canary_harness.rs",
+            "bid workflow state-machine tests",
+            "redaction boundary tests",
         ]
     }
 
@@ -690,6 +721,12 @@ mod tests {
             "TRADE_REMEDY_WATCH_STALE",
             "FX_RATE_MISSING",
             "FREIGHT_ESTIMATE_FAILED",
+            "BID_SUBMISSION_FAILED",
+            "BID_DUPLICATE_DETECTED",
+            "BID_SIDE_EFFECT_CAP_EXCEEDED",
+            "BID_READINESS_GATE_FAILED",
+            "BID_PORTAL_CHANGED",
+            "BID_PORTAL_AUTH_EXPIRED",
             "AGENT_STALLED",
             "AGENT_AUTH_CHALLENGE",
             "AGENT_SKILL_FAILED",
@@ -717,8 +754,8 @@ mod tests {
             "L3-T-observability_telemetry-012 expected exact ErrorCode inventory"
         );
         ensure!(
-            inventory.len() == 43,
-            "L3-T-observability_telemetry-012 expected exactly 43 error codes"
+            inventory.len() == 49,
+            "L3-T-observability_telemetry-012 expected exactly 49 error codes"
         );
 
         let logical_canary_mapping = vec![
@@ -922,7 +959,7 @@ mod tests {
             "CI-L3-007 every HealthIssue code should map to the ErrorCode inventory"
         );
         ensure!(
-            error_codes.len() == 43,
+            error_codes.len() == 49,
             "CI-L3-007 expected exact ErrorCode inventory coverage count"
         );
         Ok(())
@@ -965,6 +1002,53 @@ mod tests {
     #[test]
     fn l5_error_codes_emit_structured_trace_metadata() -> Result<()> {
         for (error_code, expected_class) in l5_error_class_cases() {
+            let mut trace = StructuredTrace::new(ExecutionMode::Contract, ["created", "failed"]);
+            trace.insert_error_code_metadata(error_code.as_str())?;
+
+            ensure!(
+                trace
+                    .additional_fields
+                    .get("error_code")
+                    .and_then(JsonValue::as_str)
+                    == Some(error_code.as_str()),
+                "structured trace should carry error_code for {}",
+                error_code.as_str()
+            );
+            ensure!(
+                trace
+                    .additional_fields
+                    .get("error_class")
+                    .and_then(JsonValue::as_str)
+                    == Some(expected_class),
+                "structured trace should carry error_class `{expected_class}` for {}",
+                error_code.as_str()
+            );
+            ensure!(
+                error_code_class_for_str(error_code.as_str()) == Some(expected_class),
+                "error_code_class_for_str should classify {} as `{expected_class}`",
+                error_code.as_str()
+            );
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn l6_error_codes_emit_structured_trace_metadata_and_propagation_inventory() -> Result<()> {
+        let propagation_sites = l6_error_propagation_sites();
+        ensure!(
+            (9..=15).contains(&propagation_sites.len()),
+            "L6-T-error_codes-003 expected 9-15 propagation sites, found {}",
+            propagation_sites.len()
+        );
+        ensure!(
+            propagation_sites.contains(&"agent_error_manifest.rs")
+                && propagation_sites.contains(&"skill_canary_harness.rs")
+                && propagation_sites.contains(&"redaction boundary tests"),
+            "L6-T-error_codes-003 missing required bid error propagation sites"
+        );
+
+        for (error_code, expected_class) in l6_bid_error_class_cases() {
             let mut trace = StructuredTrace::new(ExecutionMode::Contract, ["created", "failed"]);
             trace.insert_error_code_metadata(error_code.as_str())?;
 
