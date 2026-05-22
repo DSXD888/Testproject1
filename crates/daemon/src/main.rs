@@ -12709,6 +12709,7 @@ fn claude_model_for_skill_profile(skill: &LoadedSkill) -> Option<String> {
     }
     match skill.metadata.model_profile.as_str() {
         "structured_extract_low_cost" => Some("haiku".to_owned()),
+        "portal_form_high_reliability" => Some("opus".to_owned()),
         _ => None,
     }
 }
@@ -24440,6 +24441,34 @@ mod tests {
                 }
             })
         }
+    }
+
+    #[test]
+    fn portal_form_high_reliability_profile_uses_premium_model_for_pty_skill() {
+        let mut skill = test_manifest_loaded_skill();
+        skill.metadata.skill_id = "bid-portal/procontract".to_owned();
+        skill.metadata.model_profile = "portal_form_high_reliability".to_owned();
+        skill.metadata.interaction_profile = "pty_interactive".to_owned();
+
+        assert_eq!(
+            super::claude_model_for_skill_profile(&skill).as_deref(),
+            Some("opus")
+        );
+        assert_eq!(skill.metadata.interaction_profile, "pty_interactive");
+    }
+
+    #[test]
+    fn existing_model_profile_resolution_remains_stable() {
+        let mut skill = test_manifest_loaded_skill();
+        skill.metadata.skill_id = "pdf-extraction/semantic".to_owned();
+        skill.metadata.model_profile = "structured_extract_low_cost".to_owned();
+        assert_eq!(
+            super::claude_model_for_skill_profile(&skill).as_deref(),
+            Some("haiku")
+        );
+
+        skill.metadata.model_profile = "unknown_profile".to_owned();
+        assert_eq!(super::claude_model_for_skill_profile(&skill), None);
     }
 
     #[test]
