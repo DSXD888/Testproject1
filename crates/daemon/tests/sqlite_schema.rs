@@ -1050,6 +1050,123 @@ fn l5_t_customs_classification_006_product_commodity_codes_shape_and_replacement
 }
 
 #[test]
+#[doc = "L6-T-bid_workflow_states-034"]
+fn l6_t_bid_workflow_states_034_schema_stable_without_sql_lifecycle_check() -> Result<()> {
+    let db = L4TestStateDb::new()?;
+    let conn = db.connection();
+    let columns = sqlite_table_columns(conn, "bid_workflow_states")?;
+    let actual_columns = columns.keys().map(String::as_str).collect::<BTreeSet<_>>();
+    let expected_columns = [
+        "process_id",
+        "bid_state",
+        "bid_scope_json",
+        "review_required",
+        "bid_job_id",
+        "started_at",
+        "completed_at",
+        "owner_id",
+        "row_version",
+        "last_local_seq",
+        "stage_run_id",
+        "updated_at",
+        "created_at",
+    ]
+    .into_iter()
+    .collect::<BTreeSet<_>>();
+    ensure!(
+        actual_columns == expected_columns,
+        "bid_workflow_states columns changed: expected {expected_columns:?}, got {actual_columns:?}"
+    );
+
+    ensure_column_nullable("bid_workflow_states", &columns, "process_id", false)?;
+    ensure_column_nullable("bid_workflow_states", &columns, "bid_state", false)?;
+    ensure_column_nullable("bid_workflow_states", &columns, "review_required", false)?;
+    ensure_column_nullable("bid_workflow_states", &columns, "owner_id", false)?;
+    ensure_column_nullable("bid_workflow_states", &columns, "row_version", false)?;
+    ensure_column_nullable("bid_workflow_states", &columns, "updated_at", false)?;
+    ensure_column_nullable("bid_workflow_states", &columns, "created_at", false)?;
+    for column in [
+        "bid_scope_json",
+        "bid_job_id",
+        "started_at",
+        "completed_at",
+        "last_local_seq",
+        "stage_run_id",
+    ] {
+        ensure_column_nullable("bid_workflow_states", &columns, column, true)?;
+    }
+
+    let table_sql = sqlite_table_sql(conn, "bid_workflow_states")?;
+    ensure!(
+        !table_sql.to_ascii_uppercase().contains("CHECK"),
+        "bid_workflow_states must not enforce lifecycle values with a SQL CHECK: {table_sql}"
+    );
+
+    let bid_tables = query_strings(
+        conn,
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'bid_%' ORDER BY name",
+    )?;
+    ensure!(
+        bid_tables == vec!["bid_workflow_states".to_owned()],
+        "unexpected bid_* SQLite tables present: {bid_tables:?}"
+    );
+
+    let migration_names = fs::read_dir(repo_root()?.join("migrations"))?
+        .map(|entry| {
+            entry
+                .map(|entry| entry.file_name().to_string_lossy().into_owned())
+                .context("reading migration filename")
+        })
+        .collect::<Result<Vec<_>>>()?;
+    ensure!(
+        migration_names
+            .iter()
+            .all(|name| !name.starts_with("0014_") && !name.contains("bid_workflow")),
+        "L6 must not add a bid-workflow SQLite migration; found {migration_names:?}"
+    );
+
+    let lifecycle_states = [
+        "not_started",
+        "ready_to_bid",
+        "bid_in_progress",
+        "draft_saved",
+        "bid_submitted",
+        "bid_failed",
+        "portal_state_unknown",
+    ];
+    for state in lifecycle_states {
+        let process_id = format!("l6-bid-process-{state}");
+        conn.execute(
+            "\
+            INSERT INTO procurement_processes (
+              id, current_stage, title, latest_published_at, latest_updated_at, owner_id
+            ) VALUES (?1, 'bid_workflow', ?2, '2026-05-22T00:00:00Z',
+                      '2026-05-22T00:00:00Z', 'local-owner')
+            ",
+            params![process_id, format!("L6 bid lifecycle {state}")],
+        )?;
+        conn.execute(
+            "\
+            INSERT INTO bid_workflow_states (process_id, bid_state, owner_id)
+            VALUES (?1, ?2, 'local-owner')
+            ",
+            params![process_id, state],
+        )?;
+    }
+    let inserted = query_count(
+        conn,
+        "SELECT COUNT(*) FROM bid_workflow_states WHERE process_id LIKE 'l6-bid-process-%'",
+    )?;
+    let expected_inserted =
+        i64::try_from(lifecycle_states.len()).context("lifecycle state count exceeds i64")?;
+    ensure!(
+        inserted == expected_inserted,
+        "expected all lifecycle states to insert without SQL CHECK, got {inserted}"
+    );
+    Ok(())
+}
+
+#[test]
 #[doc = "L4-T-sqlite_schema-014"]
 fn l4_t_sqlite_schema_014_required_indices_exist() -> Result<()> {
     let db = L4TestStateDb::new()?;

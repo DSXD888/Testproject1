@@ -3079,6 +3079,54 @@ fn l4_t_sqlite_supabase_sync_027_remote_change_seq_is_monotonic_and_non_reused_p
 }
 
 #[test]
+#[doc = "L6-T-sync_propagation-001"]
+fn l6_t_sync_propagation_001_bid_workflow_states_stays_push_owned_reseed_table() -> Result<()> {
+    println!("[TEST_START] L6-T-sync_propagation-001");
+    println!("[SETUP] read daemon sync implementation");
+    let sync_rs = read_repo_file("crates/daemon/src/db/sync.rs")?;
+    let push_owned_reseed_section = sync_rs
+        .split("const PUSH_OWNED_RESEED_TABLES")
+        .nth(1)
+        .and_then(|section| section.split("];").next())
+        .context("PUSH_OWNED_RESEED_TABLES declaration not found in db/sync.rs")?;
+    let push_owned_reseed_tables = push_owned_reseed_section
+        .lines()
+        .filter_map(|line| {
+            let trimmed = line.trim();
+            trimmed
+                .strip_prefix('"')
+                .and_then(|rest| rest.split('"').next())
+        })
+        .collect::<Vec<_>>();
+
+    println!("[ASSERT] bid_workflow_states remains in the push-owned reseed set");
+    let bid_workflow_index = push_owned_reseed_tables
+        .iter()
+        .position(|table| *table == "bid_workflow_states")
+        .context("bid_workflow_states missing from PUSH_OWNED_RESEED_TABLES")?;
+    ensure!(
+        bid_workflow_index == 14,
+        "bid_workflow_states moved from expected push-owned reseed index 14 to {bid_workflow_index}: {push_owned_reseed_tables:?}"
+    );
+    ensure!(
+        push_owned_reseed_tables
+            .iter()
+            .filter(|table| **table == "bid_workflow_states")
+            .count()
+            == 1,
+        "bid_workflow_states must appear exactly once in PUSH_OWNED_RESEED_TABLES: {push_owned_reseed_tables:?}"
+    );
+    ensure!(
+        !push_owned_reseed_tables
+            .iter()
+            .any(|table| table.starts_with("bid_") && *table != "bid_workflow_states"),
+        "L6 must not introduce additional bid_* push-owned tables: {push_owned_reseed_tables:?}"
+    );
+    println!("[TEST_END] L6-T-sync_propagation-001 PASS");
+    Ok(())
+}
+
+#[test]
 fn l4_t_sqlite_supabase_sync_078_tombstone_retention_keeps_daemon_pull_visible() -> Result<()> {
     println!("[TEST_START] L4-T-sqlite_supabase_sync-078");
     println!("[SETUP] initialize pull cursor harness and read RLS policy migration");
