@@ -507,10 +507,32 @@ struct Cli {
             "ingest",
             "skill_path",
             "dry_run",
-            "pipeline"
+            "pipeline",
+            "run_bid_workflow"
         ]
     )]
     run_next_job: bool,
+
+    /// Re-run a bid workflow job through the manual recovery readiness boundary.
+    #[arg(
+        long,
+        value_name = "BID_JOB_ID",
+        conflicts_with_all = [
+            "serve",
+            "serve_once",
+            "ingest",
+            "skill_path",
+            "dry_run",
+            "pipeline",
+            "run_next_job",
+            "capture_decision",
+            "capture_clarification",
+            "withdraw_clarification",
+            "withdraw_decision",
+            "list_decisions"
+        ]
+    )]
+    run_bid_workflow: Option<String>,
 
     // -- Stage 14 — operator decision capture (CLI Phase 1) ---------------
     /// Capture a final operator disposition (`approve`/`reject`/`watch`) for a
@@ -1384,6 +1406,12 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
+    if let Some(bid_job_id) = &cli.run_bid_workflow {
+        let report = run_bid_workflow_manual_trigger(&mut runtime, bid_job_id)?;
+        println!("{}", serde_json::to_string_pretty(&report)?);
+        return Ok(());
+    }
+
     if cli.run_next_job {
         let report = run_next_workflow_job(&mut runtime, &cli).await?;
         if report.status == "completed" {
@@ -1399,6 +1427,152 @@ async fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+#[derive(Debug, Clone)]
+struct BidWorkflowManualTriggerJob {
+    continuation_chain_id: Option<String>,
+    request: BidWorkflowManualTriggerRequest,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct BidWorkflowManualTriggerRequest {
+    #[serde(alias = "bidScopePayload")]
+    bid_scope_payload: bid_workflow::BidScopePayload,
+    #[serde(alias = "companyProfile")]
+    company_profile: bid_workflow::CompanyProfile,
+    #[serde(alias = "bidDocuments")]
+    bid_documents: Vec<bid_workflow::BidDocument>,
+    #[serde(alias = "operatorId")]
+    operator_id: String,
+    #[serde(alias = "stageRunId")]
+    stage_run_id: String,
+}
+
+fn run_bid_workflow_manual_trigger(
+    runtime: &mut RuntimeBootstrap,
+    bid_job_id: &str,
+) -> Result<Value> {
+    let source_job =
+        load_bid_workflow_manual_trigger_job(runtime.state_db.connection(), bid_job_id)?;
+    let blockers = bid_workflow_manual_readiness_blockers(
+        runtime.state_db.connection(),
+        &source_job.request.bid_scope_payload,
+    )?;
+    ensure!(
+        blockers.is_empty(),
+        "bid readiness blocked for `{}`: {}",
+        bid_job_id,
+        serde_json::to_string(&blockers)?
+    );
+
+    let mut enqueue_request = jobs::runner::enqueue_bid_workflow_request(
+        &source_job.request.bid_scope_payload,
+        &source_job.request.operator_id,
+        &source_job.request.company_profile,
+        &source_job.request.bid_documents,
+        &source_job.request.stage_run_id,
+    )?;
+    let continuation_job_id = enqueue_request.job_id.clone();
+    enqueue_request.parent_job_id = Some(bid_job_id.to_owned());
+    enqueue_request.continuation_chain_id = source_job
+        .continuation_chain_id
+        .or_else(|| Some(bid_job_id.to_owned()));
+    enqueue_request.idempotency_key = format!(
+        "manual-bid-workflow::{bid_job_id}::{}",
+        source_job.request.bid_scope_payload.decision_basis_hash
+    );
+
+    let ack =
+        JobRunner::new(LOCAL_EXECUTOR_ID).enqueue_job(&mut runtime.state_db, &enqueue_request)?;
+    Ok(json!({
+        "status": "enqueued",
+        "source_bid_job_id": bid_job_id,
+        "continuation_job_id": continuation_job_id,
+        "visible_after_seq": ack.visible_after_seq,
+    }))
+}
+
+fn load_bid_workflow_manual_trigger_job(
+    conn: &Connection,
+    bid_job_id: &str,
+) -> Result<BidWorkflowManualTriggerJob> {
+    let row = conn
+        .query_row(
+            "\
+            SELECT kind, continuation_chain_id, input_payload
+            FROM workflow_jobs
+            WHERE id = ?1
+            ",
+            params![bid_job_id],
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, Option<String>>(1)?,
+                    row.get::<_, String>(2)?,
+                ))
+            },
+        )
+        .optional()
+        .with_context(|| format!("loading bid workflow job `{bid_job_id}`"))?;
+    let Some((kind, continuation_chain_id, raw_payload)) = row else {
+        bail!("unknown bid workflow job `{bid_job_id}`");
+    };
+    ensure!(
+        kind == "run_bid_workflow",
+        "job `{bid_job_id}` has kind `{kind}`, expected `run_bid_workflow`"
+    );
+
+    let payload: Value = serde_json::from_str(&raw_payload)
+        .with_context(|| format!("parsing input_payload for `{bid_job_id}`"))?;
+    let request_payload = payload.get("request").unwrap_or(&payload).clone();
+    let request: BidWorkflowManualTriggerRequest = serde_json::from_value(request_payload)
+        .with_context(|| format!("parsing bid workflow request for `{bid_job_id}`"))?;
+    Ok(BidWorkflowManualTriggerJob {
+        continuation_chain_id,
+        request,
+    })
+}
+
+fn bid_workflow_manual_readiness_blockers(
+    conn: &Connection,
+    scope: &bid_workflow::BidScopePayload,
+) -> Result<Vec<Value>> {
+    let mut blockers = Vec::new();
+    let process_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM procurement_processes WHERE id = ?1",
+            params![scope.process_id],
+            |row| row.get(0),
+        )
+        .context("checking bid workflow process existence")?;
+    if process_count != 1 {
+        blockers.push(json!({
+            "code": "PROCESS_NOT_FOUND",
+            "source": "procurement_processes",
+            "overrideable": false,
+        }));
+    }
+
+    let readiness = bid_workflow::evaluate_bid_readiness(scope);
+    for blocker in &readiness.blockers {
+        if let Some(blocker) = bid_workflow_manual_blocker_payload(blocker) {
+            blockers.push(blocker);
+        }
+    }
+
+    Ok(blockers)
+}
+
+const fn bid_workflow_manual_blocker_payload(
+    blocker: &bid_workflow::BidReadinessBlocker,
+) -> Option<Value> {
+    match blocker {
+        // Phase 3 replaces this scaffold blocker with the real L5/operator gate
+        // evidence. Phase 2 mirrors the IPC trigger by allowing enqueueable
+        // smoke paths while still exercising the readiness boundary.
+        bid_workflow::BidReadinessBlocker::Phase3Pending => None,
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
