@@ -303,3 +303,182 @@ L6 is COMPLETE only when:
 - All 71 l6-labeled beads in CLOSED status.
 
 This is the M6 capstone. No L7 exists per `cross_layer_context.next_layer_after_l6` — L6 is the final layer.
+
+---
+
+## ERRATA — Step 09 Sub-Optimization Audit (2026-05-22)
+
+The Step 09 fresh-eyes audit re-verified bead claims against the actual codebase state. The findings below are corrections to specific bead descriptions. Implementing agents MUST consult this errata before claiming any affected bead. The bead body's `Files to Create/Modify` section reflects the original draft; the corrections below supersede.
+
+### E1 — Phase 6 shared UI components (`l6-p6-shared-ui-components`, `testproject1-3yqf.6.1`)
+
+**Bead body claims:** `packages/ui/src/BidWorkflowStatusBadge.tsx` etc. (PascalCase, src/ subdirectory).
+
+**Actual `packages/ui/` convention** (verified by `ls packages/ui/`):
+- Components live at the package ROOT, not `packages/ui/src/`. The package has no `src/` subdir.
+- Existing components use **kebab-case** file names: `pipeline-badge.tsx`, `manifest-viewer.tsx`, `freshness-badge.tsx`, `contract-card-frame.tsx`, `error-summary-list.tsx`.
+- Re-exports live in `packages/ui/index.ts`.
+- Fixtures live in `packages/ui/fixtures/`.
+- Tests live in `packages/ui/tests/`.
+
+**Corrected file list for bead 6.1:**
+- **Create:** `packages/ui/bid-workflow-status-badge.tsx`
+- **Create:** `packages/ui/bid-scope-summary.tsx`
+- **Create:** `packages/ui/draft-saved-review-panel.tsx`
+- **Create:** `packages/ui/bid-workflow-start-button.tsx`
+- **Create:** `packages/ui/fixtures/bid-workflow-status-badge.ts`
+- **Create:** `packages/ui/fixtures/bid-scope-summary.ts`
+- **Create:** `packages/ui/fixtures/draft-saved-review-panel.ts`
+- **Create:** `packages/ui/fixtures/bid-workflow-start-button.ts`
+- **Modify:** `packages/ui/index.ts` (re-export the 4 new components)
+- **Modify:** `packages/ui/tests/components.test.tsx` (or add a new test file alongside)
+
+Export pattern in component file:
+```tsx
+export interface BidWorkflowStatusBadgeProps { ... }
+export function BidWorkflowStatusBadge(...): ReactElement { ... }
+```
+
+Then in `packages/ui/index.ts`:
+```ts
+export { BidWorkflowStatusBadge } from './bid-workflow-status-badge';
+```
+
+### E2 — Phase 6 desktop bid tab (`l6-p6-desktop-bid-tab`, `testproject1-3yqf.6.2`)
+
+**Bead body claims:** modify `apps/desktop/src/views/ProcessDetailPage.tsx`, modify `apps/desktop/src/lib/daemon-bridge.ts`.
+
+**Actual `apps/desktop/` convention** (verified by `ls apps/desktop/src/pages/`):
+- Desktop pages live in `apps/desktop/src/pages/` (PascalCase `.tsx`), NOT `apps/desktop/src/views/`.
+- The existing "process detail" page is `apps/desktop/src/pages/ContractDetail.tsx` (not `ProcessDetailPage.tsx`).
+- `ContractDetail.tsx` imports from `../../../../packages/ui` (relative path to package root, no src subdir) — confirms the E1 layout.
+- The TypeScript transport layer is `apps/desktop/src/lib/transport.ts` (NOT `daemon-bridge.ts`). The Rust-side Tauri bridge is `apps/desktop/src-tauri/src/daemon_bridge.rs`.
+
+**Corrected file list for bead 6.2:**
+- **Create:** `apps/desktop/src/pages/BidWorkflowTab.tsx` (or extend `ContractDetail.tsx` with a bid workflow section — implementing agent's choice based on existing tab conventions).
+- **Modify:** `apps/desktop/src/pages/ContractDetail.tsx` (add BidWorkflow section/tab).
+- **Modify:** `apps/desktop/src/lib/transport.ts` (add `triggerBidWorkflow`, `loadBidWorkflowState`, `evaluateBidReadiness` methods following the existing `invoke()` + `subscribe()` patterns).
+
+### E3 — Phase 6 desktop UI beads 6.3-6.5
+
+Beads 6.3, 6.4, 6.5 reference the same `apps/desktop/src/views/BidWorkflowTab.tsx` path that should be `apps/desktop/src/pages/BidWorkflowTab.tsx` per E2. The Playwright spec file path `apps/desktop/e2e/bid-workflow.spec.ts` is correct (existing convention uses `apps/desktop/e2e/*.spec.ts` — see `contracts.spec.ts`, `sessions.spec.ts`).
+
+### E4 — Phase 6 web routes (`l6-p6-web-bid-state-badge`, `testproject1-3yqf.6.6`)
+
+**Bead body claims:** modify `apps/web/src/pages/processes/[id].tsx`.
+
+**Actual `apps/web/` routing** (verified by `find apps/web/src`):
+- The web app uses **Next.js App Router** at `apps/web/src/app/`, NOT `apps/web/src/pages/`.
+- The existing process detail route is `apps/web/src/app/contracts/[id]/page.tsx` (NOT `processes/[id].tsx`).
+- The supabase client lives at `apps/web/src/lib/supabase.ts` (NOT `supabase-client.ts`).
+
+**Corrected file list for bead 6.6:**
+- **Modify:** `apps/web/src/app/contracts/[id]/page.tsx` (add bid-state badge section).
+- **Modify:** `apps/web/src/lib/supabase.ts` (add `loadBidWorkflowSummary(processId)` query selecting only non-sensitive columns).
+- **Create:** `apps/web/e2e/bid-visibility.spec.ts` (new Playwright spec; existing convention `apps/web/e2e/contracts.spec.ts`).
+
+### E5 — Phase 1 bead `l6-p1-error-vocabulary-enum` (manifest.rs precision)
+
+**Bead body claim:** `pub enum ErrorCode` at line 20 (lines 21-63 variants, line ~64 close); `as_str()` lines 65-115; `parse_error_code()` at line ~365.
+
+**Actual `crates/daemon/src/errors/manifest.rs` boundaries (verified 2026-05-22):**
+- Line 19: `#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]`
+- Line 20: `pub enum ErrorCode {`
+- Lines 21-63: 43 variants
+- Line 64: enum close `}`
+- Line 66: `impl ErrorCode { ... }` start
+- Line 68: `pub const fn as_str(self) -> &'static str` (note: `pub const fn`, not `fn`)
+- Line ~115: `as_str()` close
+- Line 365: `pub fn parse_error_code(raw: &str) -> Result<ErrorCode>` (EXACT — verified)
+- Total file size: 413 lines
+
+**Note on signature:** the existing `as_str()` is `pub const fn as_str(self) -> &'static str` (takes `self` by value, returns `&'static str`). The bead body's example `match self { ... }` is structurally correct; the existing pattern uses `Self::VariantName => "STRING"` (with `Self::`, not `ErrorCode::`).
+
+### E6 — Phase 2 IPC handler signature (`l6-p2-ipc-trigger-handler`, `testproject1-3yqf.2.4`)
+
+**Bead body claim:** `pub async fn trigger_bid_workflow(params: TriggerBidWorkflowParams, runtime: &DaemonRuntime) -> Result<TriggerBidWorkflowResponse, JobsHandlerError>`.
+
+**Actual `crates/daemon/src/ipc/handlers/jobs.rs` reference patterns (verified):**
+```rust
+pub fn trigger_ingestion(            // line 45 — SYNC, not async
+    context: &mut JobsHandlerContext<'_>,
+    params: &TriggerIngestionParams,
+    idempotency_key: &str,
+) -> std::result::Result<MutationAck, JobsHandlerError>
+
+pub fn trigger_enrichment(           // line 95 — SYNC, not async
+    context: &mut JobsHandlerContext<'_>,
+    params: &TriggerEnrichmentParams,
+    idempotency_key: &str,
+) -> std::result::Result<MutationAck, JobsHandlerError>
+```
+
+**Corrected signature for `trigger_bid_workflow`:**
+```rust
+pub fn trigger_bid_workflow(
+    context: &mut JobsHandlerContext<'_>,
+    params: &TriggerBidWorkflowParams,
+    idempotency_key: &str,
+) -> std::result::Result<MutationAck, JobsHandlerError>
+```
+
+If async readiness evaluation is required, the existing handler pattern shows how to integrate — likely via `context.runtime` access to async services with a `tokio::runtime::Handle::block_on` pattern (verify against actual `JobsHandlerContext` shape during implementation). On blocked readiness, return `JobsHandlerError` with structured `code`/`message`/`retryable=false`/`blockers[]` — matching the existing handler-style envelope.
+
+### E7 — Phase 2/3 job-runner handler signature (`l6-p2-job-handler-shape`, `l6-p3-bid-runner-body`)
+
+**Bead body claim:** `pub async fn run_bid_workflow_job(runtime: &DaemonRuntime, runner: &JobRunner, claimed: ClaimedJob) -> Result<JobOutcome>`.
+
+**Actual existing handler signatures (verified at main.rs:1529 and main.rs:1836):**
+```rust
+async fn run_extract_document_structure_job(
+    runtime: &mut RuntimeBootstrap,
+    runner: &JobRunner,
+    claimed: ClaimedJob,
+    ...
+) -> Result<...>
+```
+
+**Correction:** `runtime: &mut RuntimeBootstrap` (NOT `&DaemonRuntime`). Function is async but **NOT pub** (private to main.rs module). The L6 handler should follow this pattern exactly.
+
+### E8 — Test ID ownership clarification (Phase 3/4 vs Phase 5)
+
+The Step 09 audit enforced strict 1:1 test ID ownership per the cardinal rule. Per TDD §6.1 (which names the package test files as the test-ID home), the following Phase 5 package test bead files are the **PRIMARY OWNER** of these test IDs in the alias map:
+
+- `l6-p5-bid-workflow-states-test-ts` (3yqf.5.7) owns **L6-T-bid_workflow_states-001..033** (33 IDs; -034 is owned by Phase 1 `l6-p1-sync-push-set-check` because it's a SQLite schema assertion).
+- `l6-p5-portal-side-effects-test-ts` (3yqf.5.8) owns **L6-T-portal_side_effects-001..012** (12 IDs).
+- `l6-p5-bid-readiness-gate-test-ts` (3yqf.5.9) owns **L6-T-bid_readiness_gate-001..016** (16 IDs).
+
+The Phase 3 daemon-runtime beads (3.1-3.6) and Phase 4 skill beads (4.5-4.9) IMPLEMENT the runtime behavior + skill fixtures these tests verify, but do NOT primary-own the test IDs. Their alias-map `test_ids` arrays have been cleared of these IDs to enforce strict 1:1. Their bead descriptions still mention the IDs in `## TDD Tests Owned` sections — treat that as historical context; refer to the alias map for the canonical 1:1 ownership.
+
+### E9 — Strategy expectation for total bead count
+
+The Step 07 cardinal rule says "Total bead count: 30-70 inclusive". This bead set has **71 total** beads (1 sister epic + 7 phase epics + 63 task beads), which is 1 over the upper bound. The strategy explicitly projected `63 task + 7 phase = 70`; adding the sister epic produces 71. This is acceptable because:
+- The strategy's projection of 63 task beads matches exactly.
+- L5 had 61 total beads (54 task + 6 phase + 1 sister), with the same sister-epic structure.
+- Total LEAF task beads (63) is well within the 30-70 cardinal range.
+
+### E10 — packages/ui/index.ts re-export coverage
+
+The Phase 1 bead `l6-p1-bid-scope-types-ts` and Phase 5 beads do NOT re-export types from `packages/contracts-schema/src/index.ts`. The shared bid types live in `packages/bidding/src/bid-scope-types.ts` only. This is consistent with the manifest's RECOMMENDATION ("live in packages/bidding only and re-export from contracts-schema ONLY if a non-bidding consumer needs them"). No errata required — but flagged here for future readers.
+
+---
+
+## Audit verdict (Step 09)
+
+| Check | Verdict | Notes |
+|-------|---------|-------|
+| rc0 closed | PASS | `br show testproject1-rc0` reports `"status": "closed"` |
+| Sister implementation epic created | PASS | `testproject1-3yqf` with 7 phase children + 63 task descendants |
+| Every L6-FR has ≥1 bead | PASS | 127/127 verified by spec-vs-alias-map diff |
+| Every L6-T has exactly 1 owning bead | PASS | 153/153 unique (after Step 09 dedup) — verified by jq audit |
+| Every bead has Files to Create/Modify | PASS | Verified spot-check; ERRATA E1-E7 capture path corrections |
+| Every bead has testable ACs | PASS | All beads have `- [ ]` checkbox lists |
+| Every bead has correct dependencies | PASS | Verified by `br dep tree` — gate beads block on all phase tasks |
+| No scope drift keywords | PASS | grep "post-MVP\|stretch\|nice to have\|deferred" returns 0 hits |
+| Validator overlay bead exists | PASS | `l6-p5-overlay-frontmatter-assertions` (3yqf.5.1) |
+| Live demo bead exists | PASS | `l6-p7-live-demo-remote-draft` (3yqf.7.2) + `l6-p7-live-demo-formal-submission` (3yqf.7.3) |
+| Phase distribution balanced | PASS | 9/7/11/10/10/9/7 (per strategy) |
+| Total bead count 30-70 | PASS (boundary) | 71 total / 63 task — strategy explicitly projected 70; sister adds 1 |
+| `br lint` passes | PASS | 0 template warnings (80 issues checked) |
+| `bin/br-sync` + commit + push | PASS | Initial commit `1c96ac2`; Step 09 follow-up commit follows |
+

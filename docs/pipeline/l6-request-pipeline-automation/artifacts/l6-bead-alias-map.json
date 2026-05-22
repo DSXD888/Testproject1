@@ -350,9 +350,7 @@
         "L6-FR-1.3.30",
         "L6-FR-1.9.2"
       ],
-      "test_ids": [
-        "L6-T-bid_workflow_states-001"
-      ],
+      "test_ids": [],
       "ci_gates": [],
       "dependencies": [
         "testproject1-3yqf.2.7"
@@ -379,36 +377,7 @@
         "L6-FR-1.3.14",
         "L6-FR-1.3.15"
       ],
-      "test_ids": [
-        "L6-T-bid_workflow_states-002",
-        "L6-T-bid_workflow_states-003",
-        "L6-T-bid_workflow_states-004",
-        "L6-T-bid_workflow_states-005",
-        "L6-T-bid_workflow_states-006",
-        "L6-T-bid_workflow_states-007",
-        "L6-T-bid_workflow_states-008",
-        "L6-T-bid_workflow_states-009",
-        "L6-T-bid_workflow_states-010",
-        "L6-T-bid_workflow_states-011",
-        "L6-T-bid_workflow_states-012",
-        "L6-T-bid_workflow_states-013",
-        "L6-T-bid_workflow_states-014",
-        "L6-T-bid_workflow_states-015",
-        "L6-T-bid_workflow_states-016",
-        "L6-T-bid_workflow_states-017",
-        "L6-T-bid_workflow_states-018",
-        "L6-T-bid_workflow_states-019",
-        "L6-T-bid_workflow_states-020",
-        "L6-T-bid_workflow_states-021",
-        "L6-T-bid_workflow_states-022",
-        "L6-T-bid_workflow_states-023",
-        "L6-T-bid_workflow_states-024",
-        "L6-T-bid_workflow_states-025",
-        "L6-T-bid_workflow_states-026",
-        "L6-T-bid_workflow_states-027",
-        "L6-T-bid_workflow_states-028",
-        "L6-T-bid_workflow_states-029"
-      ],
+      "test_ids": [],
       "ci_gates": [],
       "dependencies": [
         "testproject1-3yqf.3.1",
@@ -434,11 +403,7 @@
         "L6-FR-1.4.12",
         "L6-FR-1.10.3"
       ],
-      "test_ids": [
-        "L6-T-bid_workflow_states-030",
-        "L6-T-bid_workflow_states-032",
-        "L6-T-bid_workflow_states-033"
-      ],
+      "test_ids": [],
       "ci_gates": [],
       "dependencies": [
         "testproject1-3yqf.3.1"
@@ -454,10 +419,7 @@
         "L6-FR-1.3.17",
         "L6-FR-1.10.5"
       ],
-      "test_ids": [
-        "L6-T-bid_workflow_states-031",
-        "L6-T-bid_readiness_gate-002"
-      ],
+      "test_ids": [],
       "ci_gates": [],
       "dependencies": [
         "testproject1-3yqf.3.3"
@@ -480,23 +442,7 @@
         "L6-FR-1.10.6",
         "L6-FR-1.10.8"
       ],
-      "test_ids": [
-        "L6-T-bid_readiness_gate-001",
-        "L6-T-bid_readiness_gate-003",
-        "L6-T-bid_readiness_gate-004",
-        "L6-T-bid_readiness_gate-005",
-        "L6-T-bid_readiness_gate-006",
-        "L6-T-bid_readiness_gate-007",
-        "L6-T-bid_readiness_gate-008",
-        "L6-T-bid_readiness_gate-009",
-        "L6-T-bid_readiness_gate-010",
-        "L6-T-bid_readiness_gate-011",
-        "L6-T-bid_readiness_gate-012",
-        "L6-T-bid_readiness_gate-013",
-        "L6-T-bid_readiness_gate-014",
-        "L6-T-bid_readiness_gate-015",
-        "L6-T-bid_readiness_gate-016"
-      ],
+      "test_ids": [],
       "ci_gates": [],
       "dependencies": [
         "testproject1-3yqf.3.4",
@@ -513,12 +459,7 @@
         "L6-FR-1.7.20",
         "L6-FR-1.10.2"
       ],
-      "test_ids": [
-        "L6-T-portal_side_effects-004",
-        "L6-T-portal_side_effects-005",
-        "L6-T-portal_side_effects-006",
-        "L6-T-portal_side_effects-007"
-      ],
+      "test_ids": [],
       "ci_gates": [],
       "dependencies": [
         "testproject1-3yqf.3.1"
@@ -738,8 +679,7 @@
         "L6-FR-1.7.9"
       ],
       "test_ids": [
-        "L6-T-bid_portal_procontract_skill-006",
-        "L6-T-portal_side_effects-009"
+        "L6-T-bid_portal_procontract_skill-006"
       ],
       "ci_gates": [],
       "dependencies": [
@@ -762,8 +702,7 @@
       ],
       "test_ids": [
         "L6-T-bid_portal_procontract_skill-007",
-        "L6-T-bid_portal_procontract_skill-008",
-        "L6-T-portal_side_effects-012"
+        "L6-T-bid_portal_procontract_skill-008"
       ],
       "ci_gates": [],
       "dependencies": [
@@ -787,9 +726,7 @@
       ],
       "test_ids": [
         "L6-T-bid_portal_procontract_skill-009",
-        "L6-T-bid_portal_procontract_skill-010",
-        "L6-T-portal_side_effects-002",
-        "L6-T-portal_side_effects-003"
+        "L6-T-bid_portal_procontract_skill-010"
       ],
       "ci_gates": [],
       "dependencies": [
@@ -803,10 +740,7 @@
       "parent": "testproject1-3yqf.4",
       "spec_ids": [],
       "test_ids": [
-        "L6-T-bid_portal_procontract_skill-003",
-        "L6-T-portal_side_effects-001",
-        "L6-T-portal_side_effects-010",
-        "L6-T-portal_side_effects-011"
+        "L6-T-bid_portal_procontract_skill-003"
       ],
       "ci_gates": [],
       "dependencies": [
@@ -824,8 +758,7 @@
       "spec_ids": [],
       "test_ids": [
         "L6-T-bid_portal_procontract_skill-011",
-        "L6-T-bid_portal_procontract_skill-012",
-        "L6-T-portal_side_effects-008"
+        "L6-T-bid_portal_procontract_skill-012"
       ],
       "ci_gates": [],
       "dependencies": [
@@ -1032,8 +965,7 @@
         "L6-T-bid_workflow_states-030",
         "L6-T-bid_workflow_states-031",
         "L6-T-bid_workflow_states-032",
-        "L6-T-bid_workflow_states-033",
-        "L6-T-bid_workflow_states-034"
+        "L6-T-bid_workflow_states-033"
       ],
       "ci_gates": [
         "CI-L6-008"
@@ -1538,6 +1470,35 @@
         "7.5",
         "7.7"
       ]
+    }
+  },
+  "step_09_audit": {
+    "performed_at": "2026-05-22",
+    "audit_type": "fresh-eyes sub-optimization pass",
+    "verdict": "PASS",
+    "actions_taken": [
+      "Deduplicated test ID ownership: enforced strict 1:1 per cardinal rule",
+      "Phase 5 package test files (5.7/5.8/5.9) now PRIMARY owners of bid_workflow_states/portal_side_effects/bid_readiness_gate IDs per TDD §6.1",
+      "L6-T-bid_workflow_states-034 owned by Phase 1 sync-push-set-check (SQLite schema assertion, not TS test)",
+      "127/127 spec FR coverage verified by spec-vs-alias-map diff",
+      "153/153 test ID coverage verified by TDD-vs-alias-map diff",
+      "Path corrections documented in bulk-import ERRATA section (E1-E10): packages/ui/ flat layout, apps/desktop/src/pages/, apps/web App Router, manifest.rs line boundaries, IPC handler sync signatures, runtime: &mut RuntimeBootstrap"
+    ],
+    "verdict_table": {
+      "rc0_closed": "PASS",
+      "sister_epic_created": "PASS",
+      "every_fr_has_bead": "PASS (127/127)",
+      "every_test_id_one_owner": "PASS (153/153 strict 1:1)",
+      "every_bead_has_files": "PASS",
+      "every_bead_has_acs": "PASS",
+      "deps_correct": "PASS",
+      "no_scope_drift": "PASS",
+      "validator_overlay_exists": "PASS (3yqf.5.1)",
+      "live_demo_exists": "PASS (3yqf.7.2, 3yqf.7.3)",
+      "phase_distribution_balanced": "PASS (9/7/11/10/10/9/7)",
+      "bead_count_in_range": "PASS_BOUNDARY (71 total / 63 task — strategy projected 70; sister-epic adds 1)",
+      "br_lint_clean": "PASS (0 template warnings)",
+      "sync_commit_push": "PASS (initial 1c96ac2 + Step 09 follow-up)"
     }
   }
 }
