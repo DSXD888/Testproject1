@@ -40,6 +40,12 @@ pub enum ErrorCode {
     TradeRemedyWatchStale,
     FxRateMissing,
     FreightEstimateFailed,
+    BidSubmissionFailed,
+    BidDuplicateDetected,
+    BidSideEffectCapExceeded,
+    BidReadinessGateFailed,
+    BidPortalChanged,
+    BidPortalAuthExpired,
     AgentStalled,
     AgentAuthChallenge,
     AgentSkillFailed,
@@ -89,6 +95,12 @@ impl ErrorCode {
             Self::TradeRemedyWatchStale => "TRADE_REMEDY_WATCH_STALE",
             Self::FxRateMissing => "FX_RATE_MISSING",
             Self::FreightEstimateFailed => "FREIGHT_ESTIMATE_FAILED",
+            Self::BidSubmissionFailed => "BID_SUBMISSION_FAILED",
+            Self::BidDuplicateDetected => "BID_DUPLICATE_DETECTED",
+            Self::BidSideEffectCapExceeded => "BID_SIDE_EFFECT_CAP_EXCEEDED",
+            Self::BidReadinessGateFailed => "BID_READINESS_GATE_FAILED",
+            Self::BidPortalChanged => "BID_PORTAL_CHANGED",
+            Self::BidPortalAuthExpired => "BID_PORTAL_AUTH_EXPIRED",
             Self::AgentStalled => "AGENT_STALLED",
             Self::AgentAuthChallenge => "AGENT_AUTH_CHALLENGE",
             Self::AgentSkillFailed => "AGENT_SKILL_FAILED",
@@ -386,6 +398,12 @@ pub fn parse_error_code(raw: &str) -> Result<ErrorCode> {
         "TRADE_REMEDY_WATCH_STALE" => ErrorCode::TradeRemedyWatchStale,
         "FX_RATE_MISSING" => ErrorCode::FxRateMissing,
         "FREIGHT_ESTIMATE_FAILED" => ErrorCode::FreightEstimateFailed,
+        "BID_SUBMISSION_FAILED" => ErrorCode::BidSubmissionFailed,
+        "BID_DUPLICATE_DETECTED" => ErrorCode::BidDuplicateDetected,
+        "BID_SIDE_EFFECT_CAP_EXCEEDED" => ErrorCode::BidSideEffectCapExceeded,
+        "BID_READINESS_GATE_FAILED" => ErrorCode::BidReadinessGateFailed,
+        "BID_PORTAL_CHANGED" => ErrorCode::BidPortalChanged,
+        "BID_PORTAL_AUTH_EXPIRED" => ErrorCode::BidPortalAuthExpired,
         "AGENT_STALLED" => ErrorCode::AgentStalled,
         "AGENT_AUTH_CHALLENGE" => ErrorCode::AgentAuthChallenge,
         "AGENT_SKILL_FAILED" => ErrorCode::AgentSkillFailed,
@@ -410,4 +428,35 @@ pub fn parse_error_code(raw: &str) -> Result<ErrorCode> {
         other => return Err(anyhow!("unknown error code `{other}`")),
     };
     Ok(code)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ErrorCode, parse_error_code};
+
+    #[test]
+    fn l6_bid_error_codes_round_trip() {
+        let cases = [
+            (ErrorCode::BidSubmissionFailed, "BID_SUBMISSION_FAILED"),
+            (ErrorCode::BidDuplicateDetected, "BID_DUPLICATE_DETECTED"),
+            (
+                ErrorCode::BidSideEffectCapExceeded,
+                "BID_SIDE_EFFECT_CAP_EXCEEDED",
+            ),
+            (
+                ErrorCode::BidReadinessGateFailed,
+                "BID_READINESS_GATE_FAILED",
+            ),
+            (ErrorCode::BidPortalChanged, "BID_PORTAL_CHANGED"),
+            (ErrorCode::BidPortalAuthExpired, "BID_PORTAL_AUTH_EXPIRED"),
+        ];
+
+        for (variant, wire_code) in cases {
+            assert_eq!(variant.as_str(), wire_code);
+            assert_eq!(
+                parse_error_code(wire_code).expect("registered error code"),
+                variant
+            );
+        }
+    }
 }

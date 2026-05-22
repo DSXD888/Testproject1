@@ -145,6 +145,12 @@ const fn operator_alert_section(record: &ErrorManifestRecord) -> &'static str {
             "## Operator Alert\n\
              `FREIGHT_ESTIMATE_FAILED`: Neither freight provider produced a quote; require a manual freight estimate before decision-grade margin use.\n\n"
         }
+        ErrorCode::BidSubmissionFailed
+        | ErrorCode::BidDuplicateDetected
+        | ErrorCode::BidSideEffectCapExceeded
+        | ErrorCode::BidReadinessGateFailed
+        | ErrorCode::BidPortalChanged
+        | ErrorCode::BidPortalAuthExpired => bid_operator_alert_section(record.error_type),
         ErrorCode::AgentSuspectOutput => {
             "## Operator Alert\n\
          Rejected enforcement-active worker output is quarantined as `AGENT_SUSPECT_OUTPUT`. \
@@ -183,5 +189,35 @@ const fn operator_alert_section(record: &ErrorManifestRecord) -> &'static str {
         | ErrorCode::SkillDirectoryInvalid
         | ErrorCode::SqliteWriteFailed
         | ErrorCode::DaemonStartupFailed => "",
+    }
+}
+
+const fn bid_operator_alert_section(error_type: ErrorCode) -> &'static str {
+    match error_type {
+        ErrorCode::BidSubmissionFailed => {
+            "## Operator Alert\n\
+             `BID_SUBMISSION_FAILED`: The portal bid workflow could not prove draft save or final submission; review the linked portal step evidence before retry.\n\n"
+        }
+        ErrorCode::BidDuplicateDetected => {
+            "## Operator Alert\n\
+             `BID_DUPLICATE_DETECTED`: The portal already shows a draft or submission for this opportunity; reconcile the remote state before any retry.\n\n"
+        }
+        ErrorCode::BidSideEffectCapExceeded => {
+            "## Operator Alert\n\
+             `BID_SIDE_EFFECT_CAP_EXCEEDED`: The bid workflow attempted to exceed the approved side-effect cap; stop and require operator authorization before escalation.\n\n"
+        }
+        ErrorCode::BidReadinessGateFailed => {
+            "## Operator Alert\n\
+             `BID_READINESS_GATE_FAILED`: One or more bid-readiness prerequisites failed; resolve the blocker or record an allowed structured override before starting.\n\n"
+        }
+        ErrorCode::BidPortalChanged => {
+            "## Operator Alert\n\
+             `BID_PORTAL_CHANGED`: The Procontract bid portal shape no longer matches the expected workflow; update the bid skill before retrying mutation steps.\n\n"
+        }
+        ErrorCode::BidPortalAuthExpired => {
+            "## Operator Alert\n\
+             `BID_PORTAL_AUTH_EXPIRED`: The Procontract session expired during bid automation; restore the saved-credential session through daemon-orchestrated auth retry.\n\n"
+        }
+        _ => "",
     }
 }

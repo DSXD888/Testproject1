@@ -475,6 +475,12 @@ pub fn error_code_class_for_str(error_code: &str) -> Option<&'static str> {
         }
         "VALUATION_MODE_CONFLICT" => "valuation_conflict",
         "FPO_ACCESS_UNAVAILABLE" => "recall_source_unavailable",
+        "BID_SUBMISSION_FAILED"
+        | "BID_DUPLICATE_DETECTED"
+        | "BID_SIDE_EFFECT_CAP_EXCEEDED"
+        | "BID_READINESS_GATE_FAILED"
+        | "BID_PORTAL_CHANGED"
+        | "BID_PORTAL_AUTH_EXPIRED" => "portal_workflow",
         "AGENT_STALLED"
         | "AGENT_AUTH_CHALLENGE"
         | "AGENT_SKILL_FAILED"
@@ -525,6 +531,12 @@ pub const fn error_code_class(error_code: ErrorCode) -> &'static str {
         | ErrorCode::FreightEstimateFailed => "evidence_gap",
         ErrorCode::ValuationModeConflict => "valuation_conflict",
         ErrorCode::FpoAccessUnavailable => "recall_source_unavailable",
+        ErrorCode::BidSubmissionFailed
+        | ErrorCode::BidDuplicateDetected
+        | ErrorCode::BidSideEffectCapExceeded
+        | ErrorCode::BidReadinessGateFailed
+        | ErrorCode::BidPortalChanged
+        | ErrorCode::BidPortalAuthExpired => "portal_workflow",
         ErrorCode::AgentStalled
         | ErrorCode::AgentAuthChallenge
         | ErrorCode::AgentSkillFailed
