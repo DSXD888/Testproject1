@@ -240,7 +240,7 @@ Resolved by Decision 5 — q4/q5 defaults
 
 **TDD-decided implementation annotations (Tier 2):**
 - q7 `BidDocument[]` source: TDD/strategy decides the exact source model; recommended shape is hybrid auto-pull from tender documents with operator override.
-- q8 optional cron entries: TDD/strategy keeps L6 operator-triggered unless an explicit health-check requirement is added; no bid-submission cron is implied by this spec.
+- q8 cron entries: TDD/strategy keeps L6 operator-triggered unless an explicit health-check requirement is added; no bid-submission cron is implied by this spec.
 - q9 validator calibration depth: TDD defines calibration corpus size; recommended starting point is a light Procontract corpus with expansion based on live usage.
 - q10 Stage-15 handoff file handling: archive step decides whether the old handoff file becomes a superseded historical note or an operational runbook; the §1.3 seven-state machine remains authoritative.
 

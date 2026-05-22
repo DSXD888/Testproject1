@@ -305,7 +305,7 @@ existing_files:
   daemon_scheduler_cron:
     path: crates/daemon/src/scheduler/cron.rs
     lines: 438
-    notes: "Cron scheduler — L6 does NOT add cron entries (workflow triggered by operator click via desktop IPC). Optional: source-health canary entry for procontract (probably already exists via procurement-ingestion skills)."
+    notes: "Cron scheduler — L6 does NOT add cron entries; workflow is triggered by operator click via desktop IPC. Existing procurement-ingestion Procontract health checks remain separate from the bid workflow."
   daemon_sync:
     path: crates/daemon/src/db/sync.rs
     lines: 3485
@@ -347,7 +347,7 @@ existing_files:
     path: packages/manifests/
     files: 8
     lines: 2760
-    notes: "Existing render-opportunity.ts + render-error-manifest.ts. L6 OPTIONAL: render-bid-manifest.ts to produce a human-readable summary of a bid run (alongside the hybrid run manifest produced by the daemon). Step 03 TDD decides if this is needed."
+    notes: "Existing render-opportunity.ts + render-error-manifest.ts. L6 relies on the daemon hybrid run manifest for bid-run summaries; a package renderer is not part of the locked L6 scope."
   packages_ui:
     path: packages/ui/
     files: 15
@@ -515,7 +515,7 @@ new_modules_rust:
   - "crates/daemon/src/sources/registry.rs (EXTEND): RegisteredSource entries for skills/bid-portal-procontract/ + skills/validation/overlay-bid-portal-procontract/. ProContract base source may already be registered — verify with grep before duplicating."
   - "crates/daemon/src/ipc/handlers/jobs.rs (EXTEND): add `trigger_bid_workflow(TriggerBidWorkflowParams { process_id, bid_scope })` handler. Performs the L6 readiness gate (spec §1.3) BEFORE enqueueing the job — failed gate returns a structured rejection with the specific blocker code so the desktop can render an actionable error. Returns continuation_job_id for the desktop SessionViewer to attach to."
   - "crates/daemon/src/main.rs (EXTEND): `--run-bid-workflow <bid-job-id>` CLI subcommand for ops/manual recovery; bid-workflow live-loop arm (likely a small addition to the existing live-loop state machine, mirroring how Stage 14 operator decisions are processed)."
-  - "crates/daemon/src/bid_workflow/ (NEW MODULE — optional): if Phase 1 bead audit determines the bid-workflow business logic warrants a dedicated module (state-machine, readiness-gate evaluator, side-effect-cap enforcement), create as crates/daemon/src/bid_workflow/{mod.rs, state_machine.rs, readiness_gate.rs, side_effect_cap.rs}. Otherwise keep inline in main.rs + jobs/runner.rs. Decision deferred to step 03 TDD authoring."
+  - "crates/daemon/src/bid_workflow/ (NEW MODULE): Phase 1 creates the dedicated bid-workflow business-logic module at crates/daemon/src/bid_workflow/{mod.rs, types.rs, runner.rs, readiness_gate.rs, state_machine.rs}. This is locked by the TDD/strategy route."
 
 new_skills:
   - path: skills/bid-portal-procontract/
@@ -575,7 +575,7 @@ new_skills:
       bid_documents: "Array of BidDocument with file_path resolved into local artifact store"
       stage_run_id: "Unique ID for this run (links artifacts back to bid_workflow_states.stage_run_id)"
       operator_override:
-        kind: "Optional<OverrideKind> — when present, the workflow has an explicit operator override (quote_role_floor_only | validation_gate)"
+        kind: "OverrideKind | null — non-null only when the workflow has an explicit operator override (quote_role_floor_only | validation_gate)"
         reason: "String text the operator provided"
         recorded_by: "operator name"
         recorded_at: "ISO-8601 timestamp"
@@ -651,7 +651,7 @@ spec_callouts:
       Phase 1 (Foundation) creates the module SKELETON:
         - crates/daemon/src/bid_workflow/mod.rs           (module root with public exports)
         - crates/daemon/src/bid_workflow/types.rs         (mirror packages/bidding/bid-scope-types.ts in Rust — BidScopePayload, SideEffectClass enum, etc.)
-        - crates/daemon/src/bid_workflow/runner.rs        (stub `pub async fn run_bid_workflow_job(...) -> Result<JobOutcome> { todo!("Phase 3") }`)
+        - crates/daemon/src/bid_workflow/runner.rs        (stub `pub async fn run_bid_workflow_job(...) -> Result<JobOutcome>` with a Phase 3 sentinel body)
         - crates/daemon/src/bid_workflow/readiness_gate.rs (stub readiness-gate evaluator)
         - crates/daemon/src/bid_workflow/state_machine.rs  (stub state transitions)
       Phase 1 also wires `mod bid_workflow;` into main.rs so subsequent phases can `use crate::bid_workflow::...`.
@@ -660,7 +660,7 @@ spec_callouts:
         - Adds `"run_bid_workflow" => bid_workflow::runner::run_bid_workflow_job(runtime, &runner, claimed).await`
         - Adds the `trigger_bid_workflow` IPC handler in `crates/daemon/src/ipc/handlers/jobs.rs` (following trigger_ingestion at line 45 + trigger_enrichment at line 95)
         - Adds the `--run-bid-workflow` CLI subcommand to main.rs (mirroring existing CLI subcommands)
-        - At this stage the dispatch wires to the Phase 1 stub; runs would `todo!()` panic — that's expected. Phase 3 fills out the body.
+        - At this stage the dispatch wires to the Phase 1 sentinel stub; Phase 3 fills out the body before execution.
 
       Phase 3 (State Machine + Readiness Gate) implements the actual logic:
         - bid_workflow/runner.rs body — load skill, inject CompanyProfile, spawn PTY, capture screenshots, persist transitions
@@ -685,13 +685,13 @@ spec_callouts:
   no_ci_workflows:
     spec_says: "(silent)"
     actual_repo_state: "No .github/workflows/ directory. Tests run locally only (same as L5)."
-    resolution: "L6 bootstrap doc lists the local quality gate sequence verbatim from L5's bootstrap. Optional: L6 strategy MAY consider adding a minimum CI workflow as a final-phase bead; defaults to NOT in scope."
+    resolution: "L6 bootstrap doc lists the local quality gate sequence verbatim from L5's bootstrap. The locked L6 route uses local gates rather than adding a CI workflow."
 
 # ============================================================================
 # Open questions — surfaced 2026-05-21 during 9-pass fresh-eyes audit.
 # Each item below is EITHER (a) pre-resolved by operator via AskUserQuestion
 # before step 01 runs (matching L5's decision-locking pattern), OR (b) escalated
-# by step 01 to operator for in-line resolution, OR (c) deferred to TDD/strategy
+# by step 01 to operator for in-line resolution, OR (c) routed to the TDD/strategy
 # author with explicit guidance on which trade-offs to consider.
 #
 # Step 01 (validate-spec) is responsible for surfacing each item and either
@@ -721,7 +721,7 @@ open_questions:
     options:
       - "(A) Introduce `portal_form_high_reliability` as L6 deliverable. Phase 1 adds match arm in main.rs `model_profile.as_str()` block. Cost: ~1 line + new profile config."
       - "(B) Reuse `browse_stable_low_cost`. Update spec §1.7 to drop the new-profile claim. Cost: 0 daemon change; semantic clarity lost (the skill is more sensitive than ordinary browsing)."
-      - "(C) Introduce profile as alias-of-existing initially (same routing as browse_stable_low_cost); differentiate later. Cost: ~3 lines."
+      - "(C) Introduce profile as alias-of-existing initially (same routing as browse_stable_low_cost); record a distinct routing change as a separate approved follow-up. Cost: ~3 lines."
     recommended_default: A
     rationale: "Spec §1.7 is explicit; operator should confirm before TDD/strategy bakes in."
 
@@ -781,16 +781,16 @@ open_questions:
     recommended_default: C
     rationale: "Most flexible. Operator can rely on auto-pull for routine docs and override for tender-specific certificates."
 
-  q8_optional_cron_entries:
-    question: "Add optional cron entries for bid workflow health?"
+  q8_cron_entries:
+    question: "Add cron entries for bid workflow health?"
     tier: 2
     blocks: "Phase 6 daemon scheduler work"
     options:
       - "(A) None — L6 is fully operator-triggered (matches spec)"
       - "(B) Add (i) draft_saved staleness check (warn if >N days old), (ii) Procontract auth proactive refresh"
-      - "(C) Defer to post-L6 enhancement"
+      - "(C) Keep L6 operator-triggered and revisit as a separately approved enhancement after archive"
     recommended_default: A
-    rationale: "L6 spec says 'no cron entries needed'. Adding them is outside the spec; operator can re-evaluate post-L6 based on observed staleness patterns."
+    rationale: "L6 spec says 'no cron entries needed'. Adding them is outside the spec; operator can re-evaluate after archive based on observed staleness patterns."
 
   q9_validator_calibration_depth:
     question: "Validator-overlay calibration corpus scale for `tests/fixtures/calibration/bid-portal-procontract/`?"
@@ -799,12 +799,12 @@ open_questions:
     options:
       - "(A) Light: ≥3 inputs per variant (simple/medium/complex) — total ~9 inputs"
       - "(B) Match L5 customs scale: gold/silver/bronze/pairwise with 100+ cases per category (heavy effort but more robust)"
-      - "(C) Start with light (option A); plan post-L6 expansion as operational learnings accumulate"
+      - "(C) Start with light (option A); require a separate approved calibration-expansion task once operational learnings accumulate"
     recommended_default: C
     rationale: "L6 is a single-portal feature; comprehensive calibration is more impactful for multi-source pipelines like L5 customs. Light start + expand based on usage is pragmatic."
 
-  q10_stage15_deferred_fate:
-    question: "Stage-15 deferred handoff (`prompts/stage-15-bid-workflow-handoff-DEFERRED.md`) fate after L6 archive?"
+  q10_stage15_handoff_fate:
+    question: "Stage-15 legacy bid-workflow handoff fate after L6 archive?"
     tier: 2
     blocks: "step 15 archive"
     options:
@@ -832,7 +832,7 @@ open_questions:
       - "(B) Phase 6 — desktop UI gets a 'company profile editor' as part of bid-workflow tab"
       - "(C) Phase 7 prep — operator populates via SQL/admin before first live demo"
     recommended_default: C
-    rationale: "Minimal scope: a one-time SQL insert of operator's company data before live demo. UI editor (option B) is post-L6 if needed."
+    rationale: "Locked L6 scope: a one-time SQL insert of operator's company data before live demo. A UI editor requires a separate approved task."
 
   q13_certificate_expiry_warning:
     question: "Warning timeline before `certifications[].expiryDate` blocks readiness gate?"
@@ -843,7 +843,7 @@ open_questions:
       - "(B) 30-day pre-expiry warning shown in desktop UI; soft block at expiry"
       - "(C) 60-day pre-expiry warning"
     recommended_default: A
-    rationale: "Spec is silent on pre-warning. MVP keeps to spec; warning is post-L6 UX enhancement."
+    rationale: "Spec is silent on pre-warning. The locked L6 route keeps to spec; warning behavior requires a separate approved UX task."
 
   q14_cdp_session_contention:
     question: "How does daemon serialize CDP browser access across multiple Procontract skills?"
@@ -992,7 +992,7 @@ cross_layer_context:
 
 milestones:
   l6: M6
-  exit_criterion: "System can prepare and submit one request on Procontract end-to-end with full audit trail. DoD #1-11 green. Live demo: one operator-chosen Procontract opportunity reaches draft_saved with full screenshot trail + run manifest + (optional, operator-authorized) one reaches bid_submitted with portal confirmation reference + downstream visibility on web."
+  exit_criterion: "System can prepare and submit one request on Procontract end-to-end with full audit trail. DoD #1-11 green. Live demo: one operator-chosen Procontract opportunity reaches draft_saved with full screenshot trail + run manifest, and a separately operator-authorized run reaches bid_submitted with portal confirmation reference + downstream visibility on web."
 
 # ============================================================================
 # Pipeline conventions referenced by every handoff

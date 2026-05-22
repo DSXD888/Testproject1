@@ -26,6 +26,7 @@ Spec inventory:
   `sideEffectCap`.
 - 6 side-effect classes.
 - 11 definition-of-done requirements.
+- 153 numbered `L6-T-*` checks after the fresh-eyes density pass.
 - 47 existing Rust daemon integration test files plus 10 existing package
   `*.test.ts` files at TDD authoring time. L6 adds 3 package test files, bringing
   the cumulative Rust-plus-package test-file count to 60.
@@ -34,12 +35,12 @@ Spec inventory:
 
 | Decision | TDD position | Test consequence |
 |---|---|---|
-| L6 module placement | Use a dedicated `crates/daemon/src/bid_workflow/` module tree and wire it from `main.rs`; job-kind dispatch remains in `main.rs`. | `L6-T-daemon_runner-001`, `003` fail if dispatch is moved to `jobs/runner.rs` or if bid logic is buried in unrelated modules. |
+| L6 module placement | Use a dedicated `crates/daemon/src/bid_workflow/` module tree and wire it from `main.rs`; job-kind dispatch remains in `main.rs`. | `L6-T-daemon_runner-001`, `L6-T-daemon_runner-003` fail if dispatch is moved to `jobs/runner.rs` or if bid logic is buried in unrelated modules. |
 | Model profile | Add `portal_form_high_reliability` and test the `model_profile.as_str()` match arm in `crates/daemon/src/main.rs`. | `L6-T-daemon_runner-002` and `L6-T-bid_portal_procontract_skill-001` require the new profile. |
-| Error codes | `crates/daemon/src/errors/manifest.rs` currently has 43 variants. L6 adds exactly six variants: `BidSubmissionFailed`, `BidDuplicateDetected`, `BidSideEffectCapExceeded`, `BidReadinessGateFailed`, `BidPortalChanged`, and `BidPortalAuthExpired`. Their `as_str()` values follow the existing uppercase snake_case convention. | `L6-T-error_codes-001` through `005` lock the six names, round-trips, and propagation-site target. |
-| SQL state enforcement | Do not add a SQL `CHECK` to `bid_workflow_states.bid_state`; enforce seven lifecycle states in Rust. | `L6-T-bid_workflow_states-001`, `034` require Rust enum validation and schema stability. |
-| Validation policy | Use existing `ValidationPolicyMode::Always` for the bid validator overlay. Do not add a new policy mode. The fail-closed exception lives in the bid workflow state machine: `bid_submitted` is blocked on validator rejection or outage, while `draft_saved` does not become a final submission. | `L6-T-validator_overlay-008`, `009`, `010` and `L6-T-bid_workflow_states-010`, `016` split rejection, outage, and override. |
-| Upstream trust override | Quote-role and validation gates are overrideable with structured operator acknowledgment. The five L5 hard blockers, operator approval, staleness, classification freshness, company-profile currency, and upstream trust are non-overrideable. | `L6-T-bid_readiness_gate-009`, `010`, `011`, `016` keep override boundaries explicit. |
+| Error codes | `crates/daemon/src/errors/manifest.rs` currently has 43 variants. L6 adds exactly six variants: `BidSubmissionFailed`, `BidDuplicateDetected`, `BidSideEffectCapExceeded`, `BidReadinessGateFailed`, `BidPortalChanged`, and `BidPortalAuthExpired`. Their `as_str()` values follow the existing uppercase snake_case convention. | `L6-T-error_codes-001` through `L6-T-error_codes-023` lock the six names, per-variant enum/as_str/parser checks, and propagation-site target. |
+| SQL state enforcement | Do not add a SQL `CHECK` to `bid_workflow_states.bid_state`; enforce seven lifecycle states in Rust. | `L6-T-bid_workflow_states-001`, `L6-T-bid_workflow_states-034` require Rust enum validation and schema stability. |
+| Validation policy | Use existing `ValidationPolicyMode::Always` for the bid validator overlay. Do not add a new policy mode. The fail-closed exception lives in the bid workflow state machine: `bid_submitted` is blocked on validator rejection or outage, while `draft_saved` does not become a final submission. | `L6-T-validator_overlay-008`, `L6-T-validator_overlay-009`, `L6-T-validator_overlay-010` and `L6-T-bid_workflow_states-010`, `L6-T-bid_workflow_states-016` split rejection, outage, and override. |
+| Override boundaries | Quote-role and validation gates are overrideable with structured operator acknowledgment. Upstream trust normally requires `pipeline_assessments.validation_state = validated`, but may proceed only when the operator explicitly accepts flagged or unverified trust debt for the exact selected scope. The five L5 hard blockers, operator approval, staleness, classification freshness, and company-profile currency are non-overrideable. | `L6-T-bid_readiness_gate-009`, `L6-T-bid_readiness_gate-010`, `L6-T-bid_readiness_gate-011`, `L6-T-bid_readiness_gate-016` keep override boundaries explicit. |
 
 ## 2. Non-Negotiable Test Principles
 
@@ -81,8 +82,10 @@ updates this TDD accordingly:
 | `crates/daemon/src/main.rs:1513-1517` | Job-kind dispatch for extraction jobs is in `main.rs`. | `run_bid_workflow` dispatch tests target `main.rs`, not `jobs/runner.rs`. |
 | `crates/daemon/src/ipc/handlers/jobs.rs:45,95` | `trigger_ingestion` and `trigger_enrichment` validate before enqueue and return `JobsHandlerError`-style failures. | `trigger_bid_workflow` tests require readiness pre-check before `EnqueueJobRequest` and an existing-envelope structured rejection. |
 | `skills/procurement-ingestion/procontract-register-interest/SKILL.md` | Mandatory CDP discipline forbids fresh browser profiles, direct portal login, captcha solving, logout, and closing the browser. | Bid skill canaries inherit the same CDP discipline and are stricter than generic browser tests. |
-| L5 TDD assertion count | Exact numbered `L5-T-*` count is 98. | L6 keeps comparable density with 127 numbered `L6-T-*` IDs across a smaller but high-risk automation surface. |
+| L5 TDD assertion count | Exact numbered `L5-T-*` count is 98. | L6 keeps higher density with 153 numbered `L6-T-*` IDs across a smaller but high-risk automation surface. |
 | L4 TDD RLS grid | RLS coverage is role/category matrix-cell based, not UI-only. | L6 web tests include a bid workflow RLS grid with viewer allow/deny cells. |
+| `crates/daemon/src/validation/manifest_writer.rs:23-54` | `write_hybrid_run_manifest()` writes frontmatter, agent narrative when present, daemon evidence appendix, disagreements, and fallback manifests. | L6 manifest tests assert side-effect progression and readiness evidence live in the daemon appendix, while redaction tests cover both agent narrative and appendix fallback paths. |
+| `crates/daemon/tests/support/db.rs` | Daemon integration tests use `TestStateDb`/`L4TestStateDb` helpers instead of ad hoc SQLite setup. | L6 daemon tests must reuse those helpers for IPC, sync, schema, and error-manifest setup. |
 
 ## 4. CI And Local Gate Inventory
 
@@ -96,10 +99,10 @@ sequence verbatim.
 | `CI-L6-003` | `cargo clippy --all-targets -- -D warnings` | Exhaustive matches, new enum propagation, and lint policies pass. |
 | `CI-L6-004` | `cargo test -p daemon --bin daemon` | Daemon binary unit tests pass. |
 | `CI-L6-005` | `for t in crates/daemon/tests/*.rs; do cargo test --test "$(basename "$t" .rs)" || exit 1; done` | All daemon integration targets, including L6 extensions, pass. |
-| `CI-L6-006` | `bun run build` | Workspace TypeScript packages and apps build. |
-| `CI-L6-007` | `bun run lint` | TypeScript lint and no hidden `any` escapes pass. |
-| `CI-L6-008` | `bun run test` | Package-level unit and integration tests pass. |
-| `CI-L6-009` | `(cd apps/desktop && bun run test:e2e)` | Desktop bid workflow E2E passes. |
+| `CI-L6-006` | `bun run build && (cd packages/bidding && bun run build)` | Existing workspace packages, apps, and the new bidding package build. |
+| `CI-L6-007` | `bun run lint && (cd packages/bidding && bun run lint)` | TypeScript lint and no hidden `any` escapes pass, including bidding package tests. |
+| `CI-L6-008` | `bun run test && (cd packages/bidding && bun run test)` | Existing package tests and new bidding package unit/integration tests pass. |
+| `CI-L6-009` | `(cd apps/desktop && bun run e2e)` | Desktop bid workflow E2E passes using the existing desktop package script. |
 | `CI-L6-010` | `(cd apps/web && bun run test:e2e)` | Web viewer visibility and read-only E2E passes. |
 
 ## 5. Shared Test Infrastructure
@@ -115,7 +118,8 @@ sequence verbatim.
 | `BidValidatorOverlayHarness` | daemon validation executor tests | Runs `skills/validation/overlay-bid-portal-procontract/` and records accepted, rejected, outage, override, and anomaly verdicts. |
 | `BidErrorCodeHarness` | daemon error manifest tests | Checks enum, `as_str()`, parsing, markdown rendering, structured tracing, static inventories, and redaction context for the six new bid codes. |
 | `BidSyncHarness` | SQLite to Supabase sync tests | Confirms `bid_workflow_states` mutations are push-owned and remote projections hide sensitive payloads. |
-| `BidRedactionSentinelFixture` | `redaction_boundary.rs` | Uses unique company-profile and BidScopePayload sentinel values that must not leak into manifests, projections, logs, or web snapshots. |
+| `DaemonDbFixture` | `crates/daemon/tests/support/db.rs` | All daemon L6 tests use `TestStateDb` or `L4TestStateDb`; no L6 test opens bespoke SQLite state outside the shared support helper. |
+| `BidRedactionSentinelFixture` | `redaction_boundary.rs` | Uses unique company-profile and BidScopePayload sentinel values that must not leak into manifests, projections, structured logs, or web snapshots. |
 | `DesktopBidWorkflowHarness` | desktop E2E | Drives Start Bid, blocked diagnostics, override acknowledgments, draft review, and validation override UI. |
 | `WebBidVisibilityHarness` | web E2E | Drives viewer-role bid-state badges and absence of mutation or sensitive artifact access. |
 | `LiveDemoRunbookHarness` | manual smoke evidence | Records operator-selected opportunity reference, cap, screenshot trail, run manifest path, sync evidence, and final state. |
@@ -126,9 +130,9 @@ sequence verbatim.
 
 | File | Target count | Primary IDs |
 |---|---:|---|
-| `packages/bidding/tests/bid-workflow-states.test.ts` | 34 checks | `L6-T-bid_workflow_states-001` through `034` |
-| `packages/bidding/tests/portal-side-effects.test.ts` | 12 checks | `L6-T-portal_side_effects-001` through `012` |
-| `packages/bidding/tests/bid-readiness-gate.test.ts` | 16 checks | `L6-T-bid_readiness_gate-001` through `016` |
+| `packages/bidding/tests/bid-workflow-states.test.ts` | 34 checks | `L6-T-bid_workflow_states-001` through `L6-T-bid_workflow_states-034` |
+| `packages/bidding/tests/portal-side-effects.test.ts` | 12 checks | `L6-T-portal_side_effects-001` through `L6-T-portal_side_effects-012` |
+| `packages/bidding/tests/bid-readiness-gate.test.ts` | 16 checks | `L6-T-bid_readiness_gate-001` through `L6-T-bid_readiness_gate-016` |
 
 These three files are the minimum named by the spec. They bring the current
 47 daemon integration files plus 10 package test files to 60 Rust-plus-package
@@ -140,11 +144,11 @@ test files.
 |---|---|
 | `crates/daemon/tests/skill_canary_harness.rs` | Add `e2e_can_010+` coverage for bid portal canaries and validator overlay. |
 | `crates/daemon/tests/skill_golden_journeys.rs` | Add `l3_t_skill_golden_journeys_009+` promotion lifecycle coverage for the bid skill. |
-| `crates/daemon/tests/redaction_boundary.rs` | Extend PII redaction coverage for BidScopePayload and company-profile sentinel fields. |
+| `crates/daemon/tests/redaction_boundary.rs` | Extend PII redaction coverage for BidScopePayload and every named company-profile sentinel field across error manifests, run manifests, projections, structured logs, and web surfaces. |
 | `crates/daemon/tests/sqlite_schema.rs` | Assert no new table or SQL `CHECK` is introduced for `bid_workflow_states`. |
 | `crates/daemon/tests/sqlite_supabase_sync.rs` | Extend push-owned sync coverage for `bid_workflow_states` projection behavior. |
 | `crates/daemon/tests/ipc_*` or a new focused IPC test | Cover `trigger_bid_workflow` request validation and readiness pre-check. |
-| `crates/daemon/src/errors/manifest.rs` tests or focused integration | Cover new bid error-code enum variants and string round-trips. |
+| `crates/daemon/src/errors/manifest.rs` tests or focused integration | Cover 23 error-code checks: exact six variants, per-variant enum creation, per-variant `as_str()`/parser round-trips, per-variant propagation, markdown rendering, static inventories, structured tracing, and redaction. |
 
 ### 6.3 E2E And Smoke Tests
 
@@ -165,8 +169,8 @@ test files.
 | `L6-T-bid_workflow_states-003` | T1 | `not_started -> ready_to_bid` is rejected with `BID_READINESS_GATE_FAILED` when any readiness blocker exists. |
 | `L6-T-bid_workflow_states-004` | T1 | `ready_to_bid -> bid_in_progress` succeeds for manual operator start and daemon continuation with a valid BidScopePayload. |
 | `L6-T-bid_workflow_states-005` | T1 | `ready_to_bid -> bid_in_progress` is rejected when BidScopePayload is missing, malformed, stale, or references unknown entities. |
-| `L6-T-bid_workflow_states-006` | T1 | `bid_in_progress -> ready_to_bid` supports safe pre-mutation cancellation or readiness regression and clears transient runner state. |
-| `L6-T-bid_workflow_states-007` | T1 | `bid_in_progress -> ready_to_bid` is rejected after any remote side effect above `READ_ONLY`. |
+| `L6-T-bid_workflow_states-006` | T1 | `ready_to_bid -> not_started` succeeds when the decision becomes stale, a L5 blocker activates, the bid window expires, or the operator withdraws before a bid job starts. |
+| `L6-T-bid_workflow_states-007` | T1 | `ready_to_bid -> not_started` is rejected if an active bid job or any remote side-effect evidence exists; those cases must use an active/unknown terminal path. |
 | `L6-T-bid_workflow_states-008` | T1/T2 | `bid_in_progress -> draft_saved` succeeds when the skill saves a remote draft within cap and records draft evidence. |
 | `L6-T-bid_workflow_states-009` | T1/T2 | `bid_in_progress -> draft_saved` is rejected when draft evidence, screenshot trail, or manifest linkage is absent. |
 | `L6-T-bid_workflow_states-010` | T1/T2 | `bid_in_progress -> bid_submitted` succeeds only when cap allows formal submission and validator verdict is accepted or structured override is present. |
@@ -209,7 +213,7 @@ test files.
 | `L6-T-bid_readiness_gate-008` | T1/T2 | Missing, expired, or mismatched company-profile version blocks and cannot be operator-overridden. |
 | `L6-T-bid_readiness_gate-009` | T1/T2 | Supplier quote roles `domestic_wholesale_floor` and `optimistic_floor` block when no structured override exists. |
 | `L6-T-bid_readiness_gate-010` | T1/T2 | Quote-role override allows progress only with structured acknowledgment and an audit-trail entry cited in the run manifest. |
-| `L6-T-bid_readiness_gate-011` | T1/T2 | Upstream trust state other than `validated` blocks and cannot be operator-overridden. |
+| `L6-T-bid_readiness_gate-011` | T1/T2 | Upstream trust state other than `validated` blocks unless a structured operator trust-debt acceptance exists for the exact lot/candidate scope; missing, stale, blanket, or mismatched acceptance is rejected. |
 | `L6-T-bid_readiness_gate-012` | T1/T2 | A fully green candidate becomes eligible and can transition to `ready_to_bid`. |
 | `L6-T-bid_readiness_gate-013` | T1/T2 | Readiness is recomputed at start, resume, draft review, and final submit; stale cached gate decisions are rejected. |
 | `L6-T-bid_readiness_gate-014` | T1/T2 | Missing or ambiguous `portalOpportunityRef` blocks before any portal side effect. |
@@ -220,13 +224,13 @@ test files.
 
 | Test ID | Tier | Test |
 |---|---|---|
-| `L6-T-portal_side_effects-001` | T1 | SideEffectClass ordering is exactly `READ_ONLY < REMOTE_DRAFT < NOTIFICATION_SENT < LEGAL_ACKNOWLEDGED < FORMAL_SUBMISSION < FUNDS_COMMITTED`. |
+| `L6-T-portal_side_effects-001` | T1 | SideEffectClass ordering is exactly `READ_ONLY < REMOTE_DRAFT < NOTIFICATION_OR_LOCK < LEGAL_DECLARATION < FORMAL_SUBMISSION < FUNDS_COMMITTED`. |
 | `L6-T-portal_side_effects-002` | T1/T2 | Each bid skill playbook step declares the expected side-effect class, including the mutually exclusive 10a draft and 10b final submit paths. |
 | `L6-T-portal_side_effects-003` | T1/T2 | Observed side effects are monotonic; regression or skipped-class claims fail validation. |
 | `L6-T-portal_side_effects-004` | T1/T2 | `sideEffectCap=READ_ONLY` halts before remote form mutation and records no buyer-visible change. |
 | `L6-T-portal_side_effects-005` | T1/T2 | `sideEffectCap=REMOTE_DRAFT` allows draft save, blocks final submission, and emits `BID_SIDE_EFFECT_CAP_EXCEEDED` on escalation. |
 | `L6-T-portal_side_effects-006` | T1/T2 | `sideEffectCap=FORMAL_SUBMISSION` allows final submit but blocks any subsequent `FUNDS_COMMITTED` side effect. |
-| `L6-T-portal_side_effects-007` | T1/T2 | Unexpected `NOTIFICATION_SENT`, `LEGAL_ACKNOWLEDGED`, or `FUNDS_COMMITTED` evidence moves state to `portal_state_unknown`. |
+| `L6-T-portal_side_effects-007` | T1/T2 | Unexpected `NOTIFICATION_OR_LOCK`, `LEGAL_DECLARATION`, or `FUNDS_COMMITTED` evidence moves state to `portal_state_unknown`. |
 | `L6-T-portal_side_effects-008` | T1/T2 | Any retry after `REMOTE_DRAFT` or above must call portal verification before editing. |
 | `L6-T-portal_side_effects-009` | T1/T2 | Duplicate remote draft or submission evidence raises `BID_DUPLICATE_DETECTED` and blocks blind retry. |
 | `L6-T-portal_side_effects-010` | T1/T2 | Crash before remote draft can safely retry; crash after remote draft moves to `portal_state_unknown`. |
@@ -239,7 +243,7 @@ test files.
 |---|---|---|
 | `L6-T-bid_portal_procontract_skill-001` | T2 | `skills/bid-portal-procontract/SKILL.md` frontmatter declares `pty_interactive`, `validation: always`, `requires_cdp: true`, `model_profile: portal_form_high_reliability`, and `source_structure_version: procontract-bid-portal-YYYY-MM-DD`. |
 | `L6-T-bid_portal_procontract_skill-002` | T1/T2 | `packages/bidding/workflow-registry.ts` maps `bidPortalType="procontract"` to the Procontract workflow, rejects unknown portal types, and exports schemas compatible with the skill result and checkpoint contracts. |
-| `L6-T-bid_portal_procontract_skill-003` | T2 | Calibration corpus exists for simple, medium, and complex Procontract forms, each with `canary.inputs.jsonl`, `golden.assertions.yaml`, `metadata.json`, and `manifest.md`; canary input counts are 6 simple, 8 medium, and 10 complex rows. |
+| `L6-T-bid_portal_procontract_skill-003` | T2 | Calibration corpus exists for simple, medium, and complex Procontract forms, each with `canary.inputs.jsonl`, `golden.assertions.yaml`, `validator-rubric.yaml`, `metadata.json`, and `manifest.md`; canary input counts are 6 simple, 8 medium, and 10 complex rows. |
 | `L6-T-bid_portal_procontract_skill-004` | T2/T4 | CDP attach discipline uses `bin/ensure-cdp-9222`, attaches to `/Users/alinaaitova/.chrome-automation:9222`, uses `agent-browser --cdp ${CDP_PORT}`, never launches a fresh profile, never attempts portal login outside `auth-signin/procontract`, never solves captchas, never logs out, and never closes the operator browser. |
 | `L6-T-bid_portal_procontract_skill-005` | T2 | Expired Procontract auth returns `AUTH_STATE_STALE` with portal context; the bid skill does not invoke the auth skill directly. |
 | `L6-T-bid_portal_procontract_skill-006` | T2/T4 | Opportunity lookup verifies portal reference, title, status, and duplicate state before mutation; portal structure drift reuses `PAGE_SHAPE_DRIFT`. |
@@ -255,16 +259,17 @@ test files.
 | Test ID | Tier | Test |
 |---|---|---|
 | `L6-T-validator_overlay-001` | T2 | `skills/validation/overlay-bid-portal-procontract/SKILL.md` declares the overlay role, worker skill ID, validation mode, evidence inputs, and rubric version. |
-| `L6-T-validator_overlay-002` | T2 | Overlay verifies portal opportunity reference, process ID, lot IDs, and candidate IDs against the run manifest. |
-| `L6-T-validator_overlay-003` | T2 | Overlay verifies screenshot coverage for lookup, form fill, upload, draft save, and final submit checkpoints. |
+| `L6-T-validator_overlay-002` | T2 | Overlay rejects a manifest whose portal opportunity reference, process ID, lot IDs, or candidate IDs do not match the bid scope. |
+| `L6-T-validator_overlay-003` | T2 | Overlay rejects a run manifest with fewer than 11 expected playbook-step screenshot checkpoints for the observed draft/final-submit shape. |
 | `L6-T-validator_overlay-004` | T2 | Overlay rejects non-monotonic side-effect evidence or side-effect evidence above cap. |
-| `L6-T-validator_overlay-005` | T2 | Overlay verifies final confirmation reference before accepting `bid_submitted`. |
-| `L6-T-validator_overlay-006` | T2 | Overlay verifies narrative citations for lot, candidate, quote, company-profile version, and override IDs. |
-| `L6-T-validator_overlay-007` | T2 | Overlay output and manifest appendix redact BidScopePayload and company-profile sentinel values. |
+| `L6-T-validator_overlay-005` | T2 | Overlay rejects malformed, missing, or scope-conflicting final confirmation references before accepting `bid_submitted`. |
+| `L6-T-validator_overlay-006` | T2 | Overlay rejects agent narrative that does not cite lot IDs, candidate IDs, quote IDs, company-profile version, and override IDs used by the run. |
+| `L6-T-validator_overlay-007` | T2 | Overlay rejects any BidScopePayload or company-profile sentinel leakage in validator output, agent narrative, or daemon evidence appendix. |
 | `L6-T-validator_overlay-008` | T2 | Validator rejection blocks `bid_submitted` and records fail-closed status. |
 | `L6-T-validator_overlay-009` | T2 | Validator outage blocks `bid_submitted` and records fail-closed outage diagnostics. |
 | `L6-T-validator_overlay-010` | T2/T3 | Structured validation override allows final submit only with operator reason recorded in bid metadata and run manifest. |
 | `L6-T-validator_overlay-011` | T2 | Future runs that submit without citing an established override pattern are flagged as anomalies. |
+| `L6-T-validator_overlay-012` | T2 | Overlay approves a clean bid run manifest when opportunity ref, scope IDs, at least 11 screenshots, monotonic side-effect progression, valid confirmation or draft evidence, citations, and redaction checks all pass. |
 
 ### 7.6 Daemon Runner
 
@@ -281,6 +286,7 @@ test files.
 | `L6-T-daemon_runner-009` | T2 | `AUTH_STATE_STALE` causes daemon-orchestrated auth refresh and one bounded retry without the bid skill calling auth directly. |
 | `L6-T-daemon_runner-010` | T2 | CLI/manual trigger path supports `--run-bid-workflow` or equivalent local trigger without bypassing readiness gates. |
 | `L6-T-daemon_runner-011` | T2 | `AdmissionPriority::BidAutomation` and browser-resource serialization prevent concurrent portal mutations for the same opportunity. |
+| `L6-T-daemon_runner-012` | T2 | L6 daemon IPC, sync, schema, and manifest tests seed state through `TestStateDb`/`L4TestStateDb` from `crates/daemon/tests/support/db.rs` and fail review if they open bespoke SQLite fixtures. |
 
 ### 7.7 IPC Trigger Bid Workflow
 
@@ -301,13 +307,31 @@ test files.
 | `L6-T-error_codes-003` | T1/T2 | Exhaustive matches, markdown rendering, tracing categorization, static inventories, and propagation-site tests include the six new variants across the required 9-site target. |
 | `L6-T-error_codes-004` | T2 | Error manifests for each new code include portal-safe structured context and redact BidScopePayload/company-profile sentinel values. |
 | `L6-T-error_codes-005` | T1/T2 | Portal drift and auth expiry produce the bid-specific `BID_PORTAL_CHANGED` and `BID_PORTAL_AUTH_EXPIRED` codes while preserving source-health context fields for comparison with existing generic source codes. |
+| `L6-T-error_codes-006` | T1 | `BidSubmissionFailed` enum creation compiles and the variant is included in the exact `ErrorCode` inventory. |
+| `L6-T-error_codes-007` | T1 | `BidDuplicateDetected` enum creation compiles and the variant is included in the exact `ErrorCode` inventory. |
+| `L6-T-error_codes-008` | T1 | `BidSideEffectCapExceeded` enum creation compiles and the variant is included in the exact `ErrorCode` inventory. |
+| `L6-T-error_codes-009` | T1 | `BidReadinessGateFailed` enum creation compiles and the variant is included in the exact `ErrorCode` inventory. |
+| `L6-T-error_codes-010` | T1 | `BidPortalChanged` enum creation compiles and the variant is included in the exact `ErrorCode` inventory. |
+| `L6-T-error_codes-011` | T1 | `BidPortalAuthExpired` enum creation compiles and the variant is included in the exact `ErrorCode` inventory. |
+| `L6-T-error_codes-012` | T1 | `BID_SUBMISSION_FAILED` round-trips through `ErrorCode::as_str()` and `parse_error_code()`. |
+| `L6-T-error_codes-013` | T1 | `BID_DUPLICATE_DETECTED` round-trips through `ErrorCode::as_str()` and `parse_error_code()`. |
+| `L6-T-error_codes-014` | T1 | `BID_SIDE_EFFECT_CAP_EXCEEDED` round-trips through `ErrorCode::as_str()` and `parse_error_code()`. |
+| `L6-T-error_codes-015` | T1 | `BID_READINESS_GATE_FAILED` round-trips through `ErrorCode::as_str()` and `parse_error_code()`. |
+| `L6-T-error_codes-016` | T1 | `BID_PORTAL_CHANGED` round-trips through `ErrorCode::as_str()` and `parse_error_code()`. |
+| `L6-T-error_codes-017` | T1 | `BID_PORTAL_AUTH_EXPIRED` round-trips through `ErrorCode::as_str()` and `parse_error_code()`. |
+| `L6-T-error_codes-018` | T1/T2 | `BidSubmissionFailed` propagation is asserted in exhaustive matches, markdown rendering, static inventories, structured telemetry, canary constants, state-machine raisers, and redaction boundary tests. |
+| `L6-T-error_codes-019` | T1/T2 | `BidDuplicateDetected` propagation is asserted in exhaustive matches, markdown rendering, static inventories, structured telemetry, canary constants, state-machine raisers, and redaction boundary tests. |
+| `L6-T-error_codes-020` | T1/T2 | `BidSideEffectCapExceeded` propagation is asserted in exhaustive matches, markdown rendering, static inventories, structured telemetry, canary constants, state-machine raisers, and redaction boundary tests. |
+| `L6-T-error_codes-021` | T1/T2 | `BidReadinessGateFailed` propagation is asserted in exhaustive matches, markdown rendering, static inventories, structured telemetry, canary constants, state-machine raisers, and redaction boundary tests. |
+| `L6-T-error_codes-022` | T1/T2 | `BidPortalChanged` propagation is asserted in exhaustive matches, markdown rendering, static inventories, structured telemetry, canary constants, state-machine raisers, and redaction boundary tests. |
+| `L6-T-error_codes-023` | T1/T2 | `BidPortalAuthExpired` propagation is asserted in exhaustive matches, markdown rendering, static inventories, structured telemetry, canary constants, state-machine raisers, and redaction boundary tests. |
 
 ### 7.9 Sync Propagation
 
 | Test ID | Tier | Test |
 |---|---|---|
 | `L6-T-sync_propagation-001` | T2 | `bid_workflow_states` remains in `PUSH_OWNED_RESEED_TABLES`; no new mixed-write table is introduced. |
-| `L6-T-sync_propagation-002` | T2 | Local bid state mutation creates the expected push-owned sync event and projects state, timestamps, and non-sensitive summary fields. |
+| `L6-T-sync_propagation-002` | T2 | Local `bid_workflow_states` mutation creates the expected outbox entry, sync engine pushes through the existing L4 `apply_push_batch` path, and the Supabase projection row matches state, timestamps, `stage_run_id`, and non-sensitive summary fields. |
 | `L6-T-sync_propagation-003` | T2/T3 | Supabase projection exposes bid-state summary to viewer role after sync. |
 | `L6-T-sync_propagation-004` | T2/T3 | Viewer role cannot read BidScopePayload, run manifest body, company-profile details, or raw portal artifact paths. |
 | `L6-T-sync_propagation-005` | T2 | Remote-owned company profile and operator decision heads are pulled before readiness evaluation and never written by L6. |
@@ -339,9 +363,20 @@ test files.
 | Test ID | Tier | Test |
 |---|---|---|
 | `L6-T-live_demo-001` | T4 | Operator selects a Procontract opportunity reference, confirms it will not create buyer-visible legal commitment under `REMOTE_DRAFT`, and records profile/version prerequisites. |
-| `L6-T-live_demo-002` | T4 | Live run with `sideEffectCap=REMOTE_DRAFT` reaches `draft_saved`, records screenshot trail, run manifest, remote draft reference, and Supabase viewer badge. |
-| `L6-T-live_demo-003` | T4 | Optional formal-submission smoke runs only with separate written operator authorization and reaches `bid_submitted` with confirmation reference. |
+| `L6-T-live_demo-002` | T4 | Live run with `sideEffectCap=REMOTE_DRAFT` reaches `draft_saved`, records screenshot trail, run manifest, remote draft reference, Supabase viewer badge, and SQL evidence from `bid_workflow_states` for the same process/scope. |
+| `L6-T-live_demo-003` | T4 | Formal-submission smoke runs only with separate written operator authorization and reaches `bid_submitted` with confirmation reference plus SQL evidence from `bid_workflow_states` for the authorized process/scope. |
 | `L6-T-live_demo-004` | T4 | Demo diary records commands, CDP health, opportunity reference, manifest path, validator verdict, sync evidence, and final state. |
+
+### 7.13 PII And Redaction Boundary
+
+| Test ID | Tier | Test |
+|---|---|---|
+| `L6-T-redaction_boundary-001` | T2 | `error_manifests.error_context` and the rendered `markdown_path` never contain raw company-profile sentinels: `companyName`, `registrationNumber`, `vatNumber`, `address.line1`, `address.line2`, `address.city`, `address.county`, `address.postcode`, `address.country`, `primaryContact.name`, `primaryContact.email`, `primaryContact.phone`, `primaryContact.role`, `certifications[].number`, `insurancePolicies[].policyNumber`, `insurancePolicies[].coverAmountPence`, or `financialStatements.companiesHouseRef`. |
+| `L6-T-redaction_boundary-002` | T2 | Error manifests may include stable hashes, field categories, and blocker codes for bid context, but not raw BidScopePayload IDs, portal refs, local document paths, or portal form values. |
+| `L6-T-redaction_boundary-003` | T2 | Hybrid run manifest `agent_narrative` omits the same company-profile sentinel fields while still citing lot IDs, candidate IDs, quote IDs, company-profile version, screenshot refs, and override IDs. |
+| `L6-T-redaction_boundary-004` | T2 | Hybrid run manifest `daemon_evidence_appendix` records side-effect progression, readiness evidence, validator verdict, and artifact refs without raw contact, address, registration, VAT, certification, insurance, or financial statement values. |
+| `L6-T-redaction_boundary-005` | T2/T3 | Supabase/web projections for `bid_workflow_states.bid_scope_json` expose only non-sensitive summary fields and hashes; viewer-role reads cannot recover raw BidScopePayload, company-profile, document path, or portal artifact values. |
+| `L6-T-redaction_boundary-006` | T2 | Structured logs and tracing output redact the company-profile sentinel fields and BidScopePayload raw values while preserving `error_code`, `bid_state`, `side_effect_class`, and blocker-code metadata. |
 
 ## 8. Cross-Cutting Boundary Assertions
 
@@ -360,9 +395,9 @@ Fail-closed behavior belongs to the bid workflow state machine:
 
 | Surface | Expected behavior | Tests |
 |---|---|---|
-| `draft_saved` | Validator outage may not silently become `bid_submitted`; draft state remains reviewable. | `L6-T-bid_workflow_states-008`, `009`, `L6-T-validator_overlay-009` |
-| `bid_submitted` from `bid_in_progress` | Rejected or unavailable validator blocks final submit unless structured operator validation override exists. | `L6-T-bid_workflow_states-010`, `011`, `L6-T-validator_overlay-008`, `009`, `010` |
-| `bid_submitted` from `draft_saved` | Same fail-closed checks rerun after draft review. | `L6-T-bid_workflow_states-016`, `017`, `L6-T-validator_overlay-008`, `009`, `010` |
+| `draft_saved` | Validator outage may not silently become `bid_submitted`; draft state remains reviewable. | `L6-T-bid_workflow_states-008`, `L6-T-bid_workflow_states-009`, `L6-T-validator_overlay-009` |
+| `bid_submitted` from `bid_in_progress` | Rejected or unavailable validator blocks final submit unless structured operator validation override exists. | `L6-T-bid_workflow_states-010`, `L6-T-bid_workflow_states-011`, `L6-T-validator_overlay-008`, `L6-T-validator_overlay-009`, `L6-T-validator_overlay-010` |
+| `bid_submitted` from `draft_saved` | Same fail-closed checks rerun after draft review. | `L6-T-bid_workflow_states-016`, `L6-T-bid_workflow_states-017`, `L6-T-validator_overlay-008`, `L6-T-validator_overlay-009`, `L6-T-validator_overlay-010` |
 | Policy enum | No new fail-closed enum value or special validation mode is introduced. | `L6-T-validator_overlay-001`, `L6-T-daemon_runner-003` |
 
 ### 8.2 IPC Rejection Shape
@@ -408,21 +443,30 @@ Required dispatch proof:
 |---|---|
 | A queued `workflow_jobs.kind = "run_bid_workflow"` is claimed by `run_next_workflow_job()`. | `L6-T-daemon_runner-003` |
 | The match arm calls `run_bid_workflow_job(...)` rather than falling into unsupported-kind failure. | `L6-T-daemon_runner-003` |
-| The handler parses BidScopePayload, selects `InteractionProfile::PtyRequired`, and invokes the skill execution path. | `L6-T-daemon_runner-003`, `004`, `005` |
+| The handler parses BidScopePayload, selects `InteractionProfile::PtyRequired`, and invokes the skill execution path. | `L6-T-daemon_runner-003`, `L6-T-daemon_runner-004`, `L6-T-daemon_runner-005` |
 | Unsupported job kinds still fail with `AGENT_RUN_FAILED`. | `L6-T-daemon_runner-003` |
 
 ### 8.4 Web RLS Role / Category Assertion Grid
 
-This mirrors the L4 matrix-cell pattern. UI-only evidence is insufficient; tests
+This mirrors the L4 matrix-cell pattern. All 20 cells are assertion-bearing.
+UI-only evidence is insufficient; tests
 must verify role-scoped Supabase/PostgREST behavior and browser-network denial.
+The viewer role may see only bid-state badge fields and timestamps. Viewer-role
+network responses and direct Supabase client calls must not expose
+`bid_scope_json`, run manifest body, run manifest paths, forensic byte paths,
+company-profile fields, local document paths, or raw portal artifact paths.
 
 | Category | viewer | operator | admin | daemon |
 |---|---|---|---|---|
-| Bid-state projection summary | `L6-T-web_ui-001`, `L6-T-sync_propagation-003` SELECT badge fields only | SELECT same summary where authorized | SELECT for support/audit | mutate only through push-owned sync path |
-| Bid scope payload (`bid_scope_json`) | `L6-T-web_ui-002`, `L6-T-sync_propagation-004` denied/redacted | denied unless desktop/local authority path | admin maintenance visibility only if future admin policy grants it | local SQLite authority, not web projection |
-| Run manifest body and forensic paths | `L6-T-web_ui-002`, `L6-T-sync_propagation-004` denied/redacted | desktop SessionViewer only, not web viewer role | admin audit only if separately authorized | local artifact writer/reader |
-| Bid mutation controls and RPCs | `L6-T-web_ui-003` denied, no UI affordance, direct mutation request rejected | desktop IPC only, no web mutation | admin does not bypass bid workflow state machine | daemon mutates through workflow runner and sync |
-| Company-profile fields | `L6-T-web_ui-002`, `L6-T-sync_propagation-004` denied/redacted | local desktop injection only | remote-owned admin CRUD outside web viewer | daemon pull reads before readiness |
+| Bid-state projection summary | `L6-T-web_ui-001`, `L6-T-sync_propagation-003` SELECT badge fields only | `L6-T-sync_propagation-003` SELECT same summary where authorized | `L6-T-sync_propagation-003` SELECT same summary for support/audit | `L6-T-sync_propagation-001`, `L6-T-sync_propagation-002` mutate only through push-owned sync path |
+| Bid scope payload (`bid_scope_json`) | `L6-T-web_ui-002`, `L6-T-sync_propagation-004` denied/redacted | `L6-T-sync_propagation-004` denied from web projection; desktop local authority only | `L6-T-sync_propagation-004` denied from web projection | `L6-T-bid_workflow_states-033`, `L6-T-sync_propagation-004` local SQLite authority, not web projection |
+| Run manifest body and forensic paths | `L6-T-web_ui-002`, `L6-T-sync_propagation-004` denied/redacted | `L6-T-sync_propagation-004` desktop SessionViewer only, not web role | `L6-T-sync_propagation-004` denied from web projection | `L6-T-daemon_runner-008`, `L6-T-redaction_boundary-004` local artifact writer/reader only |
+| Bid mutation controls and RPCs | `L6-T-web_ui-003` denied, no UI affordance, direct mutation request rejected | `L6-T-web_ui-003`, `L6-T-ipc_trigger_bid_workflow-001` desktop IPC only, no web mutation | `L6-T-web_ui-003` admin does not bypass bid workflow state machine | `L6-T-daemon_runner-006`, `L6-T-sync_propagation-002` daemon mutates through workflow runner and sync |
+| Company-profile fields | `L6-T-web_ui-002`, `L6-T-sync_propagation-004` denied/redacted | `L6-T-sync_propagation-004` local desktop injection only | `L6-T-sync_propagation-004` remote-owned admin CRUD remains outside web viewer projection | `L6-T-sync_propagation-005`, `L6-T-bid_readiness_gate-008` daemon pull reads before readiness |
+
+`L6-T-sync_propagation-004` must issue role-scoped Supabase/PostgREST SELECT
+attempts, not only inspect serialized app state. `L6-T-web_ui-002` must inspect
+browser network payloads in addition to DOM text.
 
 ### 8.5 Definition Of Done Proof Matrix
 
@@ -434,7 +478,7 @@ must verify role-scoped Supabase/PostgREST behavior and browser-network denial.
 | `L6-FR-2.1.4` | `L6-T-bid_portal_procontract_skill-010`, `L6-T-validator_overlay-003` |
 | `L6-FR-2.1.5` | `L6-T-daemon_runner-007` |
 | `L6-FR-2.1.6` | `L6-T-daemon_runner-008` |
-| `L6-FR-2.1.7` | `L6-T-error_codes-004`, `L6-T-portal_side_effects-012` |
+| `L6-FR-2.1.7` | `L6-T-error_codes-004`, `L6-T-portal_side_effects-012`, `L6-T-redaction_boundary-001`, `L6-T-redaction_boundary-002` |
 | `L6-FR-2.1.8` | `L6-T-live_demo-002`, `L6-T-live_demo-003` |
 | `L6-FR-2.1.9` | `L6-T-desktop_ui-004`, `L6-T-bid_workflow_states-008`, `L6-T-bid_workflow_states-016`, `L6-T-live_demo-002` |
 | `L6-FR-2.1.10` | `L6-T-bid_readiness_gate-003`, `L6-T-bid_readiness_gate-004`, `L6-T-bid_readiness_gate-005`, `L6-T-bid_readiness_gate-006`, `L6-T-bid_readiness_gate-007` |
@@ -447,7 +491,7 @@ must verify role-scoped Supabase/PostgREST behavior and browser-network denial.
 | `L6-FR-1.10.1` | `L6-T-bid_readiness_gate-001`, `L6-T-ipc_trigger_bid_workflow-002` |
 | `L6-FR-1.10.2` | `L6-T-portal_side_effects-004`, `L6-T-portal_side_effects-005`, `L6-T-portal_side_effects-006` |
 | `L6-FR-1.10.3` | `L6-T-bid_workflow_states-030`, `L6-T-ipc_trigger_bid_workflow-004` |
-| `L6-FR-1.10.4` | `L6-T-daemon_runner-007`, `L6-T-daemon_runner-008`, `L6-T-validator_overlay-003` |
+| `L6-FR-1.10.4` | `L6-T-daemon_runner-007`, `L6-T-daemon_runner-008`, `L6-T-validator_overlay-003`, `L6-T-validator_overlay-012`, `L6-T-redaction_boundary-003`, `L6-T-redaction_boundary-004` |
 | `L6-FR-1.10.5` | `L6-T-bid_workflow_states-031`, `L6-T-bid_readiness_gate-002` |
 | `L6-FR-1.10.6` | `L6-T-bid_readiness_gate-003`, `L6-T-bid_readiness_gate-004`, `L6-T-bid_readiness_gate-005`, `L6-T-bid_readiness_gate-006`, `L6-T-bid_readiness_gate-007` |
 | `L6-FR-1.10.7` | `L6-T-validator_overlay-008`, `L6-T-validator_overlay-009`, `L6-T-validator_overlay-010` |
@@ -474,6 +518,40 @@ Each transition has a happy and sad assertion where applicable.
 | `L6-FR-1.3.14` | `L6-T-bid_workflow_states-026` | `L6-T-bid_workflow_states-027` |
 | `L6-FR-1.3.15` | `L6-T-bid_workflow_states-028` | `L6-T-bid_workflow_states-029` |
 
+Recovery-specific assertions are not collapsed into smoke evidence:
+`L6-T-bid_workflow_states-018`/`L6-T-bid_workflow_states-019` cover
+`draft_saved -> bid_in_progress`, `L6-T-bid_workflow_states-022` through
+`L6-T-bid_workflow_states-027` cover all `portal_state_unknown`
+reconciliation exits, and `L6-T-bid_workflow_states-028`/
+`L6-T-bid_workflow_states-029` cover `bid_failed -> ready_to_bid`.
+
+### 8.8 Spec Section 2.3 Scenario Coverage
+
+Every scenario from spec §2.3 is assertion-bearing through existing test IDs.
+
+| Spec scenario | Covering test IDs |
+|---|---|
+| Full bid workflow: approve -> prepare -> submit -> manifest | `L6-T-bid_workflow_states-002`, `L6-T-bid_workflow_states-004`, `L6-T-bid_workflow_states-010`, `L6-T-daemon_runner-003`, `L6-T-daemon_runner-007`, `L6-T-daemon_runner-008`, `L6-T-validator_overlay-003`, `L6-T-validator_overlay-012`, `L6-T-live_demo-003` |
+| `reviewRequired = true`: save draft path | `L6-T-bid_workflow_states-008`, `L6-T-bid_workflow_states-016`, `L6-T-bid_workflow_states-032`, `L6-T-desktop_ui-004`, `L6-T-live_demo-002`, `L6-T-live_demo-003` |
+| Bid failure mid-workflow at document upload | `L6-T-bid_workflow_states-012`, `L6-T-bid_workflow_states-013`, `L6-T-bid_portal_procontract_skill-008`, `L6-T-daemon_runner-007`, `L6-T-error_codes-018` |
+| Crash after `REMOTE_DRAFT` | `L6-T-bid_workflow_states-014`, `L6-T-bid_workflow_states-015`, `L6-T-bid_workflow_states-020`, `L6-T-bid_workflow_states-021`, `L6-T-portal_side_effects-008`, `L6-T-portal_side_effects-009`, `L6-T-portal_side_effects-010` |
+| Stale decision blocks bid | `L6-T-bid_readiness_gate-002`, `L6-T-bid_readiness_gate-013`, `L6-T-bid_readiness_gate-016`, `L6-T-bid_workflow_states-031` |
+| L5 blocker blocks bid | `L6-T-bid_readiness_gate-003`, `L6-T-bid_readiness_gate-004`, `L6-T-bid_readiness_gate-005`, `L6-T-bid_readiness_gate-006`, `L6-T-bid_readiness_gate-007`, `L6-T-bid_readiness_gate-015`, `L6-T-bid_readiness_gate-016` |
+| Validator rejection before final submit | `L6-T-validator_overlay-008`, `L6-T-validator_overlay-010`, `L6-T-bid_workflow_states-011`, `L6-T-bid_workflow_states-017` |
+| Validator outage before final submit | `L6-T-validator_overlay-009`, `L6-T-validator_overlay-010`, `L6-T-bid_workflow_states-009`, `L6-T-bid_workflow_states-011`, `L6-T-bid_workflow_states-017` |
+| Portal website changed | `L6-T-bid_portal_procontract_skill-006`, `L6-T-error_codes-010`, `L6-T-error_codes-016`, `L6-T-error_codes-022`, `L6-T-daemon_runner-007` |
+| Duplicate submission detected | `L6-T-bid_workflow_states-014`, `L6-T-bid_workflow_states-020`, `L6-T-portal_side_effects-008`, `L6-T-portal_side_effects-009`, `L6-T-portal_side_effects-010`, `L6-T-error_codes-007`, `L6-T-error_codes-013`, `L6-T-error_codes-019` |
+| Quote-role quality gate | `L6-T-bid_readiness_gate-009`, `L6-T-bid_readiness_gate-010`, `L6-T-desktop_ui-003` |
+
+### 8.9 Spec Section 2.4 Risk Mitigation Coverage
+
+| Spec risk | Mitigation proof |
+|---|---|
+| Portal UI changes break bid skill | `L6-T-bid_portal_procontract_skill-006`, `L6-T-error_codes-010`, `L6-T-error_codes-016`, `L6-T-error_codes-022`, and `L6-T-daemon_runner-007` prove page fingerprint drift is detected, classified, and manifested with step evidence. |
+| Form structure varies by procurement type | `L6-T-bid_portal_procontract_skill-003`, `L6-T-bid_portal_procontract_skill-004`, `L6-T-bid_portal_procontract_skill-006`, `L6-T-validator_overlay-002`, and `L6-T-validator_overlay-012` prove simple/medium/complex fixtures, workflow step coverage, and validator approval for clean manifests. |
+| Duplicate submission on retry after side-effect boundary | `L6-T-portal_side_effects-008`, `L6-T-portal_side_effects-009`, `L6-T-portal_side_effects-010`, `L6-T-bid_workflow_states-014`, `L6-T-bid_workflow_states-020`, and `L6-T-error_codes-007` prove `verifyPortalState()` and human reconciliation before retry. |
+| Portal credentials expire during bid | `L6-T-bid_portal_procontract_skill-005`, `L6-T-daemon_runner-009`, `L6-T-error_codes-017`, and `L6-T-error_codes-023` prove bid skill exits on stale auth and daemon orchestration owns the Procontract sign-in retry. |
+
 ## 9. Audit Tables
 
 ### 9.1 Error-Code Decision Table
@@ -492,14 +570,19 @@ Each transition has a happy and sad assertion where applicable.
 `crates/daemon/src/errors/manifest.rs:19-114` currently defines 43 variants.
 L6 raises the count to 49. The following six additions are mandatory:
 
-| Rust variant | `as_str()` value | Primary raiser | Round-trip test |
-|---|---|---|---|
-| `BidSubmissionFailed` | `BID_SUBMISSION_FAILED` | Skill result conversion when final submission, draft save, or upload cannot be proven. | `L6-T-error_codes-002` |
-| `BidDuplicateDetected` | `BID_DUPLICATE_DETECTED` | Portal precondition check finds existing draft/submission for the same opportunity. | `L6-T-error_codes-002` |
-| `BidSideEffectCapExceeded` | `BID_SIDE_EFFECT_CAP_EXCEEDED` | Side-effect guard detects an attempted class above `sideEffectCap`. | `L6-T-error_codes-002` |
-| `BidReadinessGateFailed` | `BID_READINESS_GATE_FAILED` | Readiness gate blocks start, resume, draft-to-final, or retry. | `L6-T-error_codes-002` |
-| `BidPortalChanged` | `BID_PORTAL_CHANGED` | Procontract DOM/selector/form shape no longer matches the `source_structure_version`. | `L6-T-error_codes-002` |
-| `BidPortalAuthExpired` | `BID_PORTAL_AUTH_EXPIRED` | Auth state expires during bid workflow and daemon retry cannot restore the session. | `L6-T-error_codes-002` |
+| Rust variant | `as_str()` value | Primary raiser | Enum test | Round-trip test | Propagation test |
+|---|---|---|---|---|---|
+| `BidSubmissionFailed` | `BID_SUBMISSION_FAILED` | Skill result conversion when final submission, draft save, or upload cannot be proven. | `L6-T-error_codes-006` | `L6-T-error_codes-012` | `L6-T-error_codes-018` |
+| `BidDuplicateDetected` | `BID_DUPLICATE_DETECTED` | Portal precondition check finds existing draft/submission for the same opportunity. | `L6-T-error_codes-007` | `L6-T-error_codes-013` | `L6-T-error_codes-019` |
+| `BidSideEffectCapExceeded` | `BID_SIDE_EFFECT_CAP_EXCEEDED` | Side-effect guard detects an attempted class above `sideEffectCap`. | `L6-T-error_codes-008` | `L6-T-error_codes-014` | `L6-T-error_codes-020` |
+| `BidReadinessGateFailed` | `BID_READINESS_GATE_FAILED` | Readiness gate blocks start, resume, draft-to-final, or retry. | `L6-T-error_codes-009` | `L6-T-error_codes-015` | `L6-T-error_codes-021` |
+| `BidPortalChanged` | `BID_PORTAL_CHANGED` | Procontract DOM/selector/form shape no longer matches the `source_structure_version`. | `L6-T-error_codes-010` | `L6-T-error_codes-016` | `L6-T-error_codes-022` |
+| `BidPortalAuthExpired` | `BID_PORTAL_AUTH_EXPIRED` | Auth state expires during bid workflow and daemon retry cannot restore the session. | `L6-T-error_codes-011` | `L6-T-error_codes-017` | `L6-T-error_codes-023` |
+
+The six rows above are a density floor: each new variant has one enum inventory
+test, one `as_str()`/parser round-trip test, and one propagation/exhaustiveness
+test. `L6-T-error_codes-001` through `L6-T-error_codes-005` are additional aggregate tests, not
+substitutes for the per-variant matrix.
 
 Propagation target: implementation must touch 9 explicit sites, and tests must
 fail if fewer than 9 or more than 15 propagation sites are updated. The expected
@@ -521,17 +604,17 @@ sites are:
 
 | Gate | Overrideable | Test IDs |
 |---|---|---|
-| Approved operator decision exists | No | `L6-T-bid_readiness_gate-001`, `016` |
-| Fresh `decisionBasisHash` | No | `L6-T-bid_readiness_gate-002`, `013`, `016` |
-| `CLASSIFICATION_AMBIGUOUS` absent | No | `L6-T-bid_readiness_gate-003`, `016` |
-| `TARIFF_BRANCH_DIVERGENCE` absent | No | `L6-T-bid_readiness_gate-004`, `016` |
-| `SUPPLEMENTARY_UNIT_MISSING` absent | No | `L6-T-bid_readiness_gate-005`, `016` |
-| `broker_required` absent | No | `L6-T-bid_readiness_gate-006`, `016` |
-| Classification freshness current | No | `L6-T-bid_readiness_gate-007`, `016` |
-| Company profile current | No | `L6-T-bid_readiness_gate-008`, `016` |
-| Quote-role quality gate | Yes | `L6-T-bid_readiness_gate-009`, `010` |
-| Upstream trust validated | No | `L6-T-bid_readiness_gate-011`, `016` |
-| Validator rejected/outage before final submit | Yes, with structured final-submit override | `L6-T-validator_overlay-008`, `009`, `010`, `011` |
+| Approved operator decision exists | No | `L6-T-bid_readiness_gate-001`, `L6-T-bid_readiness_gate-016` |
+| Fresh `decisionBasisHash` | No | `L6-T-bid_readiness_gate-002`, `L6-T-bid_readiness_gate-013`, `L6-T-bid_readiness_gate-016` |
+| `CLASSIFICATION_AMBIGUOUS` absent | No | `L6-T-bid_readiness_gate-003`, `L6-T-bid_readiness_gate-016` |
+| `TARIFF_BRANCH_DIVERGENCE` absent | No | `L6-T-bid_readiness_gate-004`, `L6-T-bid_readiness_gate-016` |
+| `SUPPLEMENTARY_UNIT_MISSING` absent | No | `L6-T-bid_readiness_gate-005`, `L6-T-bid_readiness_gate-016` |
+| `broker_required` absent | No | `L6-T-bid_readiness_gate-006`, `L6-T-bid_readiness_gate-016` |
+| Classification freshness current | No | `L6-T-bid_readiness_gate-007`, `L6-T-bid_readiness_gate-016` |
+| Company profile current | No | `L6-T-bid_readiness_gate-008`, `L6-T-bid_readiness_gate-016` |
+| Quote-role quality gate | Yes | `L6-T-bid_readiness_gate-009`, `L6-T-bid_readiness_gate-010` |
+| Upstream trust validated or scope-matched trust debt accepted | Trust-debt acceptance only | `L6-T-bid_readiness_gate-011`, `L6-T-bid_readiness_gate-016` |
+| Validator rejected/outage before final submit | Yes, with structured final-submit override | `L6-T-validator_overlay-008`, `L6-T-validator_overlay-009`, `L6-T-validator_overlay-010`, `L6-T-validator_overlay-011` |
 
 ### 9.3 Side-Effect Class Map
 
@@ -539,33 +622,35 @@ sites are:
 |---|---|---|
 | `READ_ONLY` | Attach CDP, authenticate check, search opportunity, read form. | Allowed by every cap. |
 | `REMOTE_DRAFT` | Fill form, upload documents, save draft. | Default live-demo maximum. |
-| `NOTIFICATION_SENT` | Any portal action that sends buyer/supplier notification. | Above default cap, must be explicit. |
-| `LEGAL_ACKNOWLEDGED` | Accept terms or legal declarations. | Above default cap, must be explicit. |
+| `NOTIFICATION_OR_LOCK` | Any portal action that sends buyer/supplier notification or locks editable portal state. | Above default cap, must be explicit. |
+| `LEGAL_DECLARATION` | Accept terms or legal declarations. | Above default cap, must be explicit. |
 | `FORMAL_SUBMISSION` | Click final submit and receive confirmation reference. | Requires operator authorization and fail-closed validator. |
-| `FUNDS_COMMITTED` | Any paid tender, bond, or fee commitment. | Out of scope unless future spec authorizes it. |
+| `FUNDS_COMMITTED` | Any paid tender, bond, or fee commitment. | Never permitted by the initial Procontract workflow; detection stops the run at `portal_state_unknown`. |
 
 ### 9.4 Calibration Corpus Contract
 
-Each directory under `tests/fixtures/calibration/bid-portal-procontract/` must contain:
+Each category directory under `tests/fixtures/calibration/bid-portal-procontract/`
+must contain the same JSONL/YAML split used by L5 canaries:
 
 - `canary.inputs.jsonl`
 - `golden.assertions.yaml`
+- `validator-rubric.yaml`
 - `metadata.json`
 - `manifest.md`
 
-Required variants:
+Required categories:
 
 - `simple`
 - `medium`
 - `complex`
 
-Per-variant canary input counts:
+Per-category canary input counts:
 
 | Variant | Minimum rows in `canary.inputs.jsonl` | Required scenario mix |
 |---|---:|---|
 | `simple` | 6 | Happy draft, missing company profile, stale auth, duplicate draft, cap breach, portal reference not found. |
 | `medium` | 8 | Happy draft, upload success, upload hash mismatch, quote override, validation rejection, selector drift, resume draft, duplicate submission. |
-| `complex` | 10 | Multi-lot draft, multi-document upload, conditional declarations, legal acknowledgement boundary, final submit authorized, final submit blocked, validator outage, validation override, remote draft changed externally, unknown portal state reconciliation. |
+| `complex` | 10 | Multi-lot draft, multi-document upload, conditional declarations, legal declaration boundary, final submit authorized, final submit blocked, validator outage, validation override, remote draft changed externally, unknown portal state reconciliation. |
 
 The corpus must include at least one cassette or captured DOM/screenshot bundle per
 variant. The fast tier replays the captured material. The smoke tier attaches to
@@ -589,18 +674,46 @@ Every `canary.inputs.jsonl` row must include:
 - `cassette_ref`
 - `screenshot_expectations`
 - `redaction_sentinels`
+- `validator_rubric_ref`
+
+Every row has a stable `case_id` that keys the matching
+`golden.assertions.yaml` block and validator-rubric expectations. Monolithic
+YAML fixtures are invalid. `metadata.json` records category, row count,
+fixture provenance, source structure version, captured-at timestamp, and
+fixture refresh owner. `manifest.md` lists the cases, evidence bundles, and
+known portal constraints for the category.
 
 The canary harness must validate row counts before running individual cases so a
 partially populated corpus fails immediately.
+
+### 9.4.2 Validator Rubric Contract
+
+Every `validator-rubric.yaml` must define:
+
+- required evidence anchors for opportunity ref, process ID, lot IDs, candidate
+  IDs, quote IDs, company-profile version, screenshot checkpoints, side-effect
+  progression, and confirmation or draft evidence.
+- rejection categories for wrong opportunity, missing screenshots, non-monotonic
+  side effects, malformed confirmation reference, missing narrative citations,
+  PII leakage, and validator execution outage.
+- approval thresholds for clean simple, medium, and complex run manifests.
+- a rubric version string that is recorded in the validator overlay output and
+  daemon evidence appendix.
 
 ### 9.5 Redaction Contract
 
 The following sentinel classes must be injected by tests and absent from public
 or read-only surfaces:
 
-- BidScopePayload process IDs, lot IDs, candidate IDs, quote IDs, and portal refs.
-- Company registration number, address, directors, email, phone, certificate IDs,
-  bank/tax identifiers, and signer names.
+- BidScopePayload process IDs, lot IDs, candidate IDs, quote IDs, portal refs,
+  local document paths, and portal form field values.
+- Company profile fields: `companyName`, `registrationNumber`, `vatNumber`,
+  `address.line1`, `address.line2`, `address.city`, `address.county`,
+  `address.postcode`, `address.country`, `primaryContact.name`,
+  `primaryContact.email`, `primaryContact.phone`, `primaryContact.role`,
+  `certifications[].number`, `insurancePolicies[].policyNumber`,
+  `insurancePolicies[].coverAmountPence`, and
+  `financialStatements.companiesHouseRef`.
 - Raw portal form field values and uploaded document paths.
 - Run manifest body and forensic PTY byte paths for viewer role.
 
@@ -622,7 +735,7 @@ by artifact storage and redaction policy.
 | `L6-FR-1.2.5` | `L6-T-validator_overlay-003`, `L6-T-bid_portal_procontract_skill-011`, `L6-T-daemon_runner-007` |
 | `L6-FR-1.2.6` | `L6-T-daemon_runner-007`, `L6-T-validator_overlay-003` |
 | `L6-FR-1.2.7` | `L6-T-daemon_runner-008`, `L6-T-validator_overlay-004` |
-| `L6-FR-1.2.8` | `L6-T-error_codes-004`, `L6-T-portal_side_effects-012` |
+| `L6-FR-1.2.8` | `L6-T-error_codes-004`, `L6-T-portal_side_effects-012`, `L6-T-redaction_boundary-001`, `L6-T-redaction_boundary-002` |
 | `L6-FR-1.3.1` | `L6-T-bid_workflow_states-001`, `L6-T-bid_workflow_states-034` |
 | `L6-FR-1.3.2` | `L6-T-bid_workflow_states-002`, `L6-T-bid_workflow_states-003` |
 | `L6-FR-1.3.3` | `L6-T-bid_workflow_states-004`, `L6-T-bid_workflow_states-005` |
@@ -657,21 +770,21 @@ by artifact storage and redaction policy.
 | `L6-FR-1.4.2` | `L6-T-bid_workflow_states-030` |
 | `L6-FR-1.4.3` | `L6-T-bid_workflow_states-030` |
 | `L6-FR-1.4.4` | `L6-T-bid_workflow_states-030`, `L6-T-bid_readiness_gate-009` |
-| `L6-FR-1.4.5` | `L6-T-bid_readiness_gate-008`, `L6-T-bid_portal_procontract_skill-007` |
+| `L6-FR-1.4.5` | `L6-T-bid_readiness_gate-008`, `L6-T-bid_portal_procontract_skill-007`, `L6-T-redaction_boundary-001`, `L6-T-redaction_boundary-003`, `L6-T-redaction_boundary-004`, `L6-T-redaction_boundary-006` |
 | `L6-FR-1.4.6` | `L6-T-bid_portal_procontract_skill-001`, `L6-T-daemon_runner-005` |
 | `L6-FR-1.4.7` | `L6-T-bid_readiness_gate-014`, `L6-T-bid_portal_procontract_skill-006` |
 | `L6-FR-1.4.8` | `L6-T-bid_workflow_states-032`, `L6-T-desktop_ui-007`, `L6-T-live_demo-002` |
 | `L6-FR-1.4.9` | `L6-T-bid_workflow_states-031` |
 | `L6-FR-1.4.10` | `L6-T-bid_workflow_states-032`, `L6-T-portal_side_effects-004`, `L6-T-portal_side_effects-005`, `L6-T-portal_side_effects-006` |
 | `L6-FR-1.4.11` | `L6-T-portal_side_effects-001` |
-| `L6-FR-1.4.12` | `L6-T-bid_workflow_states-033`, `L6-T-sync_propagation-002` |
+| `L6-FR-1.4.12` | `L6-T-bid_workflow_states-033`, `L6-T-sync_propagation-002`, `L6-T-sync_propagation-004`, `L6-T-redaction_boundary-005` |
 | `L6-FR-1.5.1` | `L6-T-desktop_ui-001`, `L6-T-ipc_trigger_bid_workflow-002` |
 | `L6-FR-1.5.2` | `L6-T-ipc_trigger_bid_workflow-001`, `L6-T-desktop_ui-001` |
 | `L6-FR-1.5.3` | `L6-T-ipc_trigger_bid_workflow-003`, `L6-T-daemon_runner-006` |
 | `L6-FR-1.5.4` | `L6-T-daemon_runner-006`, `L6-T-bid_workflow_states-030` |
 | `L6-FR-1.5.5` | `L6-T-daemon_runner-004` |
 | `L6-FR-1.5.6` | `L6-T-daemon_runner-004`, `L6-T-bid_portal_procontract_skill-001` |
-| `L6-FR-1.5.7` | `L6-T-daemon_runner-005`, `L6-T-bid_portal_procontract_skill-007` |
+| `L6-FR-1.5.7` | `L6-T-daemon_runner-005`, `L6-T-bid_portal_procontract_skill-007`, `L6-T-redaction_boundary-001`, `L6-T-redaction_boundary-003`, `L6-T-redaction_boundary-006` |
 | `L6-FR-1.5.8` | `L6-T-bid_portal_procontract_skill-006` |
 | `L6-FR-1.5.9` | `L6-T-bid_portal_procontract_skill-005`, `L6-T-daemon_runner-009` |
 | `L6-FR-1.5.10` | `L6-T-bid_portal_procontract_skill-006` |
@@ -682,14 +795,14 @@ by artifact storage and redaction policy.
 | `L6-FR-1.5.15` | `L6-T-daemon_runner-007` |
 | `L6-FR-1.5.16` | `L6-T-daemon_runner-008` |
 | `L6-FR-1.5.17` | `L6-T-bid_workflow_states-010`, `L6-T-validator_overlay-008`, `L6-T-validator_overlay-010` |
-| `L6-FR-1.5.18` | `L6-T-error_codes-004`, `L6-T-portal_side_effects-012`, `L6-T-bid_workflow_states-012` |
-| `L6-FR-1.5.19` | `L6-T-sync_propagation-001`, `L6-T-sync_propagation-002`, `L6-T-sync_propagation-003` |
+| `L6-FR-1.5.18` | `L6-T-error_codes-004`, `L6-T-portal_side_effects-012`, `L6-T-bid_workflow_states-012`, `L6-T-redaction_boundary-001`, `L6-T-redaction_boundary-002` |
+| `L6-FR-1.5.19` | `L6-T-sync_propagation-001`, `L6-T-sync_propagation-002`, `L6-T-sync_propagation-003`, `L6-T-sync_propagation-004`, `L6-T-redaction_boundary-005` |
 | `L6-FR-1.6.1` | `L6-T-bid_portal_procontract_skill-002` |
 | `L6-FR-1.6.2` | `L6-T-bid_portal_procontract_skill-006`, `L6-T-bid_portal_procontract_skill-007`, `L6-T-bid_portal_procontract_skill-008`, `L6-T-bid_portal_procontract_skill-009`, `L6-T-bid_portal_procontract_skill-010` |
 | `L6-FR-1.6.3` | `L6-T-bid_readiness_gate-008`, `L6-T-bid_portal_procontract_skill-007` |
-| `L6-FR-1.6.4` | `L6-T-validator_overlay-001`, `L6-T-validator_overlay-002`, `L6-T-validator_overlay-003`, `L6-T-validator_overlay-004`, `L6-T-validator_overlay-005`, `L6-T-validator_overlay-006`, `L6-T-validator_overlay-007` |
-| `L6-FR-1.6.5` | `L6-T-daemon_runner-001` |
-| `L6-FR-1.6.6` | `L6-T-error_codes-001`, `L6-T-error_codes-002`, `L6-T-error_codes-003`, `L6-T-error_codes-004` |
+| `L6-FR-1.6.4` | `L6-T-validator_overlay-001`, `L6-T-validator_overlay-002`, `L6-T-validator_overlay-003`, `L6-T-validator_overlay-004`, `L6-T-validator_overlay-005`, `L6-T-validator_overlay-006`, `L6-T-validator_overlay-007`, `L6-T-validator_overlay-012` |
+| `L6-FR-1.6.5` | `L6-T-daemon_runner-001`, `L6-T-daemon_runner-012` |
+| `L6-FR-1.6.6` | `L6-T-error_codes-001`, `L6-T-error_codes-002`, `L6-T-error_codes-003`, `L6-T-error_codes-004`, `L6-T-error_codes-005`, `L6-T-error_codes-006`, `L6-T-error_codes-007`, `L6-T-error_codes-008`, `L6-T-error_codes-009`, `L6-T-error_codes-010`, `L6-T-error_codes-011`, `L6-T-error_codes-012`, `L6-T-error_codes-013`, `L6-T-error_codes-014`, `L6-T-error_codes-015`, `L6-T-error_codes-016`, `L6-T-error_codes-017`, `L6-T-error_codes-018`, `L6-T-error_codes-019`, `L6-T-error_codes-020`, `L6-T-error_codes-021`, `L6-T-error_codes-022`, `L6-T-error_codes-023` |
 | `L6-FR-1.7.1` | `L6-T-bid_portal_procontract_skill-001`, `L6-T-bid_portal_procontract_skill-004` |
 | `L6-FR-1.7.2` | `L6-T-daemon_runner-004`, `L6-T-bid_portal_procontract_skill-004` |
 | `L6-FR-1.7.3` | `L6-T-daemon_runner-002`, `L6-T-bid_portal_procontract_skill-001` |
@@ -712,17 +825,17 @@ by artifact storage and redaction policy.
 | `L6-FR-1.7.20` | `L6-T-portal_side_effects-004`, `L6-T-portal_side_effects-005`, `L6-T-error_codes-004` |
 | `L6-FR-1.8.1` | `L6-T-validator_overlay-003`, `L6-T-daemon_runner-007` |
 | `L6-FR-1.8.2` | `L6-T-daemon_runner-007` |
-| `L6-FR-1.8.3` | `L6-T-daemon_runner-008` |
-| `L6-FR-1.8.4` | `L6-T-sync_propagation-002`, `L6-T-bid_workflow_states-033` |
-| `L6-FR-1.8.5` | `L6-T-error_codes-004`, `L6-T-portal_side_effects-012` |
+| `L6-FR-1.8.3` | `L6-T-daemon_runner-008`, `L6-T-redaction_boundary-003`, `L6-T-redaction_boundary-004` |
+| `L6-FR-1.8.4` | `L6-T-sync_propagation-002`, `L6-T-sync_propagation-004`, `L6-T-bid_workflow_states-033`, `L6-T-redaction_boundary-005` |
+| `L6-FR-1.8.5` | `L6-T-error_codes-004`, `L6-T-portal_side_effects-012`, `L6-T-redaction_boundary-001`, `L6-T-redaction_boundary-002` |
 | `L6-FR-1.8.6` | `L6-T-validator_overlay-005`, `L6-T-bid_workflow_states-024` |
 | `L6-FR-1.9.1` | `L6-T-sync_propagation-001`, `L6-T-sync_propagation-002` |
 | `L6-FR-1.9.2` | `L6-T-bid_workflow_states-034` |
-| `L6-FR-1.9.3` | `L6-T-web_ui-001`, `L6-T-web_ui-002`, `L6-T-web_ui-003`, `L6-T-sync_propagation-003` |
+| `L6-FR-1.9.3` | `L6-T-web_ui-001`, `L6-T-web_ui-002`, `L6-T-web_ui-003`, `L6-T-sync_propagation-003`, `L6-T-sync_propagation-004`, `L6-T-redaction_boundary-005` |
 | `L6-FR-1.10.1` | `L6-T-bid_readiness_gate-001`, `L6-T-ipc_trigger_bid_workflow-002` |
 | `L6-FR-1.10.2` | `L6-T-portal_side_effects-004`, `L6-T-portal_side_effects-005`, `L6-T-portal_side_effects-006` |
 | `L6-FR-1.10.3` | `L6-T-bid_workflow_states-030`, `L6-T-ipc_trigger_bid_workflow-004` |
-| `L6-FR-1.10.4` | `L6-T-daemon_runner-007`, `L6-T-daemon_runner-008`, `L6-T-validator_overlay-003` |
+| `L6-FR-1.10.4` | `L6-T-daemon_runner-007`, `L6-T-daemon_runner-008`, `L6-T-validator_overlay-003`, `L6-T-validator_overlay-012`, `L6-T-redaction_boundary-003`, `L6-T-redaction_boundary-004` |
 | `L6-FR-1.10.5` | `L6-T-bid_workflow_states-031`, `L6-T-bid_readiness_gate-002` |
 | `L6-FR-1.10.6` | `L6-T-bid_readiness_gate-003`, `L6-T-bid_readiness_gate-004`, `L6-T-bid_readiness_gate-005`, `L6-T-bid_readiness_gate-006`, `L6-T-bid_readiness_gate-007` |
 | `L6-FR-1.10.7` | `L6-T-validator_overlay-008`, `L6-T-validator_overlay-009`, `L6-T-validator_overlay-010` |
@@ -733,7 +846,7 @@ by artifact storage and redaction policy.
 | `L6-FR-2.1.4` | `L6-T-bid_portal_procontract_skill-010`, `L6-T-validator_overlay-003` |
 | `L6-FR-2.1.5` | `L6-T-daemon_runner-007` |
 | `L6-FR-2.1.6` | `L6-T-daemon_runner-008` |
-| `L6-FR-2.1.7` | `L6-T-error_codes-004`, `L6-T-portal_side_effects-012` |
+| `L6-FR-2.1.7` | `L6-T-error_codes-004`, `L6-T-portal_side_effects-012`, `L6-T-redaction_boundary-001`, `L6-T-redaction_boundary-002` |
 | `L6-FR-2.1.8` | `L6-T-live_demo-002`, `L6-T-live_demo-003` |
 | `L6-FR-2.1.9` | `L6-T-desktop_ui-004`, `L6-T-bid_workflow_states-008`, `L6-T-bid_workflow_states-016`, `L6-T-live_demo-002` |
 | `L6-FR-2.1.10` | `L6-T-bid_readiness_gate-003`, `L6-T-bid_readiness_gate-004`, `L6-T-bid_readiness_gate-005`, `L6-T-bid_readiness_gate-006`, `L6-T-bid_readiness_gate-007` |
@@ -746,7 +859,7 @@ by artifact storage and redaction policy.
 | Unique spec requirements | 127 |
 | Requirements mapped to at least one test | 127 |
 | Unmapped requirements | 0 |
-| Requirement-bearing `L6-T-*` IDs | 127 |
+| Requirement-bearing `L6-T-*` IDs | 153 |
 | Static CI gates | 10 |
 | New package test files | 3 |
 | Cumulative Rust integration plus package test files after L6 package tests | 60 |
@@ -760,7 +873,8 @@ by artifact storage and redaction policy.
    propagation-site target, and this TDD.
 3. The validator overlay override path is narrow: it applies only to final-submit
    validator rejection/outage with structured operator reason. It does not weaken
-   readiness gates.
+   non-overrideable readiness gates. Upstream trust-debt acceptance remains a
+   separate, scope-matched readiness exception under `L6-FR-1.3.22`.
 4. The live demo is a proof of the skill-first pipeline under `REMOTE_DRAFT`; it
    is not authority to run formal submission.
 5. Completion audit must rerun the full daemon integration loop, not just
