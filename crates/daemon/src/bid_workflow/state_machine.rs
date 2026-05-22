@@ -1,7 +1,8 @@
 use std::error::Error;
 use std::fmt::{self, Display, Formatter};
+use std::str::FromStr;
 
-use super::types::BidWorkflowState;
+use super::types::{BidStateValidationError, BidWorkflowState};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BidTransition {
@@ -48,6 +49,10 @@ impl BidStateMachine {
         Self { state }
     }
 
+    pub fn from_state_str(state: &str) -> Result<Self, BidStateValidationError> {
+        BidWorkflowState::from_str(state).map(Self::new)
+    }
+
     #[must_use]
     pub const fn state(&self) -> BidWorkflowState {
         self.state
@@ -59,5 +64,20 @@ impl BidStateMachine {
         _transition: BidTransition,
     ) -> Result<BidWorkflowState, BidStateTransitionError> {
         Err(BidStateTransitionError::phase3_pending())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{BidStateMachine, BidWorkflowState};
+
+    #[test]
+    fn l6_t_bid_workflow_states_001_state_machine_entry_validates_lifecycle_strings() {
+        let machine =
+            BidStateMachine::from_state_str("ready_to_bid").expect("valid lifecycle state");
+
+        assert_eq!(machine.state(), BidWorkflowState::ReadyToBid);
+        assert!(BidStateMachine::from_state_str("READY_TO_BID").is_err());
+        assert!(BidStateMachine::from_state_str("").is_err());
     }
 }
