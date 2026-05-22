@@ -10,8 +10,8 @@
 > PIPELINE**. Requirement IDs (`L6-FR-X.Y.Z`) added; 5 operator decisions transcribed in
 > §1.0; naming reconciliation Proactis=Procontract confirmed; L5→L6 readiness gate
 > preserved verbatim. Pipeline at `docs/pipeline/l6-request-pipeline-automation/`.
-> Stage 15 (`bid_workflow`) deferred handoff at `prompts/stage-15-bid-workflow-handoff-DEFERRED.md`
-> will be reopened or superseded once L6 implementation completes.
+> Historical Stage 15 (`bid_workflow`) handoff material remains under `prompts/`
+> for context and will be reopened or superseded once L6 implementation completes.
 
 ---
 
@@ -207,9 +207,9 @@ recorded_decisions:
     recorded_at: "2026-05-21"
 ```
 
-### 1.0A Operator Decisions Required Before Step 07
+### 1.0A Remaining Decisions Required Before Step 07
 
-The following Tier 1 questions from `manifest.yaml#open_questions` are not pre-resolved in `recorded_decisions`. Step 07 bead creation cannot proceed until each is either recorded as a new operator decision or explicitly converted into a strategy-owned constraint.
+The following Tier 1 questions from `manifest.yaml#open_questions` remain unresolved after the 5 recorded decisions above. Step 07 bead creation cannot proceed until each is either recorded as a new operator decision or explicitly converted into a strategy-owned constraint. q4/q5 are resolved by Decision 5 and are not Step 07 blockers.
 
 ⚠ OPERATOR DECISION REQUIRED — q1 module placement
 - Options: (A) Phase 1 creates `crates/daemon/src/bid_workflow/` module skeleton; Phase 2 dispatch wires to stub; Phase 3 fills bodies. (B) Inline `run_bid_workflow_job(...)` in `main.rs`. (C) Create a separate `crates/bidding-runner/` sibling crate.
@@ -226,15 +226,10 @@ The following Tier 1 questions from `manifest.yaml#open_questions` are not pre-r
 - Recommended default: A.
 - Blocks: step 03 TDD and Phase 1 daemon code.
 
-⚠ OPERATOR DECISION REQUIRED — q4 default `reviewRequired`
-- Options: (A) default true, requiring operator review for every draft before final submission. (B) default false when validation is clear. (C) make it a per-opportunity desktop choice with no global default.
-- Recommended default: A.
-- Blocks: Phase 6 desktop UI default and Phase 7 live-demo policy.
-
-⚠ OPERATOR DECISION REQUIRED — q5 default `sideEffectCap`
-- Options: (A) default `REMOTE_DRAFT`; operator explicitly raises cap for `FORMAL_SUBMISSION`. (B) default `FORMAL_SUBMISSION` when validation passes. (C) make it a per-opportunity desktop choice with no global default.
-- Recommended default: A.
-- Blocks: Phase 6 desktop UI and Phase 7 live-demo policy.
+Resolved by Decision 5 — q4/q5 defaults
+- `reviewRequired` defaults to `true`; every desktop-initiated bid reaches `draft_saved` for operator review unless the operator explicitly disables review for a chosen genuine opportunity.
+- `sideEffectCap` defaults to `REMOTE_DRAFT`; raising the cap to `FORMAL_SUBMISSION` requires separate explicit operator authorization for that opportunity.
+- Phase 6 desktop UI and Phase 7 live-demo beads must encode these defaults directly instead of reopening q4/q5.
 
 ⚠ OPERATOR DECISION REQUIRED — q6 SQL `bid_state` CHECK constraint
 - Options: (A) add a new migration with a SQL CHECK constraint for the seven L6 states. (B) rely on Rust enum enforcement only and avoid schema churn.
@@ -394,18 +389,18 @@ Every bid workflow carries an explicit scope payload — NOT whole-process blank
 
 | ID | Field / type | Acceptance criteria |
 |----|--------------|---------------------|
-| L6-FR-1.4.1 | `processId` | Required; identifies the process whose approved operator decision and pipeline rollup are being used. |
-| L6-FR-1.4.2 | `lotIds[]` | Required; records exactly which lots are in bid scope. |
-| L6-FR-1.4.3 | `candidateIds[]` | Required; records exactly which product candidates back the bid. |
-| L6-FR-1.4.4 | `selectedQuoteIds[]` | Required; records exactly which supplier quotes informed pricing and qualification responses. |
-| L6-FR-1.4.5 | `companyProfileVersion` | Required; pins the `shared_company_profile` version used for form filling and document validation. |
-| L6-FR-1.4.6 | `bidPortalType` | Required; uses `procontract` for the initial Proactis/Procontract portal implementation. |
-| L6-FR-1.4.7 | `portalOpportunityRef` | Required; deterministic target for a mutating workflow. Missing or ambiguous refs block start. |
-| L6-FR-1.4.8 | `reviewRequired` | Required boolean; default remains an operator decision before step 07 (recommended: true). |
-| L6-FR-1.4.9 | `decisionBasisHash` | Required SHA-256 over pipeline assessment, selected quotes, company profile version, document hashes, classification freshness, and L5 blocker state. |
-| L6-FR-1.4.10 | `sideEffectCap` | Required maximum side-effect class for the run; default remains an operator decision before step 07 (recommended: `REMOTE_DRAFT`). |
+| L6-FR-1.4.1 | `processId: string` | Required; FK to `procurement_processes.id`; process must have an approved operator decision and current pipeline rollup. |
+| L6-FR-1.4.2 | `lotIds: string[]` | Required non-empty array; each value is an FK to `notice_lots.id` and must belong to `processId`. |
+| L6-FR-1.4.3 | `candidateIds: string[]` | Required non-empty array; each value is an FK to `product_candidates.id` and must belong to one of the selected lots. |
+| L6-FR-1.4.4 | `selectedQuoteIds: string[]` | Required non-empty array; each value is an FK to `supplier_quotes.id` and must belong to one of the selected candidates. |
+| L6-FR-1.4.5 | `companyProfileVersion: string` | Required; pins the `shared_company_profile` version used for form filling and document validation; missing or expired required profile documents block readiness. |
+| L6-FR-1.4.6 | `bidPortalType: string` | Required; currently only string literal `procontract` is accepted for the initial Procontract portal implementation. |
+| L6-FR-1.4.7 | `portalOpportunityRef: string` | Required non-empty string; deterministic target for a mutating workflow; missing, ambiguous, or portal-unresolvable refs block start. |
+| L6-FR-1.4.8 | `reviewRequired: boolean` | Required; defaults to `true` per Decision 5; disabling review requires explicit operator authorization for the selected opportunity. |
+| L6-FR-1.4.9 | `decisionBasisHash: string` | Required 64-character SHA-256 over pipeline assessment, selected quotes, company profile version, document hashes, classification freshness, and L5 blocker state. |
+| L6-FR-1.4.10 | `sideEffectCap: SideEffectClass` | Required; defaults to `REMOTE_DRAFT` per Decision 5; `FORMAL_SUBMISSION` requires separate explicit operator authorization. |
 | L6-FR-1.4.11 | `SideEffectClass` values | All six side-effect classes are supported: `READ_ONLY`, `REMOTE_DRAFT`, `NOTIFICATION_OR_LOCK`, `LEGAL_DECLARATION`, `FORMAL_SUBMISSION`, and `FUNDS_COMMITTED`. Retry/reconciliation rules match the inline comments in the type union below. |
-| L6-FR-1.4.12 | Persistence | The full payload is persisted in `bid_workflow_states.bid_scope_json` and synced with bid state metadata only through the daemon-owned push path. |
+| L6-FR-1.4.12 | Persistence | The full payload is persisted in nullable schema column `bid_workflow_states.bid_scope_json` as non-null JSON for every `bid_in_progress`, `draft_saved`, `bid_submitted`, `bid_failed`, or `portal_state_unknown` bid job; sync uses only the daemon-owned push path. |
 
 **Decision basis hash L5 freshness vectors:** `decisionBasisHash` covers the process-level `pipeline_assessments` basis, selected supplier quote versions, `shared_company_profile` version, per-candidate `landed_cost_estimates.classification_fresh_until`, the `classification_fresh_until_expired()` result, and L5 tariff/measures/remedies/FX vector hashes. Any change makes `reviewedBasisHash != current decisionBasisHash` and blocks bid start until operator re-affirmation.
 
@@ -416,11 +411,11 @@ interface BidScopePayload {
   candidateIds: string[]              // Which product candidates back this bid
   selectedQuoteIds: string[]          // Which supplier quotes informed the pricing
   companyProfileVersion: string       // Version of shared_company_profile used
-  bidPortalType: string               // e.g., 'procontract', 'jaggaer', 'atamis'
+  bidPortalType: string               // Required; currently only 'procontract'
   portalOpportunityRef: string        // Portal-specific opportunity reference (REQUIRED — deterministic target for mutating workflow)
-  reviewRequired: boolean             // Does the operator need to sign off before final submission?
+  reviewRequired: boolean             // Required; defaults true per Decision 5
   decisionBasisHash: string           // SHA-256 covering: pipeline assessment, selected quotes, company profile version, document hashes, classification freshness, L5 blocker state
-  sideEffectCap: SideEffectClass      // Maximum side-effect class authorized for this workflow run
+  sideEffectCap: SideEffectClass      // Required; defaults REMOTE_DRAFT per Decision 5
 }
 
 type SideEffectClass =
@@ -434,7 +429,7 @@ type SideEffectClass =
 
 The scope payload is persisted on `bid_workflow_states.bid_scope_json` (JSON column, existed as nullable from Layer 0).
 
-**Side-effect default callout:** The manifest recommends `sideEffectCap = REMOTE_DRAFT` when `reviewRequired = true`, and `FORMAL_SUBMISSION` only when the operator explicitly toggles `reviewRequired = false` and confirms a known opportunity ref. Because q4/q5 are Tier 1 open questions, step 07 must capture operator confirmation before bead creation. The first live demo uses `sideEffectCap = REMOTE_DRAFT`.
+**Side-effect default callout:** Decision 5 sets `reviewRequired = true` and `sideEffectCap = REMOTE_DRAFT` as L6 defaults. `FORMAL_SUBMISSION` is available only when the operator explicitly toggles review off for a chosen genuine opportunity and confirms the portal opportunity ref. The first live demo uses `sideEffectCap = REMOTE_DRAFT`.
 
 ### 1.5 Bid Workflow Flow
 
@@ -607,7 +602,7 @@ interface CompanyProfile {
 | ID | Step | Action | Screenshot | Side-Effect Class |
 |----|------|--------|------------|-------------------|
 | L6-FR-1.7.7 | 1 | Navigate to Procontract portal login page | Yes | `READ_ONLY` |
-| L6-FR-1.7.8 | 2 | Verify authenticated state or return `AUTH_STATE_STALE` for daemon retry | Yes | `READ_ONLY` |
+| L6-FR-1.7.8 | 2 | Verify authenticated state or return `AUTH_STATE_STALE`; daemon runs existing `skills/auth-signin/procontract/` and retries the bid job | Yes | `READ_ONLY` |
 | L6-FR-1.7.9 | 3 | Search/navigate to the target opportunity | Yes | `READ_ONLY` |
 | L6-FR-1.7.10 | 4 | Verify opportunity matches expected tender reference + check for existing draft/submission | Yes | `READ_ONLY` |
 | L6-FR-1.7.11 | 5 | Open bid response form | Yes | `READ_ONLY` |
@@ -630,6 +625,9 @@ interface CompanyProfile {
   - `REMOTE_DRAFT`: Must `verifyPortalState()` before retry. If draft exists, resume from draft. If not, retry from scratch.
   - `NOTIFICATION_OR_LOCK` / `LEGAL_DECLARATION`: Human must reconfirm. State transitions to `portal_state_unknown`.
   - `FORMAL_SUBMISSION`: Never blind retry. State transitions to `portal_state_unknown`. Human verifies.
+  - `FUNDS_COMMITTED`: Not used by the initial Procontract playbook; if any portal path reaches it, the run stops at `portal_state_unknown` and requires human reconciliation before any retry.
+
+The initial Procontract playbook performs only `READ_ONLY`, `REMOTE_DRAFT`, and `FORMAL_SUBMISSION` actions. `NOTIFICATION_OR_LOCK`, `LEGAL_DECLARATION`, and `FUNDS_COMMITTED` remain part of the shared `SideEffectClass` union for portal adapters whose forms expose those boundaries; L6 still requires runtime detection, cap enforcement, and reconciliation handling if Procontract unexpectedly surfaces one of them.
 
 ### 1.8 Audit Trail (Constitutional)
 
@@ -662,14 +660,14 @@ Every bid submission produces a complete, traceable audit trail:
 
 | ID | Invariant | Enforcement |
 |----|-----------|-------------|
-| L6-FR-1.10.1 | No real-money bids without human approval | Bid workflow requires operator `approved` disposition on `operator_decision_heads` |
-| L6-FR-1.10.2 | No externally visible portal mutation beyond approved side-effect class | `sideEffectCap` on `BidScopePayload` limits maximum side-effect class; exceeded cap → save draft and stop |
-| L6-FR-1.10.3 | Bid workflow carries explicit scope | `bid_scope_json` payload with lot/candidate IDs — no blanket bids |
-| L6-FR-1.10.4 | Full audit trail for submissions | Screenshots, terminal output, run manifest captured for every step including side-effect class reached |
-| L6-FR-1.10.5 | Stale decisions block bid | `reviewedBasisHash != decisionBasisHash` → bid blocked until re-affirm |
-| L6-FR-1.10.6 | L5 readiness gate | Active L5 blockers (`CLASSIFICATION_AMBIGUOUS`, `TARIFF_BRANCH_DIVERGENCE`, `SUPPLEMENTARY_UNIT_MISSING`, `broker_required`) block `ready_to_bid`; see `docs/strategy/layer-strategy.md` §10 Interface Contracts and `docs/strategy/cross-reference-index.md` rows 230 and 232 |
-| L6-FR-1.10.7 | Validation fail-closed for portal submission | Validator rejection or outage blocks `bid_submitted`; `draft_saved` permitted without validation clearance |
-| L6-FR-1.10.8 | Quote-role quality gate | `domestic_wholesale_floor`-only or `optimistic_floor`-only evidence requires explicit operator override for bid readiness |
+| L6-FR-1.10.1 | No real-money bids without human approval | `trigger_bid_workflow` readiness pre-check and the state-machine `not_started`/`ready_to_bid` guard require `operator_decision_heads.disposition = 'approved'`; `pending_operator_intents` is rejected in `bid-readiness-gate.test.ts`. |
+| L6-FR-1.10.2 | No externally visible portal mutation beyond approved side-effect class | Bid runner checks the next playbook step against `BidScopePayload.sideEffectCap` before execution; cap breach saves draft when possible, stops before escalation, emits the selected bid cap error code, and is covered by `portal-side-effects.test.ts`. |
+| L6-FR-1.10.3 | Bid workflow carries explicit scope | IPC trigger schema and readiness gate require non-empty `processId`, `lotIds`, `candidateIds`, `selectedQuoteIds`, `portalOpportunityRef`, `decisionBasisHash`, and `sideEffectCap`; FK ownership is checked before writing `bid_scope_json`; missing scope is covered by `bid-workflow-states.test.ts`. |
+| L6-FR-1.10.4 | Full audit trail for submissions | Bid skill must emit per-step screenshot paths, the daemon stores compressed PTY output, and the run manifest writer links screenshots plus side-effect progression; `overlay-bid-portal-procontract` rejects missing screenshots for the observed run shape. |
+| L6-FR-1.10.5 | Stale decisions block bid | Readiness gate computes current `decisionBasisHash` before start/resume/final submit; `reviewedBasisHash != current decisionBasisHash` blocks the transition and is covered by `bid-workflow-states.test.ts`. |
+| L6-FR-1.10.6 | L5 readiness gate | Readiness gate consumes the L5 projection whose gate conditions are `CLASSIFICATION_AMBIGUOUS`, `TARIFF_BRANCH_DIVERGENCE`, required-component `SUPPLEMENTARY_UNIT_MISSING`, `decision_grade = broker_required`, and `CLASSIFICATION_FRESH_UNTIL_EXPIRED`; failures block `ready_to_bid` and are covered by `bid-readiness-gate.test.ts`. |
+| L6-FR-1.10.7 | Validation fail-closed for portal submission | `validation_policy: always` runs validation, but the bid state machine independently blocks `bid_submitted` on validator rejection or outage unless a structured operator validation-gate override is stored in bid metadata and the run manifest; `draft_saved` remains permitted. |
+| L6-FR-1.10.8 | Quote-role quality gate | Readiness gate checks selected quote roles; `domestic_wholesale_floor`-only or `optimistic_floor`-only evidence blocks bid readiness unless a structured operator override record exists and is cited in the run manifest; covered by `bid-readiness-gate.test.ts`. |
 
 ---
 
@@ -702,7 +700,7 @@ Every bid submission produces a complete, traceable audit trail:
 | 5 | L6-FR-1.2.6, L6-FR-1.5.15, L6-FR-1.8.2 |
 | 6 | L6-FR-1.2.7, L6-FR-1.5.16, L6-FR-1.8.3 |
 | 7 | L6-FR-1.2.8, L6-FR-1.5.18, L6-FR-1.8.5, L6-FR-1.6.6 |
-| 8 | L6-FR-1.1.1, L6-FR-1.2.1, L6-FR-1.2.8, L6-FR-1.5.1 through L6-FR-1.5.19 |
+| 8 | L6-FR-1.1.1, L6-FR-1.2.1, L6-FR-1.2.8, L6-FR-1.5.1, L6-FR-1.5.2, L6-FR-1.5.3, L6-FR-1.5.4, L6-FR-1.5.5, L6-FR-1.5.6, L6-FR-1.5.7, L6-FR-1.5.8, L6-FR-1.5.9, L6-FR-1.5.10, L6-FR-1.5.11, L6-FR-1.5.12, L6-FR-1.5.13, L6-FR-1.5.14, L6-FR-1.5.15, L6-FR-1.5.16, L6-FR-1.5.17, L6-FR-1.5.18, L6-FR-1.5.19 |
 | 9 | L6-FR-1.3.5, L6-FR-1.3.9, L6-FR-1.3.27, L6-FR-1.3.28, L6-FR-1.5.14, L6-FR-1.7.16 |
 | 10 | L6-FR-1.3.18, L6-FR-1.3.19, L6-FR-1.3.25, L6-FR-1.10.6 |
 | 11 | L6-FR-1.3.23, L6-FR-1.7.4, L6-FR-1.10.7 |
@@ -716,6 +714,8 @@ Every bid submission produces a complete, traceable audit trail:
 | `bid-workflow-states.test.ts` | State machine transitions including `draft_saved`, `portal_state_unknown`; side-effect class tracking; L5 readiness gate; staleness checks; `decisionBasisHash` completeness |
 | `portal-side-effects.test.ts` | Side-effect class assignment per portal step; crash-after-`REMOTE_DRAFT` recovery with `verifyPortalState()`; duplicate-submission detection; `sideEffectCap` enforcement |
 | `bid-readiness-gate.test.ts` | L5 blocker checks (`CLASSIFICATION_AMBIGUOUS`, `TARIFF_BRANCH_DIVERGENCE`, `SUPPLEMENTARY_UNIT_MISSING`, `broker_required`); quote-role quality gate; classification freshness for import window; company profile document expiry |
+
+**Validator overlay deliverable:** L6 also creates `skills/validation/overlay-bid-portal-procontract/` per Decision 3. The overlay follows the `skills/validation/overlay-supplier-enrichment/` frontmatter pattern and owns portal-specific validation assertions for opportunity ref, screenshot completeness, side-effect progression/cap, confirmation ref, lot/candidate citations, and PII redaction. These assertions are exercised through the three test files above plus the validation calibration fixtures.
 
 ### 2.3 Test Scenarios
 
