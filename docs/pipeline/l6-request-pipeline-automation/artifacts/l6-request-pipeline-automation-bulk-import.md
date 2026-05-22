@@ -478,6 +478,37 @@ Note: Phase 3 beads still IMPLEMENT the runtime behaviors that support these FRs
 
 Post-fix routing violations: 0/127 (verified by full-strategy diff).
 
+### E13 — Round 4 cleanup: false-positive paths in Files section (Phase 2)
+
+Round 4 ultrathink audit ran `bin/br-claim`'s `parse_files_from_bead()` regex against EVERY task bead's Files section (not just Phase 6). Two beads had backticked tokens inside their Files section that the regex would extract as paths but which are NOT actual file paths:
+
+- **`testproject1-3yqf.2.1`** (job-dispatch-arm): had a backticked code snippet `` `"run_bid_workflow" => bid_workflow::runner::run_bid_workflow_job(runtime, &runner, claimed).await` `` inline in a "Modify:" bullet describing the dispatch arm content. The `.await` extension made the regex extract it as a "path". **Fixed**: rephrased the bullet to describe the change WITHOUT inlining the code snippet (the snippet now lives in the Implementation Details section instead).
+
+- **`testproject1-3yqf.2.4`** (ipc-trigger-handler): had two problematic backticked tokens:
+  - `` `crates/daemon/src/ipc/<schema_or_registry>.rs` `` — placeholder text with `<>` angle brackets that doesn't resolve to a real file. **Fixed**: replaced with concrete language pointing the implementing agent to grep for the existing IPC route registry (typically `crates/daemon/src/ipc/mod.rs`).
+  - `` `apps/desktop/src/lib/daemon-bridge.ts` `` — stale path that should be `transport.ts` (the real TS-side bridge). **Fixed**: replaced with `apps/desktop/src/lib/transport.ts` + explanatory note (parenthetical without backticks to avoid spurious extractions).
+
+After fixes:
+- Suspicious paths in Files sections across all 63 task beads: **0** (verified via `bin/br-claim` regex simulator).
+- `bin/br-claim` now reserves only real file paths for every L6 bead.
+
+### E14 — Strategy "Operator Action Gates" coverage check
+
+Round 4 audit verified Phase 7's operator action gate coverage against strategy lines 458-471. All 10 gates covered:
+
+| Gate | Pattern | Covered |
+|------|---------|---------|
+| Phase closure via bin/br-complete | `bin/br-complete` | ✓ |
+| Quality gate evidence retention | `quality gate` | ✓ |
+| AgentMail health green | `AgentMail` | ✓ |
+| CDP helper success | `ensure-cdp-9222` | ✓ |
+| Procontract credential confirmation | `credential` | ✓ |
+| Live opportunity reference recorded | `opportunity ref` | ✓ |
+| L5 blocker absence on live scope | `L5 blocker` | ✓ |
+| First run cap = REMOTE_DRAFT | `REMOTE_DRAFT` | ✓ |
+| FORMAL_SUBMISSION operator authorization | `FORMAL_SUBMISSION` | ✓ |
+| Company profile populated | `company profile` | ✓ |
+
 ### E12 — Redaction sentinel enumeration shorthand
 
 Phase 3 bead `l6-p3-redaction-boundary-daemon` (3.10) uses category shorthand "address.* fields" and "primaryContact.* fields" in its bead body when listing the 17 PII sentinel fields. The implementing agent MUST consult TDD §7.13 `L6-T-redaction_boundary-001` for the EXACT enumeration of 17 fields:
