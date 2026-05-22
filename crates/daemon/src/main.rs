@@ -41,6 +41,8 @@ mod errors {
     pub mod markdown;
 }
 
+mod bid_workflow;
+
 #[allow(dead_code)]
 mod jobs {
     pub mod claim;
