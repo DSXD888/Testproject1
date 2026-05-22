@@ -15,6 +15,77 @@ export interface BridgeErrorPayload {
   details?: Record<string, unknown> | null;
 }
 
+export type BidWorkflowSideEffectCap =
+  | 'READ_ONLY'
+  | 'REMOTE_DRAFT'
+  | 'NOTIFICATION_OR_LOCK'
+  | 'LEGAL_DECLARATION'
+  | 'FORMAL_SUBMISSION'
+  | 'FUNDS_COMMITTED';
+
+export interface BidScopePayload {
+  processId: string;
+  lotIds: string[];
+  candidateIds: string[];
+  selectedQuoteIds: string[];
+  companyProfileVersion: string;
+  bidPortalType: 'procontract';
+  portalOpportunityRef: string;
+  reviewRequired: boolean;
+  decisionBasisHash: string;
+  sideEffectCap: BidWorkflowSideEffectCap;
+}
+
+export interface BidDocumentPayload {
+  documentType: string;
+  fileName: string;
+  filePath: string;
+  contentHash: string;
+  expiryDate?: string | null;
+  issuingBody?: string | null;
+}
+
+export interface CompanyProfilePayload {
+  companyName: string;
+  registrationNumber: string;
+  vatNumber?: string | null;
+  address: {
+    line1: string;
+    line2?: string | null;
+    city: string;
+    county?: string | null;
+    postcode: string;
+    country: string;
+  };
+  primaryContact: {
+    name: string;
+    email: string;
+    phone: string;
+    role: string;
+  };
+  certifications: Array<Record<string, unknown>>;
+  insurancePolicies: Array<Record<string, unknown>>;
+  financialStatements?: Record<string, unknown> | null;
+  smeStatus?: 'micro' | 'small' | 'medium' | 'large' | null;
+  equalityStatement?: string | null;
+  environmentalPolicy?: string | null;
+}
+
+export interface TriggerBidWorkflowParams {
+  processId: string;
+  bidScope: BidScopePayload;
+  operatorId: string;
+  companyProfile: CompanyProfilePayload;
+  bidDocuments: BidDocumentPayload[];
+  stageRunId: string;
+}
+
+export interface MutationAckPayload {
+  accepted: boolean;
+  visibleAfterSeq: number;
+  continuationJobId?: string | null;
+}
+
 export type InvokeFn = (
   cmd: string,
   args?: Record<string, unknown>,
@@ -56,6 +127,7 @@ const TAURI_PARAMS_WRAPPED_COMMANDS = new Set([
   'get_session_history',
   'trigger_ingestion',
   'trigger_enrichment',
+  'trigger_bid_workflow',
   'capture_decision',
   'get_decision_history',
   'get_active_overrides',
@@ -278,6 +350,16 @@ const defaultRuntime = globalThis as RuntimeLike;
 
 export const invoke: InvokeFn = (cmd, args) =>
   createTransport(defaultRuntime).invoke(cmd, args);
+
+export async function triggerBidWorkflow(
+  transport: Pick<DesktopTransport, 'invoke'>,
+  params: TriggerBidWorkflowParams,
+): Promise<MutationAckPayload> {
+  return (await transport.invoke(
+    'trigger_bid_workflow',
+    params as unknown as Record<string, unknown>,
+  )) as MutationAckPayload;
+}
 
 export const subscribe = <T = unknown>(
   topic: string,

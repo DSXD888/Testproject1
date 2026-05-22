@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createTransport, devBridgePaths } from './transport';
+import { createTransport, devBridgePaths, triggerBidWorkflow } from './transport';
 import { tauriDevBridge } from '../../vite-plugin-tauri-dev-bridge';
 
 const tauriCore = vi.hoisted(() => ({
@@ -62,6 +62,7 @@ describe('transport shim', () => {
 
     await transport.invoke('list_processes', { limit: 10 });
     await transport.invoke('capture_decision', { processId: 'proc-1' });
+    await transport.invoke('trigger_bid_workflow', { processId: 'proc-1' });
     await transport.invoke('get_decision_history', { processId: 'proc-1' });
     await transport.invoke('capture_clarification', {
       processId: 'proc-1',
@@ -71,6 +72,9 @@ describe('transport shim', () => {
 
     expect(invoke).toHaveBeenCalledWith('list_processes', { limit: 10 });
     expect(invoke).toHaveBeenCalledWith('capture_decision', {
+      params: { processId: 'proc-1' },
+    });
+    expect(invoke).toHaveBeenCalledWith('trigger_bid_workflow', {
       params: { processId: 'proc-1' },
     });
     expect(invoke).toHaveBeenCalledWith('get_decision_history', {
@@ -202,5 +206,72 @@ describe('transport shim', () => {
     expect(plugin.apply).toBe('serve');
     expect(productionPluginNames).not.toContain('tauri-dev-bridge');
     expect(developmentPluginNames).toContain('tauri-dev-bridge');
+  });
+
+  it('L6-T-ipc_trigger_bid_workflow-001 exposes a typed Start Bid bridge helper', async () => {
+    const invoke = vi.fn().mockResolvedValue({
+      accepted: true,
+      visibleAfterSeq: 42,
+      continuationJobId: 'job-bid-001',
+    });
+    const transport = createTransport({
+      __TAURI_INTERNALS__: { invoke },
+      fetch: vi.fn(),
+      WebSocket: MockWebSocket as unknown as typeof WebSocket,
+      location: { origin: 'http://127.0.0.1:5173', search: '' },
+    });
+
+    const response = await triggerBidWorkflow(transport, {
+      processId: 'process-bid-001',
+      bidScope: {
+        processId: 'process-bid-001',
+        lotIds: ['lot-1'],
+        candidateIds: ['candidate-1'],
+        selectedQuoteIds: ['quote-1'],
+        companyProfileVersion: 'company-profile-v1',
+        bidPortalType: 'procontract',
+        portalOpportunityRef: 'DN123456',
+        reviewRequired: true,
+        decisionBasisHash:
+          '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+        sideEffectCap: 'REMOTE_DRAFT',
+      },
+      operatorId: 'operator-alinaaitova',
+      companyProfile: {
+        companyName: 'Sorelon',
+        registrationNumber: '12345678',
+        address: {
+          line1: '1 Test Street',
+          city: 'London',
+          postcode: 'SW1A 1AA',
+          country: 'GB',
+        },
+        primaryContact: {
+          name: 'Operator',
+          email: 'operator@example.invalid',
+          phone: '0000000000',
+          role: 'Procurement',
+        },
+        certifications: [],
+        insurancePolicies: [],
+      },
+      bidDocuments: [
+        {
+          documentType: 'pricing_schedule',
+          fileName: 'pricing.pdf',
+          filePath: 'artifacts/pricing.pdf',
+          contentHash: 'sha256:pricing',
+        },
+      ],
+      stageRunId: 'stage-run-bid-001',
+    });
+
+    expect(response.continuationJobId).toBe('job-bid-001');
+    expect(invoke).toHaveBeenCalledWith('trigger_bid_workflow', {
+      params: expect.objectContaining({
+        processId: 'process-bid-001',
+        stageRunId: 'stage-run-bid-001',
+      }),
+    });
   });
 });

@@ -20,8 +20,9 @@ use crate::ipc::handlers::errors::{
     rerun_from_error, resolve_error,
 };
 use crate::ipc::handlers::jobs::{
-    JobsHandlerContext, JobsHandlerError, RetryJobParams, TriggerEnrichmentParams,
-    TriggerIngestionParams, retry_job, trigger_enrichment, trigger_ingestion,
+    JobsHandlerContext, JobsHandlerError, RetryJobParams, TriggerBidWorkflowParams,
+    TriggerEnrichmentParams, TriggerIngestionParams, retry_job, trigger_bid_workflow,
+    trigger_enrichment, trigger_ingestion,
 };
 use crate::ipc::handlers::sessions::{
     ResizeSessionParams, SendSessionInputParams, SessionHandlerError, SessionsHandlerContext,
@@ -160,6 +161,13 @@ impl<'a> CommandRouter<'a> {
                 let idempotency_key = required_idempotency_key(idempotency_key, method)?;
                 let params: TriggerEnrichmentParams = parse_params(params)?;
                 let ack = trigger_enrichment(&mut self.jobs, &params, idempotency_key)
+                    .map_err(map_jobs_error)?;
+                Ok(DispatchOutcome::Response(to_value(ack)?))
+            }
+            "trigger_bid_workflow" => {
+                let idempotency_key = required_idempotency_key(idempotency_key, method)?;
+                let params: TriggerBidWorkflowParams = parse_params(params)?;
+                let ack = trigger_bid_workflow(&mut self.jobs, &params, idempotency_key)
                     .map_err(map_jobs_error)?;
                 Ok(DispatchOutcome::Response(to_value(ack)?))
             }
@@ -304,7 +312,7 @@ fn map_jobs_error(error: JobsHandlerError) -> BridgeError {
         code: error.code,
         message: error.message,
         retryable: error.retryable,
-        details: None,
+        details: error.details,
     }
 }
 
