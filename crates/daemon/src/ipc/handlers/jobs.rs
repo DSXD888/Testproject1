@@ -142,6 +142,7 @@ mod test_bid_workflow {
     #[serde(rename_all = "snake_case")]
     pub enum BidReadinessBlocker {
         Phase3Pending,
+        TestBlocked,
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -152,10 +153,18 @@ mod test_bid_workflow {
         pub override_required: Option<String>,
     }
 
-    pub fn evaluate_bid_readiness(_scope: &BidScopePayload) -> BidReadinessGateResult {
+    pub fn evaluate_bid_readiness(scope: &BidScopePayload) -> BidReadinessGateResult {
+        if scope.portal_opportunity_ref == "READINESS-BLOCKED" {
+            return BidReadinessGateResult {
+                approved: false,
+                blockers: vec![BidReadinessBlocker::TestBlocked],
+                override_required: None,
+            };
+        }
+
         BidReadinessGateResult {
-            approved: false,
-            blockers: vec![BidReadinessBlocker::Phase3Pending],
+            approved: true,
+            blockers: Vec::new(),
             override_required: None,
         }
     }
@@ -464,15 +473,34 @@ fn bid_workflow_readiness_blockers(
     }
 
     let readiness = evaluate_bid_readiness(&params.bid_scope);
-    for blocker in readiness.blockers {
-        match blocker {
-            // Phase 3 replaces this scaffold blocker with the real L5/operator gate
-            // evidence. Phase 2 still needs an enqueueable smoke path.
-            BidReadinessBlocker::Phase3Pending => {}
+    for blocker in &readiness.blockers {
+        if let Some(blocker) = bid_readiness_blocker_payload(blocker) {
+            blockers.push(blocker);
         }
     }
 
     Ok(blockers)
+}
+
+#[cfg(not(test))]
+const fn bid_readiness_blocker_payload(blocker: &BidReadinessBlocker) -> Option<Value> {
+    match blocker {
+        // Phase 3 replaces this scaffold blocker with the real L5/operator gate
+        // evidence. Phase 2 still needs an enqueueable smoke path.
+        BidReadinessBlocker::Phase3Pending => None,
+    }
+}
+
+#[cfg(test)]
+fn bid_readiness_blocker_payload(blocker: &BidReadinessBlocker) -> Option<Value> {
+    match blocker {
+        BidReadinessBlocker::Phase3Pending => None,
+        BidReadinessBlocker::TestBlocked => Some(json!({
+            "code": "TEST_READINESS_BLOCKED",
+            "source": "bid_workflow_readiness_gate",
+            "overrideable": false,
+        })),
+    }
 }
 
 fn bid_readiness_failed(blockers: &[Value]) -> JobsHandlerError {

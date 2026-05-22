@@ -102,6 +102,12 @@ fn valid_params(process_id: &str) -> TriggerBidWorkflowParams {
     }
 }
 
+fn readiness_blocked_params(process_id: &str) -> TriggerBidWorkflowParams {
+    let mut params = valid_params(process_id);
+    "READINESS-BLOCKED".clone_into(&mut params.bid_scope.portal_opportunity_ref);
+    params
+}
+
 fn open_state_db(test_db: &TestStateDb) -> Result<StateDb> {
     StateDb::open(test_db.db_path()).context("opening isolated state db")
 }
@@ -156,6 +162,35 @@ fn l6_t_ipc_trigger_bid_workflow_002_returns_readiness_blockers_before_enqueue()
         .context("readiness blockers missing")?;
     assert_eq!(blockers[0]["code"], "PROCESS_NOT_FOUND");
     assert_eq!(blockers[0]["source"], "procurement_processes");
+    assert_eq!(blockers[0]["overrideable"], false);
+    assert_eq!(workflow_job_count(context.state_db)?, 0);
+    Ok(())
+}
+
+#[test]
+fn l6_t_ipc_trigger_bid_workflow_002_blocks_readiness_before_enqueue() -> Result<()> {
+    let test_db = TestStateDb::new()?;
+    let mut state_db = open_state_db(&test_db)?;
+    seed_process(state_db.connection(), "process-bid-001")?;
+    let params = readiness_blocked_params("process-bid-001");
+    let mut context = JobsHandlerContext {
+        state_db: &mut state_db,
+    };
+
+    let error = trigger_bid_workflow(&mut context, &params, "bid-trigger-key")
+        .expect_err("readiness blocker must stop enqueue");
+
+    assert_eq!(error.code, "conflict");
+    assert_eq!(error.message, "bid workflow readiness failed");
+    assert!(!error.retryable);
+    let details = error.details.context("readiness details missing")?;
+    let blockers = details
+        .get("blockers")
+        .and_then(Value::as_array)
+        .context("readiness blockers missing")?;
+    assert_eq!(blockers.len(), 1);
+    assert_eq!(blockers[0]["code"], "TEST_READINESS_BLOCKED");
+    assert_eq!(blockers[0]["source"], "bid_workflow_readiness_gate");
     assert_eq!(blockers[0]["overrideable"], false);
     assert_eq!(workflow_job_count(context.state_db)?, 0);
     Ok(())
