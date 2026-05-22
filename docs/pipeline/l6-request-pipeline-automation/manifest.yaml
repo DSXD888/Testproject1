@@ -1,0 +1,1012 @@
+feature: l6-request-pipeline-automation
+created: "2026-05-21"
+source_doc: docs/strategy/layers/layer-6-request-pipeline-automation.md
+source_type: layer
+entry_point: batch-1-validate
+generated_by: pipemaxxer (Pattern B — existing execution-grade layer doc)
+
+paths:
+  spec: docs/strategy/layers/layer-6-request-pipeline-automation.md
+  tdd: docs/pipeline/l6-request-pipeline-automation/artifacts/l6-request-pipeline-automation-tdd.md
+  bootstrap: docs/pipeline/l6-request-pipeline-automation/artifacts/l6-request-pipeline-automation-bootstrap.md
+  strategy: docs/pipeline/l6-request-pipeline-automation/artifacts/l6-request-pipeline-automation-strategy.md
+  kickoff: docs/pipeline/l6-request-pipeline-automation/artifacts/l6-request-pipeline-automation-kickoff.md
+  push: docs/pipeline/l6-request-pipeline-automation/artifacts/l6-request-pipeline-automation-push.md
+  status: docs/pipeline/l6-request-pipeline-automation/artifacts/l6-request-pipeline-automation-status.yaml
+  bulk_import: docs/pipeline/l6-request-pipeline-automation/artifacts/l6-request-pipeline-automation-bulk-import.md
+  bead_alias_map: docs/pipeline/l6-request-pipeline-automation/artifacts/l6-bead-alias-map.json
+  test_claims_map: docs/pipeline/l6-request-pipeline-automation/artifacts/l6-test-claims-map.json
+  completion_audit: docs/pipeline/l6-request-pipeline-automation/artifacts/l6-completion-audit-YYYY-MM-DD.md
+
+bead_prefix: l6
+bead_label: layer-6
+bead_cli: br
+bead_sync_cmd: bin/br-sync                     # NEVER raw `br sync` (which may run git commands)
+bead_id_pattern: "l6-*"                        # Sister-epic IDs assigned at step 07
+
+# L6 layer-doc authoring epic. Per operator decision 2026-05-21: sister-epic pattern
+# (matches L4 testproject1-4zq + L5 sister-epic). Step 07 will:
+#   1. Confirm testproject1-rc0 has no remaining child work (its target was the layer doc, which exists).
+#   2. Close testproject1-rc0 with reason "Layer doc produced; implementation tracked in sister epic".
+#   3. Run `br create --type=epic --priority=P0 --title="Epic: L6 Implementation — Request Pipeline Automation" --labels l6`
+#      and capture the resulting ID into the status file under `existing_implementation_epic`.
+existing_layer_doc_epic: testproject1-rc0
+existing_layer_doc_status: "Documentation epic — closed 2026-05-22 with reason 'Layer doc produced; implementation tracked in sister epic'."
+existing_implementation_epic: testproject1-3yqf
+existing_implementation_epic_status: "Sister implementation epic created 2026-05-22 with 7 phase sub-epics (testproject1-3yqf.1 .. testproject1-3yqf.7); task beads threaded under phase epics."
+
+agentmail:
+  enabled: true
+  project_key: /Users/alinaaitova/Desktop/Testproject1
+  project_uid: 52b365509219e7df692d            # from .agent-mail.yaml
+  health_endpoint: http://127.0.0.1:8765/health/liveness
+
+tech_stack:
+  language: "mixed (rust + typescript)"
+  rust:
+    edition: 2024
+    toolchain: "nightly (per rust-toolchain.toml)"
+    package_manager: cargo
+    build_cmd: "cargo check --all-targets"
+    test_cmd: "cargo test"
+    lint_cmd: "cargo clippy --all-targets -- -D warnings && cargo fmt --check"
+    test_framework: "cargo test (#[test], #[tokio::test])"
+    forbid: "unsafe_code"
+  typescript:
+    package_manager: bun
+    pinned_version: "bun@1.3.10"
+    build_cmd: "bun run build"
+    test_cmd: "bun run test"
+    lint_cmd: "bun run lint"
+    test_framework: "vitest / bun:test (unit); @playwright/test 1.58.2 for desktop+web E2E"
+
+quality_gates:
+  build: "cargo check --all-targets && bun run build"
+  test_rust_full: "cargo test -p daemon --bin daemon && for t in crates/daemon/tests/*.rs; do cargo test --test \"$(basename \"$t\" .rs)\" || exit 1; done"
+  test_ts: "bun run test"
+  test_e2e_desktop: "(cd apps/desktop && bun run test:e2e)"
+  test_e2e_web: "(cd apps/web && bun run test:e2e)"
+  lint: "cargo clippy --all-targets -- -D warnings && cargo fmt --check && bun run lint"
+  ubs: "ubs $(git diff --name-only --cached)"
+
+handoff_dir: docs/pipeline/l6-request-pipeline-automation
+
+# ============================================================================
+# Operator-recorded decisions (locked 2026-05-21 via pipemaxxer AskUserQuestion)
+# These are pre-resolved. The validator-agent in step 01 TRANSCRIBES them
+# verbatim into the spec — it does NOT re-decide.
+# ============================================================================
+recorded_decisions:
+  decision_1_proactis_is_procontract:
+    choice: "Proactis === Procontract — same portal, same website (procontract.due-north.com)"
+    rationale: "Operator confirmed 2026-05-21: 'Proactis is the same thing as Procontract. It's the same website. There's a CDP Agent Browser skill that lets you input the username and password saved in Google Chrome.' The L6 spec was authored with 'Proactis' naming but the codebase uses 'procontract' (skills/auth-signin/procontract/, skills/procurement-ingestion/procontract-*). This is a NAMING reconciliation, not scope drift — same capability."
+    implementation:
+      # The spec text remains intelligible referring to "Proactis"; codebase artifacts
+      # use "procontract" to match existing convention. Step 01 adds the alias note.
+      naming_in_codebase: "procontract"             # NEW files use this
+      naming_in_spec_text: "either accepted; cross-reference alias note added"
+      file_renames_vs_spec:
+        - "spec §1.6 lists `packages/bidding/proactis-workflow.ts` → use `procontract-workflow.ts` instead"
+        - "spec §1.7 lists `skills/bid-portal-proactis/` → use `skills/bid-portal-procontract/` instead"
+        - "spec §1.7 lists `bidPortalType: 'proactis'` in BidScopePayload — use string literal `'procontract'`"
+        - "spec §2.5 lists `pdf-extraction/bid-template` overlay — preserve naming as `bid-template` (portal-agnostic)"
+    recorded_by: operator
+    recorded_at: "2026-05-21"
+
+  decision_2_existing_procontract_infrastructure_reuse:
+    choice: "REUSE existing skills/auth-signin/procontract/ — do NOT create skills/auth-signin/proactis/"
+    rationale: |
+      Operator confirmed 2026-05-21: 'There's a CDP Agent Browser skill that lets
+      you input the username and password saved in Google Chrome. We recently removed
+      the Touch ID necessity, so you should have no problem with that.' The existing
+      auth-signin/procontract/SKILL.md (~339 lines, v1.0.0) handles login via macOS
+      Passwords autofill against procontract.due-north.com. The new bid-portal skill
+      attaches to the same persistent CDP browser at /Users/alinaaitova/.chrome-automation
+      (port 9222) and delegates auth to the existing skill when session is detected
+      as expired (URL contains /Login or text matches 'Session expired|Please log in').
+    implementation:
+      existing_skills_reused:
+        - skill: skills/auth-signin/procontract/
+          purpose: "Login via Chrome saved credentials (no Touch ID required after recent removal)"
+          version: "1.0.0"
+          interaction_profile: pty_interactive
+          requires_cdp: true
+          notes: "Operator account sales@sorelon.com — REAL procurement account; the bid skill MUST inherit auth-signin's sensitivity rules (no profile changes outside the bid workflow, no sign-out, etc.)"
+        - skill: skills/procurement-ingestion/procontract-register-interest/
+          purpose: "Reference pattern for portal-mutation skills with side_effect_class: external_mutation, CDP persistent browser, ProContract URL structure"
+          version: "1.1.0"
+          notes: "Existing skill that clicks 'Register interest' — L6 bid-portal-procontract is a more elaborate multi-step variant of this same pattern."
+        - skill: skills/procurement-ingestion/procontract-discover/
+          purpose: "Reference pattern for ProContract navigation; tender reference lookup; CDP attach"
+        - skill: skills/procurement-ingestion/procontract-enrich-tender/
+          purpose: "Reference pattern for ProContract document download + extraction"
+    spec_action: |
+      Step 01 validate-spec adds a callout under §1.7 noting: 'bid-portal-procontract
+      delegates portal login to skills/auth-signin/procontract/ (existing) via the
+      DAEMON-ORCHESTRATED RETRY pattern (the established Procontract skill convention):
+
+        1. bid-portal-procontract attaches to the persistent CDP browser via bin/ensure-cdp-9222
+        2. If URL contains /Login OR text matches "Session expired|Please log in",
+           the skill returns AUTH_STATE_STALE and exits cleanly (does NOT attempt login)
+        3. The daemon's existing AUTH_STATE_STALE handler runs auth-signin/procontract as a sub-job
+        4. On auth-signin success, the daemon re-runs the original bid-portal-procontract job
+
+      The bid skill MUST NOT invoke auth-signin/procontract directly as a sub-skill — that
+      would bypass the daemon's session/lifecycle bookkeeping. This pattern is identical
+      to procurement-ingestion/procontract-register-interest/SKILL.md which the bid skill
+      uses as its reference pattern.'
+    recorded_by: operator
+    recorded_at: "2026-05-21"
+
+  decision_3_validator_overlay_included:
+    choice: "YES — include skills/validation/overlay-bid-portal-procontract/ as L6 deliverable"
+    rationale: "Spec §1.7 says bid skills use validation_policy: always (fail-closed). Without a domain-specific overlay, validation falls back to base validator, which won't catch portal-specific anomalies (wrong opportunity ref, side-effect class drift, screenshot completeness, draft vs final submission state divergence). Matches L5's overlay-customs-classification recommendation."
+    implementation: |
+      Create skills/validation/overlay-bid-portal-procontract/ during Phase 5.
+      Structure follows skills/validation/overlay-supplier-enrichment/ precedent
+      (~84 lines for the customs overlay; ~80-150 lines expected here).
+      Frontmatter declares worker_behavior_version: bid-portal-procontract/*@VERSION+1.0
+      and validator_behavior_version: validation/overlay-bid-portal-procontract@VERSION+1.0.
+
+      Assertion strawman (TDD step 03 finalizes exact assertions per workflow shape):
+        - opportunity ref matches BidScopePayload.portalOpportunityRef
+        - screenshot count appropriate to run shape: first run reaching draft_saved
+          via 10a path → ~11 screenshots (steps 1-9 + 10a + 11); first run reaching
+          bid_submitted via 10b path → ~11 (steps 1-9 + 10b + 11); continuation
+          run from draft_saved → variable (TDD defines the rubric)
+        - side_effect_class progression is monotonic
+        - side_effect_class never exceeds BidScopePayload.sideEffectCap
+        - submission confirmation reference (if present) is well-formed
+        - agent narrative cites BidScopePayload lot/candidate IDs verbatim
+        - no PII leakage in narrative (cross-check redaction_boundary tests)
+    bead_impact: "Adds 1 skill directory + ~2-3 beads to Phase 5"
+    recorded_by: operator
+    recorded_at: "2026-05-21"
+
+  decision_4_implementation_epic_structure:
+    choice: "Sister epic — close rc0 as doc-only, create 'Epic: L6 Implementation — Request Pipeline Automation'"
+    rationale: "Matches L4 (testproject1-4zq) + L5 sister-epic pattern. Clean separation between doc-authoring (rc0 — already complete) and implementation. Recorded in project memory as preferred."
+    implementation: |
+      Step 07 actions (in order):
+        1. Verify testproject1-rc0 doc-only status: `br show testproject1-rc0 --json`
+           confirms description targets the layer doc only.
+        2. Close rc0: `br close testproject1-rc0 --reason "Layer doc produced; implementation tracked in sister epic"`
+        3. Create sister epic:
+           `br create --type=epic --priority=P0 --title="Epic: L6 Implementation — Request Pipeline Automation" --labels l6`
+        4. Capture the resulting epic ID and write to status file under
+           `existing_implementation_epic: <new-id>`
+        5. All Phase 1-N implementation beads thread under this new epic via --parent.
+    recorded_by: operator
+    recorded_at: "2026-05-21"
+
+  decision_5_proactis_access_already_solved:
+    choice: "DoD #8 live-demo is NOT a hard prerequisite blocker — operator already has Procontract access"
+    rationale: "Operator confirmed 2026-05-21: existing auth-signin/procontract/ + persistent CDP Chrome profile with Touch-ID-removed saved credentials means the live demo is feasible from day one. No operator-built skill prerequisite needed (unlike L5's freightos/taric). The live demo can run as part of step 12 completion audit against a real Procontract opportunity."
+    implementation: |
+      Bootstrap doc documents: (a) ensure persistent CDP profile at
+      /Users/alinaaitova/.chrome-automation has saved sales@sorelon.com credential,
+      (b) verify Touch ID requirement is disabled in Chrome's password autofill,
+      (c) identify at least one Procontract opportunity reference for live-demo testing
+      (operator selects ANY currently-open opportunity that won't generate buyer-visible
+      legal commitment — REMOTE_DRAFT side-effect class cap during live demo).
+    live_demo_constraint: "First live demo runs with sideEffectCap = REMOTE_DRAFT (draft_saved terminal); FORMAL_SUBMISSION class only after operator manually authorizes a separate run with a chosen genuine opportunity."
+    recorded_by: operator
+    recorded_at: "2026-05-21"
+
+# ============================================================================
+# Existing infrastructure that L6 builds on (reference for handoffs)
+# Use these to make handoffs concrete — NEVER use generic "find the file" language.
+# ============================================================================
+existing_files:
+  # L0 schema — bid_workflow_states + error_manifests already exist
+  migration_l0:
+    path: migrations/0001_sqlite_state_initial.sql
+    lines: 545
+    notes: |
+      bid_workflow_states table at lines 437-451: process_id (PK, FK), bid_state (TEXT, default 'not_started'),
+      bid_scope_json (TEXT, nullable), review_required (INTEGER, default 0), bid_job_id, started_at,
+      completed_at, owner_id, row_version, last_local_seq, stage_run_id, updated_at, created_at.
+      No CHECK constraint on bid_state — spec §1.3 recommends future expansion to enforce the 7 lifecycle
+      states. L6 does NOT add a CHECK (avoids schema churn); validation done in Rust.
+
+      supplier_quotes table at lines 243-296 includes price_signal_role (line 272) for L5→L6 quote-role
+      gate (optimistic_floor / domestic_wholesale_floor → bid blocked unless operator overrides).
+
+      landed_cost_estimates table at lines 322-394 carries L5 fields: blockers JSON (line 381),
+      decision_grade TEXT (line 377), classification_fresh_until TEXT (line 384).
+  migration_l3:
+    path: migrations/0003_sqlite_runtime.sql
+    notes: "error_manifests table at lines 49-65: id, job_id, process_id, pipeline_stage, workflow_step, error_type, error_message, error_context, skill_path, agent_session_id, markdown_path, resolved, resolved_at, resolved_by, created_at."
+  migration_l4_sync:
+    path: migrations/0012_l4_sync_state.sql
+    lines: 262
+    notes: "pull_cursors table at lines 103-120 has rows for operator_decision_heads + shared_company_profile (the L4 remote-owned tables L6 depends on)."
+  migration_l5_product_commodity_codes:
+    path: migrations/0013_l5_product_commodity_codes.sql
+    notes: "L5 added this junction table — L6 reads from it during bid scope rendering (selected candidate → commodity codes for compliance/declaration form fields)."
+
+  # Daemon — extend, don't rewrite
+  daemon_main:
+    path: crates/daemon/src/main.rs
+    lines: 31087
+    notes: |
+      Live-loop, IPC listener, job dispatch, per-kind handler functions.
+      CRITICAL: the job-kind dispatch (`match job.kind { ... }`) lives HERE in main.rs, NOT in
+      crates/daemon/src/jobs/runner.rs. The reference dispatch arms are at lines ~1513-1517:
+        "extract_document_structure" => run_extract_document_structure_job(runtime, &runner, claimed).await
+        "extract_document_semantics" => run_extract_document_semantics_job(runtime, &runner, claimed, cli).await
+      The handler functions themselves are also in main.rs:
+        run_extract_document_structure_job at line 1529
+        run_extract_document_semantics_job at line 1836
+      L6 adds: (a) a `"run_bid_workflow" => run_bid_workflow_job(...)` match arm in the dispatch around line 1513+,
+      (b) the handler function `run_bid_workflow_job(...)` — either inline in main.rs OR extracted to a new
+      `crates/daemon/src/bid_workflow/` module (Phase 3 decides), (c) a `--run-bid-workflow <bid-job-id>` CLI
+      subcommand for ops/manual recovery.
+      The L5 readiness gate raw checks (CLASSIFICATION_AMBIGUOUS/TARIFF_BRANCH_DIVERGENCE/SUPPLEMENTARY_UNIT_MISSING/decision_grade=broker_required/classification_fresh_until_expired)
+      are already wired at lines 5256-5260, 5436, 5498, 5510-5527, 5537-5542, 5781-5787 — L6 only ADDS a
+      `blocks_ready_to_bid` aggregator above those raw checks.
+  daemon_validation_policy:
+    path: crates/daemon/src/validation/policy.rs
+    lines: 1187   # total file size, not a line number
+    notes: "ValidationPolicyMode enum at lines 17-25 (Always/Sample/Trigger/Skip). L6 bid-portal-procontract skill declares validation_policy: always; the fail-closed exception for portal submission is enforced at the bid-workflow state-machine layer (NOT a new policy mode — same Always mode, but verdict gating bid_submitted transition)."
+  daemon_validation_executor:
+    path: crates/daemon/src/validation/executor.rs
+    lines: 1269   # total file size
+    notes: "Validator job dispatch + verdict persistence. L6 bid-run validation jobs use this path with no changes."
+  daemon_validation_manifest_writer:
+    path: crates/daemon/src/validation/manifest_writer.rs
+    lines: 54     # total file size (small wrapper file)
+    notes: "write_hybrid_run_manifest() at lines 23-54 — L6 bid runs produce hybrid manifests with portal-specific extensions in DaemonEvidenceAppendix.artifact_refs (screenshot paths per step) and oqg_anomaly_summary (side-effect class progression checks)."
+  daemon_errors_manifest:
+    path: crates/daemon/src/errors/manifest.rs
+    lines: 413   # total file size — verified 2026-05-21
+    notes: |
+      ErrorCode enum precise boundaries (verified 2026-05-21):
+        - Line 19: `#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]`
+        - Line 20: `pub enum ErrorCode {`
+        - Lines 21-63: variant declarations (~45 variants after L5's 10 customs additions)
+        - Line 64: `}` (close of enum)
+        - Lines 65-115: `impl ErrorCode { fn as_str(&self) -> &'static str { match self { ... } } }`
+        - Line ~365: `pub fn parse_error_code(raw: &str) -> Result<ErrorCode>` (string → enum)
+      L5 added: CLASSIFICATION_AMBIGUOUS, TARIFF_BRANCH_DIVERGENCE, MEASURE_INTERACTION_UNKNOWN, EXPORTER_UNRESOLVED,
+      SUPPLEMENTARY_UNIT_MISSING, VALUATION_MODE_CONFLICT, FPO_UNAVAILABLE, TRADE_REMEDY_WATCH_STALE,
+      FX_RATE_MISSING, FREIGHT_ESTIMATE_FAILED.
+      Adding a NEW variant requires updating ALL THREE locations: enum body + as_str() arm + parse_error_code() arm
+      (the round-trip test fails otherwise). Then propagate clippy-surfaced exhaustive matches across 5-15 sites.
+
+      L6 ADDS 6 new variants (decided by step 03 TDD; strawman list):
+        - BID_PORTAL_CHANGED          (page fingerprint drift on Procontract — distinct from generic PAGE_SHAPE_DRIFT)
+        - BID_SUBMISSION_FAILED       (final submit step failed — distinct from AGENT_SKILL_FAILED)
+        - BID_DUPLICATE_DETECTED      (verifyPortalState() detected existing submission)
+        - BID_PORTAL_AUTH_EXPIRED     (session expired mid-workflow; distinct from AUTH_STATE_STALE for portal-specific recovery flow)
+        - BID_SIDE_EFFECT_CAP_EXCEEDED (skill tried to escalate past BidScopePayload.sideEffectCap — safety guard)
+        - BID_READINESS_GATE_FAILED   (one of the §1.3 prerequisite checks blocked the workflow at runtime)
+
+      Each requires: enum variant + as_str() arm + clippy-surfaced exhaustive matches in
+      validation/policy.rs, validation/executor.rs, errors/markdown.rs, tracing/structured.rs,
+      ipc/handlers/*.
+  daemon_jobs_runner:
+    path: crates/daemon/src/jobs/runner.rs
+    lines: 1656
+    notes: |
+      Shared job-runner infrastructure: ClaimedJob, EnqueueJobRequest, JobLeaseHeartbeat,
+      PersistSuccessRequest, PersistValidationVerdictRequest, SkillTelemetryWindow,
+      CANONICAL_SCOPE_KINDS, re-exports of VALIDATOR_JOB_KIND / ValidatorVerdict from validation_executor.
+      **NOTE: this file does NOT contain the `match job.kind { ... }` dispatch — that lives in main.rs
+      around line 1513+. runner.rs is the shared-type layer that main.rs's dispatch functions consume.**
+      L6 may add: an `EnqueueJobRequest` builder for `run_bid_workflow` jobs that captures the
+      BidScopePayload + readiness-gate-evaluated context, but the dispatch arm itself is in main.rs.
+      Existing `parent_job_id` + `continuation_chain_id` columns (workflow_jobs migration line 504-505)
+      support multi-step bid workflow if step-level retry is needed.
+  daemon_sources_registry:
+    path: crates/daemon/src/sources/registry.rs
+    lines: 1338
+    notes: "Registered source/skill metadata. L6 ADDS one entry for skills/bid-portal-procontract/ + one for skills/validation/overlay-bid-portal-procontract/. Procontract source entry already exists (via procurement-ingestion/procontract-* skills) — confirm by grep before duplicating."
+  daemon_scheduler_cron:
+    path: crates/daemon/src/scheduler/cron.rs
+    lines: 438
+    notes: "Cron scheduler — L6 does NOT add cron entries (workflow triggered by operator click via desktop IPC). Optional: source-health canary entry for procontract (probably already exists via procurement-ingestion skills)."
+  daemon_sync:
+    path: crates/daemon/src/db/sync.rs
+    lines: 3485
+    notes: "PUSH_OWNED_RESEED_TABLES array lines 24-50 — bid_workflow_states ALREADY in push set at line 39. NO changes needed for sync engine; bid workflow mutations auto-flow to Supabase."
+  daemon_adapter:
+    path: crates/daemon/src/agents/adapter.rs
+    lines: 181
+    notes: "InteractionProfile enum at lines 104-108 (PtyRequired/ContractRequired/ContractPreferred). bid-portal-procontract declares interaction_profile: pty_interactive → resolves to PtyRequired → adapter selects PTY execution mode."
+  daemon_pty_session:
+    path: crates/daemon/src/pty/session.rs
+    lines: 503
+  daemon_pty_capture:
+    path: crates/daemon/src/pty/capture.rs
+    lines: 392
+  daemon_artifacts:
+    path: crates/daemon/src/agents/artifacts.rs
+    notes: "Artifact store layout: sessions/{year}/{month}/{session_id}/{run-manifest.md, stream.index.jsonl}. L6 bid runs add screenshot files at sessions/.../{session_id}/step-NN.webp."
+  daemon_ipc_handlers_jobs:
+    path: crates/daemon/src/ipc/handlers/jobs.rs
+    notes: |
+      Existing IPC handlers: `trigger_ingestion` at line 45, `trigger_enrichment` at line 95. These are
+      the EXACT reference patterns for L6's new `trigger_bid_workflow(TriggerBidWorkflowParams { process_id, bid_scope })`
+      handler. Pattern: validate params → call readiness-gate pre-check → if blocked, return structured
+      rejection with blocker code; if eligible, create workflow_job with kind='run_bid_workflow' via
+      EnqueueJobRequest, return continuation_job_id so desktop SessionViewer can attach. The handler is
+      in jobs.rs; the per-kind execution code path is in main.rs (see daemon_main notes above).
+
+  # TypeScript packages — existing 4, ADDING bidding (5th)
+  packages_intelligence:
+    path: packages/intelligence/
+    files: 33
+    lines: 33934
+    notes: "33 .ts files across customs/, fx/, logistics/, margins/, qualification/, relations/, validation/ subdirs (L5 expansion). L6 does NOT modify intelligence — it CONSUMES intelligence outputs (pipeline_assessments, landed_cost_estimates, supplier_quotes) at bid-scope construction time."
+  packages_contracts_schema:
+    path: packages/contracts-schema/src/index.ts
+    lines: 463
+    notes: "Existing types: validation contracts, skill result schemas. L6 ADDS BidScopePayload, SideEffectClass, BidWorkflow, BidDocument, SubmissionResult, DraftSaveResult, PortalStateVerification, CompanyProfile interfaces (per spec §1.6) — could go here or in packages/bidding/. RECOMMENDATION: live in packages/bidding/ and re-export from contracts-schema only if a non-bidding package needs them."
+  packages_manifests:
+    path: packages/manifests/
+    files: 8
+    lines: 2760
+    notes: "Existing render-opportunity.ts + render-error-manifest.ts. L6 OPTIONAL: render-bid-manifest.ts to produce a human-readable summary of a bid run (alongside the hybrid run manifest produced by the daemon). Step 03 TDD decides if this is needed."
+  packages_ui:
+    path: packages/ui/
+    files: 15
+    lines: 2032
+    notes: |
+      Existing React components: manifest-viewer, contract-card-frame, freshness-badge, pipeline-badge,
+      error-summary-list. L6 ADDS:
+        - BidWorkflowStatusBadge.tsx (mirrors PipelineBadge for bid_state)
+        - BidScopeSummary.tsx (renders BidScopePayload for operator review)
+        - DraftSavedReviewPanel.tsx (operator review surface for draft_saved state)
+        - BidWorkflowStartButton.tsx (Start Bid button with pre-flight readiness check)
+      Step 03 TDD names the final file inventory; these are the strawman.
+
+  # Apps — existing desktop + web, both gain L6 surfaces
+  apps_desktop:
+    path: apps/desktop/
+    notes: "Tauri React desktop control panel. L6 ADDS: BidWorkflow tab (alongside existing Contracts/Decisions tabs); operator-triggered Start Bid action; live SessionViewer integration for bid runs (the existing SessionViewer surfaces PTY output — bid runs use this without code changes); draft_saved review panel."
+  apps_web:
+    path: apps/web/
+    notes: "Next.js read-only viewer (L4 built). L6 ADDS: read-only bid workflow visibility page (process detail → bid status badge, draft preview if applicable, error manifest link if bid_failed). RLS viewer-role enforcement per L4 pattern; NO mutation surfaces in web."
+
+  # Skills — existing procontract surface
+  skill_auth_signin_procontract:
+    path: skills/auth-signin/procontract/
+    notes: "EXISTING — v1.0.0, ~60+ lines SKILL.md. CDP-based login via Chrome saved credentials (sales@sorelon.com). Touch ID requirement REMOVED 2026-05 (operator confirmed). bid-portal-procontract DELEGATES to this skill when session expired."
+  skill_procontract_register_interest:
+    path: skills/procurement-ingestion/procontract-register-interest/
+    notes: "EXISTING — v1.1.0, ~446 lines SKILL.md. side_effect_class: external_mutation. CDP attach pattern. Clicks 'Register interest' on a live opportunity. **REFERENCE PATTERN for bid-portal-procontract.**"
+  skill_procontract_discover:
+    path: skills/procurement-ingestion/procontract-discover/
+    notes: "EXISTING — CDP navigation pattern; tender reference lookup."
+  skill_procontract_enrich_tender:
+    path: skills/procurement-ingestion/procontract-enrich-tender/
+    notes: "EXISTING — CDP document download + extraction pattern."
+
+  # Validation overlays
+  skill_validation_base:
+    path: skills/validation/base/
+    notes: "Generic validator — base structure all overlays compose with."
+  skill_validation_overlays:
+    paths:
+      - skills/validation/overlay-supplier-enrichment/      # 84-line frontmatter precedent
+      - skills/validation/overlay-product-extraction/
+      - skills/validation/overlay-procurement-ingestion/
+      - skills/validation/overlay-document-acquisition/
+      - skills/validation/overlay-customs-classification/   # L5 added
+    notes: "5 existing overlays. L6 ADDS overlay-bid-portal-procontract/ following same frontmatter format (see overlay-supplier-enrichment SKILL.md frontmatter for the canonical 20-line structure)."
+
+  # Test infrastructure
+  test_skill_canary_harness:
+    path: crates/daemon/tests/skill_canary_harness.rs
+    lines: 255
+    notes: "Canary harness for procurement-ingestion skills (FTS-anchored). L6 ADDS test e2e_can_010+ for bid-portal-procontract canary (locates opportunity, validates portal form access, no real submission)."
+  test_skill_golden_journeys:
+    path: crates/daemon/tests/skill_golden_journeys.rs
+    lines: 614
+    notes: "Skill promotion lifecycle tests (draft → candidate → canary → shadow → stable). L6 ADDS l3_t_skill_golden_journeys_009+ for bid-portal-procontract promotion (draft stage MUST require manual operator trigger; never auto-promotes past canary without operator authorization given the FORMAL_SUBMISSION side-effect class)."
+  test_redaction_boundary:
+    path: crates/daemon/tests/redaction_boundary.rs
+    notes: "PII redaction tests (touches bid_workflow_states). L6 EXTENDS to verify BidScopePayload company-profile fields (operator email, phone, registration number) redact properly in error manifests + run manifest narrative + Supabase projection."
+  test_sqlite_schema:
+    path: crates/daemon/tests/sqlite_schema.rs
+    lines: 1861
+    notes: "Schema verification. L6 EXTENDS to assert bid_workflow_states accepts the 7 lifecycle state values via Rust-side enum validation (not SQL CHECK)."
+  test_support_db:
+    path: crates/daemon/tests/support/db.rs
+    lines: 577
+    notes: "TestStateDb / L4TestStateDb helpers. L6 tests use TestStateDb::new() pattern, seeding bid-related rows (operator_decision_heads with approved disposition, pipeline_assessments with validated state, supplier_quotes with non-floor-only roles, landed_cost_estimates without active blockers)."
+  test_calibration_fixtures_root:
+    path: tests/fixtures/calibration/
+    notes: "Per-domain calibration corpus (canary.inputs.jsonl + golden.assertions.yaml + validator-rubric.yaml + metadata.json + manifest.md). L6 ADDS tests/fixtures/calibration/bid-portal-procontract/ following the L5 customs-classification per-category structure."
+
+  # Coordination + CLI
+  agents_md:
+    path: AGENTS.md
+    lines: 737
+    notes: "Constitutional rules (Rules 0-2). Authoritative `br` block at lines 279-330. STALE `bd` block at lines 683-738 — ignore. Rule 2 (lines 21-34) is constitutional: `bin/br-claim` / `bin/br-complete` are the ONLY authorized claim/complete path."
+  bin_br_claim:
+    path: bin/br-claim
+    lines: 679
+    notes: "Atomic claim wrapper. Order: status check → mail idempotency → file_reservation_paths (FIRST mutation) → peer discovery → Start mail → br update --status=in_progress."
+  bin_br_complete:
+    path: bin/br-complete
+    lines: 692
+    notes: "Atomic complete wrapper. Order: status check → Start-mail self-verification → resolve commit SHA → verify pushed (HEAD == @{u}) → Complete mail → br close → bin/br-sync + git add .beads/ + commit + push → release_file_reservations."
+  bin_br_sync:
+    path: bin/br-sync
+    lines: 60
+    notes: "br sync --flush-only + timestamp normalizer (br has a bug writing SQLite CURRENT_TIMESTAMP format instead of ISO-8601; this fixes it post-export). ALWAYS use this instead of raw `br sync --flush-only`."
+  git_hooks_precommit:
+    path: .git/hooks/pre-commit
+    notes: "Chain-runner; plugins under .git/hooks/hooks.d/pre-commit/. 50-agent-mail.py detects file reservation conflicts."
+  git_hooks_commit_msg:
+    path: .git/hooks/commit-msg
+    notes: "Phase B enforcement: commits with `<bead-id>:` subject prefix MUST have a matching `[<bead-id>] Start` mail in archive. Bypass via AGENT_MAIL_BYPASS=1 (auto-logged)."
+  cdp_ensure_helper:
+    path: bin/ensure-cdp-9222
+    notes: "Idempotent CDP launch helper. Launches Chrome with /Users/alinaaitova/.chrome-automation profile on port 9222 if not already running. <1s no-op if CDP up; up to 15s if cold launch needed. ALL procontract skills (auth-signin + register-interest + L6 bid-portal-procontract) invoke this in their playbook before any portal navigation."
+
+# ============================================================================
+# Net-new in L6 (handoffs must own these explicitly)
+# ============================================================================
+new_modules_ts:
+  bidding:
+    # Per spec §1.6 — names reconciled to procontract per decision_1
+    - path: packages/bidding/workflow-registry.ts
+      purpose: "Maps portal type string → workflow implementation (initially: 'procontract' → ProcontractWorkflow). Extensible: new portal = new workflow file + registry entry."
+    - path: packages/bidding/procontract-workflow.ts
+      purpose: "Procontract-specific BidWorkflow implementation: authenticate (delegates to auth-signin/procontract), locateOpportunity, verifyPortalState, fillForms, uploadDocuments, saveDraft, submitFinal. Side-effect class declared per step."
+    - path: packages/bidding/company-profile-schema.ts
+      purpose: "TypeScript schema (zod or plain interface) for shared_company_profile data used in bid form filling — matches spec §1.6 CompanyProfile interface exactly."
+    - path: packages/bidding/bid-scope-types.ts
+      purpose: |
+        BidScopePayload, SideEffectClass union, BidDocument, SubmissionResult, DraftSaveResult,
+        PortalStateVerification, BidWorkflow interface — pure type exports.
+        CRITICAL DEPENDENCY: these types MUST land in Phase 1 (Foundation), NOT Phase 5, because
+        Phase 4's skills/bid-portal-procontract/result.schema.json must reference SubmissionResult
+        and DraftSaveResult shapes, and the Phase 2 Rust IPC handler trigger_bid_workflow must accept
+        BidScopePayload at its public boundary. Phase 5 builds workflow-registry + procontract-workflow
+        + company-profile-schema ON TOP OF these types, but the types themselves are Phase 1 work.
+    # Test files (3 per spec §2.2)
+    - path: packages/bidding/tests/bid-workflow-states.test.ts
+      purpose: "State machine transitions (§1.3): 14 transitions × happy/sad (spec table has 14 distinct From→To rows — corrected 2026-05-21). side_effect class tracking; L5 readiness gate; staleness; decisionBasisHash completeness."
+    - path: packages/bidding/tests/portal-side-effects.test.ts
+      purpose: "Side-effect class assignment per portal step; crash-after-REMOTE_DRAFT recovery with verifyPortalState(); duplicate-submission detection; sideEffectCap enforcement."
+    - path: packages/bidding/tests/bid-readiness-gate.test.ts
+      purpose: "L5 blocker checks (CLASSIFICATION_AMBIGUOUS, TARIFF_BRANCH_DIVERGENCE, SUPPLEMENTARY_UNIT_MISSING, decision_grade=broker_required); quote-role quality gate; classification freshness for import window; company profile document expiry; upstream pipeline trust gate."
+    - path: packages/bidding/package.json
+    - path: packages/bidding/tsconfig.json
+    - path: packages/bidding/vitest.config.ts
+
+new_modules_rust:
+  # EXTEND existing files — no new crate
+  - |
+    crates/daemon/src/errors/manifest.rs (EXTEND): add NEW ErrorCode variants for L6 failure modes that existing codes don't cleanly cover.
+    STRAWMAN LIST (TDD step 03 validates by auditing existing variants for redundancy):
+      - BID_SUBMISSION_FAILED        (final submit step failed — distinct from generic AGENT_SKILL_FAILED because manifest must encode side-effect class reached + portal confirmation absence)
+      - BID_DUPLICATE_DETECTED       (verifyPortalState() detected an existing submission for the same opportunity ref — no existing code covers this domain)
+      - BID_SIDE_EFFECT_CAP_EXCEEDED (skill attempted to escalate past BidScopePayload.sideEffectCap — safety guard; no existing code covers)
+      - BID_READINESS_GATE_FAILED    (one of §1.3 prerequisite checks blocked the workflow at runtime — distinct from per-check codes; carries which gate(s) failed)
+    LIKELY-REDUNDANT (TDD evaluates):
+      - BID_PORTAL_CHANGED           (page fingerprint drift on Procontract) — likely COVERED by existing PAGE_SHAPE_DRIFT; verify L6 needs portal-specific context beyond what PAGE_SHAPE_DRIFT provides
+      - BID_PORTAL_AUTH_EXPIRED      (session expired mid-workflow) — likely COVERED by existing AUTH_STATE_STALE; verify L6 needs distinct error_context schema (auth-signin/procontract retry orchestration is daemon-level, not skill-level)
+    Final count: 3-6 new variants, determined by TDD step 03 after grep'ing existing ErrorCode usages.
+    Each NEW variant requires: enum variant + as_str() arm + propagate clippy-surfaced exhaustive matches across validation/policy.rs, validation/executor.rs, errors/markdown.rs, tracing/structured.rs, ipc/handlers/*.rs (5-15 sites per L5 precedent).
+  - |
+    crates/daemon/src/main.rs (EXTEND — Phase 2 + Phase 1 module wiring):
+      - Phase 1 wiring: add `mod bid_workflow;` at the appropriate spot in main.rs so the Phase 1 module
+        skeleton is reachable.
+      - Phase 1 model-profile registration: add a new match arm for `"portal_form_high_reliability"` in the
+        `match skill.metadata.model_profile.as_str() { ... }` block (existing arms include
+        `browse_stable_low_cost` and `structured_extract_low_cost`). The new profile is L6's introduction
+        per spec §1.7 — "premium profile for externally visible portal mutations". If TDD step 03 decides
+        to skip the new profile and reuse an existing one, drop this work.
+      - Phase 2 dispatch: add `"run_bid_workflow" => bid_workflow::runner::run_bid_workflow_job(runtime, &runner, claimed).await`
+        arm to the job-kind dispatch around line 1513+ (next to the existing `"extract_document_structure"`
+        and `"extract_document_semantics"` arms). The dispatch wires to the Phase 1 module stub.
+      - Phase 3 body: the runner.rs stub gets filled out — loads `skills/bid-portal-procontract/`, injects
+        BidScopePayload + CompanyProfile from operator_decision_heads + shared_company_profile (resolved
+        at companyProfileVersion), spawns PTY session, captures screenshots per step, persists
+        bid_workflow_states transitions atomically with the run manifest write.
+      **NOTE: do NOT put the dispatch arm in `crates/daemon/src/jobs/runner.rs` — that file holds shared
+      types, not the match dispatch. Verify by grepping for `extract_document_structure` — you'll find the
+      match arm in main.rs.**
+  - "crates/daemon/src/sources/registry.rs (EXTEND): RegisteredSource entries for skills/bid-portal-procontract/ + skills/validation/overlay-bid-portal-procontract/. ProContract base source may already be registered — verify with grep before duplicating."
+  - "crates/daemon/src/ipc/handlers/jobs.rs (EXTEND): add `trigger_bid_workflow(TriggerBidWorkflowParams { process_id, bid_scope })` handler. Performs the L6 readiness gate (spec §1.3) BEFORE enqueueing the job — failed gate returns a structured rejection with the specific blocker code so the desktop can render an actionable error. Returns continuation_job_id for the desktop SessionViewer to attach to."
+  - "crates/daemon/src/main.rs (EXTEND): `--run-bid-workflow <bid-job-id>` CLI subcommand for ops/manual recovery; bid-workflow live-loop arm (likely a small addition to the existing live-loop state machine, mirroring how Stage 14 operator decisions are processed)."
+  - "crates/daemon/src/bid_workflow/ (NEW MODULE — optional): if Phase 1 bead audit determines the bid-workflow business logic warrants a dedicated module (state-machine, readiness-gate evaluator, side-effect-cap enforcement), create as crates/daemon/src/bid_workflow/{mod.rs, state_machine.rs, readiness_gate.rs, side_effect_cap.rs}. Otherwise keep inline in main.rs + jobs/runner.rs. Decision deferred to step 03 TDD authoring."
+
+new_skills:
+  - path: skills/bid-portal-procontract/
+    files:
+      - SKILL.md                            # ~250-350 lines — playbook with 11 steps per spec §1.7, side-effect class per step
+      - result.schema.json                  # SubmissionResult / DraftSaveResult / PortalStateVerification
+      - checkpoint.schema.json              # Per-step resume state (step #, side_effect_class_reached, screenshot_paths)
+      - canary.inputs.jsonl                 # >= 3 canary inputs (small/medium/large form complexity)
+      - golden.assertions.yaml              # Per-canary expected outputs
+      - validator-rubric.yaml               # MANDATORY — even though overlay-bid-portal-procontract supersedes for live runs, the rubric IS the validator harness for canary tests (skill_canary_harness.rs e2e_can_010+). Without it, canaries fail.
+    reference_pattern_files:
+      # Exact existing files to study + mirror — verified 2026-05-21
+      - skills/procurement-ingestion/procontract-register-interest/SKILL.md             # 446 lines — playbook + CDP discipline + failure codes + side-effect declarations
+      - skills/procurement-ingestion/procontract-register-interest/result.schema.json   # schema shape for portal-mutation result
+      - skills/procurement-ingestion/procontract-register-interest/checkpoint.schema.json  # per-step resume state
+      - skills/procurement-ingestion/procontract-register-interest/canary.inputs.jsonl  # canary input format
+      - skills/procurement-ingestion/procontract-register-interest/golden.assertions.yaml  # golden assertions format
+    frontmatter:
+      skill_id: bid-portal/procontract
+      skill_version: 0.1.0
+      interaction_profile: pty_interactive
+      result_schema_version: 1.0.0
+      checkpoint_schema_version: 1.0.0
+      # NOTE: `portal_form_high_reliability` is a NEW model profile L6 introduces (spec §1.7
+      # "premium profile for externally visible portal mutations"). All existing skills use
+      # `browse_stable_low_cost` or `structured_extract_low_cost`. Adding this requires a
+      # new match arm in crates/daemon/src/main.rs (where model_profile is parsed via
+      # `match skill.metadata.model_profile.as_str()`) — this is Phase 1 daemon-code work
+      # alongside the ErrorCode extension. If L6 chooses NOT to introduce the new profile,
+      # fall back to `browse_stable_low_cost` and remove this comment.
+      model_profile: portal_form_high_reliability
+      agent_cli: claude
+      # IMPORTANT: this is the SKILL-LEVEL maximum side-effect declaration in the existing skill vocabulary
+      # (values: none | local_state | external_mutation | read_only — verified across procontract-register-interest,
+      # auth-signin/procontract, hmrc-customs-classification). It is DIFFERENT from L6's per-run BidScopePayload.sideEffectCap
+      # (READ_ONLY / REMOTE_DRAFT / NOTIFICATION_OR_LOCK / LEGAL_DECLARATION / FORMAL_SUBMISSION / FUNDS_COMMITTED).
+      # The skill-level declaration is "this skill can produce up to external_mutation"; the per-run dynamic value tracks
+      # what THIS specific run actually reached and is bounded by sideEffectCap.
+      side_effect_class: external_mutation
+      validation_policy: always
+      requires_cdp: true
+      cdp_default_port: 9222
+      # source_structure_version is the convention all Procontract skills follow (verified across
+      # procontract-discover, procontract-enrich-tender, procontract-register-interest). Bump when
+      # Procontract's HTML/selectors change in a way that breaks the skill.
+      source_structure_version: procontract-bid-portal-YYYY-MM-DD     # set to launch date at Phase 4
+      promotion_stage: draft           # initial; promotion to stable via L0 6-stage flow
+      worker_behavior_version: bid-portal/procontract@0.1.0+1.0
+      version_change_affects_behavior: true
+
+    job_parameters_schema:
+      # What the daemon's `bid_workflow::runner::run_bid_workflow_job(...)` passes to the skill via stdin / env / contract.
+      # Mirrors how procurement-ingestion/procontract-register-interest receives `contracts_to_register` etc.
+      # The skill MUST validate this shape against checkpoint.schema.json on entry.
+      bid_scope_payload: "Inline BidScopePayload (the full 10-field object per spec §1.4)"
+      company_profile: "Inline CompanyProfile resolved from shared_company_profile at companyProfileVersion"
+      bid_documents: "Array of BidDocument with file_path resolved into local artifact store"
+      stage_run_id: "Unique ID for this run (links artifacts back to bid_workflow_states.stage_run_id)"
+      operator_override:
+        kind: "Optional<OverrideKind> — when present, the workflow has an explicit operator override (quote_role_floor_only | validation_gate)"
+        reason: "String text the operator provided"
+        recorded_by: "operator name"
+        recorded_at: "ISO-8601 timestamp"
+
+    # === Anti-patterns (consolidated DO-NOT list — inherited from procontract-register-interest discipline) ===
+    must_not:
+      cdp_browser:
+        - "Do NOT launch a fresh browser profile — attach to operator's persistent CDP at /Users/alinaaitova/.chrome-automation:9222"
+        - "Do NOT close the operator's browser"
+        - "Do NOT sign out — subsequent skills (or operator) need the session"
+        - "Do NOT solve captchas"
+      authentication:
+        - "Do NOT type credentials directly — auth-signin/procontract uses Chrome autofill"
+        - "Do NOT invoke auth-signin/procontract as a sub-skill — return AUTH_STATE_STALE on session expiry; the DAEMON orchestrates the retry (per existing procontract-register-interest pattern)"
+      side_effects:
+        - "Do NOT escalate side-effect class past BidScopePayload.sideEffectCap — when cap reached, save draft and stop (raise BID_SIDE_EFFECT_CAP_EXCEEDED on attempt to escalate)"
+        - "Do NOT submit any form OTHER than the bid response form (no profile changes, no account settings, no withdraws of other bids)"
+        - "Do NOT cache or log filled values to disk — company profile fields are PII"
+      portal_state:
+        - "Do NOT proceed past Step 4 (Verify opportunity matches expected tender reference + check for existing draft/submission) if verifyPortalState detects an existing submission — raise BID_DUPLICATE_DETECTED"
+        - "Do NOT continue if portal state diverged from the expected opportunity (page fingerprint drift) — raise PAGE_SHAPE_DRIFT (or new BID_PORTAL_CHANGED if TDD added it)"
+
+  - path: skills/validation/overlay-bid-portal-procontract/
+    files:
+      - SKILL.md                            # ~80-150 lines — overlay assertions; mirrors overlay-supplier-enrichment frontmatter shape
+    purpose: |
+      Validator overlay for bid-portal-procontract runs. Composes with base validator
+      to check portal-specific anomalies: opportunity ref match, screenshot count >= 11,
+      side_effect_class progression is monotonic and <= BidScopePayload.sideEffectCap,
+      submission confirmation reference well-formed, agent narrative cites lot/candidate
+      IDs verbatim, no PII leakage in narrative.
+
+# ============================================================================
+# Cross-domain spec callouts (step 01 validate-spec must transcribe these)
+# ============================================================================
+spec_callouts:
+  proactis_procontract_naming:
+    spec_says: "§1.5/§1.6/§1.7 reference 'Proactis' and 'proactis-workflow.ts', 'bid-portal-proactis/'"
+    actual_repo_state: "Codebase uses 'procontract' (auth-signin/procontract/, procurement-ingestion/procontract-*). Operator confirmed 2026-05-21 these are the same portal (procontract.due-north.com)."
+    resolution: "Recorded as decision_1 above. Add a callout under §1.7 / §1.6 noting the alias: 'Proactis is the marketing name; Procontract is the platform — same portal procontract.due-north.com. New files use procontract naming to match existing convention.' NO scope drift — same capability."
+
+  existing_auth_signin_procontract_reuse:
+    spec_says: "§1.7 step 2: 'Authenticate with portal credentials'"
+    actual_repo_state: "skills/auth-signin/procontract/ already implements the full Chrome-saved-creds CDP login flow with sales@sorelon.com (operator's real Procontract account)."
+    resolution: "Recorded as decision_2. Add a callout under §1.7 step 2: 'Authentication is delegated to skills/auth-signin/procontract/. The bid-portal-procontract skill verifies signed-in state and invokes auth-signin only when session is expired (URL contains /Login OR text matches Session expired|Please log in).' Reduces bid-portal skill complexity; no new auth skill needed."
+
+  validator_overlay_inclusion:
+    spec_says: "§1.7: 'Validation policy: always — every bid run gets semantic validation'"
+    actual_repo_state: "Base validator + 5 domain overlays exist (validation/base/ + 5 overlay-*). No bid-portal overlay yet."
+    resolution: "Recorded as decision_3. Add a callout under §1.7 noting the validator overlay (skills/validation/overlay-bid-portal-procontract/) is included as an L6 deliverable to give the always-on validation policy domain-specific assertions. WITHOUT the overlay, base validator only checks generic structure — insufficient for portal-specific anomalies."
+
+  side_effect_cap_default:
+    spec_says: "§1.4: 'sideEffectCap: SideEffectClass — Maximum side-effect class authorized for this workflow run'"
+    actual_repo_state: "No existing default. New behavior."
+    resolution: "Step 01 records: bid scope payload default sideEffectCap = REMOTE_DRAFT for `reviewRequired=true` workflows (operator review safer); FORMAL_SUBMISSION only when operator explicitly toggles reviewRequired=false AND confirms a known opportunity ref. The first live demo (DoD #8 verification in step 12) runs with sideEffectCap = REMOTE_DRAFT against an operator-chosen Procontract opportunity that will reach draft_saved but not bid_submitted."
+
+  bid_state_check_constraint:
+    spec_says: "Cross-domain note for L0: bid_workflow_states.bid_state CHECK constraint should be expanded to include draft_saved and portal_state_unknown values added by L6. The current DDL allows free-text (no CHECK), so this is a recommendation, not a blocker."
+    actual_repo_state: "Confirmed — migrations/0001_sqlite_state_initial.sql lines 437-451 has no CHECK on bid_state. The 7 lifecycle values are validated only in Rust."
+    resolution: "Step 01 records: L6 does NOT add a SQL CHECK constraint (avoids migration churn for a non-functional change). Rust enforces the enum at the bid-workflow state machine layer. Cross-domain note remains as forward-compatibility guidance for any future schema cleanup pass."
+
+  operator_decision_heads_staleness_l5_vectors:
+    spec_says: "Cross-domain note for L4: operator_decision_heads staleness detection must include L5 freshness vectors (tariff structure, measures, remedies, FX) in addition to pipeline assessment hash. When any L5 freshness vector expires for classifications backing an approved decision, the decision should be marked stale."
+    actual_repo_state: "Confirmed in research: classification_fresh_until_expired() at crates/daemon/src/main.rs:5537-5542; the L6 readiness gate must consume this signal at decisionBasisHash computation time."
+    resolution: "Step 01 records: decisionBasisHash for BidScopePayload covers (a) pipeline_assessments hash, (b) selected supplier_quotes versions, (c) shared_company_profile version, (d) per-candidate landed_cost_estimates.classification_fresh_until + classification_fresh_until_expired result + tariff/measures/remedies/FX vector hashes from L5. ANY change → reviewedBasisHash != current → bid blocked."
+
+  bid_workflow_runner_module_placement:
+    spec_says: "(silent — no spec'd module layout for runner)"
+    actual_repo_state: "Open architectural decision: dedicated crates/daemon/src/bid_workflow/ module vs inline in main.rs"
+    resolution: |
+      RECOMMENDED RESOLUTION (TDD step 03 to confirm or override):
+
+      Phase 1 (Foundation) creates the module SKELETON:
+        - crates/daemon/src/bid_workflow/mod.rs           (module root with public exports)
+        - crates/daemon/src/bid_workflow/types.rs         (mirror packages/bidding/bid-scope-types.ts in Rust — BidScopePayload, SideEffectClass enum, etc.)
+        - crates/daemon/src/bid_workflow/runner.rs        (stub `pub async fn run_bid_workflow_job(...) -> Result<JobOutcome> { todo!("Phase 3") }`)
+        - crates/daemon/src/bid_workflow/readiness_gate.rs (stub readiness-gate evaluator)
+        - crates/daemon/src/bid_workflow/state_machine.rs  (stub state transitions)
+      Phase 1 also wires `mod bid_workflow;` into main.rs so subsequent phases can `use crate::bid_workflow::...`.
+
+      Phase 2 (Daemon Runtime) wires the dispatch arm in main.rs (around line 1513+):
+        - Adds `"run_bid_workflow" => bid_workflow::runner::run_bid_workflow_job(runtime, &runner, claimed).await`
+        - Adds the `trigger_bid_workflow` IPC handler in `crates/daemon/src/ipc/handlers/jobs.rs` (following trigger_ingestion at line 45 + trigger_enrichment at line 95)
+        - Adds the `--run-bid-workflow` CLI subcommand to main.rs (mirroring existing CLI subcommands)
+        - At this stage the dispatch wires to the Phase 1 stub; runs would `todo!()` panic — that's expected. Phase 3 fills out the body.
+
+      Phase 3 (State Machine + Readiness Gate) implements the actual logic:
+        - bid_workflow/runner.rs body — load skill, inject CompanyProfile, spawn PTY, capture screenshots, persist transitions
+        - bid_workflow/state_machine.rs body — all 14 transitions with prerequisite checks
+        - bid_workflow/readiness_gate.rs body — wrap existing L5 checks + quote-role + freshness + company-profile + upstream-trust
+        - decisionBasisHash computation
+        - 8 invariant enforcement points
+
+      Rationale:
+        - main.rs already at 31K lines — keeping a discrete module is safer for readability + compile time
+        - Phase 2 dispatch needs a function to call — stub-first lets Phase 2 + Phase 3 parallelize
+        - Module skeleton in Phase 1 gives Phase 2 a stable import path
+        - Phase 3 fills out without changing dispatch wiring
+
+      IF TDD step 03 decides differently (e.g., inline everything in main.rs), the strategy + beads must reflect that — but currently the bias is toward a dedicated module.
+
+  webpolicy_for_bid_visibility:
+    spec_says: "(silent on web portal surface)"
+    actual_repo_state: "L4 web is read-only viewer with RLS viewer-role enforcement. L6 spec §1.9 says bid_workflow_states 'synced to Supabase for web visibility' but doesn't detail UI surface."
+    resolution: "Step 01 records: web viewer gets a read-only bid_state badge on process detail page (mirrors PipelineBadge); draft_saved triggers a 'Operator review required' note (no UI to perform the review — that's desktop-only). RLS allows viewer role to see bid_state but NOT the BidScopePayload JSON or the run manifest contents (these contain potentially sensitive company-profile fields). Step 03 TDD verifies the RLS boundary."
+
+  no_ci_workflows:
+    spec_says: "(silent)"
+    actual_repo_state: "No .github/workflows/ directory. Tests run locally only (same as L5)."
+    resolution: "L6 bootstrap doc lists the local quality gate sequence verbatim from L5's bootstrap. Optional: L6 strategy MAY consider adding a minimum CI workflow as a final-phase bead; defaults to NOT in scope."
+
+# ============================================================================
+# Open questions — surfaced 2026-05-21 during 9-pass fresh-eyes audit.
+# Each item below is EITHER (a) pre-resolved by operator via AskUserQuestion
+# before step 01 runs (matching L5's decision-locking pattern), OR (b) escalated
+# by step 01 to operator for in-line resolution, OR (c) deferred to TDD/strategy
+# author with explicit guidance on which trade-offs to consider.
+#
+# Step 01 (validate-spec) is responsible for surfacing each item and either
+# transcribing the operator's decision into spec §1.0 OR creating an explicit
+# "Operator Decision Required" callout that blocks step 07 (bead creation) until
+# resolved.
+# ============================================================================
+open_questions:
+
+  # ----- Tier 1: ARCHITECTURAL — block pipeline progress; pre-resolve before step 07 -----
+
+  q1_module_placement:
+    question: "Where does `bid_workflow::runner::run_bid_workflow_job` live?"
+    tier: 1
+    blocks: "step 05 (strategy) phase ordering; step 07 (beads) Phase 1 file list"
+    options:
+      - "(A) Phase 1 creates `crates/daemon/src/bid_workflow/` module skeleton; Phase 2 dispatch wires to stub; Phase 3 fills bodies. (RECOMMENDED — resolves Phase 2/3 deadlock)"
+      - "(B) Inline `run_bid_workflow_job(...)` in main.rs alongside existing extract_document_* handlers (no new module; flatter structure but adds to main.rs's 31K lines)"
+      - "(C) Separate `crates/bidding-runner/` sibling crate (cleanest isolation but most complex; introduces a new workspace member)"
+    recommended_default: A
+    rationale: "Already documented in manifest spec_callouts.bid_workflow_runner_module_placement; operator should confirm or override."
+
+  q2_model_profile:
+    question: "Use `portal_form_high_reliability` (NEW profile per spec §1.7) or reuse existing `browse_stable_low_cost`?"
+    tier: 1
+    blocks: "Phase 1 daemon-code work; Phase 4 skill frontmatter"
+    options:
+      - "(A) Introduce `portal_form_high_reliability` as L6 deliverable. Phase 1 adds match arm in main.rs `model_profile.as_str()` block. Cost: ~1 line + new profile config."
+      - "(B) Reuse `browse_stable_low_cost`. Update spec §1.7 to drop the new-profile claim. Cost: 0 daemon change; semantic clarity lost (the skill is more sensitive than ordinary browsing)."
+      - "(C) Introduce profile as alias-of-existing initially (same routing as browse_stable_low_cost); differentiate later. Cost: ~3 lines."
+    recommended_default: A
+    rationale: "Spec §1.7 is explicit; operator should confirm before TDD/strategy bakes in."
+
+  q3_errorcode_set:
+    question: "Final NEW ErrorCode variant set (TDD-determined; operator may have opinions)"
+    tier: 1
+    blocks: "step 03 TDD; Phase 1 daemon code"
+    options:
+      - "(A) 4 likely-new variants only: BID_SUBMISSION_FAILED, BID_DUPLICATE_DETECTED, BID_SIDE_EFFECT_CAP_EXCEEDED, BID_READINESS_GATE_FAILED (drop BID_PORTAL_CHANGED → reuse PAGE_SHAPE_DRIFT; drop BID_PORTAL_AUTH_EXPIRED → reuse AUTH_STATE_STALE in daemon-orchestrated retry pattern)"
+      - "(B) 6 variants (all of A plus BID_PORTAL_CHANGED + BID_PORTAL_AUTH_EXPIRED for portal-specific context distinctness)"
+      - "(C) TDD step 03 author decides based on careful audit of existing variants and L6 failure-mode taxonomy"
+    recommended_default: A
+    rationale: "Existing PAGE_SHAPE_DRIFT and AUTH_STATE_STALE error_context can carry portal-specific data; adding distinct variants adds complexity without clear benefit. But operator may want explicit portal-specific codes for operational dashboards."
+
+  q4_default_review_required:
+    question: "Default `BidScopePayload.reviewRequired` for desktop-initiated bids?"
+    tier: 1
+    blocks: "Phase 6 desktop UI default state; Phase 7 live demo policy"
+    options:
+      - "(A) true — operator MUST review every draft before submission. Safer. Matches live-demo policy (decision_5)."
+      - "(B) false — skip review when validation is clear. Faster but riskier."
+      - "(C) Per-opportunity operator choice in desktop UI; no global default."
+    recommended_default: A
+    rationale: "L6's whole point is operator-reviewable artifacts (not autonomous submissions). MVP should default to safer."
+
+  q5_default_side_effect_cap:
+    question: "Default `BidScopePayload.sideEffectCap` for desktop-initiated bids?"
+    tier: 1
+    blocks: "Phase 6 desktop UI; Phase 7 live-demo policy"
+    options:
+      - "(A) REMOTE_DRAFT — workflow can only reach `draft_saved`; operator explicitly raises cap to authorize FORMAL_SUBMISSION on review. Matches live-demo policy."
+      - "(B) FORMAL_SUBMISSION — workflow can complete a real submission in one shot if validation passes."
+      - "(C) Per-opportunity operator choice in desktop UI (no global default)."
+    recommended_default: A
+    rationale: "Constitutional invariant 'No real-money bids without human approval' favors safer default; operator can opt into FORMAL_SUBMISSION explicitly per bid."
+
+  q6_bid_state_check_constraint:
+    question: "Add SQL CHECK constraint on `bid_workflow_states.bid_state` column?"
+    tier: 1
+    blocks: "Phase 1 schema work (would require new migration)"
+    options:
+      - "(A) Add CHECK in new migration (e.g., 0014_l6_bid_state_check.sql) — clean SQL contract; small migration; matches L0 cross-domain note suggestion"
+      - "(B) Rely on Rust enum enforcement only — no migration; matches current state; faster"
+    recommended_default: B
+    rationale: "Spec §1.9 says 'No new tables. No new columns.' — adding CHECK is technically a schema change. Rust enforcement is sufficient. Documented in spec_callouts.bid_state_check_constraint."
+
+  # ----- Tier 2: IMPLEMENTATION DETAILS — TDD/strategy can decide; operator input valuable -----
+
+  q7_document_acquisition_source:
+    question: "Where do `BidDocument[]` file paths come from?"
+    tier: 2
+    blocks: "Phase 4 skill playbook step 8 (Upload required documents); Phase 6 desktop UI"
+    options:
+      - "(A) Operator uploads via desktop drag-drop (Phase 6 UX work)"
+      - "(B) Pulled from L5 `tender_document_sets` (auto-resolution from selected lots)"
+      - "(C) Hybrid: auto-pull + operator can override per-document"
+    recommended_default: C
+    rationale: "Most flexible. Operator can rely on auto-pull for routine docs and override for tender-specific certificates."
+
+  q8_optional_cron_entries:
+    question: "Add optional cron entries for bid workflow health?"
+    tier: 2
+    blocks: "Phase 6 daemon scheduler work"
+    options:
+      - "(A) None — L6 is fully operator-triggered (matches spec)"
+      - "(B) Add (i) draft_saved staleness check (warn if >N days old), (ii) Procontract auth proactive refresh"
+      - "(C) Defer to post-L6 enhancement"
+    recommended_default: A
+    rationale: "L6 spec says 'no cron entries needed'. Adding them is outside the spec; operator can re-evaluate post-L6 based on observed staleness patterns."
+
+  q9_validator_calibration_depth:
+    question: "Validator-overlay calibration corpus scale for `tests/fixtures/calibration/bid-portal-procontract/`?"
+    tier: 2
+    blocks: "Phase 5 validator overlay tests; Phase 7 calibration runs"
+    options:
+      - "(A) Light: ≥3 inputs per variant (simple/medium/complex) — total ~9 inputs"
+      - "(B) Match L5 customs scale: gold/silver/bronze/pairwise with 100+ cases per category (heavy effort but more robust)"
+      - "(C) Start with light (option A); plan post-L6 expansion as operational learnings accumulate"
+    recommended_default: C
+    rationale: "L6 is a single-portal feature; comprehensive calibration is more impactful for multi-source pipelines like L5 customs. Light start + expand based on usage is pragmatic."
+
+  q10_stage15_deferred_fate:
+    question: "Stage-15 deferred handoff (`prompts/stage-15-bid-workflow-handoff-DEFERRED.md`) fate after L6 archive?"
+    tier: 2
+    blocks: "step 15 archive"
+    options:
+      - "(A) Delete entirely (cleanest; preserves history via git)"
+      - "(B) Add 'SUPERSEDED by L6' header banner; leave for historical context"
+      - "(C) Rewrite as L6 operational runbook (how to operate the bid workflow in production)"
+    recommended_default: B
+    rationale: "Historical context useful for understanding why L6 exists; rewrite is separate operational doc effort outside L6 scope."
+
+  # ----- Tier 3: LIVE DEMO / OPERATIONAL — operator must arrange before step 12 -----
+
+  q11_live_demo_opportunity_ref:
+    question: "Which Procontract opportunity for the live demo?"
+    tier: 3
+    blocks: "Phase 7 live demo execution"
+    operator_action_required: "Pre-step-12: operator selects a real Procontract opportunity ref that (a) is open for expressions of interest, (b) won't generate buyer-visible legal commitment when reaching draft_saved (first run, sideEffectCap=REMOTE_DRAFT), (c) operator is genuinely willing to bid on (for the second run that escalates to FORMAL_SUBMISSION)."
+    deliverable: "Record opportunity ref in live-demo/first-run-REMOTE_DRAFT.md per step 15 6c"
+
+  q12_company_profile_population_timing:
+    question: "When does `shared_company_profile` (Supabase remote-owned) get populated?"
+    tier: 3
+    blocks: "Phase 7 live demo (skill needs CompanyProfile injected)"
+    options:
+      - "(A) Pre-L6 — operator populates via Supabase admin tooling before pipeline starts"
+      - "(B) Phase 6 — desktop UI gets a 'company profile editor' as part of bid-workflow tab"
+      - "(C) Phase 7 prep — operator populates via SQL/admin before first live demo"
+    recommended_default: C
+    rationale: "Minimal scope: a one-time SQL insert of operator's company data before live demo. UI editor (option B) is post-L6 if needed."
+
+  q13_certificate_expiry_warning:
+    question: "Warning timeline before `certifications[].expiryDate` blocks readiness gate?"
+    tier: 3
+    blocks: "Phase 3 readiness-gate logic; Phase 6 desktop UI warnings"
+    options:
+      - "(A) No warning — block-on-expiry only (matches spec §1.3 verbatim)"
+      - "(B) 30-day pre-expiry warning shown in desktop UI; soft block at expiry"
+      - "(C) 60-day pre-expiry warning"
+    recommended_default: A
+    rationale: "Spec is silent on pre-warning. MVP keeps to spec; warning is post-L6 UX enhancement."
+
+  q14_cdp_session_contention:
+    question: "How does daemon serialize CDP browser access across multiple Procontract skills?"
+    tier: 3
+    blocks: "Phase 7 live demo execution if multiple skills run simultaneously"
+    options:
+      - "(A) Daemon's existing resource arbiter handles browser-slot contention (verify by reading L3 resource arbiter code)"
+      - "(B) Operator avoids parallel Procontract skill runs during live demo (operational discipline)"
+      - "(C) Add explicit browser-mutex check to Phase 4 bid skill"
+    recommended_default: A
+    rationale: "L3 resource arbiter should already handle this. Phase 3 readiness-gate work should verify before live demo."
+
+  q15_phase_count_finalize:
+    question: "Strategy step 05 phase count (suggested 7)?"
+    tier: 4
+    blocks: "step 05 strategy ordering; EXECUTION-GUIDE find-replace if non-7"
+    options:
+      - "(A) 7 phases per recommendation (Foundation/Daemon Runtime/State Machine/Portal Skill/Validator+Bidding/UI/Live Demo)"
+      - "(B) 6 phases: merge State Machine into Daemon Runtime"
+      - "(C) 8 phases: split Portal Skill into Schema + Playbook"
+    recommended_default: A
+    rationale: "Strategy step 05 author decides; EXECUTION-GUIDE has reconciliation note for non-7."
+
+# ============================================================================
+# Spec metadata (for ENRICHMENT after batch 1)
+# ============================================================================
+spec_metadata:
+  total_lines: 383
+  total_sections: 2                       # 1 Overview & Bid Workflow System, 2 Testing/DoD/Risks/Dependencies
+  subsections_section_1: 10               # 1.1 Narrative .. 1.10 Invariants Enforced
+  subsections_section_2: 8                # 2.1 DoD .. 2.8 What's NOT Stubbed
+  state_machine_transitions: 14           # §1.3 state transition table rows (corrected 2026-05-21 — was undercounted as 11; the table has 14 distinct From→To pairs)
+  bid_workflow_flow_steps: 19             # §1.5 numbered flow steps
+  bidding_package_files_planned: 3        # §1.6 (proactis-workflow → procontract-workflow per decision_1)
+  bid_portal_skill_playbook_steps: 11     # §1.7 step table has 12 rows (steps 1-9, 10a, 10b, 11) — 10a/10b are branching alternates of "step 10"; agent count by playbook step is 11
+  side_effect_classes: 6                  # §1.4 type union: READ_ONLY / REMOTE_DRAFT / NOTIFICATION_OR_LOCK / LEGAL_DECLARATION / FORMAL_SUBMISSION / FUNDS_COMMITTED
+  audit_trail_artifact_types: 6           # §1.8 table
+  invariants: 8                           # §1.10 table rows
+  dod_criteria_count: 11                  # §2.1
+  test_files_planned: 3                   # §2.2
+  test_files_cumulative_target: 60        # §2.2 "Cumulative 60"
+  test_scenarios_count: 11                # §2.3
+  risks_count: 4                          # §2.4
+  forward_compat_provisions: 4            # §2.5
+  adrs_addressed: 1                       # §2.7 ADR-007
+  what_not_stubbed: "Nothing — final layer"
+  prerequisite_check_conditions: 8        # §1.3 lines 71-80 (operator approved + not stale + 4 L5 blockers + quote-role + company profile docs + upstream trust gate)
+
+# ============================================================================
+# Quality bar (L4 + L5 reference)
+# ============================================================================
+quality_bar:
+  l5_kickoff: docs/pipeline/l5-expanded-commercial-intelligence/artifacts/l5-expanded-commercial-intelligence-kickoff.md
+  l5_push: docs/pipeline/l5-expanded-commercial-intelligence/artifacts/l5-expanded-commercial-intelligence-push.md
+  l5_tdd: docs/pipeline/l5-expanded-commercial-intelligence/artifacts/l5-expanded-commercial-intelligence-tdd.md           # 873 lines
+  l5_strategy: docs/pipeline/l5-expanded-commercial-intelligence/artifacts/l5-expanded-commercial-intelligence-strategy.md
+  l5_bootstrap: docs/pipeline/l5-expanded-commercial-intelligence/artifacts/l5-expanded-commercial-intelligence-bootstrap.md
+  l5_status: docs/pipeline/l5-expanded-commercial-intelligence/artifacts/l5-expanded-commercial-intelligence-status.yaml
+  l5_completion_audit: docs/pipeline/l5-expanded-commercial-intelligence/artifacts/l5-completion-audit-2026-05-20.md
+  l5_archived_handoffs: docs/pipeline/l5-expanded-commercial-intelligence/archived/2026-05-21-l5-expanded-commercial-intelligence/
+  l4_kickoff: docs/pipeline/l4-shared-visibility/artifacts/l4-shared-visibility-kickoff.md                                 # 708 lines
+  l4_push: docs/pipeline/l4-shared-visibility/artifacts/l4-shared-visibility-push.md
+  l4_tdd: docs/pipeline/l4-shared-visibility/artifacts/l4-shared-visibility-tdd.md                                         # 623 lines
+  l4_strategy: docs/pipeline/l4-shared-visibility/artifacts/l4-shared-visibility-strategy.md
+  l4_bootstrap: docs/pipeline/l4-shared-visibility/artifacts/l4-shared-visibility-bootstrap.md                             # 978 lines
+  l4_status: docs/pipeline/l4-shared-visibility/artifacts/l4-shared-visibility-status.yaml
+  l4_completion_audit: docs/pipeline/l4-shared-visibility/artifacts/l4-completion-audit-2026-05-08.md                      # 172 lines
+
+# ============================================================================
+# Strategy + research context
+# ============================================================================
+strategy_root: docs/strategy/
+strategy_index: docs/strategy/cross-reference-index.md
+strategy_overview: docs/strategy/layer-strategy.md
+research_doc: docs/research/2026-03-08-public-procurement-intelligence-platform-research.md
+
+cross_layer_context:
+  prior_layers_built: ["L0", "L1", "L2", "L3", "L4", "L5"]
+  l5_status: "COMPLETE — l5-completion-audit-2026-05-20.md verdict COMPLETE; 61 beads closed; 0 fix beads; ready_for_l6: true; l5_to_l6_gate_producible: true"
+
+  # ============================================================================
+  # Operator override mechanisms (spec §1.3 prerequisite check + §1.3 validation gate)
+  # Step 03 TDD must specify tests + step 04 TDD optimize must verify coverage
+  # ============================================================================
+  operator_override_mechanisms:
+    quote_role_quality_gate_override:
+      gate: "Opportunities backed only by `domestic_wholesale_floor` (1688) or `optimistic_floor` (Alibaba) evidence are NOT bid-ready"
+      override_path: |
+        Operator can explicitly override with acknowledgment. Implementation:
+          - Desktop UI presents the "floor-only evidence" warning when transitioning to ready_to_bid
+          - Operator confirms acknowledgment via a structured form (records: who, when, override_reason text)
+          - Acknowledgment stored on operator_decision_heads or a sibling row; IPC handler reads
+            it before computing the readiness gate verdict
+          - Test: bid-readiness-gate.test.ts covers both "no override → blocked" and "override present → allowed"
+      audit_implications: |
+        Run manifest's agent_narrative MUST cite the override (it's part of bid scope context).
+        Validator overlay flags missing override-citation if the underlying bid scope includes
+        floor-only evidence but the override flag is absent — would catch a UI bug that misses
+        the acknowledgment.
+
+    validation_gate_override_at_final_submission:
+      gate: "Fail-closed: validator rejection or outage blocks bid_submitted transition"
+      override_path: |
+        Operator can explicitly override the validation gate at final submission per spec §1.3
+        last paragraph: "final submission requires either validator `approved` verdict or
+        explicit operator override of the validation gate."
+        Implementation:
+          - Desktop UI surfaces the validator verdict (or outage state) in the draft_saved review panel
+          - "Override and submit" button requires structured override_reason text and is logged
+          - The override is recorded in bid_workflow_states metadata + the run manifest
+          - Test: validator-overlay tests cover both "rejection without override → blocked" and
+            "rejection with explicit override → allowed (with log)"
+      audit_implications: |
+        Every override creates an audit-trail entry. The operator's override_reason text becomes
+        part of the run manifest's agent_narrative for forensic review.
+
+    no_override_for_L5_hard_blockers:
+      gates_with_no_override: |
+        - CLASSIFICATION_AMBIGUOUS (no override — operator must resolve classification first)
+        - TARIFF_BRANCH_DIVERGENCE (no override — operator must resolve divergence)
+        - SUPPLEMENTARY_UNIT_MISSING (no override — operator must provide unit)
+        - decision_grade = broker_required (no override — broker engagement required)
+        - classification_fresh_until expired (no override — classification re-verification required)
+        - Operator decision NOT approved (no override — approval is constitutional)
+        - Operator decision stale (no override — re-affirmation required)
+        - Upstream pipeline trust gate: pipeline_assessments.validation_state ≠ validated AND no operator-accepted trust-debt note for the scope
+      rationale: "These are constitutional gates. Bypassing them would defeat the entire L5→L6 readiness contract. The bid workflow CANNOT proceed without these being green."
+  l5_to_l6_readiness_gate:
+    summary: "L6 cannot reach `ready_to_bid` while ANY L5 blocker is active for the bid scope"
+    blockers:
+      - "CLASSIFICATION_AMBIGUOUS (any selected candidate)"
+      - "TARIFF_BRANCH_DIVERGENCE (any selected candidate)"
+      - "SUPPLEMENTARY_UNIT_MISSING (on required duty components)"
+      - "landed_cost_estimates.decision_grade = broker_required"
+      - "landed_cost_estimates.classification_fresh_until expired for expected import window"
+    quote_role_gate: |
+      Opportunities backed only by `domestic_wholesale_floor` (1688) or `optimistic_floor` (Alibaba)
+      evidence are NOT bid-ready unless operator explicitly overrides with acknowledgment.
+    upstream_trust_gate: |
+      No selected lot/candidate depends on `suspect` inputs; process-level rollup
+      `pipeline_assessments.validation_state` must be `validated` unless operator explicitly
+      accepts flagged/unverified trust debt for the scope.
+    source: layer-strategy.md §10 Interface Contracts; cross-reference-index.md rows 230/256
+
+  next_layer_after_l6: "NONE — L6 is the final layer per strategy. No L7 exists. Archive declares L6 as M6 capstone."
+
+milestones:
+  l6: M6
+  exit_criterion: "System can prepare and submit one request on Procontract end-to-end with full audit trail. DoD #1-11 green. Live demo: one operator-chosen Procontract opportunity reaches draft_saved with full screenshot trail + run manifest + (optional, operator-authorized) one reaches bid_submitted with portal confirmation reference + downstream visibility on web."
+
+# ============================================================================
+# Pipeline conventions referenced by every handoff
+# ============================================================================
+conventions:
+  doc_dir: docs/strategy/layers/
+  pipeline_dir: docs/pipeline/l6-request-pipeline-automation/
+  artifacts_dir: docs/pipeline/l6-request-pipeline-automation/artifacts/
+  handoff_dir: docs/pipeline/l6-request-pipeline-automation/
+  test_dir_rust: crates/daemon/tests/
+  test_dir_ts: packages/{intelligence,bidding,manifests,ui}/{src,tests}/**/*.test.ts
+  fixture_dir: tests/fixtures/calibration/
+  skills_dir: skills/
+  migrations_dir: migrations/
+  artifact_store: artifacts/                           # local artifact root
+  cdp_chrome_profile: /Users/alinaaitova/.chrome-automation
+  cdp_port: 9222

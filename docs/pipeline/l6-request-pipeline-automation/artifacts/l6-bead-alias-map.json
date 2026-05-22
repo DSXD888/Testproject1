@@ -1,0 +1,1543 @@
+{
+  "version": "1.0",
+  "generated_by": "pipemaxxer step 07 — create-beads",
+  "generated_at": "2026-05-22",
+  "source_documents": {
+    "spec": "docs/strategy/layers/layer-6-request-pipeline-automation.md",
+    "tdd": "docs/pipeline/l6-request-pipeline-automation/artifacts/l6-request-pipeline-automation-tdd.md",
+    "strategy": "docs/pipeline/l6-request-pipeline-automation/artifacts/l6-request-pipeline-automation-strategy.md",
+    "bootstrap": "docs/pipeline/l6-request-pipeline-automation/artifacts/l6-request-pipeline-automation-bootstrap.md",
+    "manifest": "docs/pipeline/l6-request-pipeline-automation/manifest.yaml"
+  },
+  "totals": {
+    "spec_fr_ids": 127,
+    "tdd_test_ids": 153,
+    "ci_gates": 10,
+    "sister_epic": 1,
+    "phase_epics": 7,
+    "task_beads": 63,
+    "total_beads": 71
+  },
+  "sister_implementation_epic": "testproject1-3yqf",
+  "previous_layer_doc_epic_closed": "testproject1-rc0",
+  "phase_epics": {
+    "1": "testproject1-3yqf.1",
+    "2": "testproject1-3yqf.2",
+    "3": "testproject1-3yqf.3",
+    "4": "testproject1-3yqf.4",
+    "5": "testproject1-3yqf.5",
+    "6": "testproject1-3yqf.6",
+    "7": "testproject1-3yqf.7"
+  },
+  "task_beads": [
+    {
+      "bead_id": "testproject1-3yqf.1.1",
+      "bead_alias": "l6-p1-error-vocabulary-enum",
+      "phase": 1,
+      "parent": "testproject1-3yqf.1",
+      "spec_ids": [
+        "L6-FR-1.6.6"
+      ],
+      "test_ids": [
+        "L6-T-error_codes-001",
+        "L6-T-error_codes-002",
+        "L6-T-error_codes-006",
+        "L6-T-error_codes-007",
+        "L6-T-error_codes-008",
+        "L6-T-error_codes-009",
+        "L6-T-error_codes-010",
+        "L6-T-error_codes-011",
+        "L6-T-error_codes-012",
+        "L6-T-error_codes-013",
+        "L6-T-error_codes-014",
+        "L6-T-error_codes-015",
+        "L6-T-error_codes-016",
+        "L6-T-error_codes-017"
+      ],
+      "ci_gates": [],
+      "dependencies": []
+    },
+    {
+      "bead_id": "testproject1-3yqf.1.2",
+      "bead_alias": "l6-p1-error-exhaustive-consumers",
+      "phase": 1,
+      "parent": "testproject1-3yqf.1",
+      "spec_ids": [
+        "L6-FR-1.6.6"
+      ],
+      "test_ids": [
+        "L6-T-error_codes-003",
+        "L6-T-error_codes-004",
+        "L6-T-error_codes-005",
+        "L6-T-error_codes-018",
+        "L6-T-error_codes-019",
+        "L6-T-error_codes-020",
+        "L6-T-error_codes-021",
+        "L6-T-error_codes-022",
+        "L6-T-error_codes-023"
+      ],
+      "ci_gates": [
+        "CI-L6-003"
+      ],
+      "dependencies": [
+        "testproject1-3yqf.1.1"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.1.3",
+      "bead_alias": "l6-p1-model-profile-registration",
+      "phase": 1,
+      "parent": "testproject1-3yqf.1",
+      "spec_ids": [
+        "L6-FR-1.7.3"
+      ],
+      "test_ids": [
+        "L6-T-daemon_runner-002"
+      ],
+      "ci_gates": [],
+      "dependencies": []
+    },
+    {
+      "bead_id": "testproject1-3yqf.1.4",
+      "bead_alias": "l6-p1-bid-workflow-module-skeleton",
+      "phase": 1,
+      "parent": "testproject1-3yqf.1",
+      "spec_ids": [
+        "L6-FR-1.6.5"
+      ],
+      "test_ids": [
+        "L6-T-daemon_runner-001"
+      ],
+      "ci_gates": [],
+      "dependencies": []
+    },
+    {
+      "bead_id": "testproject1-3yqf.1.5",
+      "bead_alias": "l6-p1-source-registry-entries",
+      "phase": 1,
+      "parent": "testproject1-3yqf.1",
+      "spec_ids": [
+        "L6-FR-1.7.1",
+        "L6-FR-1.7.4"
+      ],
+      "test_ids": [],
+      "ci_gates": [],
+      "dependencies": []
+    },
+    {
+      "bead_id": "testproject1-3yqf.1.6",
+      "bead_alias": "l6-p1-bidding-package-scaffold",
+      "phase": 1,
+      "parent": "testproject1-3yqf.1",
+      "spec_ids": [
+        "L6-FR-1.6.1",
+        "L6-FR-1.6.2",
+        "L6-FR-1.6.3"
+      ],
+      "test_ids": [],
+      "ci_gates": [
+        "CI-L6-006",
+        "CI-L6-007",
+        "CI-L6-008"
+      ],
+      "dependencies": []
+    },
+    {
+      "bead_id": "testproject1-3yqf.1.7",
+      "bead_alias": "l6-p1-bid-scope-types-ts",
+      "phase": 1,
+      "parent": "testproject1-3yqf.1",
+      "spec_ids": [
+        "L6-FR-1.4.1",
+        "L6-FR-1.4.2",
+        "L6-FR-1.4.3",
+        "L6-FR-1.4.4",
+        "L6-FR-1.4.5",
+        "L6-FR-1.4.6",
+        "L6-FR-1.4.7",
+        "L6-FR-1.4.8",
+        "L6-FR-1.4.9",
+        "L6-FR-1.4.10",
+        "L6-FR-1.4.11",
+        "L6-FR-1.4.12"
+      ],
+      "test_ids": [],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.1.6"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.1.8",
+      "bead_alias": "l6-p1-sync-push-set-check",
+      "phase": 1,
+      "parent": "testproject1-3yqf.1",
+      "spec_ids": [
+        "L6-FR-1.9.1",
+        "L6-FR-1.9.2"
+      ],
+      "test_ids": [
+        "L6-T-sync_propagation-001",
+        "L6-T-bid_workflow_states-034"
+      ],
+      "ci_gates": [],
+      "dependencies": []
+    },
+    {
+      "bead_id": "testproject1-3yqf.1.9",
+      "bead_alias": "l6-p1-foundation-review-gate",
+      "phase": 1,
+      "parent": "testproject1-3yqf.1",
+      "spec_ids": [],
+      "test_ids": [],
+      "ci_gates": [
+        "CI-L6-001",
+        "CI-L6-002",
+        "CI-L6-003"
+      ],
+      "dependencies": [
+        "testproject1-3yqf.1.1",
+        "testproject1-3yqf.1.2",
+        "testproject1-3yqf.1.3",
+        "testproject1-3yqf.1.4",
+        "testproject1-3yqf.1.5",
+        "testproject1-3yqf.1.6",
+        "testproject1-3yqf.1.7",
+        "testproject1-3yqf.1.8"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.2.1",
+      "bead_alias": "l6-p2-job-dispatch-arm",
+      "phase": 2,
+      "parent": "testproject1-3yqf.2",
+      "spec_ids": [
+        "L6-FR-1.5.3",
+        "L6-FR-1.5.5"
+      ],
+      "test_ids": [
+        "L6-T-daemon_runner-003"
+      ],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.1.9"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.2.2",
+      "bead_alias": "l6-p2-job-handler-shape",
+      "phase": 2,
+      "parent": "testproject1-3yqf.2",
+      "spec_ids": [
+        "L6-FR-1.5.4",
+        "L6-FR-1.5.5",
+        "L6-FR-1.5.6"
+      ],
+      "test_ids": [
+        "L6-T-daemon_runner-004"
+      ],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.2.1"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.2.3",
+      "bead_alias": "l6-p2-enqueue-builder",
+      "phase": 2,
+      "parent": "testproject1-3yqf.2",
+      "spec_ids": [
+        "L6-FR-1.5.3"
+      ],
+      "test_ids": [],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.2.1"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.2.4",
+      "bead_alias": "l6-p2-ipc-trigger-handler",
+      "phase": 2,
+      "parent": "testproject1-3yqf.2",
+      "spec_ids": [
+        "L6-FR-1.5.1",
+        "L6-FR-1.5.2",
+        "L6-FR-1.10.3"
+      ],
+      "test_ids": [
+        "L6-T-ipc_trigger_bid_workflow-001",
+        "L6-T-ipc_trigger_bid_workflow-002",
+        "L6-T-ipc_trigger_bid_workflow-003"
+      ],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.2.3"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.2.5",
+      "bead_alias": "l6-p2-readiness-precheck-wiring",
+      "phase": 2,
+      "parent": "testproject1-3yqf.2",
+      "spec_ids": [
+        "L6-FR-1.3.16",
+        "L6-FR-1.10.6"
+      ],
+      "test_ids": [
+        "L6-T-ipc_trigger_bid_workflow-004",
+        "L6-T-ipc_trigger_bid_workflow-005"
+      ],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.2.4"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.2.6",
+      "bead_alias": "l6-p2-cli-manual-trigger",
+      "phase": 2,
+      "parent": "testproject1-3yqf.2",
+      "spec_ids": [],
+      "test_ids": [
+        "L6-T-daemon_runner-010"
+      ],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.2.5"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.2.7",
+      "bead_alias": "l6-p2-daemon-runtime-review-gate",
+      "phase": 2,
+      "parent": "testproject1-3yqf.2",
+      "spec_ids": [
+        "L6-FR-1.5.1",
+        "L6-FR-1.5.2",
+        "L6-FR-1.5.3",
+        "L6-FR-1.5.4",
+        "L6-FR-1.5.5",
+        "L6-FR-1.5.6",
+        "L6-FR-1.10.1",
+        "L6-FR-1.10.3",
+        "L6-FR-1.10.6"
+      ],
+      "test_ids": [],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.2.1",
+        "testproject1-3yqf.2.2",
+        "testproject1-3yqf.2.3",
+        "testproject1-3yqf.2.4",
+        "testproject1-3yqf.2.5",
+        "testproject1-3yqf.2.6"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.3.1",
+      "bead_alias": "l6-p3-lifecycle-enum-rust",
+      "phase": 3,
+      "parent": "testproject1-3yqf.3",
+      "spec_ids": [
+        "L6-FR-1.3.1",
+        "L6-FR-1.3.24",
+        "L6-FR-1.3.25",
+        "L6-FR-1.3.26",
+        "L6-FR-1.3.27",
+        "L6-FR-1.3.28",
+        "L6-FR-1.3.29",
+        "L6-FR-1.3.30",
+        "L6-FR-1.9.2"
+      ],
+      "test_ids": [
+        "L6-T-bid_workflow_states-001"
+      ],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.2.7"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.3.2",
+      "bead_alias": "l6-p3-state-machine-transitions",
+      "phase": 3,
+      "parent": "testproject1-3yqf.3",
+      "spec_ids": [
+        "L6-FR-1.3.2",
+        "L6-FR-1.3.3",
+        "L6-FR-1.3.4",
+        "L6-FR-1.3.5",
+        "L6-FR-1.3.6",
+        "L6-FR-1.3.7",
+        "L6-FR-1.3.8",
+        "L6-FR-1.3.9",
+        "L6-FR-1.3.10",
+        "L6-FR-1.3.11",
+        "L6-FR-1.3.12",
+        "L6-FR-1.3.13",
+        "L6-FR-1.3.14",
+        "L6-FR-1.3.15"
+      ],
+      "test_ids": [
+        "L6-T-bid_workflow_states-002",
+        "L6-T-bid_workflow_states-003",
+        "L6-T-bid_workflow_states-004",
+        "L6-T-bid_workflow_states-005",
+        "L6-T-bid_workflow_states-006",
+        "L6-T-bid_workflow_states-007",
+        "L6-T-bid_workflow_states-008",
+        "L6-T-bid_workflow_states-009",
+        "L6-T-bid_workflow_states-010",
+        "L6-T-bid_workflow_states-011",
+        "L6-T-bid_workflow_states-012",
+        "L6-T-bid_workflow_states-013",
+        "L6-T-bid_workflow_states-014",
+        "L6-T-bid_workflow_states-015",
+        "L6-T-bid_workflow_states-016",
+        "L6-T-bid_workflow_states-017",
+        "L6-T-bid_workflow_states-018",
+        "L6-T-bid_workflow_states-019",
+        "L6-T-bid_workflow_states-020",
+        "L6-T-bid_workflow_states-021",
+        "L6-T-bid_workflow_states-022",
+        "L6-T-bid_workflow_states-023",
+        "L6-T-bid_workflow_states-024",
+        "L6-T-bid_workflow_states-025",
+        "L6-T-bid_workflow_states-026",
+        "L6-T-bid_workflow_states-027",
+        "L6-T-bid_workflow_states-028",
+        "L6-T-bid_workflow_states-029"
+      ],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.3.1",
+        "testproject1-3yqf.1.8"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.3.3",
+      "bead_alias": "l6-p3-bid-scope-payload-validation",
+      "phase": 3,
+      "parent": "testproject1-3yqf.3",
+      "spec_ids": [
+        "L6-FR-1.4.1",
+        "L6-FR-1.4.2",
+        "L6-FR-1.4.3",
+        "L6-FR-1.4.4",
+        "L6-FR-1.4.5",
+        "L6-FR-1.4.6",
+        "L6-FR-1.4.7",
+        "L6-FR-1.4.8",
+        "L6-FR-1.4.10",
+        "L6-FR-1.4.11",
+        "L6-FR-1.4.12",
+        "L6-FR-1.10.3"
+      ],
+      "test_ids": [
+        "L6-T-bid_workflow_states-030",
+        "L6-T-bid_workflow_states-032",
+        "L6-T-bid_workflow_states-033"
+      ],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.3.1"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.3.4",
+      "bead_alias": "l6-p3-decision-basis-hash",
+      "phase": 3,
+      "parent": "testproject1-3yqf.3",
+      "spec_ids": [
+        "L6-FR-1.4.9",
+        "L6-FR-1.3.17",
+        "L6-FR-1.10.5"
+      ],
+      "test_ids": [
+        "L6-T-bid_workflow_states-031",
+        "L6-T-bid_readiness_gate-002"
+      ],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.3.3"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.3.5",
+      "bead_alias": "l6-p3-readiness-evaluator",
+      "phase": 3,
+      "parent": "testproject1-3yqf.3",
+      "spec_ids": [
+        "L6-FR-1.3.16",
+        "L6-FR-1.3.17",
+        "L6-FR-1.3.18",
+        "L6-FR-1.3.19",
+        "L6-FR-1.3.20",
+        "L6-FR-1.3.21",
+        "L6-FR-1.3.22",
+        "L6-FR-1.10.1",
+        "L6-FR-1.10.6",
+        "L6-FR-1.10.8"
+      ],
+      "test_ids": [
+        "L6-T-bid_readiness_gate-001",
+        "L6-T-bid_readiness_gate-003",
+        "L6-T-bid_readiness_gate-004",
+        "L6-T-bid_readiness_gate-005",
+        "L6-T-bid_readiness_gate-006",
+        "L6-T-bid_readiness_gate-007",
+        "L6-T-bid_readiness_gate-008",
+        "L6-T-bid_readiness_gate-009",
+        "L6-T-bid_readiness_gate-010",
+        "L6-T-bid_readiness_gate-011",
+        "L6-T-bid_readiness_gate-012",
+        "L6-T-bid_readiness_gate-013",
+        "L6-T-bid_readiness_gate-014",
+        "L6-T-bid_readiness_gate-015",
+        "L6-T-bid_readiness_gate-016"
+      ],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.3.4",
+        "testproject1-3yqf.3.3"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.3.6",
+      "bead_alias": "l6-p3-side-effect-cap-guard",
+      "phase": 3,
+      "parent": "testproject1-3yqf.3",
+      "spec_ids": [
+        "L6-FR-1.7.19",
+        "L6-FR-1.7.20",
+        "L6-FR-1.10.2"
+      ],
+      "test_ids": [
+        "L6-T-portal_side_effects-004",
+        "L6-T-portal_side_effects-005",
+        "L6-T-portal_side_effects-006",
+        "L6-T-portal_side_effects-007"
+      ],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.3.1"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.3.7",
+      "bead_alias": "l6-p3-auth-stale-retry-orchestration",
+      "phase": 3,
+      "parent": "testproject1-3yqf.3",
+      "spec_ids": [
+        "L6-FR-1.5.9",
+        "L6-FR-1.7.5",
+        "L6-FR-1.7.8"
+      ],
+      "test_ids": [
+        "L6-T-daemon_runner-009"
+      ],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.3.1"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.3.8",
+      "bead_alias": "l6-p3-bid-runner-body",
+      "phase": 3,
+      "parent": "testproject1-3yqf.3",
+      "spec_ids": [
+        "L6-FR-1.10.4",
+        "L6-FR-1.2.2",
+        "L6-FR-1.2.6",
+        "L6-FR-1.2.8",
+        "L6-FR-1.5.10",
+        "L6-FR-1.5.11",
+        "L6-FR-1.5.12",
+        "L6-FR-1.5.13",
+        "L6-FR-1.5.14",
+        "L6-FR-1.5.15",
+        "L6-FR-1.5.16",
+        "L6-FR-1.5.17",
+        "L6-FR-1.5.18",
+        "L6-FR-1.5.7",
+        "L6-FR-1.5.8",
+        "L6-FR-1.8.1",
+        "L6-FR-1.8.2",
+        "L6-FR-1.8.4"
+      ],
+      "test_ids": [
+        "L6-T-daemon_runner-005",
+        "L6-T-daemon_runner-006",
+        "L6-T-daemon_runner-007",
+        "L6-T-daemon_runner-011",
+        "L6-T-daemon_runner-012"
+      ],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.3.2",
+        "testproject1-3yqf.3.5",
+        "testproject1-3yqf.3.6",
+        "testproject1-3yqf.3.7"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.3.9",
+      "bead_alias": "l6-p3-manifest-appendix-l6-fields",
+      "phase": 3,
+      "parent": "testproject1-3yqf.3",
+      "spec_ids": [
+        "L6-FR-1.10.4",
+        "L6-FR-1.2.7",
+        "L6-FR-1.5.16",
+        "L6-FR-1.8.3"
+      ],
+      "test_ids": [
+        "L6-T-daemon_runner-008"
+      ],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.3.8"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.3.10",
+      "bead_alias": "l6-p3-redaction-boundary-daemon",
+      "phase": 3,
+      "parent": "testproject1-3yqf.3",
+      "spec_ids": [
+        "L6-FR-1.8.5",
+        "L6-FR-1.9.3"
+      ],
+      "test_ids": [
+        "L6-T-redaction_boundary-001",
+        "L6-T-redaction_boundary-002",
+        "L6-T-redaction_boundary-003",
+        "L6-T-redaction_boundary-004",
+        "L6-T-redaction_boundary-005",
+        "L6-T-redaction_boundary-006"
+      ],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.3.9"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.3.11",
+      "bead_alias": "l6-p3-state-machine-review-gate",
+      "phase": 3,
+      "parent": "testproject1-3yqf.3",
+      "spec_ids": [],
+      "test_ids": [],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.3.1",
+        "testproject1-3yqf.3.2",
+        "testproject1-3yqf.3.3",
+        "testproject1-3yqf.3.4",
+        "testproject1-3yqf.3.5",
+        "testproject1-3yqf.3.6",
+        "testproject1-3yqf.3.7",
+        "testproject1-3yqf.3.8",
+        "testproject1-3yqf.3.9",
+        "testproject1-3yqf.3.10"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.4.1",
+      "bead_alias": "l6-p4-skill-frontmatter",
+      "phase": 4,
+      "parent": "testproject1-3yqf.4",
+      "spec_ids": [
+        "L6-FR-1.7.1",
+        "L6-FR-1.7.2",
+        "L6-FR-1.7.3",
+        "L6-FR-1.7.4",
+        "L6-FR-1.7.5",
+        "L6-FR-1.7.6"
+      ],
+      "test_ids": [
+        "L6-T-bid_portal_procontract_skill-001"
+      ],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.3.11"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.4.2",
+      "bead_alias": "l6-p4-result-checkpoint-schemas",
+      "phase": 4,
+      "parent": "testproject1-3yqf.4",
+      "spec_ids": [],
+      "test_ids": [],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.4.1",
+        "testproject1-3yqf.1.7"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.4.3",
+      "bead_alias": "l6-p4-playbook-cdp-discipline",
+      "phase": 4,
+      "parent": "testproject1-3yqf.4",
+      "spec_ids": [
+        "L6-FR-1.7.7",
+        "L6-FR-1.7.8",
+        "L6-FR-1.7.9",
+        "L6-FR-1.7.10",
+        "L6-FR-1.7.11",
+        "L6-FR-1.7.12",
+        "L6-FR-1.7.13",
+        "L6-FR-1.7.14",
+        "L6-FR-1.7.15",
+        "L6-FR-1.7.16",
+        "L6-FR-1.7.17",
+        "L6-FR-1.7.18",
+        "L6-FR-1.7.19",
+        "L6-FR-1.7.20"
+      ],
+      "test_ids": [
+        "L6-T-bid_portal_procontract_skill-004"
+      ],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.4.2"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.4.4",
+      "bead_alias": "l6-p4-auth-stale-return-path",
+      "phase": 4,
+      "parent": "testproject1-3yqf.4",
+      "spec_ids": [
+        "L6-FR-1.7.5",
+        "L6-FR-1.7.8"
+      ],
+      "test_ids": [
+        "L6-T-bid_portal_procontract_skill-005"
+      ],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.4.3"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.4.5",
+      "bead_alias": "l6-p4-opportunity-lookup-verify",
+      "phase": 4,
+      "parent": "testproject1-3yqf.4",
+      "spec_ids": [
+        "L6-FR-1.1.2",
+        "L6-FR-1.2.1",
+        "L6-FR-1.5.10",
+        "L6-FR-1.7.10",
+        "L6-FR-1.7.11",
+        "L6-FR-1.7.9"
+      ],
+      "test_ids": [
+        "L6-T-bid_portal_procontract_skill-006",
+        "L6-T-portal_side_effects-009"
+      ],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.4.3"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.4.6",
+      "bead_alias": "l6-p4-form-fill-document-upload",
+      "phase": 4,
+      "parent": "testproject1-3yqf.4",
+      "spec_ids": [
+        "L6-FR-1.2.3",
+        "L6-FR-1.2.4",
+        "L6-FR-1.5.11",
+        "L6-FR-1.5.12",
+        "L6-FR-1.7.12",
+        "L6-FR-1.7.13",
+        "L6-FR-1.7.14"
+      ],
+      "test_ids": [
+        "L6-T-bid_portal_procontract_skill-007",
+        "L6-T-bid_portal_procontract_skill-008",
+        "L6-T-portal_side_effects-012"
+      ],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.4.5"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.4.7",
+      "bead_alias": "l6-p4-draft-final-submit-paths",
+      "phase": 4,
+      "parent": "testproject1-3yqf.4",
+      "spec_ids": [
+        "L6-FR-1.2.5",
+        "L6-FR-1.3.5",
+        "L6-FR-1.3.6",
+        "L6-FR-1.5.14",
+        "L6-FR-1.7.16",
+        "L6-FR-1.7.17",
+        "L6-FR-1.7.18",
+        "L6-FR-1.8.6"
+      ],
+      "test_ids": [
+        "L6-T-bid_portal_procontract_skill-009",
+        "L6-T-bid_portal_procontract_skill-010",
+        "L6-T-portal_side_effects-002",
+        "L6-T-portal_side_effects-003"
+      ],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.4.6"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.4.8",
+      "bead_alias": "l6-p4-canary-corpus-shell",
+      "phase": 4,
+      "parent": "testproject1-3yqf.4",
+      "spec_ids": [],
+      "test_ids": [
+        "L6-T-bid_portal_procontract_skill-003",
+        "L6-T-portal_side_effects-001",
+        "L6-T-portal_side_effects-010",
+        "L6-T-portal_side_effects-011"
+      ],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.4.4",
+        "testproject1-3yqf.4.5",
+        "testproject1-3yqf.4.6",
+        "testproject1-3yqf.4.7"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.4.9",
+      "bead_alias": "l6-p4-canary-golden-journey-harness",
+      "phase": 4,
+      "parent": "testproject1-3yqf.4",
+      "spec_ids": [],
+      "test_ids": [
+        "L6-T-bid_portal_procontract_skill-011",
+        "L6-T-bid_portal_procontract_skill-012",
+        "L6-T-portal_side_effects-008"
+      ],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.4.8"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.4.10",
+      "bead_alias": "l6-p4-portal-skill-review-gate",
+      "phase": 4,
+      "parent": "testproject1-3yqf.4",
+      "spec_ids": [],
+      "test_ids": [],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.4.1",
+        "testproject1-3yqf.4.2",
+        "testproject1-3yqf.4.3",
+        "testproject1-3yqf.4.4",
+        "testproject1-3yqf.4.5",
+        "testproject1-3yqf.4.6",
+        "testproject1-3yqf.4.7",
+        "testproject1-3yqf.4.8",
+        "testproject1-3yqf.4.9"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.5.1",
+      "bead_alias": "l6-p5-overlay-frontmatter-assertions",
+      "phase": 5,
+      "parent": "testproject1-3yqf.5",
+      "spec_ids": [
+        "L6-FR-1.6.4",
+        "L6-FR-1.7.4",
+        "L6-FR-1.10.4"
+      ],
+      "test_ids": [
+        "L6-T-validator_overlay-001",
+        "L6-T-validator_overlay-002",
+        "L6-T-validator_overlay-003",
+        "L6-T-validator_overlay-004",
+        "L6-T-validator_overlay-005",
+        "L6-T-validator_overlay-006",
+        "L6-T-validator_overlay-007",
+        "L6-T-validator_overlay-011",
+        "L6-T-validator_overlay-012"
+      ],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.3.11"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.5.2",
+      "bead_alias": "l6-p5-overlay-validator-failure-modes",
+      "phase": 5,
+      "parent": "testproject1-3yqf.5",
+      "spec_ids": [
+        "L6-FR-1.3.23",
+        "L6-FR-1.10.7"
+      ],
+      "test_ids": [
+        "L6-T-validator_overlay-008",
+        "L6-T-validator_overlay-009",
+        "L6-T-validator_overlay-010"
+      ],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.5.1"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.5.3",
+      "bead_alias": "l6-p5-overlay-calibration-fixtures",
+      "phase": 5,
+      "parent": "testproject1-3yqf.5",
+      "spec_ids": [],
+      "test_ids": [],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.5.1",
+        "testproject1-3yqf.4.10"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.5.4",
+      "bead_alias": "l6-p5-workflow-registry-ts",
+      "phase": 5,
+      "parent": "testproject1-3yqf.5",
+      "spec_ids": [
+        "L6-FR-1.6.1"
+      ],
+      "test_ids": [
+        "L6-T-bid_portal_procontract_skill-002"
+      ],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.1.7",
+        "testproject1-3yqf.4.10"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.5.5",
+      "bead_alias": "l6-p5-procontract-workflow-ts",
+      "phase": 5,
+      "parent": "testproject1-3yqf.5",
+      "spec_ids": [
+        "L6-FR-1.6.2"
+      ],
+      "test_ids": [],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.5.4"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.5.6",
+      "bead_alias": "l6-p5-company-profile-schema-ts",
+      "phase": 5,
+      "parent": "testproject1-3yqf.5",
+      "spec_ids": [
+        "L6-FR-1.6.3",
+        "L6-FR-1.3.21"
+      ],
+      "test_ids": [],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.1.6"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.5.7",
+      "bead_alias": "l6-p5-bid-workflow-states-test-ts",
+      "phase": 5,
+      "parent": "testproject1-3yqf.5",
+      "spec_ids": [
+        "L6-FR-1.3.1",
+        "L6-FR-1.3.2",
+        "L6-FR-1.3.3",
+        "L6-FR-1.3.4",
+        "L6-FR-1.3.5",
+        "L6-FR-1.3.6",
+        "L6-FR-1.3.7",
+        "L6-FR-1.3.8",
+        "L6-FR-1.3.9",
+        "L6-FR-1.3.10",
+        "L6-FR-1.3.11",
+        "L6-FR-1.3.12",
+        "L6-FR-1.3.13",
+        "L6-FR-1.3.14",
+        "L6-FR-1.3.15",
+        "L6-FR-1.3.24",
+        "L6-FR-1.3.25",
+        "L6-FR-1.3.26",
+        "L6-FR-1.3.27",
+        "L6-FR-1.3.28",
+        "L6-FR-1.3.29",
+        "L6-FR-1.3.30",
+        "L6-FR-1.4.1",
+        "L6-FR-1.4.2",
+        "L6-FR-1.4.3",
+        "L6-FR-1.4.4",
+        "L6-FR-1.4.5",
+        "L6-FR-1.4.6",
+        "L6-FR-1.4.7",
+        "L6-FR-1.4.8",
+        "L6-FR-1.4.9",
+        "L6-FR-1.4.10",
+        "L6-FR-1.4.11",
+        "L6-FR-1.4.12",
+        "L6-FR-1.10.3",
+        "L6-FR-1.10.5"
+      ],
+      "test_ids": [
+        "L6-T-bid_workflow_states-001",
+        "L6-T-bid_workflow_states-002",
+        "L6-T-bid_workflow_states-003",
+        "L6-T-bid_workflow_states-004",
+        "L6-T-bid_workflow_states-005",
+        "L6-T-bid_workflow_states-006",
+        "L6-T-bid_workflow_states-007",
+        "L6-T-bid_workflow_states-008",
+        "L6-T-bid_workflow_states-009",
+        "L6-T-bid_workflow_states-010",
+        "L6-T-bid_workflow_states-011",
+        "L6-T-bid_workflow_states-012",
+        "L6-T-bid_workflow_states-013",
+        "L6-T-bid_workflow_states-014",
+        "L6-T-bid_workflow_states-015",
+        "L6-T-bid_workflow_states-016",
+        "L6-T-bid_workflow_states-017",
+        "L6-T-bid_workflow_states-018",
+        "L6-T-bid_workflow_states-019",
+        "L6-T-bid_workflow_states-020",
+        "L6-T-bid_workflow_states-021",
+        "L6-T-bid_workflow_states-022",
+        "L6-T-bid_workflow_states-023",
+        "L6-T-bid_workflow_states-024",
+        "L6-T-bid_workflow_states-025",
+        "L6-T-bid_workflow_states-026",
+        "L6-T-bid_workflow_states-027",
+        "L6-T-bid_workflow_states-028",
+        "L6-T-bid_workflow_states-029",
+        "L6-T-bid_workflow_states-030",
+        "L6-T-bid_workflow_states-031",
+        "L6-T-bid_workflow_states-032",
+        "L6-T-bid_workflow_states-033",
+        "L6-T-bid_workflow_states-034"
+      ],
+      "ci_gates": [
+        "CI-L6-008"
+      ],
+      "dependencies": [
+        "testproject1-3yqf.5.5"
+      ],
+      "notes": "Phase 5 package test file owns the L6-T-bid_workflow_states IDs as the primary test home per TDD §6.1. Phase 3 daemon-side runtime closure exercises the same IDs at runtime via state_machine.rs integration tests."
+    },
+    {
+      "bead_id": "testproject1-3yqf.5.8",
+      "bead_alias": "l6-p5-portal-side-effects-test-ts",
+      "phase": 5,
+      "parent": "testproject1-3yqf.5",
+      "spec_ids": [
+        "L6-FR-1.4.10",
+        "L6-FR-1.4.11",
+        "L6-FR-1.7.19",
+        "L6-FR-1.7.20",
+        "L6-FR-1.10.2"
+      ],
+      "test_ids": [
+        "L6-T-portal_side_effects-001",
+        "L6-T-portal_side_effects-002",
+        "L6-T-portal_side_effects-003",
+        "L6-T-portal_side_effects-004",
+        "L6-T-portal_side_effects-005",
+        "L6-T-portal_side_effects-006",
+        "L6-T-portal_side_effects-007",
+        "L6-T-portal_side_effects-008",
+        "L6-T-portal_side_effects-009",
+        "L6-T-portal_side_effects-010",
+        "L6-T-portal_side_effects-011",
+        "L6-T-portal_side_effects-012"
+      ],
+      "ci_gates": [
+        "CI-L6-008"
+      ],
+      "dependencies": [
+        "testproject1-3yqf.5.5"
+      ],
+      "notes": "Phase 5 package test file owns L6-T-portal_side_effects IDs as the primary test home per TDD §6.1. Phase 3 daemon-side cap guard + Phase 4 skill-side fixtures provide complementary coverage."
+    },
+    {
+      "bead_id": "testproject1-3yqf.5.9",
+      "bead_alias": "l6-p5-bid-readiness-gate-test-ts",
+      "phase": 5,
+      "parent": "testproject1-3yqf.5",
+      "spec_ids": [
+        "L6-FR-1.3.16",
+        "L6-FR-1.3.17",
+        "L6-FR-1.3.18",
+        "L6-FR-1.3.19",
+        "L6-FR-1.3.20",
+        "L6-FR-1.3.21",
+        "L6-FR-1.3.22",
+        "L6-FR-1.10.6",
+        "L6-FR-1.10.8"
+      ],
+      "test_ids": [
+        "L6-T-bid_readiness_gate-001",
+        "L6-T-bid_readiness_gate-002",
+        "L6-T-bid_readiness_gate-003",
+        "L6-T-bid_readiness_gate-004",
+        "L6-T-bid_readiness_gate-005",
+        "L6-T-bid_readiness_gate-006",
+        "L6-T-bid_readiness_gate-007",
+        "L6-T-bid_readiness_gate-008",
+        "L6-T-bid_readiness_gate-009",
+        "L6-T-bid_readiness_gate-010",
+        "L6-T-bid_readiness_gate-011",
+        "L6-T-bid_readiness_gate-012",
+        "L6-T-bid_readiness_gate-013",
+        "L6-T-bid_readiness_gate-014",
+        "L6-T-bid_readiness_gate-015",
+        "L6-T-bid_readiness_gate-016"
+      ],
+      "ci_gates": [
+        "CI-L6-008"
+      ],
+      "dependencies": [
+        "testproject1-3yqf.5.6"
+      ],
+      "notes": "Phase 5 package test file owns L6-T-bid_readiness_gate IDs as the primary test home per TDD §6.1. Phase 3 daemon-side readiness evaluator provides complementary runtime closure."
+    },
+    {
+      "bead_id": "testproject1-3yqf.5.10",
+      "bead_alias": "l6-p5-validator-bidding-review-gate",
+      "phase": 5,
+      "parent": "testproject1-3yqf.5",
+      "spec_ids": [],
+      "test_ids": [],
+      "ci_gates": [
+        "CI-L6-006",
+        "CI-L6-007",
+        "CI-L6-008"
+      ],
+      "dependencies": [
+        "testproject1-3yqf.5.1",
+        "testproject1-3yqf.5.2",
+        "testproject1-3yqf.5.3",
+        "testproject1-3yqf.5.4",
+        "testproject1-3yqf.5.5",
+        "testproject1-3yqf.5.6",
+        "testproject1-3yqf.5.7",
+        "testproject1-3yqf.5.8",
+        "testproject1-3yqf.5.9"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.6.1",
+      "bead_alias": "l6-p6-shared-ui-components",
+      "phase": 6,
+      "parent": "testproject1-3yqf.6",
+      "spec_ids": [
+        "L6-FR-1.3.27",
+        "L6-FR-1.9.3"
+      ],
+      "test_ids": [],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.5.10"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.6.2",
+      "bead_alias": "l6-p6-desktop-bid-tab",
+      "phase": 6,
+      "parent": "testproject1-3yqf.6",
+      "spec_ids": [
+        "L6-FR-1.5.1",
+        "L6-FR-1.8.4"
+      ],
+      "test_ids": [],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.6.1",
+        "testproject1-3yqf.2.7"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.6.3",
+      "bead_alias": "l6-p6-desktop-start-bid-control",
+      "phase": 6,
+      "parent": "testproject1-3yqf.6",
+      "spec_ids": [
+        "L6-FR-1.5.1",
+        "L6-FR-1.3.25",
+        "L6-FR-1.10.1"
+      ],
+      "test_ids": [
+        "L6-T-desktop_ui-001",
+        "L6-T-desktop_ui-002"
+      ],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.6.2"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.6.4",
+      "bead_alias": "l6-p6-desktop-override-flows",
+      "phase": 6,
+      "parent": "testproject1-3yqf.6",
+      "spec_ids": [
+        "L6-FR-1.3.20",
+        "L6-FR-1.3.23",
+        "L6-FR-1.10.7",
+        "L6-FR-1.10.8"
+      ],
+      "test_ids": [
+        "L6-T-desktop_ui-003",
+        "L6-T-desktop_ui-005"
+      ],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.6.2"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.6.5",
+      "bead_alias": "l6-p6-desktop-draft-review-session-viewer",
+      "phase": 6,
+      "parent": "testproject1-3yqf.6",
+      "spec_ids": [
+        "L6-FR-1.3.5",
+        "L6-FR-1.3.9",
+        "L6-FR-1.4.10",
+        "L6-FR-1.5.14",
+        "L6-FR-2.1.9"
+      ],
+      "test_ids": [
+        "L6-T-desktop_ui-004",
+        "L6-T-desktop_ui-006",
+        "L6-T-desktop_ui-007"
+      ],
+      "ci_gates": [
+        "CI-L6-009"
+      ],
+      "dependencies": [
+        "testproject1-3yqf.6.2"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.6.6",
+      "bead_alias": "l6-p6-web-bid-state-badge",
+      "phase": 6,
+      "parent": "testproject1-3yqf.6",
+      "spec_ids": [
+        "L6-FR-1.5.19",
+        "L6-FR-1.9.3"
+      ],
+      "test_ids": [
+        "L6-T-web_ui-001"
+      ],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.6.1"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.6.7",
+      "bead_alias": "l6-p6-web-rls-grid",
+      "phase": 6,
+      "parent": "testproject1-3yqf.6",
+      "spec_ids": [
+        "L6-FR-1.9.3"
+      ],
+      "test_ids": [
+        "L6-T-web_ui-002",
+        "L6-T-web_ui-003",
+        "L6-T-web_ui-004",
+        "L6-T-sync_propagation-004"
+      ],
+      "ci_gates": [
+        "CI-L6-010"
+      ],
+      "dependencies": [
+        "testproject1-3yqf.6.6"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.6.8",
+      "bead_alias": "l6-p6-web-realtime-refresh",
+      "phase": 6,
+      "parent": "testproject1-3yqf.6",
+      "spec_ids": [
+        "L6-FR-1.5.19"
+      ],
+      "test_ids": [
+        "L6-T-web_ui-005",
+        "L6-T-sync_propagation-002",
+        "L6-T-sync_propagation-003",
+        "L6-T-sync_propagation-005"
+      ],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.6.6",
+        "testproject1-3yqf.6.7"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.6.9",
+      "bead_alias": "l6-p6-desktop-web-review-gate",
+      "phase": 6,
+      "parent": "testproject1-3yqf.6",
+      "spec_ids": [
+        "L6-FR-2.1.9",
+        "L6-FR-2.1.10",
+        "L6-FR-2.1.11"
+      ],
+      "test_ids": [],
+      "ci_gates": [
+        "CI-L6-009",
+        "CI-L6-010"
+      ],
+      "dependencies": [
+        "testproject1-3yqf.6.1",
+        "testproject1-3yqf.6.2",
+        "testproject1-3yqf.6.3",
+        "testproject1-3yqf.6.4",
+        "testproject1-3yqf.6.5",
+        "testproject1-3yqf.6.6",
+        "testproject1-3yqf.6.7",
+        "testproject1-3yqf.6.8"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.7.1",
+      "bead_alias": "l6-p7-preflight-evidence",
+      "phase": 7,
+      "parent": "testproject1-3yqf.7",
+      "spec_ids": [
+        "L6-FR-2.1.8"
+      ],
+      "test_ids": [
+        "L6-T-live_demo-001"
+      ],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.6.9"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.7.2",
+      "bead_alias": "l6-p7-live-demo-remote-draft",
+      "phase": 7,
+      "parent": "testproject1-3yqf.7",
+      "spec_ids": [
+        "L6-FR-1.1.1",
+        "L6-FR-1.1.3",
+        "L6-FR-1.1.4",
+        "L6-FR-1.3.27",
+        "L6-FR-2.1.1",
+        "L6-FR-2.1.2",
+        "L6-FR-2.1.3",
+        "L6-FR-2.1.4",
+        "L6-FR-2.1.5",
+        "L6-FR-2.1.6",
+        "L6-FR-2.1.9"
+      ],
+      "test_ids": [
+        "L6-T-live_demo-002"
+      ],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.7.1"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.7.3",
+      "bead_alias": "l6-p7-live-demo-formal-submission",
+      "phase": 7,
+      "parent": "testproject1-3yqf.7",
+      "spec_ids": [
+        "L6-FR-1.1.1",
+        "L6-FR-1.3.28",
+        "L6-FR-2.1.8"
+      ],
+      "test_ids": [
+        "L6-T-live_demo-003"
+      ],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.7.2"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.7.4",
+      "bead_alias": "l6-p7-calibration-corpus-execution",
+      "phase": 7,
+      "parent": "testproject1-3yqf.7",
+      "spec_ids": [
+        "L6-FR-2.1.7"
+      ],
+      "test_ids": [],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.7.1"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.7.5",
+      "bead_alias": "l6-p7-static-gates-sweep",
+      "phase": 7,
+      "parent": "testproject1-3yqf.7",
+      "spec_ids": [],
+      "test_ids": [],
+      "ci_gates": [
+        "CI-L6-001",
+        "CI-L6-002",
+        "CI-L6-003",
+        "CI-L6-004",
+        "CI-L6-005",
+        "CI-L6-006",
+        "CI-L6-007",
+        "CI-L6-008",
+        "CI-L6-009",
+        "CI-L6-010"
+      ],
+      "dependencies": [
+        "testproject1-3yqf.7.1"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.7.6",
+      "bead_alias": "l6-p7-dod-walkthrough",
+      "phase": 7,
+      "parent": "testproject1-3yqf.7",
+      "spec_ids": [
+        "L6-FR-2.1.1",
+        "L6-FR-2.1.2",
+        "L6-FR-2.1.3",
+        "L6-FR-2.1.4",
+        "L6-FR-2.1.5",
+        "L6-FR-2.1.6",
+        "L6-FR-2.1.7",
+        "L6-FR-2.1.8",
+        "L6-FR-2.1.9",
+        "L6-FR-2.1.10",
+        "L6-FR-2.1.11"
+      ],
+      "test_ids": [
+        "L6-T-live_demo-004"
+      ],
+      "ci_gates": [],
+      "dependencies": [
+        "testproject1-3yqf.7.5",
+        "testproject1-3yqf.7.3",
+        "testproject1-3yqf.7.4"
+      ]
+    },
+    {
+      "bead_id": "testproject1-3yqf.7.7",
+      "bead_alias": "l6-p7-final-completion-gate",
+      "phase": 7,
+      "parent": "testproject1-3yqf.7",
+      "spec_ids": [],
+      "test_ids": [],
+      "ci_gates": [
+        "CI-L6-001",
+        "CI-L6-002",
+        "CI-L6-003",
+        "CI-L6-004",
+        "CI-L6-005",
+        "CI-L6-006",
+        "CI-L6-007",
+        "CI-L6-008",
+        "CI-L6-009",
+        "CI-L6-010"
+      ],
+      "dependencies": [
+        "testproject1-3yqf.7.1",
+        "testproject1-3yqf.7.2",
+        "testproject1-3yqf.7.3",
+        "testproject1-3yqf.7.4",
+        "testproject1-3yqf.7.5",
+        "testproject1-3yqf.7.6"
+      ]
+    }
+  ],
+  "coverage_summary": {
+    "spec_fr_unique_total": 127,
+    "spec_fr_covered_via_primary_assignment": "all 127 covered across the 63 task beads; see per-bead spec_ids arrays. L6-FR-1.10.4 and L6-FR-1.10.7 are covered via multiple beads in Phase 3+5+6 per the strategy's cross-phase routing.",
+    "tdd_test_unique_total": 153,
+    "tdd_test_primary_ownership_notes": "Each numbered L6-T-* test ID has one PRIMARY-owning bead. State-machine + readiness + side-effect IDs have BOTH a Phase 3 daemon-side runtime closure bead AND a Phase 5 package test file bead per the strategy. The package test files (5.7/5.8/5.9) are the PRIMARY home per TDD §6.1.",
+    "ci_gates": {
+      "CI-L6-001": [
+        "1.9",
+        "7.5",
+        "7.7"
+      ],
+      "CI-L6-002": [
+        "1.9",
+        "7.5",
+        "7.7"
+      ],
+      "CI-L6-003": [
+        "1.2",
+        "1.9",
+        "7.5",
+        "7.7"
+      ],
+      "CI-L6-004": [
+        "7.5",
+        "7.7"
+      ],
+      "CI-L6-005": [
+        "7.5",
+        "7.7"
+      ],
+      "CI-L6-006": [
+        "1.6",
+        "5.10",
+        "7.5",
+        "7.7"
+      ],
+      "CI-L6-007": [
+        "1.6",
+        "5.10",
+        "7.5",
+        "7.7"
+      ],
+      "CI-L6-008": [
+        "1.6",
+        "5.7",
+        "5.8",
+        "5.9",
+        "5.10",
+        "7.5",
+        "7.7"
+      ],
+      "CI-L6-009": [
+        "6.5",
+        "6.9",
+        "7.5",
+        "7.7"
+      ],
+      "CI-L6-010": [
+        "6.7",
+        "6.9",
+        "7.5",
+        "7.7"
+      ]
+    }
+  }
+}
