@@ -24,12 +24,20 @@ const L5_MARKETPLACE_VALIDATOR_OVERLAY_VERSION: &str =
 const L5_MARKETPLACE_VALIDATOR_BEHAVIOR_VERSION: &str =
     "validation/overlay-customs-classification@1.0.0+1.0";
 const L5_PCS_WORKER_BEHAVIOR_VERSION: &str = "procurement-ingestion/pcs@1.0.0";
+const L6_BID_PORTAL_PROCONTRACT_SKILL_VERSION: &str = "0.1.0";
+const L6_BID_PORTAL_PROCONTRACT_WORKER_BEHAVIOR_VERSION: &str = "bid-portal/procontract@0.1.0+1.0";
+const L6_BID_PORTAL_PROCONTRACT_VALIDATOR_OVERLAY_VERSION: &str =
+    "validation/overlay-bid-portal-procontract@0.1.0";
+const L6_BID_PORTAL_PROCONTRACT_VALIDATOR_BEHAVIOR_VERSION: &str =
+    "validation/overlay-bid-portal-procontract@0.1.0+1.0";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SourceKind {
     Procurement,
     Supplier,
+    Worker,
+    ValidatorOverlay,
 }
 
 impl SourceKind {
@@ -37,6 +45,8 @@ impl SourceKind {
         match raw {
             "procurement" => Ok(Self::Procurement),
             "supplier" => Ok(Self::Supplier),
+            "worker" => Ok(Self::Worker),
+            "validator_overlay" => Ok(Self::ValidatorOverlay),
             _ => bail!("unknown source kind `{raw}`"),
         }
     }
@@ -682,6 +692,57 @@ fn builtin_definitions() -> BTreeMap<String, SourceDefinition> {
         },
     );
     definitions.insert(
+        "bid-portal/procontract".to_owned(),
+        SourceDefinition {
+            source_id: "bid-portal/procontract".to_owned(),
+            kind: SourceKind::Worker,
+            enabled: true,
+            source_structure_version: "procontract-bid-portal-2026-05-22".to_owned(),
+            config: json!({
+                "source_role": "worker",
+                "base_source": "procontract",
+                "portal_host": "procontract.due-north.com",
+                "model_profile": "portal_form_high_reliability",
+                "interaction_profile": "pty_interactive",
+                "validation_policy": "always",
+                "requires_cdp": true,
+                "cdp_default_port": 9222,
+                "validator_overlay": "validation/overlay-bid-portal-procontract",
+                "worker_behavior_version": L6_BID_PORTAL_PROCONTRACT_WORKER_BEHAVIOR_VERSION,
+                "validator_behavior_version": L6_BID_PORTAL_PROCONTRACT_VALIDATOR_BEHAVIOR_VERSION,
+            }),
+            production_binding: Some(l6_bid_portal_procontract_binding()),
+            canary_binding: None,
+            auth_refresh_binding: None,
+            policy: SourcePolicy::default(),
+            default_health_state: HealthState::Unknown,
+        },
+    );
+    definitions.insert(
+        "validation/overlay-bid-portal-procontract".to_owned(),
+        SourceDefinition {
+            source_id: "validation/overlay-bid-portal-procontract".to_owned(),
+            kind: SourceKind::ValidatorOverlay,
+            enabled: true,
+            source_structure_version: "validation-overlay-bid-portal-procontract-2026-05-22"
+                .to_owned(),
+            config: json!({
+                "source_role": "validator_overlay",
+                "base_source": "procontract",
+                "worker_skill_id": "bid-portal/procontract",
+                "worker_behavior_version": L6_BID_PORTAL_PROCONTRACT_WORKER_BEHAVIOR_VERSION,
+                "validator_behavior_version": L6_BID_PORTAL_PROCONTRACT_VALIDATOR_BEHAVIOR_VERSION,
+                "validation_policy": "always",
+                "rubric": "skills/validation/overlay-bid-portal-procontract/SKILL.md",
+            }),
+            production_binding: Some(l6_bid_portal_validator_overlay_binding()),
+            canary_binding: None,
+            auth_refresh_binding: None,
+            policy: SourcePolicy::default(),
+            default_health_state: HealthState::Unknown,
+        },
+    );
+    definitions.insert(
         "pcs".to_owned(),
         SourceDefinition {
             source_id: "pcs".to_owned(),
@@ -1071,6 +1132,48 @@ fn l5_pcs_candidate_binding() -> SkillBinding {
     binding
 }
 
+fn l6_bid_portal_procontract_binding() -> SkillBinding {
+    let mut binding = binding_with_stage(
+        "bid-portal/procontract",
+        L6_BID_PORTAL_PROCONTRACT_SKILL_VERSION,
+        None,
+        "bid-portal",
+        "procontract",
+        PromotionStage::Draft,
+    );
+    L6_BID_PORTAL_PROCONTRACT_VALIDATOR_OVERLAY_VERSION
+        .clone_into(&mut binding.version_dimensions.validator_overlay);
+    L6_BID_PORTAL_PROCONTRACT_WORKER_BEHAVIOR_VERSION
+        .clone_into(&mut binding.behavior_versions.worker_behavior_version);
+    L6_BID_PORTAL_PROCONTRACT_VALIDATOR_BEHAVIOR_VERSION
+        .clone_into(&mut binding.behavior_versions.validator_behavior_version);
+    binding.calibration.exact_slice_key = format!(
+        "bid-portal/procontract::procontract::{L6_BID_PORTAL_PROCONTRACT_WORKER_BEHAVIOR_VERSION}::{L6_BID_PORTAL_PROCONTRACT_VALIDATOR_BEHAVIOR_VERSION}"
+    );
+    binding
+}
+
+fn l6_bid_portal_validator_overlay_binding() -> SkillBinding {
+    let mut binding = binding_with_stage(
+        "validation/overlay-bid-portal-procontract",
+        L6_BID_PORTAL_PROCONTRACT_SKILL_VERSION,
+        None,
+        "validation",
+        "bid-portal-procontract",
+        PromotionStage::Draft,
+    );
+    L6_BID_PORTAL_PROCONTRACT_VALIDATOR_OVERLAY_VERSION
+        .clone_into(&mut binding.version_dimensions.validator_overlay);
+    L6_BID_PORTAL_PROCONTRACT_VALIDATOR_BEHAVIOR_VERSION
+        .clone_into(&mut binding.behavior_versions.worker_behavior_version);
+    L6_BID_PORTAL_PROCONTRACT_VALIDATOR_BEHAVIOR_VERSION
+        .clone_into(&mut binding.behavior_versions.validator_behavior_version);
+    binding.calibration.exact_slice_key = format!(
+        "validation/overlay-bid-portal-procontract::bid-portal-procontract::{L6_BID_PORTAL_PROCONTRACT_VALIDATOR_BEHAVIOR_VERSION}::{L6_BID_PORTAL_PROCONTRACT_VALIDATOR_BEHAVIOR_VERSION}"
+    );
+    binding
+}
+
 fn binding_with_stage(
     skill_id: &str,
     skill_version: &str,
@@ -1280,6 +1383,74 @@ mod tests {
                 .any(|source| source == "pcs"),
             "L5-T-freight_engine-014 and 016 require PCS coverage in the aggregate source-health shape"
         );
+    }
+
+    #[test]
+    fn l6_t_source_registry_entries_cover_bid_portal_worker_and_overlay() {
+        let bid_portal = SourceRegistry::builtin_definition("bid-portal/procontract")
+            .expect("L6 bid portal worker source should be registered");
+        assert_eq!(bid_portal.kind, SourceKind::Worker);
+        assert_eq!(
+            bid_portal.source_structure_version,
+            "procontract-bid-portal-2026-05-22"
+        );
+        assert_eq!(bid_portal.config["source_role"], "worker");
+        assert_eq!(bid_portal.config["base_source"], "procontract");
+        assert_eq!(
+            bid_portal.config["portal_host"],
+            "procontract.due-north.com"
+        );
+        assert_eq!(
+            bid_portal.config["model_profile"],
+            "portal_form_high_reliability"
+        );
+        assert_eq!(bid_portal.config["validation_policy"], "always");
+        assert_eq!(bid_portal.config["requires_cdp"].as_bool(), Some(true));
+        assert_eq!(bid_portal.config["cdp_default_port"].as_i64(), Some(9222));
+        assert_eq!(
+            bid_portal.config["validator_overlay"],
+            "validation/overlay-bid-portal-procontract"
+        );
+
+        let bid_binding = production_binding(&bid_portal);
+        assert_eq!(bid_binding.skill_id, "bid-portal/procontract");
+        assert_eq!(bid_binding.skill_version, "0.1.0");
+        assert_eq!(bid_binding.promotion_stage, PromotionStage::Draft);
+        assert_eq!(
+            bid_binding.version_dimensions.validator_overlay,
+            "validation/overlay-bid-portal-procontract@0.1.0"
+        );
+        assert_eq!(
+            bid_binding.behavior_versions.worker_behavior_version,
+            "bid-portal/procontract@0.1.0+1.0"
+        );
+        assert_eq!(
+            bid_binding.behavior_versions.validator_behavior_version,
+            "validation/overlay-bid-portal-procontract@0.1.0+1.0"
+        );
+
+        let overlay =
+            SourceRegistry::builtin_definition("validation/overlay-bid-portal-procontract")
+                .expect("L6 bid portal validator overlay source should be registered");
+        assert_eq!(overlay.kind, SourceKind::ValidatorOverlay);
+        assert_eq!(overlay.config["source_role"], "validator_overlay");
+        assert_eq!(overlay.config["base_source"], "procontract");
+        assert_eq!(overlay.config["worker_skill_id"], "bid-portal/procontract");
+        assert_eq!(overlay.config["validation_policy"], "always");
+
+        let overlay_binding = production_binding(&overlay);
+        assert_eq!(
+            overlay_binding.skill_id,
+            "validation/overlay-bid-portal-procontract"
+        );
+        assert_eq!(overlay_binding.promotion_stage, PromotionStage::Draft);
+
+        for source_id in ["procontract", "procontract-interest", "procontract-enrich"] {
+            assert!(
+                SourceRegistry::builtin_definition(source_id).is_some(),
+                "existing Procontract source `{source_id}` regressed"
+            );
+        }
     }
 
     #[test]
