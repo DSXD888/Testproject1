@@ -629,6 +629,26 @@ Verification after fixes:
 | §1.10 invariants | PASS (8/8 have enforcing beads) |
 | Banned scope-language scan | PASS (0 hits) |
 
+### E22 — Step 08 repeat follow-up pass: no additional bead fixes required
+
+Repeat follow-up audit re-read the current pushed corpus after E21 and found no further bead-body or alias-map fixes required.
+
+Verification:
+
+| Check | Verdict |
+|-------|---------|
+| L6 inventory | PASS (71 total: 63 task beads, 7 phase epics, 1 implementation epic) |
+| `br lint --status all` across all L6 beads | PASS (0 issues) |
+| `br dep cycles --json` | PASS (0 cycles) |
+| Alias-map dependencies vs live Beads dependencies | PASS (0 mismatches) |
+| L6-FR coverage | PASS (127/127) |
+| L6-T ownership | PASS (153/153, exactly one owner per test ID) |
+| `bin/br-claim --dry-run` across 63 task beads | PASS (0 failures, 0 suspicious paths, 7 gate beads parse concrete paths) |
+| Phase 7 operator gates and side-effect caps | PASS (all 7 Phase 7 beads make operator gate and cap evidence explicit) |
+| §1.10 invariants | PASS (8/8 have enforcing beads) |
+| Orphan task bead check | PASS (0 task beads without parent-child edge) |
+| Banned scope-language scan | PASS (0 hits) |
+
 ### E17 — bin/br-complete behavior verified
 
 Round 5 confirmed `bin/br-complete` does NOT parse bead body for file paths. It calls `release_file_reservations(agent_name=<self>)` which releases ALL of the agent's outstanding reservations (the `agent_name` filter alone). Bead body errors therefore only affect `bin/br-claim` (the file-reservation creator), not `bin/br-complete` (the bulk releaser). The Round 3 + Round 4 bead body path fixes are sufficient.
