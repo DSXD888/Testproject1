@@ -9,7 +9,9 @@
 > **Implementation Status (as of 2026-05-21):** Layer 6 is **VALIDATED FOR IMPLEMENTATION
 > PIPELINE**. Requirement IDs (`L6-FR-X.Y.Z`) added; 5 operator decisions transcribed in
 > §1.0; naming reconciliation Proactis=Procontract confirmed; L5→L6 readiness gate
-> preserved verbatim. Pipeline at `docs/pipeline/l6-request-pipeline-automation/`.
+> preserved verbatim. Follow-up pass verified 127 total unique requirement IDs
+> (116 core implementation IDs plus 11 DoD traceability IDs). Pipeline at
+> `docs/pipeline/l6-request-pipeline-automation/`.
 > Historical Stage 15 (`bid_workflow`) handoff material remains under `prompts/`
 > for context and will be reopened or superseded once L6 implementation completes.
 
@@ -705,6 +707,8 @@ Every bid submission produces a complete, traceable audit trail:
 | 10 | L6-FR-1.3.18, L6-FR-1.3.19, L6-FR-1.3.25, L6-FR-1.10.6 |
 | 11 | L6-FR-1.3.23, L6-FR-1.7.4, L6-FR-1.10.7 |
 
+**DoD #8 live-demo nuance:** Decision 5 does not weaken DoD #8. The first live run uses `sideEffectCap = REMOTE_DRAFT` and proves the draft path against a real Procontract opportunity; full DoD #8 completion still requires a separate operator-authorized run that reaches `bid_submitted` with portal confirmation evidence.
+
 **Local quality gate callout:** This repo currently has no `.github/workflows/` directory. L6 validation uses the local quality gate sequence from the pipeline manifest (`cargo check --all-targets`, full daemon stage-validation tests when stage manifests are involved, `bun run build`, `bun run test`, E2E where relevant, clippy/fmt, and scoped `ubs`). Adding CI is not silently in scope.
 
 ### 2.2 Test Files (3 New, Cumulative 60)
@@ -740,7 +744,7 @@ Every bid submission produces a complete, traceable audit trail:
 | Portal UI changes break bid skill | High | Low | Not real money — error manifest flags failures; skill update cycle; page fingerprint drift detection |
 | Form structure varies by procurement type | Medium | Medium | Portal-specific workflow handles variance; fallback to verify-only mode |
 | Duplicate submission on retry after side-effect boundary | Medium | Medium | Side-effect class tracking; `verifyPortalState()` before retry after `REMOTE_DRAFT`; human confirmation required after `NOTIFICATION_OR_LOCK` or higher |
-| Portal credentials expire during bid | Low | Low | Auth challenge detection; `auth-refresh` skill for portal (future) |
+| Portal credentials expire during bid | Low | Low | Auth-state detection returns `AUTH_STATE_STALE`; daemon runs existing `auth-signin/procontract` and reruns the bid job after successful sign-in |
 
 ### 2.5 Forward-Compatibility Provisions
 
@@ -778,7 +782,7 @@ Every bid submission produces a complete, traceable audit trail:
 
 ### 2.8 What's NOT Stubbed
 
-Nothing — this is the final layer. No features are deferred beyond this point.
+Nothing — this is the final layer. No features remain beyond this point.
 
 ---
 

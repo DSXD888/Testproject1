@@ -1078,14 +1078,14 @@ Portal-specific bid skills automate the request pipeline — preparation and sub
 
 ### Capability Delivered
 
-System can prepare and submit a request on one downstream eSourcing portal (Proactis as initial target) with full audit trail. Includes browser automation workflow, screenshot capture per step, and manifest generation for submitted requests.
+System can prepare and submit a request on one downstream eSourcing portal (Procontract/Proactis as initial target) with full audit trail. Includes browser automation workflow, screenshot capture per step, and manifest generation for submitted requests.
 
 ### Components Touched
 
 | Component | Action | Files |
 |-----------|--------|-------|
-| Skills | Create | 1 (bid-portal-proactis) |
-| `packages/bidding` | Create | 3 (workflow registry, proactis workflow, company profile schema) |
+| Skills | Create | 1 (bid-portal-procontract) |
+| `packages/bidding` | Create | 3 (workflow registry, procontract workflow, company profile schema) |
 
 ### Data Introduced
 

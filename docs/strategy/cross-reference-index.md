@@ -221,10 +221,10 @@ Entries in this index that point at L1-L3 strategy sections describe **built** c
 
 | Topic | File | Section |
 |-------|------|---------|
-| Bid workflow state machine (6 states incl. draft_saved, portal_state_unknown) | `layers/layer-6-request-pipeline-automation.md` | §1 (§1.3) |
+| Bid workflow state machine (7 states incl. draft_saved, portal_state_unknown) | `layers/layer-6-request-pipeline-automation.md` | §1 (§1.3) |
 | Bid scope payload (explicit lot/candidate + sideEffectCap + decisionBasisHash) | `layers/layer-6-request-pipeline-automation.md` | §1 (§1.4) |
 | Side-effect classes (READ_ONLY → FUNDS_COMMITTED) | `layers/layer-6-request-pipeline-automation.md` | §1 (§1.4, §1.7) |
-| Bid portal skill (Proactis, 11-step playbook with per-step side-effect class) | `layers/layer-6-request-pipeline-automation.md` | §1 (§1.7) |
+| Bid portal skill (Procontract/Proactis alias, 11-step playbook with per-step side-effect class) | `layers/layer-6-request-pipeline-automation.md` | §1 (§1.7) |
 | `packages/bidding` (workflow registry, company profile, BidDocument, SubmissionResult) | `layers/layer-6-request-pipeline-automation.md` | §1 (§1.6) |
 | Audit trail (constitutional) | `layers/layer-6-request-pipeline-automation.md` | §1 (§1.8) |
 | L5→L6 readiness gate (blocker checks, quote-role quality) | `layers/layer-6-request-pipeline-automation.md`, `layers/layer-5-expanded-commercial-intelligence.md` | §1 (§1.3); `L5-FR-3.8.1`, `L5-FR-3.8.2` |
