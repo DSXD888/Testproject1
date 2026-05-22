@@ -7,7 +7,11 @@ pub mod types;
 
 pub use readiness_gate::{BidReadinessBlocker, BidReadinessGateResult, evaluate_bid_readiness};
 pub use runner::run_bid_workflow_job;
-pub use state_machine::{BidStateMachine, BidStateTransitionError, BidTransition};
+pub use state_machine::{
+    BidStateMachine, BidStateTransitionError, BidStateTransitionRejection, BidTransition,
+    TransitionContext, TransitionTrigger, ValidatorGate, allowed_transitions,
+    is_allowed_transition, transition_to, validate_transition,
+};
 pub use types::{
     BidDocument, BidScopePayload, BidWorkflowState, CompanyAddress, CompanyCertification,
     CompanyContact, CompanyFinancialStatements, CompanyInsurancePolicy, CompanyProfile,
