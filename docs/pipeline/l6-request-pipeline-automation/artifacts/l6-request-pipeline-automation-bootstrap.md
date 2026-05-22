@@ -1,0 +1,432 @@
+# L6 Request Pipeline Automation - Bootstrap
+
+## 1. Scope
+
+This bootstrap is the pre-flight checklist for agents implementing Layer 6 from:
+
+- `docs/strategy/layers/layer-6-request-pipeline-automation.md`
+- `docs/pipeline/l6-request-pipeline-automation/manifest.yaml`
+- `docs/pipeline/l6-request-pipeline-automation/artifacts/l6-request-pipeline-automation-tdd.md`
+
+It describes the local environment, validation script, fixture expectations, and
+quality gate sequence required before claiming L6 work complete.
+
+Layer 6 is skill-first. It does not require new paid commercial accounts or new
+paid APIs. The only external account dependency is the already-provisioned
+Procontract account `sales@sorelon.com` in the persistent Chrome profile.
+
+## 2. Success Criteria Coverage Summary
+
+| Success criterion | Bootstrap evidence | TDD IDs |
+|---|---|---|
+| Procontract bid skill can attach to persistent CDP | `bin/ensure-cdp-9222` plus `/json/version` probe | `L6-T-bid_portal_procontract_skill-004`, `L6-T-live_demo-001` |
+| BidScopePayload and company profile are available | package fixtures and daemon injection checks | `L6-T-bid_workflow_states-030`, `L6-T-daemon_runner-005` |
+| Readiness gate is constitutional | local package tests and IPC pre-check tests | `L6-T-bid_readiness_gate-001` through `016` |
+| Side-effect cap prevents unsafe portal mutation | side-effect package tests and live cap evidence | `L6-T-portal_side_effects-001` through `012` |
+| Validator fail-closed behavior is implemented | daemon validation executor tests | `L6-T-validator_overlay-008`, `009`, `010` |
+| Desktop operator workflow is usable | desktop E2E | `L6-T-desktop_ui-001` through `007` |
+| Web viewer remains read-only and redacted | web E2E and sync tests | `L6-T-web_ui-001` through `005`, `L6-T-sync_propagation-003`, `004` |
+| Live demo reaches draft saved safely | manual smoke diary | `L6-T-live_demo-002`, `004` |
+
+## 3. Environment Prerequisites
+
+Run these checks from `/Users/alinaaitova/Desktop/Testproject1`.
+
+| Requirement | Required state | Check |
+|---|---|---|
+| Rust nightly | Toolchain pinned by `rust-toolchain.toml` and available locally. | `rustup show active-toolchain` and `cargo --version` |
+| Bun | Bun 1.3.10, as pinned for desktop/web/packages. | `bun --version` |
+| Git branch | Work happens on `main`. | `git branch --show-current` |
+| AgentMail | Server reachable at `http://127.0.0.1:8765`. | `curl -s http://127.0.0.1:8765/health/liveness` |
+| CDP helper | `bin/ensure-cdp-9222` exists and can start or find Chrome on port 9222. | `bin/ensure-cdp-9222` |
+| Persistent Chrome profile | `/Users/alinaaitova/.chrome-automation` exists and is the profile used by port 9222. | `test -d /Users/alinaaitova/.chrome-automation` |
+| Procontract credential | `sales@sorelon.com` is saved in Chrome Passwords for Procontract. Touch ID is not required. | Manual check at `chrome://settings/passwords` in the CDP profile. |
+| Live demo opportunity | Operator selects at least one Procontract opportunity reference that permits a draft-only smoke. | Record reference in live-demo diary before the run. |
+| L5 completion | L5 status confirms `ready_for_l6: true`. | `docs/pipeline/l5-expanded-commercial-intelligence/artifacts/l5-expanded-commercial-intelligence-status.yaml` |
+| Local Supabase stack | Available for sync/RLS/web E2E when those tests run. | Existing L4/L5 Supabase bootstrap commands. |
+
+## 4. External Account Negative List
+
+L6 requires zero new paid commercial accounts.
+
+Do not create, request, or block on:
+
+- Paid procurement-data APIs.
+- Paid bid-writing services.
+- Paid supplier-pricing APIs.
+- Paid freight, FX, tariff, or landed-cost accounts.
+- New Procontract credentials.
+
+Allowed external dependency:
+
+- Existing Procontract account `sales@sorelon.com`, already saved in the
+  persistent Chrome profile at `/Users/alinaaitova/.chrome-automation`.
+
+If an implementation bead claims it needs a new paid account, file a blocking
+spec-drift issue instead of adding the dependency.
+
+## 5. CDP Smoke Prerequisite
+
+Every CDP-backed bid skill smoke starts with the idempotent helper:
+
+```bash
+bin/ensure-cdp-9222
+curl -sfS -m 3 http://localhost:9222/json/version
+```
+
+Expected properties:
+
+- The browser uses `/Users/alinaaitova/.chrome-automation`.
+- The browser is not closed by the test or skill.
+- The skill attaches to the existing browser and does not launch an isolated
+  profile.
+- The operator remains signed in as `sales@sorelon.com` or receives
+  `AUTH_STATE_STALE` for daemon-orchestrated refresh.
+- Live smoke under default cap reaches at most `REMOTE_DRAFT`.
+
+Manual credential confirmation:
+
+1. Open the CDP Chrome profile.
+2. Visit `chrome://settings/passwords`.
+3. Confirm the Procontract credential for `sales@sorelon.com` is saved.
+4. Confirm Touch ID is not required for the saved credential path.
+
+## 6. AgentMail Registration Walkthrough
+
+Use the same project key for every L6 implementation agent:
+
+```text
+/Users/alinaaitova/Desktop/Testproject1
+```
+
+Session start:
+
+```text
+ensure_project(human_key="/Users/alinaaitova/Desktop/Testproject1")
+register_agent(
+  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  program="<agent-program>",
+  model="<model>",
+  task_description="L6 request pipeline automation"
+)
+set_contact_policy(
+  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  agent_name="<you>",
+  policy="open"
+)
+```
+
+Handshake every visible peer before using bead wrappers:
+
+```text
+for peer in list_agents(project_key="/Users/alinaaitova/Desktop/Testproject1"):
+  if peer.name != "<you>":
+    macro_contact_handshake(
+      project_key="/Users/alinaaitova/Desktop/Testproject1",
+      requester="<you>",
+      target=peer.name
+    )
+```
+
+Before editing implementation files:
+
+```text
+file_reservation_paths(
+  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  agent_name="<you>",
+  paths=["<minimal path or glob>"],
+  ttl_seconds=3600,
+  exclusive=true,
+  reason="<bead-id>"
+)
+```
+
+For bead-tracked work, use `bin/br-claim <bead-id>` and
+`bin/br-complete <bead-id>`. Do not bypass the wrappers with raw status updates.
+
+## 7. Validation Script
+
+The following script checks the L6 pre-flight in one pass and exits non-zero with
+actionable errors. It is intentionally local-only and does not create accounts,
+write project files, or run destructive commands.
+
+```bash
+#!/usr/bin/env bash
+set -u
+
+failures=0
+
+fail() {
+  printf 'FAIL: %s\n' "$1" >&2
+  failures=$((failures + 1))
+}
+
+warn() {
+  printf 'WARN: %s\n' "$1" >&2
+}
+
+require_cmd() {
+  command -v "$1" >/dev/null 2>&1 || fail "missing command: $1"
+}
+
+ROOT="/Users/alinaaitova/Desktop/Testproject1"
+
+if [ "$(pwd)" != "$ROOT" ]; then
+  fail "run from $ROOT"
+fi
+
+for cmd in cargo rustc rustup bun git curl rg find wc; do
+  require_cmd "$cmd"
+done
+
+if [ -f rust-toolchain.toml ]; then
+  rustup show active-toolchain >/dev/null 2>&1 || fail "Rust toolchain is not installed"
+else
+  fail "rust-toolchain.toml is missing"
+fi
+
+if command -v bun >/dev/null 2>&1; then
+  bun_version="$(bun --version 2>/dev/null || true)"
+  if [ "$bun_version" != "1.3.10" ]; then
+    fail "expected Bun 1.3.10, got ${bun_version:-unknown}"
+  fi
+fi
+
+branch="$(git branch --show-current 2>/dev/null || true)"
+if [ "$branch" != "main" ]; then
+  fail "expected git branch main, got ${branch:-unknown}"
+fi
+
+for path in \
+  docs/strategy/layers/layer-6-request-pipeline-automation.md \
+  docs/pipeline/l6-request-pipeline-automation/manifest.yaml \
+  docs/pipeline/l6-request-pipeline-automation/artifacts/l6-request-pipeline-automation-tdd.md \
+  docs/pipeline/l5-expanded-commercial-intelligence/artifacts/l5-expanded-commercial-intelligence-status.yaml \
+  crates/daemon/src/main.rs \
+  crates/daemon/src/errors/manifest.rs \
+  crates/daemon/tests/skill_canary_harness.rs \
+  crates/daemon/tests/skill_golden_journeys.rs
+do
+  [ -e "$path" ] || fail "missing required path: $path"
+done
+
+if ! rg -q "ready_for_l6: true" docs/pipeline/l5-expanded-commercial-intelligence/artifacts/l5-expanded-commercial-intelligence-status.yaml; then
+  fail "L5 status does not confirm ready_for_l6: true"
+fi
+
+if ! curl -sfS -m 3 http://127.0.0.1:8765/health/liveness >/dev/null; then
+  fail "AgentMail liveness probe failed at http://127.0.0.1:8765/health/liveness"
+fi
+
+if [ ! -x bin/ensure-cdp-9222 ]; then
+  fail "bin/ensure-cdp-9222 is missing or not executable"
+else
+  if ! bin/ensure-cdp-9222 >/dev/null 2>&1; then
+    fail "bin/ensure-cdp-9222 failed"
+  fi
+fi
+
+if ! curl -sfS -m 3 http://localhost:9222/json/version >/dev/null; then
+  fail "CDP probe failed at http://localhost:9222/json/version"
+fi
+
+if [ ! -d /Users/alinaaitova/.chrome-automation ]; then
+  fail "persistent Chrome profile /Users/alinaaitova/.chrome-automation is missing"
+fi
+
+rust_tests="$(find crates/daemon/tests -maxdepth 1 -name '*.rs' | wc -l | tr -d ' ')"
+pkg_tests="$(find packages -path '*/node_modules' -prune -o -name '*.test.ts' -print | wc -l | tr -d ' ')"
+printf 'INFO: Rust integration tests: %s\n' "$rust_tests"
+printf 'INFO: package *.test.ts files: %s\n' "$pkg_tests"
+printf 'INFO: after the 3 L6 package test files exist, cumulative target is >=60\n'
+
+for paid_key in \
+  XE_API_KEY \
+  OANDA_API_KEY \
+  FREIGHTOS_API_KEY \
+  SEARATES_API_KEY \
+  DUTIFY_API_KEY \
+  ZONOS_API_KEY \
+  AVALARA_API_KEY \
+  SHIPPO_API_KEY
+do
+  if printenv "$paid_key" >/dev/null 2>&1; then
+    fail "paid commercial API key variable is set but L6 requires zero new paid accounts: $paid_key"
+  fi
+done
+
+warn "Manual check still required: confirm sales@sorelon.com is saved in chrome://settings/passwords for the CDP profile."
+warn "Manual check still required: record an operator-selected Procontract opportunity reference before T4 smoke."
+
+if [ "$failures" -ne 0 ]; then
+  printf 'L6 preflight failed with %s issue(s).\n' "$failures" >&2
+  exit 1
+fi
+
+printf 'L6 preflight passed. Complete the two manual checks before live smoke.\n'
+```
+
+Recommended storage path if the implementation team wants an executable copy:
+`scripts/l6-preflight.sh`. Keep the source of truth in this bootstrap and avoid
+adding vendor-account procurement logic.
+
+## 8. Fixture And Corpus Bootstrap
+
+Create the bid portal calibration corpus before promoting the skill beyond
+candidate status:
+
+```text
+tests/fixtures/calibration/bid-portal-procontract/
+  simple/
+    canary.inputs.jsonl
+    golden.assertions.yaml
+    metadata.json
+    manifest.md
+  medium/
+    canary.inputs.jsonl
+    golden.assertions.yaml
+    metadata.json
+    manifest.md
+  complex/
+    canary.inputs.jsonl
+    golden.assertions.yaml
+    metadata.json
+    manifest.md
+```
+
+Each variant must include:
+
+- A portal form complexity label.
+- Captured DOM or cassette material sufficient for fast deterministic replay.
+- Screenshot expectations for lookup, fill, upload, draft save, and final submit
+  where applicable.
+- Expected side-effect progression.
+- Expected redaction sentinels.
+- The Procontract `source_structure_version` used when the capture was made.
+
+The fast tier may replay captured material. The smoke tier uses real CDP. Do not
+replace portal behavior with generic HTTP mocks.
+
+## 9. Package And Daemon Bootstrap Order
+
+Implement in this order to keep failures local:
+
+1. `packages/bidding` types and pure tests:
+   - `workflow-registry.ts`
+   - `procontract-workflow.ts`
+   - `company-profile-schema.ts`
+   - `bid-scope-types.ts`
+   - `tests/bid-workflow-states.test.ts`
+   - `tests/portal-side-effects.test.ts`
+   - `tests/bid-readiness-gate.test.ts`
+2. Daemon Rust state, readiness, IPC, error-code, and dispatch tests.
+3. Skill directory and schema files:
+   - `skills/bid-portal-procontract/SKILL.md`
+   - `skills/bid-portal-procontract/result.schema.json`
+   - `skills/bid-portal-procontract/checkpoint.schema.json`
+   - `skills/bid-portal-procontract/canary.inputs.jsonl`
+   - `skills/bid-portal-procontract/golden.assertions.yaml`
+   - `skills/bid-portal-procontract/validator-rubric.md`
+   - `skills/validation/overlay-bid-portal-procontract/SKILL.md`
+4. Skill canary and golden-journey daemon tests.
+5. Desktop and web E2E.
+6. T4 live smoke evidence.
+
+## 10. Local Quality Gate Sequence
+
+Run this exact local-only sequence before declaring L6 green:
+
+```bash
+cargo fmt --check
+cargo check --all-targets
+cargo clippy --all-targets -- -D warnings
+cargo test -p daemon --bin daemon
+for t in crates/daemon/tests/*.rs; do cargo test --test "$(basename "$t" .rs)" || exit 1; done
+bun run build
+bun run lint
+bun run test
+(cd apps/desktop && bun run test:e2e)
+(cd apps/web && bun run test:e2e)
+```
+
+Do not substitute `cargo test -p daemon --bin daemon` for the integration loop.
+That command excludes the daemon integration tests and is not a valid L6 gate by
+itself.
+
+## 11. Live Demo Runbook
+
+Default live demo cap:
+
+```text
+sideEffectCap = REMOTE_DRAFT
+```
+
+Pre-run evidence to record:
+
+- Operator-selected Procontract opportunity reference.
+- Confirmation that the target run will not create buyer-visible legal
+  commitment under `REMOTE_DRAFT`.
+- Company profile version.
+- Process ID, lot IDs, candidate IDs, selected quote IDs.
+- `decisionBasisHash`.
+- CDP `/json/version` response timestamp.
+- AgentMail identity and bead ID, if bead-tracked.
+
+Run expectations:
+
+- Start from desktop Start Bid control or equivalent local trigger.
+- Attach to existing CDP profile.
+- Verify opportunity reference and duplicate state.
+- Fill form and upload documents.
+- Save draft.
+- Stop before final submission.
+- Persist `draft_saved`.
+- Write hybrid run manifest with screenshot trail.
+- Push bid-state summary to Supabase.
+- Show viewer-role bid-state badge on web without exposing BidScopePayload or
+  run manifest body.
+
+Optional formal-submission smoke:
+
+- Requires separate written operator authorization.
+- Requires `sideEffectCap >= FORMAL_SUBMISSION`.
+- Requires fail-closed validator accepted verdict or structured validation
+  override.
+- Requires confirmation reference evidence.
+
+## 12. False Positive Prevention
+
+| Risk | Prevention |
+|---|---|
+| Tests pass while skipping hard readiness blockers | `L6-T-bid_readiness_gate-015` requires multi-blocker reporting and `016` rejects override misuse. |
+| Portal tests fake behavior through HTTP mocks | Bootstrap requires cassette replay or real CDP only. |
+| Auth handling drifts into bid skill | `L6-T-bid_portal_procontract_skill-005` and `L6-T-daemon_runner-009` enforce daemon-orchestrated retry. |
+| Final submission fails open during validator outage | `L6-T-validator_overlay-009` blocks submission on outage. |
+| Remote draft retry creates duplicate buyer-visible state | `L6-T-portal_side_effects-008`, `009`, and `010` force verification and unknown-state handling. |
+| New ErrorCode variants duplicate existing semantics | `L6-T-error_codes-001` and `005` lock reuse of `AUTH_STATE_STALE` and `PAGE_SHAPE_DRIFT`. |
+| Web viewer leaks sensitive bid scope | `L6-T-web_ui-002` and `L6-T-sync_propagation-004` test both UI and data boundaries. |
+| Desktop allows formal submit under default cap | `L6-T-desktop_ui-007` and `L6-T-portal_side_effects-005` enforce cap. |
+
+## 13. Handoff Checklist
+
+Before an implementation agent starts:
+
+- [ ] Read the L6 spec, manifest, TDD, and this bootstrap.
+- [ ] Run the validation script or equivalent checks.
+- [ ] Confirm AgentMail identity and peer handshakes.
+- [ ] Claim the bead with `bin/br-claim <bead-id>` if bead-tracked.
+- [ ] Reserve only the files needed for the bead.
+- [ ] Confirm CDP port 9222 responds before any skill smoke.
+- [ ] Confirm `sales@sorelon.com` credential is saved manually before live smoke.
+- [ ] Confirm no new paid accounts or paid API keys are required.
+
+Before closing L6:
+
+- [ ] All 127 `L6-T-*` requirement-bearing checks are implemented or explicitly
+      represented by the named automated/manual surface.
+- [ ] Coverage matrix still maps all 127 `L6-FR-*` IDs.
+- [ ] Static gates `CI-L6-001` through `CI-L6-010` pass.
+- [ ] Live REMOTE_DRAFT smoke evidence exists.
+- [ ] No sensitive BidScopePayload, company profile, portal artifact, or manifest
+      body leaks to viewer-role surfaces.
+- [ ] `git status` and bead status reflect the intended changes only.
