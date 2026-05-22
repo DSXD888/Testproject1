@@ -2,20 +2,28 @@
 
 pub mod readiness_gate;
 pub mod runner;
+pub mod side_effect_guard;
 pub mod state_machine;
 pub mod types;
 
 pub use readiness_gate::{BidReadinessBlocker, BidReadinessGateResult, evaluate_bid_readiness};
 pub use runner::run_bid_workflow_job;
+pub use side_effect_guard::{
+    BidPortalStep, CapDecision, enforce_cap, enforce_procontract_observed_side_effect,
+    enforce_procontract_step_cap, planned_procontract_steps,
+};
 pub use state_machine::{
     BidStateMachine, BidStateTransitionError, BidStateTransitionRejection, BidTransition,
     TransitionContext, TransitionTrigger, ValidatorGate, allowed_transitions,
     is_allowed_transition, transition_to, validate_transition,
 };
 pub use types::{
-    BidDocument, BidScopePayload, BidWorkflowState, CompanyAddress, CompanyCertification,
-    CompanyContact, CompanyFinancialStatements, CompanyInsurancePolicy, CompanyProfile,
-    DraftSaveResult, PortalStateVerification, SideEffectClass, SmeStatus, SubmissionResult,
+    BidDocument, BidScopePayload, BidScopeReferenceResolver, BidScopeValidationError,
+    BidWorkflowState, CompanyAddress, CompanyCertification, CompanyContact,
+    CompanyFinancialStatements, CompanyInsurancePolicy, CompanyProfile, DraftSaveResult,
+    PortalStateVerification, SideEffectClass, SmeStatus, SqliteBidScopeReferenceResolver,
+    SubmissionResult, bid_workflow_viewer_projection_columns, default_bid_scope_fields,
+    validate_bid_scope, validate_bid_scope_shape,
 };
 
 #[cfg(test)]

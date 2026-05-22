@@ -2,6 +2,7 @@ use std::error::Error;
 use std::fmt::{self, Display, Formatter};
 use std::str::FromStr;
 
+use rusqlite::{Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 
 const VALID_BID_WORKFLOW_STATES: &str = "not_started, ready_to_bid, bid_in_progress, draft_saved, bid_submitted, bid_failed, portal_state_unknown";
@@ -30,6 +31,425 @@ pub enum SideEffectClass {
     LegalDeclaration,
     FormalSubmission,
     FundsCommitted,
+}
+
+impl BidScopePayload {
+    pub const DEFAULT_REVIEW_REQUIRED: bool = true;
+    pub const DEFAULT_SIDE_EFFECT_CAP: SideEffectClass = SideEffectClass::RemoteDraft;
+    pub const SUPPORTED_PORTAL_TYPE: &'static str = "procontract";
+
+    #[must_use]
+    pub const fn default_review_required() -> bool {
+        Self::DEFAULT_REVIEW_REQUIRED
+    }
+
+    #[must_use]
+    pub const fn default_side_effect_cap() -> SideEffectClass {
+        Self::DEFAULT_SIDE_EFFECT_CAP
+    }
+}
+
+#[must_use]
+pub const fn default_bid_scope_fields() -> (bool, SideEffectClass) {
+    (
+        BidScopePayload::DEFAULT_REVIEW_REQUIRED,
+        BidScopePayload::DEFAULT_SIDE_EFFECT_CAP,
+    )
+}
+
+const DECISION_BASIS_HASH_LENGTH: usize = 64;
+const VIEWER_SAFE_BID_WORKFLOW_COLUMNS: &[&str] = &[
+    "process_id",
+    "bid_state",
+    "review_required",
+    "bid_job_id",
+    "started_at",
+    "completed_at",
+    "row_version",
+    "stage_run_id",
+    "updated_at",
+    "created_at",
+];
+
+#[must_use]
+pub const fn bid_workflow_viewer_projection_columns() -> &'static [&'static str] {
+    VIEWER_SAFE_BID_WORKFLOW_COLUMNS
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BidScopeValidationError {
+    EmptyField(&'static str),
+    EmptyList(&'static str),
+    UnsupportedPortalType(String),
+    InvalidDecisionBasisHash,
+    ProcessNotFound(String),
+    OperatorDecisionNotApproved(String),
+    PipelineRollupMissing(String),
+    LotNotOwnedByProcess { lot_id: String, process_id: String },
+    CandidateNotOwnedBySelectedLots { candidate_id: String },
+    QuoteNotOwnedBySelectedCandidates { quote_id: String },
+    CompanyProfileVersionNotFound(String),
+    ReferenceLookupFailed(String),
+}
+
+impl BidScopeValidationError {
+    #[must_use]
+    pub const fn code(&self) -> &'static str {
+        match self {
+            Self::EmptyField(_) => "BID_SCOPE_EMPTY_FIELD",
+            Self::EmptyList(_) => "BID_SCOPE_EMPTY_LIST",
+            Self::UnsupportedPortalType(_) => "BID_SCOPE_UNSUPPORTED_PORTAL",
+            Self::InvalidDecisionBasisHash => "BID_SCOPE_INVALID_DECISION_BASIS_HASH",
+            Self::ProcessNotFound(_) => "BID_SCOPE_PROCESS_NOT_FOUND",
+            Self::OperatorDecisionNotApproved(_) => "BID_SCOPE_OPERATOR_DECISION_NOT_APPROVED",
+            Self::PipelineRollupMissing(_) => "BID_SCOPE_PIPELINE_ROLLUP_MISSING",
+            Self::LotNotOwnedByProcess { .. } => "BID_SCOPE_LOT_NOT_OWNED_BY_PROCESS",
+            Self::CandidateNotOwnedBySelectedLots { .. } => "BID_SCOPE_CANDIDATE_NOT_OWNED_BY_LOTS",
+            Self::QuoteNotOwnedBySelectedCandidates { .. } => {
+                "BID_SCOPE_QUOTE_NOT_OWNED_BY_CANDIDATES"
+            }
+            Self::CompanyProfileVersionNotFound(_) => "BID_SCOPE_COMPANY_PROFILE_NOT_FOUND",
+            Self::ReferenceLookupFailed(_) => "BID_SCOPE_REFERENCE_LOOKUP_FAILED",
+        }
+    }
+}
+
+impl Display for BidScopeValidationError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::EmptyField(field) => write!(f, "{field} must not be empty"),
+            Self::EmptyList(field) => write!(f, "{field} must contain at least one non-empty id"),
+            Self::UnsupportedPortalType(portal_type) => write!(
+                f,
+                "unsupported bidPortalType `{portal_type}`; expected `{}`",
+                BidScopePayload::SUPPORTED_PORTAL_TYPE
+            ),
+            Self::InvalidDecisionBasisHash => write!(
+                f,
+                "decisionBasisHash must be a 64-character hexadecimal SHA-256 string"
+            ),
+            Self::ProcessNotFound(process_id) => {
+                write!(f, "process `{process_id}` does not exist")
+            }
+            Self::OperatorDecisionNotApproved(process_id) => write!(
+                f,
+                "process `{process_id}` does not have a current approved operator decision"
+            ),
+            Self::PipelineRollupMissing(process_id) => write!(
+                f,
+                "process `{process_id}` does not have a current pipeline rollup"
+            ),
+            Self::LotNotOwnedByProcess { lot_id, process_id } => {
+                write!(
+                    f,
+                    "lot `{lot_id}` does not belong to process `{process_id}`"
+                )
+            }
+            Self::CandidateNotOwnedBySelectedLots { candidate_id } => write!(
+                f,
+                "candidate `{candidate_id}` does not belong to any selected lot"
+            ),
+            Self::QuoteNotOwnedBySelectedCandidates { quote_id } => write!(
+                f,
+                "quote `{quote_id}` does not belong to any selected candidate"
+            ),
+            Self::CompanyProfileVersionNotFound(version) => {
+                write!(f, "company profile version `{version}` does not exist")
+            }
+            Self::ReferenceLookupFailed(message) => {
+                write!(f, "bid scope reference lookup failed: {message}")
+            }
+        }
+    }
+}
+
+impl Error for BidScopeValidationError {}
+
+pub trait BidScopeReferenceResolver {
+    fn process_exists(&self, process_id: &str) -> Result<bool, BidScopeValidationError>;
+
+    fn process_has_approved_operator_decision(
+        &self,
+        process_id: &str,
+    ) -> Result<bool, BidScopeValidationError>;
+
+    fn process_has_current_pipeline_rollup(
+        &self,
+        process_id: &str,
+    ) -> Result<bool, BidScopeValidationError>;
+
+    fn lot_belongs_to_process(
+        &self,
+        lot_id: &str,
+        process_id: &str,
+    ) -> Result<bool, BidScopeValidationError>;
+
+    fn candidate_belongs_to_lots(
+        &self,
+        candidate_id: &str,
+        lot_ids: &[String],
+    ) -> Result<bool, BidScopeValidationError>;
+
+    fn quote_belongs_to_candidates(
+        &self,
+        quote_id: &str,
+        candidate_ids: &[String],
+    ) -> Result<bool, BidScopeValidationError>;
+
+    fn company_profile_version_exists(
+        &self,
+        company_profile_version: &str,
+    ) -> Result<bool, BidScopeValidationError>;
+}
+
+pub struct SqliteBidScopeReferenceResolver<'conn> {
+    conn: &'conn Connection,
+}
+
+impl<'conn> SqliteBidScopeReferenceResolver<'conn> {
+    #[must_use]
+    pub const fn new(conn: &'conn Connection) -> Self {
+        Self { conn }
+    }
+
+    fn exists(
+        &self,
+        sql: &str,
+        params: &[&dyn rusqlite::ToSql],
+    ) -> Result<bool, BidScopeValidationError> {
+        self.conn
+            .query_row(sql, params, |row| row.get::<_, i64>(0))
+            .optional()
+            .map(|count| count.unwrap_or(0) > 0)
+            .map_err(|error| BidScopeValidationError::ReferenceLookupFailed(error.to_string()))
+    }
+}
+
+impl BidScopeReferenceResolver for SqliteBidScopeReferenceResolver<'_> {
+    fn process_exists(&self, process_id: &str) -> Result<bool, BidScopeValidationError> {
+        self.exists(
+            "SELECT COUNT(*) FROM procurement_processes WHERE id = ?1",
+            &[&process_id],
+        )
+    }
+
+    fn process_has_approved_operator_decision(
+        &self,
+        process_id: &str,
+    ) -> Result<bool, BidScopeValidationError> {
+        self.exists(
+            "\
+            SELECT COUNT(*)
+            FROM operator_decision_heads
+            WHERE process_id = ?1
+              AND disposition = 'approved'
+              AND COALESCE(decision_stale, 0) = 0
+              AND deleted_at IS NULL
+            ",
+            &[&process_id],
+        )
+    }
+
+    fn process_has_current_pipeline_rollup(
+        &self,
+        process_id: &str,
+    ) -> Result<bool, BidScopeValidationError> {
+        self.exists(
+            "\
+            SELECT COUNT(*)
+            FROM pipeline_assessments
+            WHERE process_id = ?1
+              AND decision_basis_hash IS NOT NULL
+              AND length(trim(decision_basis_hash)) > 0
+            ",
+            &[&process_id],
+        )
+    }
+
+    fn lot_belongs_to_process(
+        &self,
+        lot_id: &str,
+        process_id: &str,
+    ) -> Result<bool, BidScopeValidationError> {
+        self.exists(
+            "\
+            SELECT COUNT(*)
+            FROM notice_lots nl
+            JOIN contract_notices cn ON cn.id = nl.notice_id
+            WHERE nl.id = ?1
+              AND cn.process_id = ?2
+            ",
+            &[&lot_id, &process_id],
+        )
+    }
+
+    fn candidate_belongs_to_lots(
+        &self,
+        candidate_id: &str,
+        lot_ids: &[String],
+    ) -> Result<bool, BidScopeValidationError> {
+        if lot_ids.is_empty() {
+            return Ok(false);
+        }
+        let placeholders = std::iter::repeat_n("?", lot_ids.len())
+            .collect::<Vec<_>>()
+            .join(", ");
+        let sql = format!(
+            "\
+            SELECT COUNT(*)
+            FROM product_candidates
+            WHERE id = ?
+              AND lot_id IN ({placeholders})
+            "
+        );
+        let params = std::iter::once(&candidate_id as &dyn rusqlite::ToSql)
+            .chain(lot_ids.iter().map(|lot_id| lot_id as &dyn rusqlite::ToSql))
+            .collect::<Vec<_>>();
+        self.exists(&sql, &params)
+    }
+
+    fn quote_belongs_to_candidates(
+        &self,
+        quote_id: &str,
+        candidate_ids: &[String],
+    ) -> Result<bool, BidScopeValidationError> {
+        if candidate_ids.is_empty() {
+            return Ok(false);
+        }
+        let placeholders = std::iter::repeat_n("?", candidate_ids.len())
+            .collect::<Vec<_>>()
+            .join(", ");
+        let sql = format!(
+            "\
+            SELECT COUNT(*)
+            FROM supplier_quotes
+            WHERE id = ?
+              AND product_candidate_id IN ({placeholders})
+            "
+        );
+        let params = std::iter::once(&quote_id as &dyn rusqlite::ToSql)
+            .chain(
+                candidate_ids
+                    .iter()
+                    .map(|candidate_id| candidate_id as &dyn rusqlite::ToSql),
+            )
+            .collect::<Vec<_>>();
+        self.exists(&sql, &params)
+    }
+
+    fn company_profile_version_exists(
+        &self,
+        company_profile_version: &str,
+    ) -> Result<bool, BidScopeValidationError> {
+        self.exists(
+            "\
+            SELECT COUNT(*)
+            FROM shared_company_profile
+            WHERE (id = ?1 OR CAST(remote_revision AS TEXT) = ?1)
+              AND deleted_at IS NULL
+            ",
+            &[&company_profile_version],
+        )
+    }
+}
+
+pub fn validate_bid_scope_shape(scope: &BidScopePayload) -> Result<(), BidScopeValidationError> {
+    require_non_empty("processId", &scope.process_id)?;
+    require_non_empty_list("lotIds", &scope.lot_ids)?;
+    require_non_empty_list("candidateIds", &scope.candidate_ids)?;
+    require_non_empty_list("selectedQuoteIds", &scope.selected_quote_ids)?;
+    require_non_empty("companyProfileVersion", &scope.company_profile_version)?;
+    require_non_empty("bidPortalType", &scope.bid_portal_type)?;
+    if scope.bid_portal_type.trim() != BidScopePayload::SUPPORTED_PORTAL_TYPE {
+        return Err(BidScopeValidationError::UnsupportedPortalType(
+            scope.bid_portal_type.clone(),
+        ));
+    }
+    require_non_empty("portalOpportunityRef", &scope.portal_opportunity_ref)?;
+    require_decision_basis_hash(&scope.decision_basis_hash)?;
+    Ok(())
+}
+
+pub fn validate_bid_scope<R>(
+    scope: &BidScopePayload,
+    references: &R,
+) -> Result<(), BidScopeValidationError>
+where
+    R: BidScopeReferenceResolver + ?Sized,
+{
+    validate_bid_scope_shape(scope)?;
+
+    if !references.process_exists(scope.process_id.trim())? {
+        return Err(BidScopeValidationError::ProcessNotFound(
+            scope.process_id.clone(),
+        ));
+    }
+    if !references.process_has_approved_operator_decision(scope.process_id.trim())? {
+        return Err(BidScopeValidationError::OperatorDecisionNotApproved(
+            scope.process_id.clone(),
+        ));
+    }
+    if !references.process_has_current_pipeline_rollup(scope.process_id.trim())? {
+        return Err(BidScopeValidationError::PipelineRollupMissing(
+            scope.process_id.clone(),
+        ));
+    }
+
+    for lot_id in &scope.lot_ids {
+        if !references.lot_belongs_to_process(lot_id.trim(), scope.process_id.trim())? {
+            return Err(BidScopeValidationError::LotNotOwnedByProcess {
+                lot_id: lot_id.clone(),
+                process_id: scope.process_id.clone(),
+            });
+        }
+    }
+    for candidate_id in &scope.candidate_ids {
+        if !references.candidate_belongs_to_lots(candidate_id.trim(), &scope.lot_ids)? {
+            return Err(BidScopeValidationError::CandidateNotOwnedBySelectedLots {
+                candidate_id: candidate_id.clone(),
+            });
+        }
+    }
+    for quote_id in &scope.selected_quote_ids {
+        if !references.quote_belongs_to_candidates(quote_id.trim(), &scope.candidate_ids)? {
+            return Err(BidScopeValidationError::QuoteNotOwnedBySelectedCandidates {
+                quote_id: quote_id.clone(),
+            });
+        }
+    }
+    if !references.company_profile_version_exists(scope.company_profile_version.trim())? {
+        return Err(BidScopeValidationError::CompanyProfileVersionNotFound(
+            scope.company_profile_version.clone(),
+        ));
+    }
+
+    Ok(())
+}
+
+fn require_non_empty(field: &'static str, value: &str) -> Result<(), BidScopeValidationError> {
+    if value.trim().is_empty() {
+        return Err(BidScopeValidationError::EmptyField(field));
+    }
+    Ok(())
+}
+
+fn require_non_empty_list(
+    field: &'static str,
+    values: &[String],
+) -> Result<(), BidScopeValidationError> {
+    if values.is_empty() || values.iter().any(|value| value.trim().is_empty()) {
+        return Err(BidScopeValidationError::EmptyList(field));
+    }
+    Ok(())
+}
+
+fn require_decision_basis_hash(value: &str) -> Result<(), BidScopeValidationError> {
+    if value.len() != DECISION_BASIS_HASH_LENGTH
+        || !value.bytes().all(|byte| byte.is_ascii_hexdigit())
+    {
+        return Err(BidScopeValidationError::InvalidDecisionBasisHash);
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -4,6 +4,9 @@ use rusqlite::{OptionalExtension, params};
 use serde_json::{Value, json};
 use uuid::Uuid;
 
+use super::side_effect_guard::{
+    CapDecision, enforce_procontract_step_cap, planned_procontract_steps,
+};
 use super::state_machine::{BidStateMachine, BidTransition};
 use super::types::{BidScopePayload, BidWorkflowState};
 use crate::errors::manifest::ErrorCode;
@@ -28,13 +31,14 @@ pub async fn run_bid_workflow_job(
     _runner: &JobRunner,
     claimed: ClaimedJob,
 ) -> Result<LiveLoopReport> {
-    let _bid_scope = parse_bid_scope_payload(&claimed.input_payload)?;
+    let bid_scope = parse_bid_scope_payload(&claimed.input_payload)?;
     if bid_auth_state_stale_requested(&claimed.input_payload) {
         return orchestrate_bid_auth_stale_retry(runtime, &claimed);
     }
 
     let skill_profile = load_bid_portal_skill_profile()?;
     ensure_bid_portal_pty_profile(&skill_profile)?;
+    ensure_planned_bid_portal_side_effects_within_cap(&bid_scope)?;
     ensure_initial_bid_in_progress_transition_is_wired()?;
 
     bail!("Phase 3 implements bid workflow job execution")
@@ -109,6 +113,28 @@ fn bid_auth_retry_attempt(input_payload: &Value) -> u64 {
         .and_then(|value| value.get("attempt"))
         .and_then(Value::as_u64)
         .unwrap_or(0)
+}
+
+pub fn ensure_planned_bid_portal_side_effects_within_cap(
+    bid_scope: &BidScopePayload,
+) -> Result<()> {
+    for step in planned_procontract_steps(bid_scope.review_required, bid_scope.side_effect_cap) {
+        match enforce_procontract_step_cap(step, bid_scope.side_effect_cap) {
+            CapDecision::Allowed => {}
+            CapDecision::SaveDraftAndStop { reason }
+            | CapDecision::RouteToPortalStateUnknown { reason } => {
+                bail!(
+                    "{}: bid portal step {} declares {:?}, exceeding sideEffectCap {:?}",
+                    reason.as_str(),
+                    step.step_id(),
+                    step.side_effect_class(),
+                    bid_scope.side_effect_cap
+                );
+            }
+        }
+    }
+
+    Ok(())
 }
 
 fn orchestrate_bid_auth_stale_retry(
@@ -468,11 +494,11 @@ mod tests {
 
     use super::{
         BID_PORTAL_INTERACTION_PROFILE, BID_PORTAL_SKILL_ID, BidPortalSkillProfile,
-        ensure_bid_portal_pty_profile, initial_bid_in_progress_transition,
-        load_bid_portal_skill_profile, parse_bid_scope_payload,
+        ensure_bid_portal_pty_profile, ensure_planned_bid_portal_side_effects_within_cap,
+        initial_bid_in_progress_transition, load_bid_portal_skill_profile, parse_bid_scope_payload,
     };
     use crate::bid_workflow::state_machine::BidTransition;
-    use crate::bid_workflow::types::BidWorkflowState;
+    use crate::bid_workflow::types::{BidWorkflowState, SideEffectClass};
 
     fn valid_bid_scope_payload() -> serde_json::Value {
         json!({
@@ -551,5 +577,19 @@ mod tests {
                 BidWorkflowState::BidInProgress,
             )
         );
+    }
+
+    #[test]
+    fn l6_t_daemon_runner_004_wires_planned_step_cap_guard() {
+        let mut scope = parse_bid_scope_payload(&valid_bid_scope_payload())
+            .expect("valid scope payload parses");
+        ensure_planned_bid_portal_side_effects_within_cap(&scope)
+            .expect("default remote draft path is within cap");
+
+        scope.side_effect_cap = SideEffectClass::ReadOnly;
+        let error = ensure_planned_bid_portal_side_effects_within_cap(&scope)
+            .expect_err("read-only cap blocks remote draft steps");
+        assert!(error.to_string().contains("BID_SIDE_EFFECT_CAP_EXCEEDED"));
+        assert!(error.to_string().contains("L6-FR-1.7.12"));
     }
 }
