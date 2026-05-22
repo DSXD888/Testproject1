@@ -492,6 +492,72 @@ After fixes:
 - Suspicious paths in Files sections across all 63 task beads: **0** (verified via `bin/br-claim` regex simulator).
 - `bin/br-claim` now reserves only real file paths for every L6 bead.
 
+### E15 — Round 5 audit: validator overlay frontmatter completeness
+
+The Phase 5 bead `l6-p5-overlay-frontmatter-assertions` (3yqf.5.1) shows an illustrative frontmatter with 10 fields. The actual reference pattern `skills/validation/overlay-supplier-enrichment/SKILL.md` (verified 65 lines, 2026.05.06-1 version) has additional fields the implementing agent should include:
+
+```yaml
+skill_id: validation/overlay-bid-portal-procontract
+skill_version: 0.1.0
+interaction_profile: pty_interactive
+result_schema_version: 1.0
+checkpoint_schema_version: 1.0
+validator_overlay_version: 0.1.0            # ADD: per existing pattern
+model_profile: structured_extract_low_cost   # ADD: per existing pattern (or portal_form_high_reliability if overlay uses premium tier)
+agent_cli: claude                            # ADD
+side_effect_class: read_only                 # ADD (overlays never mutate)
+promotion_stage: draft                       # ADD (initial — promotion to candidate post-canary)
+validation_policy: always
+worker_skill_id: bid-portal/procontract
+worker_behavior_version: bid-portal/procontract@0.1.0+1.0
+validator_behavior_version: validation/overlay-bid-portal-procontract@0.1.0+1.0
+validator_overlay_compatible_versions:        # SHAPE: nested dict, not flat list
+  worker_behavior_versions:
+    - bid-portal/procontract/*@0.1.0+1.0
+version_change_affects_behavior: true        # ADD
+gate_a_family_key: bid-portal-procontract    # ADD (promotion gate family key)
+gate_a_family_prequalified: false            # ADD
+gate_b_exact_slice_key: bid-portal-procontract::procurement::bid-portal/procontract/*@0.1.0+1.0::0.1.0
+gate_b_exact_slice_ready: false              # ADD
+rubric_version: bid-portal-procontract-rubric@1.0
+evidence_inputs:
+  - run_manifest
+  - daemon_evidence_appendix
+  - portal_screenshots
+  - bid_scope_payload
+  - validator_rubric_yaml
+```
+
+Implementing agent: open `skills/validation/overlay-supplier-enrichment/SKILL.md` and copy the exact frontmatter shape (15+ fields). Adjust skill_id, worker_behavior_version, validator_behavior_version, etc. to bid-portal/procontract values. The bead body's illustrative 10-field frontmatter is a SHORTHAND, not the complete set.
+
+### E16 — Round 5 audit: manifest line-number claims VERIFIED
+
+Round 5 cross-checked every manifest.yaml line-number claim against the actual files (verified 2026-05-22):
+
+| Manifest claim | Actual | Status |
+|----------------|--------|--------|
+| `daemon_main: 31087 lines` | 31087 | EXACT |
+| `daemon_sources_registry: 1338` | 1338 | EXACT |
+| `daemon_jobs_runner: 1656` | 1656 | EXACT |
+| `daemon_validation_manifest_writer: 54` | 54 | EXACT |
+| `daemon_validation_policy: 1187` | 1187 | EXACT |
+| `daemon_validation_executor: 1269` | 1269 | EXACT |
+| `daemon_errors_manifest: 413` | 413 | EXACT |
+| `test_sqlite_schema: 1861` | 1861 | EXACT |
+| `test_skill_canary_harness: 255` | 255 | EXACT |
+| `test_skill_golden_journeys: 614` | 614 | EXACT |
+| `test_redaction_boundary` (no count) | 1205 | exists |
+| `e2e_can_009` (latest canary harness test) | line 237 | EXISTS |
+| `l3_t_skill_golden_journeys_008` (latest journey test) | line 566 | EXISTS |
+| Phase 4 reference skill files (5 files) | all present | EXISTS |
+| Phase 5 reference overlay file | 65 lines | EXISTS |
+
+Minor: manifest's "L5 readiness raw checks at lines 5256-5260" actually points to L5 *constant definitions* (the strings `CLASSIFICATION_AMBIGUOUS` etc.). The actual *check logic* is at lines 5510-5530 + 5781-5790 (also cited in manifest). Both regions are referenced by Phase 3 readiness evaluator bead; implementing agent reads both ranges and sees constants + usage.
+
+### E17 — bin/br-complete behavior verified
+
+Round 5 confirmed `bin/br-complete` does NOT parse bead body for file paths. It calls `release_file_reservations(agent_name=<self>)` which releases ALL of the agent's outstanding reservations (the `agent_name` filter alone). Bead body errors therefore only affect `bin/br-claim` (the file-reservation creator), not `bin/br-complete` (the bulk releaser). The Round 3 + Round 4 bead body path fixes are sufficient.
+
 ### E14 — Strategy "Operator Action Gates" coverage check
 
 Round 4 audit verified Phase 7's operator action gate coverage against strategy lines 458-471. All 10 gates covered:
