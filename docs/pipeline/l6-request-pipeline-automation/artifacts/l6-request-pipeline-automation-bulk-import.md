@@ -461,6 +461,34 @@ The Step 07 cardinal rule says "Total bead count: 30-70 inclusive". This bead se
 
 The Phase 1 bead `l6-p1-bid-scope-types-ts` and Phase 5 beads do NOT re-export types from `packages/contracts-schema/src/index.ts`. The shared bid types live in `packages/bidding/src/bid-scope-types.ts` only. This is consistent with the manifest's RECOMMENDATION ("live in packages/bidding only and re-export from contracts-schema ONLY if a non-bidding consumer needs them"). No errata required — but flagged here for future readers.
 
+### E11 — Step 09 Round 2 audit: spec-FR phase routing alignment
+
+A second-pass deep audit cross-checked every spec FR's phase assignment against the strategy's `Requirement Routing` table (lines 549-567). Four assignments deviated from strategy and have been corrected in the alias map:
+
+- **L6-FR-1.2.2** (CompanyProfile injected from `shared_company_profile`) — was assigned to Phase 3 `l6-p3-bid-runner-body`; strategy expects Phase 4. **Reassigned** to Phase 4 `l6-p4-form-fill-document-upload` (the bead that actually fills the form fields from `CompanyProfile`).
+- **L6-FR-1.2.6** (Full terminal output tracing) — was Phase 3; strategy expects Phase 4. **Reassigned** to Phase 4 `l6-p4-draft-final-submit-paths` (the final-submit path is where PTY-output completeness matters).
+- **L6-FR-1.2.7** (Run manifest generated for every submission) — was Phase 3 `l6-p3-manifest-appendix-l6-fields`; strategy expects Phase 4. **Reassigned** to Phase 4 `l6-p4-draft-final-submit-paths` (the result envelope from the skill is what becomes the manifest).
+- **L6-FR-1.2.8** (Error manifest with portal-specific context) — was Phase 3; strategy expects Phase 4. **Reassigned** to Phase 4 `l6-p4-form-fill-document-upload` (BID_SUBMISSION_FAILED raise site has portal-specific context).
+
+Note: Phase 3 beads still IMPLEMENT the runtime behaviors that support these FRs (daemon PTY capture, manifest writing, error manifest writing). They just don't OWN the FRs in the alias map. The implementation responsibility crosses phase boundaries; the alias map captures PRIMARY ownership per strategy.
+
+Post-fix routing violations: 0/127 (verified by full-strategy diff).
+
+### E12 — Redaction sentinel enumeration shorthand
+
+Phase 3 bead `l6-p3-redaction-boundary-daemon` (3.10) uses category shorthand "address.* fields" and "primaryContact.* fields" in its bead body when listing the 17 PII sentinel fields. The implementing agent MUST consult TDD §7.13 `L6-T-redaction_boundary-001` for the EXACT enumeration of 17 fields:
+
+```
+companyName, registrationNumber, vatNumber,
+address.line1, address.line2, address.city, address.county, address.postcode, address.country,
+primaryContact.name, primaryContact.email, primaryContact.phone, primaryContact.role,
+certifications[].number,
+insurancePolicies[].policyNumber, insurancePolicies[].coverAmountPence,
+financialStatements.companiesHouseRef
+```
+
+All 17 must be injected as unique sentinels and asserted absent from error_manifests, run manifest agent_narrative + daemon_evidence_appendix, structured logs, tracing output, and viewer-role Supabase projections.
+
 ---
 
 ## Audit verdict (Step 09)
