@@ -554,6 +554,58 @@ Round 5 cross-checked every manifest.yaml line-number claim against the actual f
 
 Minor: manifest's "L5 readiness raw checks at lines 5256-5260" actually points to L5 *constant definitions* (the strings `CLASSIFICATION_AMBIGUOUS` etc.). The actual *check logic* is at lines 5510-5530 + 5781-5790 (also cited in manifest). Both regions are referenced by Phase 3 readiness evaluator bead; implementing agent reads both ranges and sees constants + usage.
 
+### E18 — Round 6 closeout: code-example signatures + frontmatter completeness patched in-bead
+
+Round 6 ultrathink completed the loop on R1-R5 errata by patching the affected bead bodies directly (not just documenting):
+
+**Phase 2 bead 2.4 (`l6-p2-ipc-trigger-handler`)** — IPC handler code example signature corrected from:
+```rust
+pub async fn trigger_bid_workflow(
+    params: TriggerBidWorkflowParams,
+    runtime: &DaemonRuntime,
+) -> Result<TriggerBidWorkflowResponse, JobsHandlerError>
+```
+to the **actual existing-handler pattern** (mirroring `trigger_ingestion` at jobs.rs:45 + `trigger_enrichment` at jobs.rs:95):
+```rust
+pub fn trigger_bid_workflow(
+    context: &mut JobsHandlerContext<'_>,
+    params: &TriggerBidWorkflowParams,
+    idempotency_key: &str,
+) -> std::result::Result<MutationAck, JobsHandlerError>
+```
+
+**Phase 3 bead 3.8 (`l6-p3-bid-runner-body`)** — runner function signature corrected from `pub async fn run_bid_workflow_job(runtime: &DaemonRuntime, ...)` to the **actual main.rs:1529 pattern**:
+```rust
+async fn run_bid_workflow_job(             // not pub; private to main.rs module
+    runtime: &mut RuntimeBootstrap,         // &mut RuntimeBootstrap, not &DaemonRuntime
+    runner: &JobRunner,
+    claimed: ClaimedJob,
+) -> Result<JobOutcome>
+```
+
+**Phase 5 bead 5.1 (`l6-p5-overlay-frontmatter-assertions`)** — validator overlay frontmatter expanded from 10 fields to 25 fields matching the exact `overlay-supplier-enrichment/SKILL.md` reference pattern (added `result_schema_version`, `checkpoint_schema_version`, `validator_overlay_version`, `validator_overlay_compatible_versions.worker_behavior_versions` nested shape, `model_profile`, `agent_cli`, `side_effect_class: read_only`, `promotion_stage: draft`, `version_change_affects_behavior`, `gate_a_family_key`, `gate_a_family_prequalified`, `gate_b_exact_slice_key`, `gate_b_exact_slice_ready`).
+
+### E19 — Round 6 closeout: stale `packages/ui/src/`, `ProcessDetailPage`, `proactis-workflow` references purged
+
+Round 6 narrative-text sweep across ALL 71 L6 bead descriptions (not just Files sections) found and patched 4 residual stale references:
+
+- Epic 6 (`testproject1-3yqf.6`): narrative `packages/ui/src/` → `packages/ui/`.
+- Bead 6.6 (`l6-p6-web-bid-state-badge`): code example `export default function ProcessDetailPage(...)` → `ContractDetail(...)`.
+- Bead 6.9 (`l6-p6-desktop-web-review-gate`): verification step `Verify packages/ui/src/ has 4 new components` → `packages/ui/`.
+- Bead 5.5 (`l6-p5-procontract-workflow-ts`): AC bullet rephrased from grammatically odd `File named procontract-workflow.ts (NOT procontract-workflow.ts) per Decision 1` to the clearer `File named procontract-workflow.ts per Decision 1 (Proactis is an accepted alias for Procontract — same portal, but new artifacts use procontract naming).`
+
+**Final sweep:** 0 stale references across all 71 L6 bead descriptions (verified by 9 separate stale-pattern greps).
+
+### E20 — Round 6 additional verification dimensions
+
+| Check | Verdict |
+|-------|---------|
+| Path collisions (two beads creating the same file) | PASS (0/45 unique Create paths) |
+| Bead body `Phase:` field vs alias map `phase` vs `l6-phase-N` label | PASS (0/63 mismatches) |
+| Coordination Protocol cites both `bin/br-claim` AND `bin/br-complete` | PASS (63/63 task beads) |
+| bin/br-claim false-positive paths | PASS (0/97 unique extracted paths) |
+| Stale-reference narrative sweep (9 patterns) | PASS (0 hits after fix) |
+
 ### E17 — bin/br-complete behavior verified
 
 Round 5 confirmed `bin/br-complete` does NOT parse bead body for file paths. It calls `release_file_reservations(agent_name=<self>)` which releases ALL of the agent's outstanding reservations (the `agent_name` filter alone). Bead body errors therefore only affect `bin/br-claim` (the file-reservation creator), not `bin/br-complete` (the bulk releaser). The Round 3 + Round 4 bead body path fixes are sufficient.
