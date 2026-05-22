@@ -231,6 +231,78 @@ pub struct EnqueueJobRequest {
     pub idempotency_key: String,
 }
 
+pub fn enqueue_bid_workflow_request<S, C, D>(
+    bid_scope: &S,
+    operator_id: &str,
+    company_profile: &C,
+    bid_documents: &[D],
+    stage_run_id: &str,
+) -> Result<EnqueueJobRequest>
+where
+    S: Serialize,
+    C: Serialize,
+    D: Serialize,
+{
+    ensure!(
+        !operator_id.trim().is_empty(),
+        "operator_id must not be empty"
+    );
+    ensure!(
+        !stage_run_id.trim().is_empty(),
+        "stage_run_id must not be empty"
+    );
+
+    let bid_scope_payload =
+        serde_json::to_value(bid_scope).context("serializing bid scope payload")?;
+    let process_id = required_payload_string(&bid_scope_payload, "processId", "process_id")?;
+    let decision_basis_hash = required_payload_string(
+        &bid_scope_payload,
+        "decisionBasisHash",
+        "decision_basis_hash",
+    )?;
+    let company_profile =
+        serde_json::to_value(company_profile).context("serializing company profile")?;
+    let bid_documents = serde_json::to_value(bid_documents).context("serializing bid documents")?;
+
+    Ok(EnqueueJobRequest {
+        job_id: format!("job-{}", Uuid::new_v4()),
+        kind: "run_bid_workflow".to_owned(),
+        process_id: Some(process_id.clone()),
+        notice_id: None,
+        scope_kind: Some("process".to_owned()),
+        scope_id: Some(process_id),
+        parent_job_id: None,
+        continuation_chain_id: None,
+        validation_required: true,
+        scheduled_for: None,
+        input_payload: json!({
+            "bid_scope_payload": bid_scope_payload,
+            "company_profile": company_profile,
+            "bid_documents": bid_documents,
+            "operator_id": operator_id,
+            "stage_run_id": stage_run_id,
+            "trigger": "bid_workflow_request",
+            "admission_priority": "bid_automation",
+            "continuation": {
+                "parent_job_id": Value::Null,
+                "continuation_chain_id": Value::Null,
+            },
+        }),
+        idempotency_key: decision_basis_hash,
+    })
+}
+
+fn required_payload_string(payload: &Value, camel_key: &str, snake_key: &str) -> Result<String> {
+    let value = payload
+        .get(camel_key)
+        .or_else(|| payload.get(snake_key))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| anyhow!("bid scope payload missing `{camel_key}`"))?;
+    Ok(value.to_owned())
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PersistContinuationRequest {
     pub job_id: String,
@@ -1611,7 +1683,145 @@ fn find_existing_enqueue_ack(
 
 #[cfg(test)]
 mod tests {
-    use super::{SkillTelemetryWindow, compute_skill_telemetry, skill_telemetry_thresholds};
+    use serde::Serialize;
+    use serde_json::json;
+
+    use super::{
+        SkillTelemetryWindow, compute_skill_telemetry, enqueue_bid_workflow_request,
+        skill_telemetry_thresholds,
+    };
+
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct TestBidScopePayload {
+        process_id: String,
+        lot_ids: Vec<String>,
+        candidate_ids: Vec<String>,
+        selected_quote_ids: Vec<String>,
+        company_profile_version: String,
+        bid_portal_type: String,
+        portal_opportunity_ref: String,
+        review_required: bool,
+        decision_basis_hash: String,
+        side_effect_cap: String,
+    }
+
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct TestCompanyProfile {
+        company_name: String,
+        registration_number: String,
+    }
+
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct TestBidDocument {
+        document_type: String,
+        file_name: String,
+        file_path: String,
+        content_hash: String,
+    }
+
+    fn test_scope() -> TestBidScopePayload {
+        TestBidScopePayload {
+            process_id: "process-bid-001".to_owned(),
+            lot_ids: vec!["lot-001".to_owned()],
+            candidate_ids: vec!["candidate-001".to_owned()],
+            selected_quote_ids: vec!["quote-001".to_owned()],
+            company_profile_version: "company-profile-v1".to_owned(),
+            bid_portal_type: "procontract".to_owned(),
+            portal_opportunity_ref: "DN123456".to_owned(),
+            review_required: true,
+            decision_basis_hash: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                .to_owned(),
+            side_effect_cap: "REMOTE_DRAFT".to_owned(),
+        }
+    }
+
+    fn test_company_profile() -> TestCompanyProfile {
+        TestCompanyProfile {
+            company_name: "Redacted Supplier".to_owned(),
+            registration_number: "12345678".to_owned(),
+        }
+    }
+
+    fn test_bid_documents() -> Vec<TestBidDocument> {
+        vec![TestBidDocument {
+            document_type: "pricing_schedule".to_owned(),
+            file_name: "pricing.pdf".to_owned(),
+            file_path: "artifacts/pricing.pdf".to_owned(),
+            content_hash: "doc-hash-001".to_owned(),
+        }]
+    }
+
+    #[test]
+    fn enqueue_bid_workflow_request_shapes_run_bid_workflow_job() {
+        let scope = test_scope();
+        let company_profile = test_company_profile();
+        let bid_documents = test_bid_documents();
+
+        let request = enqueue_bid_workflow_request(
+            &scope,
+            "operator-alinaaitova",
+            &company_profile,
+            &bid_documents,
+            "stage-run-bid-001",
+        )
+        .expect("bid workflow enqueue request should build");
+
+        assert!(request.job_id.starts_with("job-"));
+        assert_eq!(request.kind, "run_bid_workflow");
+        assert_eq!(request.process_id.as_deref(), Some("process-bid-001"));
+        assert_eq!(request.notice_id, None);
+        assert_eq!(request.scope_kind.as_deref(), Some("process"));
+        assert_eq!(request.scope_id.as_deref(), Some("process-bid-001"));
+        assert_eq!(request.parent_job_id, None);
+        assert_eq!(request.continuation_chain_id, None);
+        assert!(request.validation_required);
+        assert_eq!(request.scheduled_for, None);
+        assert_eq!(
+            request.idempotency_key,
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+        );
+        assert_eq!(
+            request.input_payload["bid_scope_payload"]["portalOpportunityRef"],
+            "DN123456"
+        );
+        assert_eq!(
+            request.input_payload["company_profile"]["registrationNumber"],
+            "12345678"
+        );
+        assert_eq!(
+            request.input_payload["bid_documents"][0]["documentType"],
+            "pricing_schedule"
+        );
+        assert_eq!(request.input_payload["operator_id"], "operator-alinaaitova");
+        assert_eq!(request.input_payload["stage_run_id"], "stage-run-bid-001");
+        assert_eq!(
+            request.input_payload["admission_priority"],
+            json!("bid_automation")
+        );
+    }
+
+    #[test]
+    fn enqueue_bid_workflow_request_rejects_missing_scope_identity() {
+        let company_profile = test_company_profile();
+        let bid_documents = test_bid_documents();
+        let missing_process = json!({
+            "decisionBasisHash": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+        });
+
+        let err = enqueue_bid_workflow_request(
+            &missing_process,
+            "operator-alinaaitova",
+            &company_profile,
+            &bid_documents,
+            "stage-run-bid-001",
+        )
+        .expect_err("scope without processId must be rejected");
+
+        assert!(err.to_string().contains("processId"));
+    }
 
     #[test]
     fn skill_telemetry_snapshot_preserves_non_applicable_metrics_as_none() {
