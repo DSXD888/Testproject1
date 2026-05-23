@@ -85,15 +85,15 @@ use runner_impl::{
 use support::db::{DEFAULT_SCHEMA_EPOCH, L4TestStateDb, StateDb};
 use support::redaction::RedactionSentinelFixture;
 use support::sync::{
-    EnforcementHarness, OperatorDecisionCasHarness, OutboxHarness, OutboxOp, PipelineRunProvenance,
-    ProjectionEpochRepair, PullCursorDomain, PullCursorHarness, PushOwnedFixture,
-    REMOTE_CONFIG_OPERATIONAL_WARN_AFTER_SECS, REMOTE_CONFIG_SAFETY_CRITICAL_TTL_SECS,
-    RemoteConfigStalenessAction, RemoteConfigStalenessClass, RemoteConfigStalenessSubject,
-    SchemaEpochGuard, SqliteSnapshotArtifact, SqliteSnapshotScheduler, SupabaseRpcClient,
-    SyncCyclePhase, SyncCycleTrigger, SyncHealth, ViewerSyncStatus, ViewerSyncStatusWriter,
-    WriterBindingConfig, WriterBindingMode, WriterLeaseAcquireResult, WriterLeaseHarness,
-    canonical_content_hash, parse_payload, write_pipeline_run_with_outbox,
-    write_push_owned_transaction,
+    EnforcementHarness, OperatorDecisionCasHarness, OutboxHarness, OutboxOp, OutboxWriter,
+    PipelineRunProvenance, ProjectionEpochRepair, PullCursorDomain, PullCursorHarness,
+    PushOwnedFixture, REMOTE_CONFIG_OPERATIONAL_WARN_AFTER_SECS,
+    REMOTE_CONFIG_SAFETY_CRITICAL_TTL_SECS, RemoteConfigStalenessAction,
+    RemoteConfigStalenessClass, RemoteConfigStalenessSubject, SchemaEpochGuard,
+    SqliteSnapshotArtifact, SqliteSnapshotScheduler, SupabaseRpcClient, SyncCyclePhase,
+    SyncCycleTrigger, SyncHealth, ViewerSyncStatus, ViewerSyncStatusWriter, WriterBindingConfig,
+    WriterBindingMode, WriterLeaseAcquireResult, WriterLeaseHarness, canonical_content_hash,
+    parse_payload, write_pipeline_run_with_outbox, write_push_owned_transaction,
 };
 
 use calibration_impl::{
@@ -3123,6 +3123,282 @@ fn l6_t_sync_propagation_001_bid_workflow_states_stays_push_owned_reseed_table()
         "L6 must not introduce additional bid_* push-owned tables: {push_owned_reseed_tables:?}"
     );
     println!("[TEST_END] L6-T-sync_propagation-001 PASS");
+    Ok(())
+}
+
+#[test]
+#[doc = "L6-T-sync_propagation-002"]
+#[allow(clippy::too_many_lines)]
+fn l6_t_sync_propagation_002_bid_state_mutation_creates_redacted_outbox_and_batch() -> Result<()> {
+    println!("[TEST_START] L6-T-sync_propagation-002");
+    println!("[SETUP] bid_workflow_states row with sensitive bid scope payload");
+    let state_db = L4TestStateDb::new()?;
+    let mut conn = Connection::open(state_db.db_path())
+        .with_context(|| format!("opening L4 state DB {}", state_db.db_path().display()))?;
+    conn.execute_batch("PRAGMA foreign_keys = ON")?;
+    let schema_epoch =
+        i32::try_from(DEFAULT_SCHEMA_EPOCH).context("DEFAULT_SCHEMA_EPOCH exceeds i32")?;
+    let writer = OutboxWriter::new("l4-sync-test-executor", schema_epoch)?;
+    let process_id = "l6-sync-propagation-bid-state";
+    let stage_run_id = "l6-sync-propagation-stage";
+    let commit_group_id = "l6-sync-propagation-bid-state-commit";
+    let bid_scope = json!({
+        "processId": process_id,
+        "lotIds": ["lot-sensitive-1"],
+        "candidateIds": ["candidate-sensitive-1"],
+        "selectedQuoteIds": ["quote-sensitive-1"],
+        "portalOpportunityRef": "OPP-SENSITIVE-REF",
+        "decisionBasisHash": "ab".repeat(32),
+        "sideEffectCap": "REMOTE_DRAFT",
+        "reviewRequired": true,
+        "companyProfile": {
+            "companyName": "TestCompanyName-Sentinel-L6-2026",
+            "contactEmail": "sales@sorelon.com"
+        },
+        "documents": [
+            {
+                "filePath": "/Users/alinaaitova/private/tender-response.pdf"
+            }
+        ]
+    });
+    let bid_scope_json = bid_scope.to_string();
+    let payload = json!({
+        "process_id": process_id,
+        "bid_state": "bid_in_progress",
+        "bid_scope_json": bid_scope_json,
+        "review_required": true,
+        "bid_job_id": "job-l6-sync-propagation",
+        "owner_id": "local-owner",
+        "row_version": 1,
+        "stage_run_id": stage_run_id,
+        "updated_at": "2026-05-23T13:10:00Z"
+    });
+    let payload_json = payload.to_string();
+    let content_hash = canonical_content_hash(&payload_json)?;
+
+    println!("[EXEC] write local bid state mutation through push-owned outbox writer");
+    let local_seq = write_push_owned_transaction(&mut conn, commit_group_id, |tx| {
+        tx.execute(
+            "\
+                INSERT INTO procurement_processes (
+                  id, current_stage, title, latest_published_at, latest_updated_at,
+                  owner_id, row_version, stage_run_id
+                ) VALUES (?1, 'bid_workflow', 'L6 sync propagation bid state',
+                          '2026-05-23T13:00:00Z', '2026-05-23T13:10:00Z',
+                          'local-owner', 1, ?2)
+                ",
+            params![process_id, stage_run_id],
+        )?;
+        tx.execute(
+            "\
+                INSERT INTO bid_workflow_states (
+                  process_id, bid_state, bid_scope_json, review_required, bid_job_id,
+                  owner_id, row_version, stage_run_id, updated_at
+                ) VALUES (?1, 'bid_in_progress', ?2, 1, 'job-l6-sync-propagation',
+                          'local-owner', 1, ?3, '2026-05-23T13:10:00Z')
+                ",
+            params![process_id, bid_scope_json, stage_run_id],
+        )?;
+        let local_seq = writer.write_push_owned_with_outbox(
+            tx,
+            "bid_workflow_states",
+            process_id,
+            OutboxOp::Insert,
+            &payload_json,
+            &content_hash,
+            stage_run_id,
+            commit_group_id,
+        )?;
+        tx.execute(
+            "UPDATE bid_workflow_states SET last_local_seq = ?1 WHERE process_id = ?2",
+            params![local_seq, process_id],
+        )?;
+        Ok(local_seq)
+    })?;
+    let outbox_payload_json: String = conn.query_row(
+        "SELECT payload_json FROM local_outbox WHERE local_seq = ?1",
+        params![local_seq],
+        |row| row.get(0),
+    )?;
+    let outbox_content_hash: String = conn.query_row(
+        "SELECT content_hash FROM local_outbox WHERE local_seq = ?1",
+        params![local_seq],
+        |row| row.get(0),
+    )?;
+    let last_local_seq: i64 = conn.query_row(
+        "SELECT last_local_seq FROM bid_workflow_states WHERE process_id = ?1",
+        params![process_id],
+        |row| row.get(0),
+    )?;
+
+    println!("[ASSERT] local outbox exists, links back to state row, and redacts sensitive scope");
+    ensure!(
+        last_local_seq == local_seq,
+        "bid_workflow_states.last_local_seq did not link to local_outbox"
+    );
+    ensure!(
+        outbox_content_hash == canonical_content_hash(&outbox_payload_json)?,
+        "bid_workflow_states outbox content hash must be recomputed after redaction"
+    );
+    ensure!(
+        !outbox_payload_json.contains("TestCompanyName-Sentinel-L6-2026")
+            && !outbox_payload_json.contains("sales@sorelon.com")
+            && !outbox_payload_json.contains("OPP-SENSITIVE-REF")
+            && !outbox_payload_json.contains("/Users/alinaaitova/private"),
+        "outbox payload leaked sensitive bid scope fields: {outbox_payload_json}"
+    );
+    ensure!(
+        outbox_payload_json.contains("[REDACTED]")
+            && outbox_payload_json.contains("decisionBasisHash")
+            && outbox_payload_json.contains("REMOTE_DRAFT"),
+        "outbox payload did not preserve sync-safe bid scope audit fields: {outbox_payload_json}"
+    );
+    drop(conn);
+
+    println!("[EXEC] materialize push batch for the bid workflow state update");
+    let mut harness = OutboxHarness::new(&state_db)?;
+    let batch = harness
+        .assemble_batch(10, 87)?
+        .context("expected one dispatchable bid workflow state batch")?;
+
+    println!("[ASSERT] apply_push_batch envelope carries only the redacted projection payload");
+    ensure!(batch.rows.len() == 1, "expected one bid workflow batch row");
+    let batch_payload = parse_payload(&batch.payload_json)?;
+    ensure!(
+        batch_payload
+            .get("rows")
+            .and_then(Value::as_array)
+            .is_some_and(|rows| rows.len() == 1),
+        "sync batch payload must contain one row: {batch_payload}"
+    );
+    ensure!(
+        batch
+            .payload_json
+            .contains("\"entity_kind\":\"bid_workflow_states\"")
+            && batch
+                .payload_json
+                .contains("\"bid_state\":\"bid_in_progress\"")
+            && batch
+                .payload_json
+                .contains("\"stage_run_id\":\"l6-sync-propagation-stage\""),
+        "sync batch envelope lost bid workflow summary fields: {}",
+        batch.payload_json
+    );
+    ensure!(
+        !batch
+            .payload_json
+            .contains("TestCompanyName-Sentinel-L6-2026")
+            && !batch.payload_json.contains("sales@sorelon.com")
+            && !batch.payload_json.contains("OPP-SENSITIVE-REF")
+            && !batch.payload_json.contains("/Users/alinaaitova/private"),
+        "sync batch envelope leaked sensitive bid scope fields: {}",
+        batch.payload_json
+    );
+    println!("[TEST_END] L6-T-sync_propagation-002 PASS");
+    Ok(())
+}
+
+#[test]
+#[doc = "L6-T-sync_propagation-003"]
+fn l6_t_sync_propagation_003_viewer_projection_exposes_bid_summary_only() -> Result<()> {
+    println!("[TEST_START] L6-T-sync_propagation-003");
+    println!("[SETUP] read web boundary, RLS policy, and apply_push_batch implementation");
+    let web_boundary = read_repo_file("apps/web/src/lib/supabase.ts")?;
+    let rls = read_repo_file("infra/supabase/migrations/0004_rls_policies.sql")?;
+    let sync_source = read_repo_file("crates/daemon/src/db/sync.rs")?;
+    let summary_columns = "process_id,bid_state,review_required,bid_job_id,updated_at";
+    let summary_grant = "GRANT SELECT (process_id, bid_state, review_required, bid_job_id, updated_at) ON bid_workflow_states TO anon, authenticated";
+
+    println!("[ASSERT] viewer/web reads are limited to bid-state summary columns");
+    ensure!(
+        web_boundary.contains(summary_columns)
+            && web_boundary.contains("loadBidWorkflowSummary")
+            && web_boundary.contains("from(\n    'bid_workflow_states'"),
+        "web boundary must load bid_workflow_states through summary projection only"
+    );
+    for forbidden in [
+        "bid_scope_json",
+        "company_profile",
+        "manifest_body",
+        "run_manifest",
+        "portal_artifact_path",
+        "forensic_pty_bytes_path",
+    ] {
+        ensure!(
+            !web_boundary.contains(forbidden),
+            "web bid workflow boundary leaked forbidden token `{forbidden}`"
+        );
+        ensure!(
+            !summary_grant.contains(forbidden),
+            "viewer bid_workflow_states grant leaked forbidden column `{forbidden}`"
+        );
+    }
+
+    println!(
+        "[ASSERT] Supabase policy grants summary SELECT only and keeps writes behind apply_push_batch"
+    );
+    ensure!(
+        rls.contains("REVOKE SELECT ON bid_workflow_states FROM anon, authenticated")
+            && rls.contains(summary_grant)
+            && !rls.contains("GRANT INSERT, UPDATE, DELETE ON bid_workflow_states"),
+        "bid_workflow_states RLS must expose summary SELECT only to web roles"
+    );
+    ensure!(
+        sync_source.contains("redacted_push_payload_json")
+            && sync_source.contains("redacted_projection_payload_json")
+            && sync_source.contains("/rest/v1/rpc/apply_push_batch")
+            && sync_source.contains("bid_workflow_states"),
+        "sync engine must push bid_workflow_states through the existing redacted apply_push_batch path"
+    );
+    println!("[TEST_END] L6-T-sync_propagation-003 PASS");
+    Ok(())
+}
+
+#[test]
+#[doc = "L6-T-sync_propagation-005"]
+fn l6_t_sync_propagation_005_l6_pulls_remote_owned_inputs_without_writing_them() -> Result<()> {
+    println!("[TEST_START] L6-T-sync_propagation-005");
+    println!("[SETUP] read sync and L6 bid workflow sources");
+    let sync_source = read_repo_file("crates/daemon/src/db/sync.rs")?;
+    let readiness_source = read_repo_file("crates/daemon/src/bid_workflow/readiness_gate.rs")?;
+    let types_source = read_repo_file("crates/daemon/src/bid_workflow/types.rs")?;
+    let runner_source = read_repo_file("crates/daemon/src/bid_workflow/runner.rs")?;
+
+    println!("[ASSERT] remote-owned tables are part of the L4 pull cursor domain");
+    for table in ["shared_company_profile", "operator_decision_heads"] {
+        ensure!(
+            sync_source.contains(table),
+            "sync source must keep remote-owned table `{table}` in pull domains"
+        );
+        ensure!(
+            readiness_source.contains(&format!("FROM {table}"))
+                || types_source.contains(&format!("FROM {table}")),
+            "L6 readiness/scope code must read remote-owned table `{table}` before readiness"
+        );
+    }
+    ensure!(
+        sync_source.contains("SharedCompanyProfile")
+            && sync_source.contains("OperatorDecisionHeads")
+            && sync_source.contains("PullCursorDomain::all()"),
+        "remote-owned company profile and operator decisions must be pull cursor domains"
+    );
+
+    println!("[ASSERT] L6 bid workflow code does not directly write remote-owned inputs");
+    let l6_sources = [readiness_source, types_source, runner_source].join("\n");
+    for forbidden_write in [
+        "INSERT INTO shared_company_profile",
+        "UPDATE shared_company_profile",
+        "DELETE FROM shared_company_profile",
+        "INSERT INTO operator_decision_heads",
+        "UPDATE operator_decision_heads",
+        "DELETE FROM operator_decision_heads",
+    ] {
+        ensure!(
+            !l6_sources.contains(forbidden_write),
+            "L6 must never write remote-owned input table with `{forbidden_write}`"
+        );
+    }
+    println!("[TEST_END] L6-T-sync_propagation-005 PASS");
     Ok(())
 }
 

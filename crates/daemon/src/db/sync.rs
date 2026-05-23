@@ -3091,6 +3091,7 @@ fn projection_reseed_rows_for_table(
     let mut stmt = conn
         .prepare(&sql)
         .with_context(|| format!("preparing projection reseed query for `{table_name}`"))?;
+    // ubs:ignore -- identifiers are allowlisted table/schema names and are quoted; row values are not interpolated.
     let rows = stmt
         .query_map([], |row| {
             let mut payload = serde_json::Map::new();
@@ -3219,8 +3220,10 @@ fn redact_bid_scope_value(value: &Value) -> Value {
                             | "documentpath"
                     ) {
                         Value::String("[REDACTED]".to_owned())
-                    } else {
+                    } else if value.is_object() || value.is_array() {
                         redact_bid_scope_value(value)
+                    } else {
+                        Value::String("[REDACTED]".to_owned())
                     };
                     (key.clone(), redacted)
                 })

@@ -231,3 +231,34 @@ test('L6-T-web_ui-004: bid_failed summary is limited to redacted error code and 
     /error_context|contextWithSentinel|bid_scope_json|company_profile|portal_artifact_path|forensic_pty_bytes_path|TestCompanyName-Sentinel-L6-2026/i,
   );
 });
+
+test('L6-T-web_ui-005: bid-state badge refreshes from the synced projection on detail updates', async ({
+  page,
+}) => {
+  const [detailSource, boundarySource, broadcastSource] = await Promise.all([
+    readFile(join(WEB_ROOT, 'src/app/contracts/[id]/page.tsx'), 'utf8'),
+    readFile(join(WEB_ROOT, 'src/lib/supabase.ts'), 'utf8'),
+    readFile(join(WEB_ROOT, 'src/lib/broadcast.ts'), 'utf8'),
+  ]);
+  const detailLoaderSource = functionBlock(boundarySource, 'getContractDetail');
+  const bidLoaderSource = functionBlock(boundarySource, 'loadBidWorkflowSummary');
+
+  expect(detailLoaderSource).toContain('loadBidWorkflowSummary(processId, client)');
+  expect(boundarySource).toContain(BID_WORKFLOW_SUMMARY_COLUMNS.join(','));
+  expect(bidLoaderSource).toContain('select(BID_WORKFLOW_SUMMARY_COLUMNS)');
+  expect(detailSource).toContain('subscribeToContractDetailPage');
+  expect(detailSource).toContain('refreshMinorSections');
+  expect(detailSource).toContain("update.changed.includes('jobs')");
+  expect(detailSource).toContain('next.bidWorkflowSummary');
+  expect(broadcastSource).toContain('processUpdatesTopic(processId)');
+  expect(broadcastSource).toContain("update.event === 'process.updated'");
+
+  await page.goto('/contracts/process-7');
+  await expect(page.getByTestId('bid-state-badge')).toBeVisible();
+  await page.reload();
+  await expect(page.getByTestId('bid-state-badge')).toBeVisible();
+  await expect(page.getByTestId('bid-state-updated-at')).toHaveAttribute(
+    'dateTime',
+    /^\d{4}-\d{2}-\d{2}T/,
+  );
+});
