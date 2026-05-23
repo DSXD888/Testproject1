@@ -1,0 +1,33 @@
+{
+  "cassette_id": "procontract-bid-simple",
+  "source_structure_version": "procontract-bid-portal-2026-05-22",
+  "cases": {
+    "simple-missing-company-profile-01": {
+      "expected_detection": {"error_code": "BID_READINESS_GATE_FAILED", "step": 6},
+      "portal_state_verification": {"opportunity_found": true, "existing_draft_detected": false, "existing_submission_detected": false, "portal_status": "Open"},
+      "side_effect_progression": ["READ_ONLY", "READ_ONLY", "READ_ONLY", "READ_ONLY", "READ_ONLY"],
+      "highest_side_effect_class_reached": "READ_ONLY",
+      "screenshot_paths": ["sessions/test-session/step-05-response-form.webp", "sessions/test-session/step-06-company-profile-missing.webp"]
+    },
+    "simple-duplicate-draft-01": {
+      "expected_detection": {"error_code": "BID_DUPLICATE_DETECTED", "step": 4},
+      "portal_state_verification": {"opportunity_found": true, "existing_draft_detected": true, "existing_submission_detected": false, "portal_status": "Open"},
+      "body_text": "Resume draft Saved draft",
+      "highest_side_effect_class_reached": "READ_ONLY",
+      "screenshot_paths": ["sessions/test-session/step-03-opportunity-search.webp", "sessions/test-session/step-04-existing-draft.webp"]
+    },
+    "simple-cap-breach-01": {
+      "expected_detection": {"error_code": "BID_SIDE_EFFECT_CAP_EXCEEDED", "next_step_class": "REMOTE_DRAFT", "approved_cap": "READ_ONLY"},
+      "portal_state_verification": {"opportunity_found": true, "existing_draft_detected": false, "existing_submission_detected": false, "portal_status": "Open"},
+      "highest_side_effect_class_reached": "READ_ONLY",
+      "screenshot_paths": ["sessions/test-session/step-05-response-form.webp"]
+    },
+    "simple-portal-reference-not-found-01": {
+      "expected_detection": {"error_code": "BID_PORTAL_CHANGED", "step": 3},
+      "portal_state_verification": {"opportunity_found": false, "existing_draft_detected": false, "existing_submission_detected": false, "portal_status": "not_found"},
+      "search_results": [],
+      "highest_side_effect_class_reached": "READ_ONLY",
+      "screenshot_paths": ["sessions/test-session/step-03-opportunity-not-found.webp"]
+    }
+  }
+}

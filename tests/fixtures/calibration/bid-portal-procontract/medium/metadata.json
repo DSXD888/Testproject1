@@ -1,0 +1,18 @@
+{
+  "category": "medium",
+  "row_count": 8,
+  "fixture_provenance": "deterministic L6 bid portal medium-form corpus backed by aggregate Procontract cassette material",
+  "source_structure_version": "procontract-bid-portal-2026-05-22",
+  "captured_at": "2026-05-22T00:00:00Z",
+  "fixture_refresh_owner": "alinaaitova",
+  "required_scenarios": [
+    "happy_draft",
+    "upload_success",
+    "upload_hash_mismatch",
+    "quote_override",
+    "validation_rejection",
+    "selector_drift",
+    "resume_draft",
+    "duplicate_submission"
+  ]
+}

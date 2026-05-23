@@ -1,0 +1,8 @@
+medium-happy-draft-01: {expected_result_kind: draft_save_result, expected_final_state: draft_saved, expected_highest_side_effect: REMOTE_DRAFT}
+medium-upload-success-01: {expected_result_kind: draft_save_result, expected_final_state: bid_in_progress, expected_highest_side_effect: REMOTE_DRAFT}
+medium-upload-hash-mismatch-01: {expected_result_kind: failure, expected_final_state: failed, expected_error_code: BID_SUBMISSION_FAILED, expected_highest_side_effect: REMOTE_DRAFT}
+medium-quote-override-01: {expected_result_kind: draft_save_result, expected_final_state: draft_saved, expected_highest_side_effect: REMOTE_DRAFT}
+medium-validation-rejection-01: {expected_result_kind: failure, expected_final_state: failed, expected_error_code: BID_READINESS_GATE_FAILED, expected_highest_side_effect: REMOTE_DRAFT}
+medium-selector-drift-01: {expected_result_kind: failure, expected_final_state: failed, expected_error_code: BID_PORTAL_CHANGED, expected_highest_side_effect: READ_ONLY}
+medium-resume-draft-01: {expected_result_kind: draft_save_result, expected_final_state: draft_saved, expected_highest_side_effect: REMOTE_DRAFT}
+medium-duplicate-submission-01: {expected_result_kind: failure, expected_final_state: failed, expected_error_code: BID_DUPLICATE_DETECTED, expected_highest_side_effect: READ_ONLY}

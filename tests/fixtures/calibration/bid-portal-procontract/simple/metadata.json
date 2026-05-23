@@ -1,0 +1,25 @@
+{
+  "category": "simple",
+  "row_count": 12,
+  "minimum_row_count": 6,
+  "fixture_provenance": "deterministic L6 bid portal canary shell using Procontract cassette material captured or synthesized for procontract.due-north.com test opportunities",
+  "source_structure_version": "procontract-bid-portal-2026-05-22",
+  "captured_at": "2026-05-22T00:00:00Z",
+  "fixture_refresh_owner": "alinaaitova",
+  "required_scenarios": [
+    "happy_draft",
+    "missing_company_profile",
+    "stale_auth",
+    "duplicate_draft",
+    "cap_breach",
+    "portal_reference_not_found"
+  ],
+  "extra_regression_scenarios": [
+    "duplicate_submission",
+    "portal_shape_drift",
+    "form_fill_upload",
+    "upload_hash_mismatch",
+    "draft_saved_terminal",
+    "formal_submission_terminal"
+  ]
+}

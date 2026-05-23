@@ -1,0 +1,24 @@
+rubric_version: bid-portal-procontract-complex-v1
+required_evidence_anchors: [opportunity_ref_match, process_id, lot_ids, candidate_ids, quote_ids, company_profile_version, screenshot_checkpoints, side_effect_progression, confirmation_or_draft_evidence, override_citations]
+rejection_categories:
+  wrong_opportunity: reject
+  missing_screenshots: reject
+  non_monotonic_side_effects: reject
+  malformed_confirmation_reference: reject
+  missing_narrative_citations: reject
+  pii_leakage: reject
+  validator_execution_outage: fail_closed_for_formal_submission
+approval_thresholds:
+  clean_complex_manifest: approve_when_all_required_anchors_present
+  validation_override: approve_only_with_structured_operator_override
+cases:
+  multi-lot-draft: {requires: [all_lot_ids_cited, draft_reference]}
+  multi-document-upload: {requires: [all_document_hashes, upload_acknowledgements]}
+  conditional-declarations: {requires: [legal_declaration_boundary, operator_review_required]}
+  legal-declaration-boundary: {requires: [side_effect_cap, blocked_legal_declaration]}
+  final-submit-authorized: {requires: [operator_approval, validation_clearance, confirmation_reference]}
+  final-submit-blocked: {requires: [cap_blocks_formal_submission, draft_reference]}
+  validator-outage: {requires: [validator_outage, no_formal_submission]}
+  validation-override: {requires: [override_citation, acknowledgement_text, confirmation_reference]}
+  remote-draft-changed: {requires: [portal_state_verification, portal_state_unknown]}
+  unknown-portal-state: {requires: [portal_state_unknown, reconciliation_required]}

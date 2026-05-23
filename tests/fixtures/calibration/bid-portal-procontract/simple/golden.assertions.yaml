@@ -1,0 +1,68 @@
+simple-auth-stale-01:
+  expected_result_kind: failure
+  expected_final_state: bid_in_progress
+  expected_error_code: AUTH_STATE_STALE
+  expected_highest_side_effect: READ_ONLY
+  expected_validator_anchors: [auth_state_stale, screenshot_completeness, no_auth_skill_invocation]
+simple-happy-01:
+  expected_result_kind: draft_save_result
+  expected_final_state: draft_saved
+  expected_highest_side_effect: REMOTE_DRAFT
+  expected_validator_anchors: [opportunity_ref_match, screenshot_completeness, monotonic_side_effects]
+simple-duplicate-01:
+  expected_result_kind: failure
+  expected_final_state: failed
+  expected_error_code: BID_DUPLICATE_DETECTED
+  expected_highest_side_effect: READ_ONLY
+  expected_validator_anchors: [duplicate_submission_detected, no_remote_mutation]
+simple-portal-drift-01:
+  expected_result_kind: failure
+  expected_final_state: failed
+  expected_error_code: PAGE_SHAPE_DRIFT
+  expected_highest_side_effect: READ_ONLY
+  expected_validator_anchors: [portal_shape_drift, page_fingerprint, no_remote_mutation]
+simple-form-fill-upload-01:
+  expected_result_kind: draft_save_result
+  expected_final_state: bid_in_progress
+  expected_highest_side_effect: REMOTE_DRAFT
+  expected_validator_anchors: [company_profile_version, lot_id_citations, document_hash_match]
+simple-upload-hash-mismatch-01:
+  expected_result_kind: failure
+  expected_final_state: failed
+  expected_error_code: BID_SUBMISSION_FAILED
+  expected_highest_side_effect: REMOTE_DRAFT
+  expected_validator_anchors: [document_hash_mismatch, upload_blocked, screenshot_completeness]
+simple-draft-saved-01:
+  expected_result_kind: draft_save_result
+  expected_final_state: draft_saved
+  expected_highest_side_effect: REMOTE_DRAFT
+  expected_validator_anchors: [draft_reference, screenshot_completeness, monotonic_side_effects]
+simple-formal-submit-01:
+  expected_result_kind: submission_result
+  expected_final_state: bid_submitted
+  expected_highest_side_effect: FORMAL_SUBMISSION
+  expected_validator_anchors: [confirmation_reference, validation_clearance, full_screenshot_trail]
+simple-missing-company-profile-01:
+  expected_result_kind: failure
+  expected_final_state: failed
+  expected_error_code: BID_READINESS_GATE_FAILED
+  expected_highest_side_effect: READ_ONLY
+  expected_validator_anchors: [company_profile_missing, no_pii_fill, no_remote_mutation]
+simple-duplicate-draft-01:
+  expected_result_kind: failure
+  expected_final_state: failed
+  expected_error_code: BID_DUPLICATE_DETECTED
+  expected_highest_side_effect: READ_ONLY
+  expected_validator_anchors: [duplicate_draft_detected, continuation_chain_absent, no_remote_mutation]
+simple-cap-breach-01:
+  expected_result_kind: failure
+  expected_final_state: failed
+  expected_error_code: BID_SIDE_EFFECT_CAP_EXCEEDED
+  expected_highest_side_effect: READ_ONLY
+  expected_validator_anchors: [side_effect_cap, next_step_class, no_remote_mutation]
+simple-portal-reference-not-found-01:
+  expected_result_kind: failure
+  expected_final_state: failed
+  expected_error_code: BID_PORTAL_CHANGED
+  expected_highest_side_effect: READ_ONLY
+  expected_validator_anchors: [portal_reference_not_found, search_results_evidence, no_remote_mutation]

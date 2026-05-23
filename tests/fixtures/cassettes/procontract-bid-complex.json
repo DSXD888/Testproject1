@@ -1,0 +1,16 @@
+{
+  "cassette_id": "procontract-bid-complex",
+  "source_structure_version": "procontract-bid-portal-2026-05-22",
+  "cases": {
+    "complex-multi-lot-draft-01": {"terminal_state": "draft_saved", "lot_ids_verified": ["lot-cplx-001", "lot-cplx-002", "lot-cplx-003"], "highest_side_effect_class_reached": "REMOTE_DRAFT"},
+    "complex-multi-document-upload-01": {"terminal_state": "bid_in_progress", "document_uploads": [{"document_type": "insurance_certificate", "hash_match": true}, {"document_type": "method_statement", "hash_match": true}, {"document_type": "pricing_schedule", "hash_match": true}], "highest_side_effect_class_reached": "REMOTE_DRAFT"},
+    "complex-conditional-declarations-01": {"terminal_state": "draft_saved", "declarations": [{"kind": "conflict_of_interest", "answered": true}], "highest_side_effect_class_reached": "LEGAL_DECLARATION"},
+    "complex-legal-declaration-boundary-01": {"expected_detection": {"error_code": "BID_SIDE_EFFECT_CAP_EXCEEDED", "next_step_class": "LEGAL_DECLARATION", "approved_cap": "REMOTE_DRAFT"}, "highest_side_effect_class_reached": "REMOTE_DRAFT"},
+    "complex-final-submit-authorized-01": {"terminal_state": "bid_submitted", "confirmation_ref": "SUBMIT-FAKE-OPP-CPLX-005", "validation_approved": true, "highest_side_effect_class_reached": "FORMAL_SUBMISSION"},
+    "complex-final-submit-blocked-01": {"terminal_state": "draft_saved", "blocked_reason": "sideEffectCap REMOTE_DRAFT blocks FORMAL_SUBMISSION", "highest_side_effect_class_reached": "REMOTE_DRAFT"},
+    "complex-validator-outage-01": {"expected_detection": {"error_code": "BID_READINESS_GATE_FAILED", "validator_state": "outage"}, "highest_side_effect_class_reached": "REMOTE_DRAFT"},
+    "complex-validation-override-01": {"terminal_state": "bid_submitted", "confirmation_ref": "SUBMIT-FAKE-OPP-CPLX-008", "validation_override_logged": true, "override_citation": "operator_decision_heads/override/test-cplx-008", "highest_side_effect_class_reached": "FORMAL_SUBMISSION"},
+    "complex-remote-draft-changed-externally-01": {"terminal_state": "portal_state_unknown", "expected_detection": {"error_code": "BID_PORTAL_CHANGED", "external_change_detected": true}, "highest_side_effect_class_reached": "REMOTE_DRAFT"},
+    "complex-unknown-portal-state-reconciliation-01": {"terminal_state": "portal_state_unknown", "expected_detection": {"error_code": "BID_PORTAL_CHANGED", "reconciliation_required": true}, "highest_side_effect_class_reached": "READ_ONLY"}
+  }
+}

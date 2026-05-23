@@ -1,0 +1,20 @@
+{
+  "category": "complex",
+  "row_count": 10,
+  "fixture_provenance": "deterministic L6 bid portal complex-form corpus backed by aggregate Procontract cassette material",
+  "source_structure_version": "procontract-bid-portal-2026-05-22",
+  "captured_at": "2026-05-22T00:00:00Z",
+  "fixture_refresh_owner": "alinaaitova",
+  "required_scenarios": [
+    "multi_lot_draft",
+    "multi_document_upload",
+    "conditional_declarations",
+    "legal_declaration_boundary",
+    "final_submit_authorized",
+    "final_submit_blocked",
+    "validator_outage",
+    "validation_override",
+    "remote_draft_changed_externally",
+    "unknown_portal_state_reconciliation"
+  ]
+}

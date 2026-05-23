@@ -93,6 +93,108 @@ fn load_bid_portal_cassette(fixture_root: &Path, canary: &Value) -> Result<Value
     )?)?)
 }
 
+fn assert_bid_portal_corpus_category(
+    category: &str,
+    minimum_rows: u64,
+    required_cases: &[&str],
+) -> Result<()> {
+    let fixture_root = repo_root()?
+        .join("tests/fixtures/calibration/bid-portal-procontract")
+        .join(category);
+    for (required_file, required_path) in [
+        (
+            "canary.inputs.jsonl",
+            fixture_root.join("canary.inputs.jsonl"),
+        ),
+        (
+            "golden.assertions.yaml",
+            fixture_root.join("golden.assertions.yaml"),
+        ),
+        (
+            "validator-rubric.yaml",
+            fixture_root.join("validator-rubric.yaml"),
+        ),
+        ("metadata.json", fixture_root.join("metadata.json")),
+        ("manifest.md", fixture_root.join("manifest.md")),
+    ] {
+        ensure!(
+            required_path.is_file(),
+            "{category} corpus missing {required_file}"
+        );
+    }
+
+    let inputs = load_canary_inputs(&fixture_root.join("canary.inputs.jsonl"))?;
+    let metadata: Value =
+        serde_json::from_str(&fs::read_to_string(fixture_root.join("metadata.json"))?)?;
+    let actual_rows = u64::try_from(inputs.len())?;
+    ensure!(
+        metadata
+            .get("row_count")
+            .and_then(Value::as_u64)
+            .is_some_and(|expected| expected == actual_rows),
+        "{category} metadata row_count must match canary.inputs.jsonl"
+    );
+    ensure!(
+        actual_rows >= minimum_rows,
+        "{category} corpus must have at least {minimum_rows} canary rows"
+    );
+
+    let golden = fs::read_to_string(fixture_root.join("golden.assertions.yaml"))?;
+    let rubric = fs::read_to_string(fixture_root.join("validator-rubric.yaml"))?;
+    let manifest = fs::read_to_string(fixture_root.join("manifest.md"))?;
+    ensure!(
+        rubric.contains("rubric_version") && manifest.contains("Scenario"),
+        "{category} corpus must carry rubric version and scenario manifest"
+    );
+
+    for case_id in required_cases {
+        let canary = find_canary_case(&inputs, case_id)?;
+        ensure!(
+            golden.contains(case_id),
+            "{category} golden assertions missing {case_id}"
+        );
+        for required_field in [
+            "case_id",
+            "form_complexity",
+            "portal_opportunity_ref",
+            "process_id",
+            "lot_ids",
+            "candidate_ids",
+            "selected_quote_ids",
+            "company_profile_version",
+            "side_effect_cap",
+            "expected_terminal_state",
+            "expected_error_code",
+            "cassette_ref",
+            "screenshot_expectations",
+            "redaction_sentinels",
+            "validator_rubric_ref",
+        ] {
+            ensure!(
+                canary.get(required_field).is_some(),
+                "{case_id} missing required canary field {required_field}"
+            );
+        }
+        let cassette_ref = canary
+            .get("cassette_ref")
+            .and_then(Value::as_str)
+            .ok_or_else(|| anyhow::anyhow!("{case_id} missing cassette_ref"))?;
+        ensure!(
+            fixture_root.join(cassette_ref).is_file(),
+            "{case_id} cassette_ref must resolve to a deterministic fixture"
+        );
+        ensure!(
+            canary
+                .get("validator_rubric_ref")
+                .and_then(Value::as_str)
+                .is_some_and(|rubric_ref| rubric_ref.starts_with("validator-rubric.yaml#")),
+            "{case_id} validator_rubric_ref must point into validator-rubric.yaml"
+        );
+    }
+
+    Ok(())
+}
+
 fn fingerprint_matches(expected: &str, actual: &str) -> bool {
     expected == actual
 }
@@ -833,6 +935,54 @@ fn e2e_can_014_bid_portal_draft_and_submit_paths_cover_terminal_side_effects() -
     assert_formal_submit_canary(
         &fixture_root,
         find_canary_case(&canaries, "simple-formal-submit-01")?,
+    )?;
+
+    Ok(())
+}
+
+#[test]
+fn e2e_can_015_bid_portal_calibration_corpus_contract_covers_required_variants() -> Result<()> {
+    assert_bid_portal_corpus_category(
+        "simple",
+        6,
+        &[
+            "simple-draft-saved-01",
+            "simple-missing-company-profile-01",
+            "simple-auth-stale-01",
+            "simple-duplicate-draft-01",
+            "simple-cap-breach-01",
+            "simple-portal-reference-not-found-01",
+        ],
+    )?;
+    assert_bid_portal_corpus_category(
+        "medium",
+        8,
+        &[
+            "medium-happy-draft-01",
+            "medium-upload-success-01",
+            "medium-upload-hash-mismatch-01",
+            "medium-quote-override-01",
+            "medium-validation-rejection-01",
+            "medium-selector-drift-01",
+            "medium-resume-draft-01",
+            "medium-duplicate-submission-01",
+        ],
+    )?;
+    assert_bid_portal_corpus_category(
+        "complex",
+        10,
+        &[
+            "complex-multi-lot-draft-01",
+            "complex-multi-document-upload-01",
+            "complex-conditional-declarations-01",
+            "complex-legal-declaration-boundary-01",
+            "complex-final-submit-authorized-01",
+            "complex-final-submit-blocked-01",
+            "complex-validator-outage-01",
+            "complex-validation-override-01",
+            "complex-remote-draft-changed-externally-01",
+            "complex-unknown-portal-state-reconciliation-01",
+        ],
     )?;
 
     Ok(())

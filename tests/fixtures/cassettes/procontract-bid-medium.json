@@ -1,0 +1,14 @@
+{
+  "cassette_id": "procontract-bid-medium",
+  "source_structure_version": "procontract-bid-portal-2026-05-22",
+  "cases": {
+    "medium-happy-draft-01": {"terminal_state": "draft_saved", "highest_side_effect_class_reached": "REMOTE_DRAFT", "draft_ref": "DRAFT-FAKE-OPP-MED-001"},
+    "medium-upload-success-01": {"terminal_state": "bid_in_progress", "document_uploads": [{"document_type": "insurance_certificate", "hash_match": true, "portal_acknowledgement_text": "Upload complete"}], "highest_side_effect_class_reached": "REMOTE_DRAFT"},
+    "medium-upload-hash-mismatch-01": {"expected_detection": {"error_code": "BID_SUBMISSION_FAILED", "document_type": "method_statement"}, "document_uploads": [{"document_type": "method_statement", "hash_match": false, "uploaded": false}], "highest_side_effect_class_reached": "REMOTE_DRAFT"},
+    "medium-quote-override-01": {"terminal_state": "draft_saved", "override": {"kind": "quote_role_quality_gate", "acknowledged": true}, "highest_side_effect_class_reached": "REMOTE_DRAFT"},
+    "medium-validation-rejection-01": {"expected_detection": {"error_code": "BID_READINESS_GATE_FAILED", "validator_verdict": "rejected"}, "highest_side_effect_class_reached": "REMOTE_DRAFT"},
+    "medium-selector-drift-01": {"expected_detection": {"error_code": "BID_PORTAL_CHANGED", "selector": "#response-form-root"}, "highest_side_effect_class_reached": "READ_ONLY"},
+    "medium-resume-draft-01": {"terminal_state": "draft_saved", "portal_state_verification": {"existing_draft_detected": true, "portal_state_verified_before_edit": true}, "highest_side_effect_class_reached": "REMOTE_DRAFT"},
+    "medium-duplicate-submission-01": {"expected_detection": {"error_code": "BID_DUPLICATE_DETECTED"}, "portal_state_verification": {"existing_submission_detected": true}, "highest_side_effect_class_reached": "READ_ONLY"}
+  }
+}

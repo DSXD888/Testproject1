@@ -1,0 +1,36 @@
+rubric_version: bid-portal-procontract-simple-v1
+required_evidence_anchors:
+  - opportunity_ref_match
+  - process_id
+  - lot_ids
+  - candidate_ids
+  - quote_ids
+  - company_profile_version
+  - screenshot_checkpoints
+  - side_effect_progression
+  - draft_or_confirmation_evidence
+rejection_categories:
+  wrong_opportunity: reject
+  missing_screenshots: reject
+  non_monotonic_side_effects: reject
+  malformed_confirmation_reference: reject
+  missing_narrative_citations: reject
+  pii_leakage: reject
+  validator_execution_outage: fail_closed_for_formal_submission
+approval_thresholds:
+  clean_simple_manifest: approve_when_all_required_anchors_present
+  draft_without_validation_clearance: allowed
+  formal_submission_without_validation_clearance: reject
+cases:
+  auth-stale: {requires: [auth_state_stale, screenshot_checkpoints]}
+  opportunity-lookup: {requires: [opportunity_ref_match, portal_status_open]}
+  duplicate-submission: {requires: [existing_submission_detected]}
+  portal-shape-drift: {requires: [page_fingerprint]}
+  form-fill-upload: {requires: [company_profile_version, document_hash_match]}
+  upload-hash-mismatch: {requires: [document_hash_mismatch]}
+  draft-saved: {requires: [draft_reference, screenshot_checkpoints]}
+  formal-submission: {requires: [confirmation_reference, validation_clearance]}
+  missing-company-profile: {requires: [company_profile_missing]}
+  duplicate-draft: {requires: [existing_draft_detected, continuation_chain_absent]}
+  cap-breach: {requires: [side_effect_cap, next_step_class]}
+  portal-reference-not-found: {requires: [portal_reference_not_found]}

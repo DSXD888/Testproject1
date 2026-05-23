@@ -1,0 +1,21 @@
+rubric_version: bid-portal-procontract-medium-v1
+required_evidence_anchors: [opportunity_ref_match, process_id, lot_ids, candidate_ids, quote_ids, company_profile_version, screenshot_checkpoints, side_effect_progression, draft_or_confirmation_evidence]
+rejection_categories:
+  wrong_opportunity: reject
+  missing_screenshots: reject
+  non_monotonic_side_effects: reject
+  malformed_confirmation_reference: reject
+  missing_narrative_citations: reject
+  pii_leakage: reject
+  validator_execution_outage: fail_closed_for_formal_submission
+approval_thresholds:
+  clean_medium_manifest: approve_when_all_required_anchors_present
+cases:
+  happy-draft: {requires: [draft_reference, screenshot_checkpoints]}
+  upload-success: {requires: [document_hash_match, portal_acknowledgement]}
+  upload-hash-mismatch: {requires: [document_hash_mismatch, upload_blocked]}
+  quote-override: {requires: [operator_override_citation, quote_role_acknowledgement]}
+  validation-rejection: {requires: [validator_rejection, no_formal_submission]}
+  selector-drift: {requires: [selector_drift, bid_portal_changed]}
+  resume-draft: {requires: [existing_draft_detected, portal_state_verified_before_edit]}
+  duplicate-submission: {requires: [existing_submission_detected, no_remote_mutation]}
