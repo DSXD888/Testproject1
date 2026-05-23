@@ -1,24 +1,139 @@
-rubric_version: bid-portal-procontract-complex-v1
-required_evidence_anchors: [opportunity_ref_match, process_id, lot_ids, candidate_ids, quote_ids, company_profile_version, screenshot_checkpoints, side_effect_progression, confirmation_or_draft_evidence, override_citations]
+rubric_version: bid-portal-procontract-rubric@1.0-complex
+category: complex
+worker_skill_id: bid-portal/procontract
+worker_behavior_version: bid-portal/procontract@0.1.0+1.0
+validator_behavior_version: validation/overlay-bid-portal-procontract@0.1.0+1.0
+
+required_evidence_anchors:
+  opportunity_ref:
+    source: daemon_evidence_appendix.bid_scope_summary.portal_opportunity_ref
+    must_match: BidScopePayload.portalOpportunityRef
+  process_id:
+    source: agent_narrative
+    must_cite: BidScopePayload.processId
+  lot_ids:
+    source: agent_narrative
+    must_cite_each: BidScopePayload.lotIds
+  candidate_ids:
+    source: agent_narrative
+    must_cite_each: BidScopePayload.candidateIds
+  quote_ids:
+    source: agent_narrative
+    must_cite_each: BidScopePayload.selectedQuoteIds
+  company_profile_version:
+    source: agent_narrative
+    must_cite: BidScopePayload.companyProfileVersion
+  screenshot_checkpoints:
+    source: daemon_evidence_appendix.screenshot_inventory
+    minimum_count:
+      partial_upload: 3
+      declaration_boundary: 1
+      draft_saved: 5
+      bid_submitted: 11
+      portal_state_unknown: 1
+  side_effect_progression:
+    source: daemon_evidence_appendix.side_effect_progression
+    must_be_monotonic: true
+    must_not_exceed: BidScopePayload.sideEffectCap
+  confirmation_or_draft_evidence:
+    source: result_envelope
+    one_of:
+      - kind: submission_result
+        confirmation_ref: non_empty
+      - kind: draft_save_result
+        portal_draft_ref: non_empty
+      - kind: failure
+        error_code: non_empty
+
+additional_complex_anchors:
+  override_citations:
+    source: agent_narrative
+    must_cite_each: operator_override.ids
+  conditional_declarations:
+    source: daemon_evidence_appendix.side_effect_progression
+    must_show_boundary: LEGAL_DECLARATION
+  multi_document_uploads:
+    source: daemon_evidence_appendix.artifact_refs
+    must_include_hash_for_each_uploaded_document: true
+
 rejection_categories:
-  wrong_opportunity: reject
-  missing_screenshots: reject
-  non_monotonic_side_effects: reject
-  malformed_confirmation_reference: reject
-  missing_narrative_citations: reject
-  pii_leakage: reject
-  validator_execution_outage: fail_closed_for_formal_submission
-approval_thresholds:
-  clean_complex_manifest: approve_when_all_required_anchors_present
-  validation_override: approve_only_with_structured_operator_override
+  wrong_opportunity:
+    when: opportunity_ref.match == false
+    severity: hard
+    validator_rubric_ref: opportunity_ref_mismatch
+  missing_screenshots:
+    when: required_screenshot_checkpoint_missing
+    severity: hard
+    validator_rubric_ref: screenshot_incomplete
+  non_monotonic_side_effects:
+    when: side_effect_progression.monotonic == false
+    severity: hard
+    validator_rubric_ref: side_effect_non_monotonic
+  side_effect_above_cap:
+    when: highest_side_effect_reached > BidScopePayload.sideEffectCap
+    severity: hard
+    validator_rubric_ref: side_effect_above_cap
+  malformed_confirmation_reference:
+    when: result_kind == submission_result AND confirmation_ref.shape != valid_pattern
+    severity: hard
+    validator_rubric_ref: confirmation_ref_malformed
+  missing_narrative_citations:
+    when: agent_narrative_missing_required_scope_or_override_id
+    severity: hard
+    validator_rubric_ref: citation_missing
+  pii_leakage:
+    when: evidence_contains_company_profile_sentinel_or_raw_bid_scope_json
+    severity: hard
+    validator_rubric_ref: pii_leakage
+  validator_execution_outage:
+    when: overlay_executor.timeout OR overlay_executor.transport_error
+    severity: hard_fail_closed
+    validator_rubric_ref: validator_outage
+
+approval_threshold:
+  clean_complex_manifest:
+    required_anchors_present: all
+    additional_complex_anchors_present: all_applicable
+    zero_rejections: true
+    result: approved
+  validation_override:
+    required_anchors_present: all
+    requires_structured_override:
+      kind: validation_gate
+      cited_in_agent_narrative: true
+      reason_minimum_chars: 32
+  validator_outage:
+    allowed_terminal_state: failed
+    requires_no_formal_submission: true
+
+flag_categories:
+  override_anomaly:
+    when: override_metadata.present AND override_reason.length < 32
+    severity: soft
+    validator_rubric_ref: override_anomaly
+
+recording_contract:
+  overlay_output_must_include: rubric_version
+  daemon_evidence_appendix_must_include: rubric_version
+
 cases:
-  multi-lot-draft: {requires: [all_lot_ids_cited, draft_reference]}
-  multi-document-upload: {requires: [all_document_hashes, upload_acknowledgements]}
-  conditional-declarations: {requires: [legal_declaration_boundary, operator_review_required]}
-  legal-declaration-boundary: {requires: [side_effect_cap, blocked_legal_declaration]}
-  final-submit-authorized: {requires: [operator_approval, validation_clearance, confirmation_reference]}
-  final-submit-blocked: {requires: [cap_blocks_formal_submission, draft_reference]}
-  validator-outage: {requires: [validator_outage, no_formal_submission]}
-  validation-override: {requires: [override_citation, acknowledgement_text, confirmation_reference]}
-  remote-draft-changed: {requires: [portal_state_verification, portal_state_unknown]}
-  unknown-portal-state: {requires: [portal_state_unknown, reconciliation_required]}
+  multi-lot-draft:
+    requires: [all_lot_ids_cited, all_candidate_ids_cited, all_quote_ids_cited, draft_reference]
+  multi-document-upload:
+    requires: [all_document_hashes, upload_acknowledgements, screenshot_checkpoints]
+  conditional-declarations:
+    requires: [legal_declaration_boundary, operator_review_required, side_effect_progression]
+  legal-declaration-boundary:
+    requires: [side_effect_cap, blocked_legal_declaration, no_formal_submission]
+  final-submit-authorized:
+    requires: [operator_approval, validation_clearance, confirmation_reference, full_screenshot_trail]
+  final-submit-blocked:
+    requires: [cap_blocks_formal_submission, draft_reference, no_formal_submission]
+  validator-outage:
+    requires: [validator_outage, no_formal_submission, fail_closed_state]
+  validation-override:
+    requires: [override_citation, acknowledgement_text, confirmation_reference]
+  remote-draft-changed:
+    requires: [portal_state_verification, portal_state_unknown, reconciliation_required]
+  unknown-portal-state:
+    requires: [portal_state_unknown, reconciliation_required, no_remote_mutation]

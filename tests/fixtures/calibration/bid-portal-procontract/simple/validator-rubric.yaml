@@ -1,36 +1,127 @@
-rubric_version: bid-portal-procontract-simple-v1
+rubric_version: bid-portal-procontract-rubric@1.0-simple
+category: simple
+worker_skill_id: bid-portal/procontract
+worker_behavior_version: bid-portal/procontract@0.1.0+1.0
+validator_behavior_version: validation/overlay-bid-portal-procontract@0.1.0+1.0
+
 required_evidence_anchors:
-  - opportunity_ref_match
-  - process_id
-  - lot_ids
-  - candidate_ids
-  - quote_ids
-  - company_profile_version
-  - screenshot_checkpoints
-  - side_effect_progression
-  - draft_or_confirmation_evidence
+  opportunity_ref:
+    source: daemon_evidence_appendix.bid_scope_summary.portal_opportunity_ref
+    must_match: BidScopePayload.portalOpportunityRef
+  process_id:
+    source: agent_narrative
+    must_cite: BidScopePayload.processId
+  lot_ids:
+    source: agent_narrative
+    must_cite_each: BidScopePayload.lotIds
+  candidate_ids:
+    source: agent_narrative
+    must_cite_each: BidScopePayload.candidateIds
+  quote_ids:
+    source: agent_narrative
+    must_cite_each: BidScopePayload.selectedQuoteIds
+  company_profile_version:
+    source: agent_narrative
+    must_cite: BidScopePayload.companyProfileVersion
+  screenshot_checkpoints:
+    source: daemon_evidence_appendix.screenshot_inventory
+    minimum_count:
+      auth_state_stale: 2
+      read_only_failure: 1
+      draft_saved: 10
+      bid_submitted: 11
+  side_effect_progression:
+    source: daemon_evidence_appendix.side_effect_progression
+    must_be_monotonic: true
+    must_not_exceed: BidScopePayload.sideEffectCap
+  confirmation_or_draft_evidence:
+    source: result_envelope
+    one_of:
+      - kind: submission_result
+        confirmation_ref: non_empty
+      - kind: draft_save_result
+        portal_draft_ref: non_empty
+      - kind: failure
+        error_code: non_empty
+
 rejection_categories:
-  wrong_opportunity: reject
-  missing_screenshots: reject
-  non_monotonic_side_effects: reject
-  malformed_confirmation_reference: reject
-  missing_narrative_citations: reject
-  pii_leakage: reject
-  validator_execution_outage: fail_closed_for_formal_submission
-approval_thresholds:
-  clean_simple_manifest: approve_when_all_required_anchors_present
-  draft_without_validation_clearance: allowed
-  formal_submission_without_validation_clearance: reject
+  wrong_opportunity:
+    when: opportunity_ref.match == false
+    severity: hard
+    validator_rubric_ref: opportunity_ref_mismatch
+  missing_screenshots:
+    when: required_screenshot_checkpoint_missing
+    severity: hard
+    validator_rubric_ref: screenshot_incomplete
+  non_monotonic_side_effects:
+    when: side_effect_progression.monotonic == false
+    severity: hard
+    validator_rubric_ref: side_effect_non_monotonic
+  side_effect_above_cap:
+    when: highest_side_effect_reached > BidScopePayload.sideEffectCap
+    severity: hard
+    validator_rubric_ref: side_effect_above_cap
+  malformed_confirmation_reference:
+    when: result_kind == submission_result AND confirmation_ref.shape != valid_pattern
+    severity: hard
+    validator_rubric_ref: confirmation_ref_malformed
+  missing_narrative_citations:
+    when: agent_narrative_missing_required_scope_id
+    severity: hard
+    validator_rubric_ref: citation_missing
+  pii_leakage:
+    when: evidence_contains_company_profile_sentinel_or_raw_bid_scope_json
+    severity: hard
+    validator_rubric_ref: pii_leakage
+  validator_execution_outage:
+    when: overlay_executor.timeout OR overlay_executor.transport_error
+    severity: hard_fail_closed
+    validator_rubric_ref: validator_outage
+
+approval_threshold:
+  clean_simple_manifest:
+    required_anchors_present: all
+    zero_rejections: true
+    result: approved
+  draft_without_validation_clearance:
+    allowed: true
+    requires_terminal_state: draft_saved
+  formal_submission_without_validation_clearance:
+    allowed: false
+    requires_terminal_state: bid_submitted
+
+flag_categories:
+  override_anomaly:
+    when: override_metadata.present AND override_reason.length < 32
+    severity: soft
+    validator_rubric_ref: override_anomaly
+
+recording_contract:
+  overlay_output_must_include: rubric_version
+  daemon_evidence_appendix_must_include: rubric_version
+
 cases:
-  auth-stale: {requires: [auth_state_stale, screenshot_checkpoints]}
-  opportunity-lookup: {requires: [opportunity_ref_match, portal_status_open]}
-  duplicate-submission: {requires: [existing_submission_detected]}
-  portal-shape-drift: {requires: [page_fingerprint]}
-  form-fill-upload: {requires: [company_profile_version, document_hash_match]}
-  upload-hash-mismatch: {requires: [document_hash_mismatch]}
-  draft-saved: {requires: [draft_reference, screenshot_checkpoints]}
-  formal-submission: {requires: [confirmation_reference, validation_clearance]}
-  missing-company-profile: {requires: [company_profile_missing]}
-  duplicate-draft: {requires: [existing_draft_detected, continuation_chain_absent]}
-  cap-breach: {requires: [side_effect_cap, next_step_class]}
-  portal-reference-not-found: {requires: [portal_reference_not_found]}
+  auth-stale:
+    requires: [auth_state_stale, screenshot_checkpoints, no_auth_skill_invocation]
+  opportunity-lookup:
+    requires: [opportunity_ref_match, portal_status_open, no_remote_mutation]
+  duplicate-submission:
+    requires: [existing_submission_detected, no_remote_mutation]
+  portal-shape-drift:
+    requires: [page_fingerprint, no_remote_mutation]
+  form-fill-upload:
+    requires: [company_profile_version, lot_id_citations, document_hash_match]
+  upload-hash-mismatch:
+    requires: [document_hash_mismatch, upload_blocked, screenshot_checkpoints]
+  draft-saved:
+    requires: [draft_reference, screenshot_checkpoints, monotonic_side_effects]
+  formal-submission:
+    requires: [confirmation_reference, validation_clearance, full_screenshot_trail]
+  missing-company-profile:
+    requires: [company_profile_missing, no_pii_fill, no_remote_mutation]
+  duplicate-draft:
+    requires: [existing_draft_detected, continuation_chain_absent, no_remote_mutation]
+  cap-breach:
+    requires: [side_effect_cap, next_step_class, no_remote_mutation]
+  portal-reference-not-found:
+    requires: [portal_reference_not_found, search_results_evidence, no_remote_mutation]
