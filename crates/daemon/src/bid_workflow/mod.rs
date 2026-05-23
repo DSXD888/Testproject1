@@ -1,11 +1,13 @@
 #![allow(dead_code, unused_imports)]
 
+pub mod decision_basis_hash;
 pub mod readiness_gate;
 pub mod runner;
 pub mod side_effect_guard;
 pub mod state_machine;
 pub mod types;
 
+pub use decision_basis_hash::compute as compute_decision_basis_hash;
 pub use readiness_gate::{BidReadinessBlocker, BidReadinessGateResult, evaluate_bid_readiness};
 pub use runner::run_bid_workflow_job;
 pub use side_effect_guard::{
