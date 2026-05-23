@@ -247,23 +247,73 @@ Step 2 stale-auth result envelope:
 ### Step 10a - Save draft
 - Side-effect class: `REMOTE_DRAFT -> state transitions to draft_saved`.
 - Screenshot: required.
-- Choose this branch when `reviewRequired=true`, when the next step would exceed `sideEffectCap`, or when the daemon requested draft-only execution.
-- Action: click the portal save-draft control and capture the portal draft reference or visible saved state.
-- Return `DraftSaveResult` with `draft_saved: true`, `portal_draft_ref`, final side-effect class `REMOTE_DRAFT`, and the complete screenshot path list.
+- Branch decision:
+  - If `reviewRequired = true` -> branch 10a.
+  - If `sideEffectCap` is `READ_ONLY`, `REMOTE_DRAFT`, `NOTIFICATION_OR_LOCK`, or `LEGAL_DECLARATION` -> branch 10a.
+  - If the daemon requested draft-only execution -> branch 10a.
+- Action:
+  1. Click only the portal save-draft control.
+  2. Wait for a visible saved state, toast, or draft reference.
+  3. Capture the portal draft reference as `portal_draft_ref`; if the portal only exposes saved-state text, record that text as the draft reference evidence.
+  4. Capture `step-10-save-draft.webp`.
+  5. Emit a Step 10a checkpoint with `side_effect_class_reached: "REMOTE_DRAFT"`, `portal_draft_ref`, and the screenshot path list.
+- Return `DraftSaveResult`:
+  ```json
+  {
+    "kind": "draft_save_result",
+    "draft_saved": true,
+    "portal_draft_ref": "<draft-id-or-visible-saved-state>",
+    "side_effect_class": "REMOTE_DRAFT",
+    "screenshot_paths": ["sessions/<session_id>/step-01-login-page.webp", "...", "sessions/<session_id>/step-10-save-draft.webp"],
+    "portal_timestamp": "<iso8601-from-portal-or-null>",
+    "portal_state_verified": true
+  }
+  ```
+- Do not include any final-submission confirmation fields in the draft result.
 
 ### Step 10b - Submit expression of interest
 - Side-effect class: `FORMAL_SUBMISSION -> state transitions to bid_submitted`.
 - Screenshot: required.
-- Choose this branch only when `reviewRequired=false`, validator clearance is present or a structured validation override is injected, and `sideEffectCap` permits `FORMAL_SUBMISSION`.
-- Pre-step cap check: if `sideEffectCap` is below `FORMAL_SUBMISSION`, do not click submit. Save draft if possible, then return `BID_SIDE_EFFECT_CAP_EXCEEDED`.
-- Action: click the final submit or expression-of-interest control exactly once.
-- Return `SubmissionResult` with `submitted: true`, confirmation reference, final side-effect class `FORMAL_SUBMISSION`, and the complete screenshot path list.
+- Branch decision:
+  - If `reviewRequired = false` AND `sideEffectCap` permits `FORMAL_SUBMISSION` -> branch 10b.
+  - `validation_approved = true` OR `validation_override_logged = true` must also be present before clicking submit.
+- Pre-step cap check: if `sideEffectCap` is below `FORMAL_SUBMISSION`, do not click submit. Save draft if possible, then return `BID_SIDE_EFFECT_CAP_EXCEEDED` with the blocked next step and attempted class.
+- Pre-submit checks immediately before the click:
+  1. `reviewRequired = false`.
+  2. `sideEffectCap` is `FORMAL_SUBMISSION` or `FUNDS_COMMITTED`.
+  3. `validation_approved = true` OR `validation_override_logged = true`.
+  4. The review summary still matches `BidScopePayload.portalOpportunityRef`, `lotIds`, `candidateIds`, and `selectedQuoteIds`.
+  5. No existing submission is visible from `verifyPortalState()`.
+- Action:
+  1. Click the final submit or expression-of-interest control exactly once.
+  2. Do not click submit again on timeout or ambiguous portal state.
+  3. Wait for the confirmation page or a portal confirmation panel.
+  4. Capture `step-10-submit.webp`.
+  5. Proceed to Step 11 before returning.
+- Return `SubmissionResult` only after Step 11 has captured confirmation evidence:
+  ```json
+  {
+    "kind": "submission_result",
+    "submitted": true,
+    "confirmation_ref": "<portal-confirmation-reference>",
+    "final_side_effect_class": "FORMAL_SUBMISSION",
+    "screenshot_paths": ["sessions/<session_id>/step-01-login-page.webp", "...", "sessions/<session_id>/step-11-confirmation.webp"],
+    "portal_timestamp": "<iso8601-from-portal-or-null>",
+    "portal_state_verified": true,
+    "validation_approved": true,
+    "validation_override_logged": false
+  }
+  ```
 
 ### Step 11 - Capture confirmation page/reference
 - Side-effect class: `READ_ONLY`.
 - Screenshot: required.
 - Action: read the confirmation page after Step 10b or the saved-draft state after Step 10a.
 - Capture portal confirmation reference, draft reference, portal status, URL, and page fingerprint.
+- Step 11 always runs after Step 10b.
+- For the final-submission path, capture `confirmation_ref`, portal-reported submission timestamp, confirmation page URL, and `step-11-confirmation.webp`.
+- Keep `side_effect_class_reached` at `FORMAL_SUBMISSION` during Step 11; Step 11 is read-only, but the run's highest side-effect class must not decrease.
+- For the draft path, Step 11 may read saved-draft state only when the daemon explicitly asks for post-draft verification; do not turn a saved draft into a submission.
 - If the portal response is ambiguous after a final submission click, stop with `portal_state_unknown` semantics in the result and do not retry blindly.
 
 ## Side-Effect Cap Guard

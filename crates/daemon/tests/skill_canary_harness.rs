@@ -683,3 +683,157 @@ fn e2e_can_013_bid_portal_form_fill_and_upload_canaries_cover_remote_draft_hash_
 
     Ok(())
 }
+
+fn assert_bid_portal_terminal_path_playbook(skill_markdown: &str) -> Result<()> {
+    for required in [
+        "If `reviewRequired = true` -> branch 10a",
+        "If `sideEffectCap` is `READ_ONLY`, `REMOTE_DRAFT`, `NOTIFICATION_OR_LOCK`, or `LEGAL_DECLARATION` -> branch 10a",
+        "If `reviewRequired = false` AND `sideEffectCap` permits `FORMAL_SUBMISSION` -> branch 10b",
+        "`validation_approved = true` OR `validation_override_logged = true`",
+        "Step 11 always runs after Step 10b",
+        "Keep `side_effect_class_reached` at `FORMAL_SUBMISSION` during Step 11",
+        "\"kind\": \"draft_save_result\"",
+        "\"kind\": \"submission_result\"",
+    ] {
+        ensure!(
+            skill_markdown.contains(required),
+            "draft/final-submit playbook missing `{required}`"
+        );
+    }
+
+    Ok(())
+}
+
+fn assert_draft_saved_canary(fixture_root: &Path, draft_saved: &Value) -> Result<()> {
+    ensure!(
+        json_str_field_eq(draft_saved.get("expected_terminal_state"), "draft_saved")
+            && draft_saved
+                .get("expected_error_code")
+                .is_some_and(Value::is_null)
+            && json_i64_field_eq(draft_saved.get("expected_step_reached"), 10)
+            && json_str_field_eq(
+                draft_saved.get("expected_side_effect_class_reached"),
+                "REMOTE_DRAFT",
+            )
+            && json_str_field_eq(
+                draft_saved.pointer("/expected_result/kind"),
+                "draft_save_result",
+            )
+            && json_bool_field_eq(draft_saved.pointer("/expected_result/draft_saved"), true)
+            && json_str_field_eq(
+                draft_saved.pointer("/expected_result/portal_draft_ref"),
+                "DRAFT-FAKE-OPP-001",
+            ),
+        "draft-saved canary must terminate at Step 10a with remote draft evidence"
+    );
+    let draft_cassette = load_bid_portal_cassette(fixture_root, draft_saved)?;
+    ensure!(
+        json_str_field_eq(
+            draft_cassette.pointer("/branch_decision/selected_branch"),
+            "10a_save_draft",
+        ) && json_str_field_eq(
+            draft_cassette.pointer("/branch_decision/reason"),
+            "reviewRequired=true",
+        ) && json_str_field_eq(
+            draft_cassette.pointer("/step_10a/portal_draft_ref"),
+            "DRAFT-FAKE-OPP-001",
+        ) && json_str_field_eq(
+            draft_cassette.pointer("/checkpoint/side_effect_class_reached"),
+            "REMOTE_DRAFT",
+        ) && draft_cassette
+            .pointer("/checkpoint/screenshot_paths")
+            .and_then(Value::as_array)
+            .is_some_and(|screenshots| {
+                screenshots.iter().any(|value| {
+                    value
+                        .as_str()
+                        .is_some_and(|path| path.ends_with("step-10-save-draft.webp"))
+                })
+            }),
+        "draft-saved cassette must prove 10a branch reason, draft reference, and screenshot evidence"
+    );
+
+    Ok(())
+}
+
+fn assert_formal_submit_canary(fixture_root: &Path, formal_submit: &Value) -> Result<()> {
+    ensure!(
+        json_str_field_eq(
+            formal_submit.get("expected_terminal_state"),
+            "bid_submitted",
+        ) && formal_submit
+            .get("expected_error_code")
+            .is_some_and(Value::is_null)
+            && json_i64_field_eq(formal_submit.get("expected_step_reached"), 11)
+            && json_str_field_eq(
+                formal_submit.get("expected_side_effect_class_reached"),
+                "FORMAL_SUBMISSION",
+            )
+            && json_str_field_eq(
+                formal_submit.pointer("/expected_result/kind"),
+                "submission_result",
+            )
+            && json_bool_field_eq(formal_submit.pointer("/expected_result/submitted"), true)
+            && json_str_field_eq(
+                formal_submit.pointer("/expected_result/confirmation_ref"),
+                "SUBMIT-FAKE-OPP-001",
+            )
+            && formal_submit
+                .pointer("/expected_result/screenshot_paths")
+                .and_then(Value::as_array)
+                .is_some_and(|screenshots| screenshots.len() >= 11),
+        "formal-submit canary must terminate at Step 11 with confirmation evidence and full screenshot trail"
+    );
+    let formal_submit_cassette = load_bid_portal_cassette(fixture_root, formal_submit)?;
+    ensure!(
+        json_str_field_eq(
+            formal_submit_cassette.pointer("/branch_decision/selected_branch"),
+            "10b_formal_submission",
+        ) && json_bool_field_eq(
+            formal_submit_cassette.pointer("/branch_decision/preconditions/review_required"),
+            false,
+        ) && json_str_field_eq(
+            formal_submit_cassette.pointer("/branch_decision/preconditions/side_effect_cap"),
+            "FORMAL_SUBMISSION",
+        ) && json_bool_field_eq(
+            formal_submit_cassette.pointer("/branch_decision/preconditions/validation_approved"),
+            true,
+        ) && json_bool_field_eq(
+            formal_submit_cassette
+                .pointer("/branch_decision/preconditions/validation_override_logged"),
+            false,
+        ) && json_bool_field_eq(
+            formal_submit_cassette.pointer("/step_11/capture_ran_after_step_10b"),
+            true,
+        ) && json_str_field_eq(
+            formal_submit_cassette.pointer("/checkpoint/highest_side_effect_class_reached"),
+            "FORMAL_SUBMISSION",
+        ) && json_str_field_eq(
+            formal_submit_cassette.pointer("/step_11/declared_side_effect_class"),
+            "READ_ONLY",
+        ),
+        "formal-submit cassette must prove 10b preconditions, Step 11 capture, and monotonic highest side-effect tracking"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn e2e_can_014_bid_portal_draft_and_submit_paths_cover_terminal_side_effects() -> Result<()> {
+    let fixture_root =
+        repo_root()?.join("tests/fixtures/calibration/bid-portal-procontract/simple");
+    let canaries = load_canary_inputs(&fixture_root.join("canary.inputs.jsonl"))?;
+    let skill_markdown = fs::read_to_string(skill_dir("bid-portal-procontract")?.join("SKILL.md"))?;
+
+    assert_bid_portal_terminal_path_playbook(&skill_markdown)?;
+    assert_draft_saved_canary(
+        &fixture_root,
+        find_canary_case(&canaries, "simple-draft-saved-01")?,
+    )?;
+    assert_formal_submit_canary(
+        &fixture_root,
+        find_canary_case(&canaries, "simple-formal-submit-01")?,
+    )?;
+
+    Ok(())
+}

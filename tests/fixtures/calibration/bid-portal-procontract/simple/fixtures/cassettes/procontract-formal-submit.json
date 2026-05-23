@@ -1,0 +1,98 @@
+{
+  "cassette_id": "procontract-formal-submit",
+  "captured_at": "2026-05-22T00:15:00Z",
+  "portal": "procontract",
+  "source_structure_version": "procontract-bid-portal-2026-05-22",
+  "url": "https://procontract.due-north.com/Supplier/Response/FAKE-OPP-001/Confirmation",
+  "page_title": "ProContract - Submission Confirmation FAKE-OPP-001",
+  "body_text": "FAKE-OPP-001 Expression of interest submitted Confirmation reference SUBMIT-FAKE-OPP-001 Submitted 2026-05-22T00:15:00Z",
+  "opportunity_metadata": {
+    "expected_ref": "FAKE-OPP-001",
+    "observed_ref": "FAKE-OPP-001",
+    "title": "Supply of calibration widgets",
+    "portal_status": "Submitted"
+  },
+  "branch_decision": {
+    "selected_branch": "10b_formal_submission",
+    "reason": "reviewRequired=false_and_FORMAL_SUBMISSION_cap_with_validator_clearance",
+    "preconditions": {
+      "review_required": false,
+      "side_effect_cap": "FORMAL_SUBMISSION",
+      "validation_approved": true,
+      "validation_override_logged": false,
+      "summary_matches_scope": true,
+      "existing_submission_detected": false
+    }
+  },
+  "step_10b": {
+    "action": "submit_expression_of_interest",
+    "side_effect_class": "FORMAL_SUBMISSION",
+    "clicked_submit_once": true,
+    "confirmation_ref": "SUBMIT-FAKE-OPP-001",
+    "portal_timestamp": "2026-05-22T00:15:00Z",
+    "screenshot_path": "sessions/test-session/step-10-submit.webp"
+  },
+  "step_11": {
+    "action": "capture_confirmation",
+    "declared_side_effect_class": "READ_ONLY",
+    "capture_ran_after_step_10b": true,
+    "confirmation_ref": "SUBMIT-FAKE-OPP-001",
+    "portal_timestamp": "2026-05-22T00:15:00Z",
+    "confirmation_url": "https://procontract.due-north.com/Supplier/Response/FAKE-OPP-001/Confirmation",
+    "screenshot_path": "sessions/test-session/step-11-confirmation.webp"
+  },
+  "checkpoint": {
+    "step": 11,
+    "step_name": "capture_confirmation",
+    "side_effect_class_reached": "FORMAL_SUBMISSION",
+    "highest_side_effect_class_reached": "FORMAL_SUBMISSION",
+    "confirmation_ref": "SUBMIT-FAKE-OPP-001",
+    "screenshot_paths": [
+      "sessions/test-session/step-01-login-page.webp",
+      "sessions/test-session/step-02-auth-state.webp",
+      "sessions/test-session/step-03-opportunity-search.webp",
+      "sessions/test-session/step-04-opportunity-verified.webp",
+      "sessions/test-session/step-05-response-form.webp",
+      "sessions/test-session/step-06-company-details.webp",
+      "sessions/test-session/step-07-lot-pricing.webp",
+      "sessions/test-session/step-08-document-upload.webp",
+      "sessions/test-session/step-09-review-summary.webp",
+      "sessions/test-session/step-10-submit.webp",
+      "sessions/test-session/step-11-confirmation.webp"
+    ],
+    "portal_state": {
+      "opportunity_found": true,
+      "existing_draft_detected": false,
+      "existing_submission_detected": true,
+      "portal_status": "Submitted"
+    }
+  },
+  "expected_detection": {
+    "error_code": null,
+    "step_reached": 11,
+    "side_effect_class_reached": "FORMAL_SUBMISSION"
+  },
+  "expected_result": {
+    "kind": "submission_result",
+    "submitted": true,
+    "confirmation_ref": "SUBMIT-FAKE-OPP-001",
+    "final_side_effect_class": "FORMAL_SUBMISSION",
+    "screenshot_paths": [
+      "sessions/test-session/step-01-login-page.webp",
+      "sessions/test-session/step-02-auth-state.webp",
+      "sessions/test-session/step-03-opportunity-search.webp",
+      "sessions/test-session/step-04-opportunity-verified.webp",
+      "sessions/test-session/step-05-response-form.webp",
+      "sessions/test-session/step-06-company-details.webp",
+      "sessions/test-session/step-07-lot-pricing.webp",
+      "sessions/test-session/step-08-document-upload.webp",
+      "sessions/test-session/step-09-review-summary.webp",
+      "sessions/test-session/step-10-submit.webp",
+      "sessions/test-session/step-11-confirmation.webp"
+    ],
+    "portal_timestamp": "2026-05-22T00:15:00Z",
+    "portal_state_verified": true,
+    "validation_approved": true,
+    "validation_override_logged": false
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "cassette_id": "procontract-draft-saved",
+  "captured_at": "2026-05-22T00:10:00Z",
+  "portal": "procontract",
+  "source_structure_version": "procontract-bid-portal-2026-05-22",
+  "url": "https://procontract.due-north.com/Supplier/Response/FAKE-OPP-001",
+  "page_title": "ProContract - Draft Saved FAKE-OPP-001",
+  "body_text": "FAKE-OPP-001 Supplier response Review response Save draft Draft saved DRAFT-FAKE-OPP-001",
+  "opportunity_metadata": {
+    "expected_ref": "FAKE-OPP-001",
+    "observed_ref": "FAKE-OPP-001",
+    "title": "Supply of calibration widgets",
+    "portal_status": "Open"
+  },
+  "branch_decision": {
+    "selected_branch": "10a_save_draft",
+    "reason": "reviewRequired=true",
+    "preconditions": {
+      "review_required": true,
+      "side_effect_cap": "REMOTE_DRAFT",
+      "validation_approved": false,
+      "validation_override_logged": false
+    }
+  },
+  "step_10a": {
+    "action": "save_draft",
+    "side_effect_class": "REMOTE_DRAFT",
+    "portal_draft_ref": "DRAFT-FAKE-OPP-001",
+    "portal_acknowledgement_text": "Draft saved",
+    "screenshot_path": "sessions/test-session/step-10-save-draft.webp"
+  },
+  "checkpoint": {
+    "step": 10,
+    "step_name": "save_draft",
+    "side_effect_class_reached": "REMOTE_DRAFT",
+    "highest_side_effect_class_reached": "REMOTE_DRAFT",
+    "portal_draft_ref": "DRAFT-FAKE-OPP-001",
+    "screenshot_paths": [
+      "sessions/test-session/step-01-login-page.webp",
+      "sessions/test-session/step-02-auth-state.webp",
+      "sessions/test-session/step-03-opportunity-search.webp",
+      "sessions/test-session/step-04-opportunity-verified.webp",
+      "sessions/test-session/step-05-response-form.webp",
+      "sessions/test-session/step-06-company-details.webp",
+      "sessions/test-session/step-07-lot-pricing.webp",
+      "sessions/test-session/step-08-document-upload.webp",
+      "sessions/test-session/step-09-review-summary.webp",
+      "sessions/test-session/step-10-save-draft.webp"
+    ],
+    "portal_state": {
+      "opportunity_found": true,
+      "existing_draft_detected": true,
+      "existing_submission_detected": false,
+      "portal_status": "Open"
+    }
+  },
+  "expected_detection": {
+    "error_code": null,
+    "step_reached": 10,
+    "side_effect_class_reached": "REMOTE_DRAFT"
+  },
+  "expected_result": {
+    "kind": "draft_save_result",
+    "draft_saved": true,
+    "portal_draft_ref": "DRAFT-FAKE-OPP-001",
+    "side_effect_class": "REMOTE_DRAFT",
+    "screenshot_paths": [
+      "sessions/test-session/step-01-login-page.webp",
+      "sessions/test-session/step-02-auth-state.webp",
+      "sessions/test-session/step-03-opportunity-search.webp",
+      "sessions/test-session/step-04-opportunity-verified.webp",
+      "sessions/test-session/step-05-response-form.webp",
+      "sessions/test-session/step-06-company-details.webp",
+      "sessions/test-session/step-07-lot-pricing.webp",
+      "sessions/test-session/step-08-document-upload.webp",
+      "sessions/test-session/step-09-review-summary.webp",
+      "sessions/test-session/step-10-save-draft.webp"
+    ],
+    "portal_timestamp": "2026-05-22T00:10:00Z",
+    "portal_state_verified": true
+  }
+}
