@@ -3,10 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import {
+  BidWorkflowStatusBadge,
   ErrorSummaryList,
   ManifestViewer,
   PipelineBadge,
   sanitizeUntrustedText,
+  type BidWorkflowState,
   type ErrorSummaryItem,
   type PipelineState,
 } from '@project/ui';
@@ -33,6 +35,15 @@ const PIPELINE_STATES = [
   'rejected',
   'error',
 ] as const satisfies readonly PipelineState[];
+const BID_WORKFLOW_STATES = [
+  'not_started',
+  'ready_to_bid',
+  'bid_in_progress',
+  'draft_saved',
+  'bid_submitted',
+  'bid_failed',
+  'portal_state_unknown',
+] as const satisfies readonly BidWorkflowState[];
 const MAJOR_PROCESS_CHANGES = [
   'canonical_process',
   'landed_cost',
@@ -59,6 +70,12 @@ function toPipelineState(stage: string | null | undefined): PipelineState {
   return PIPELINE_STATES.includes(stage as PipelineState)
     ? (stage as PipelineState)
     : 'pending';
+}
+
+function toBidWorkflowState(state: string | null | undefined): BidWorkflowState {
+  return BID_WORKFLOW_STATES.includes(state as BidWorkflowState)
+    ? (state as BidWorkflowState)
+    : 'portal_state_unknown';
 }
 
 function formatDate(value: string | null | undefined): string {
@@ -120,6 +137,8 @@ function buildEmptyProcess(processId: string): ProcurementProcessRow {
 }
 
 function buildEmptySnapshot(processId: string): ContractDetailSnapshot {
+  const now = new Date().toISOString();
+
   return {
     process: buildEmptyProcess(processId),
     pipelineAssessment: null,
@@ -128,11 +147,20 @@ function buildEmptySnapshot(processId: string): ContractDetailSnapshot {
     pricingAssessments: [],
     landedCosts: [],
     manifest: null,
+    bidWorkflowSummary: {
+      process_id: processId,
+      bid_state: 'not_started',
+      review_required: false,
+      bid_job_id: null,
+      updated_at: now,
+      bid_state_summary: 'Bid workflow state synced',
+      error_manifest_link: null,
+    },
     decisionSummary: null,
     errorSummaries: [],
     workflowJobs: [],
     validationVerdicts: [],
-    loadedAt: new Date().toISOString(),
+    loadedAt: now,
   };
 }
 
@@ -161,6 +189,10 @@ function mergeMinorSections(
     validationVerdicts: update.changed.includes('jobs')
       ? next.validationVerdicts
       : current.validationVerdicts,
+    bidWorkflowSummary:
+      update.changed.includes('jobs') || update.changed.includes('errors')
+        ? next.bidWorkflowSummary
+        : current.bidWorkflowSummary,
     errorSummaries: update.changed.includes('errors')
       ? next.errorSummaries
       : current.errorSummaries,
@@ -317,6 +349,8 @@ export default function ContractDetailPage() {
   const pipelineState = toPipelineState(
     snapshot?.pipelineAssessment?.pipeline_state ?? process.current_stage,
   );
+  const bidWorkflowSummary = snapshot?.bidWorkflowSummary ?? null;
+  const bidWorkflowState = toBidWorkflowState(bidWorkflowSummary?.bid_state);
   const errorItems =
     snapshot?.errorSummaries.map((row) => toErrorSummaryItem(row, process.id)) ?? [];
 
@@ -352,6 +386,42 @@ export default function ContractDetailPage() {
         </div>
         <div style={{ display: 'grid', gap: 12, justifyItems: 'end' }}>
           <PipelineBadge state={pipelineState} />
+          {bidWorkflowSummary ? (
+            <section
+              aria-label="Bid workflow"
+              data-testid="bid-state-section"
+              style={{ display: 'grid', gap: 6, justifyItems: 'end', textAlign: 'right' }}
+            >
+              <div data-testid="bid-state-badge">
+                <BidWorkflowStatusBadge
+                  state={bidWorkflowState}
+                  updatedAt={bidWorkflowSummary.updated_at}
+                />
+              </div>
+              <p style={{ margin: 0, color: '#59616b', fontSize: 13 }}>
+                Last updated{' '}
+                <time
+                  data-testid="bid-state-updated-at"
+                  dateTime={bidWorkflowSummary.updated_at}
+                >
+                  {formatDate(bidWorkflowSummary.updated_at)}
+                </time>
+              </p>
+              {bidWorkflowSummary.review_required ? (
+                <p style={{ margin: 0, color: '#59616b', fontSize: 13 }}>
+                  {sanitizeUntrustedText(bidWorkflowSummary.bid_state_summary)}
+                </p>
+              ) : null}
+              {bidWorkflowSummary.error_manifest_link ? (
+                <a
+                  data-testid="bid-error-manifest-link"
+                  href={bidWorkflowSummary.error_manifest_link}
+                >
+                  View error manifest
+                </a>
+              ) : null}
+            </section>
+          ) : null}
           {pendingMajorUpdateCount > 0 ? (
             <button
               data-testid="contract-detail-refresh-chip"

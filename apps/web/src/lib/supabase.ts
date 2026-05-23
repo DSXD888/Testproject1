@@ -46,11 +46,22 @@ export interface ContractDetailSnapshot {
   pricingAssessments: CandidatePricingAssessmentRow[];
   landedCosts: LandedCostEstimateRow[];
   manifest: ManifestRow | null;
+  bidWorkflowSummary: BidWorkflowSummaryRow | null;
   decisionSummary: OperatorDecisionSummaryRow | null;
   errorSummaries: ErrorManifestSummaryRow[];
   workflowJobs: WorkflowJobSummaryRow[];
   validationVerdicts: ValidationVerdictSummaryRow[];
   loadedAt: string;
+}
+
+export interface BidWorkflowSummaryRow {
+  process_id: string;
+  bid_state: string;
+  review_required: boolean;
+  bid_job_id: string | null;
+  updated_at: string;
+  bid_state_summary: string;
+  error_manifest_link: string | null;
 }
 
 export interface GetContractDetailOptions {
@@ -71,6 +82,33 @@ export interface GetStatusPageSnapshotOptions {
 type ViewerEnv = Record<string, string | undefined>;
 
 let cachedViewerClient: ViewerSupabaseClient | null = null;
+
+const BID_WORKFLOW_SUMMARY_COLUMNS =
+  'process_id,bid_state,review_required,bid_job_id,updated_at' as const;
+
+interface SupabaseSingleResult<Row> {
+  data: Row | null;
+  error: { message: string } | null;
+}
+
+interface BidWorkflowSummarySelectBuilder {
+  eq(column: 'process_id', value: string): {
+    maybeSingle(): Promise<SupabaseSingleResult<BidWorkflowProjectionRow>>;
+  };
+}
+
+interface BidWorkflowSummaryTable {
+  select(columns: typeof BID_WORKFLOW_SUMMARY_COLUMNS): BidWorkflowSummarySelectBuilder;
+}
+
+interface BidWorkflowProjectionClient {
+  from(table: 'bid_workflow_states'): BidWorkflowSummaryTable;
+}
+
+type BidWorkflowProjectionRow = Pick<
+  BidWorkflowSummaryRow,
+  'process_id' | 'bid_state' | 'review_required' | 'bid_job_id' | 'updated_at'
+>;
 
 export function getViewerSupabaseConfig(env: ViewerEnv = process.env): ViewerSupabaseConfig {
   const url = env.NEXT_PUBLIC_SUPABASE_URL;
@@ -202,6 +240,7 @@ export async function getContractDetail(
     pricingAssessments,
     landedCosts,
     manifest,
+    bidWorkflowSummary,
     decisionSummary,
     errorSummaries,
     workflowJobs,
@@ -214,6 +253,7 @@ export async function getContractDetail(
     listCandidatePricingAssessments(processId, limit, client),
     listLandedCostEstimates(processId, limit, client),
     getLatestManifest(processId, client),
+    loadBidWorkflowSummary(processId, client),
     getOperatorDecisionSummary(processId, client),
     listErrorManifestSummaries(orgId, limit, client),
     listWorkflowJobSummaries(orgId, client, limit),
@@ -232,6 +272,7 @@ export async function getContractDetail(
     pricingAssessments,
     landedCosts,
     manifest,
+    bidWorkflowSummary,
     decisionSummary,
     errorSummaries,
     workflowJobs,
@@ -359,6 +400,36 @@ async function getOperatorDecisionSummary(
     .maybeSingle();
 
   return requireSingle<OperatorDecisionSummaryRow>(data, error);
+}
+
+export async function loadBidWorkflowSummary(
+  processId: string,
+  client: ViewerSupabaseClient = getViewerSupabaseClient(),
+): Promise<BidWorkflowSummaryRow | null> {
+  const bidWorkflowStates = (client as unknown as BidWorkflowProjectionClient).from(
+    'bid_workflow_states',
+  );
+  const { data, error } = await bidWorkflowStates
+    .select(BID_WORKFLOW_SUMMARY_COLUMNS)
+    .eq('process_id', processId)
+    .maybeSingle();
+
+  const row = requireSingle<BidWorkflowProjectionRow>(data, error);
+
+  if (!row) {
+    return null;
+  }
+
+  return {
+    ...row,
+    bid_state_summary: row.review_required
+      ? 'Operator review required in desktop'
+      : 'Bid workflow state synced',
+    error_manifest_link:
+      row.bid_state === 'bid_failed'
+        ? `/status?bidJob=${encodeURIComponent(row.bid_job_id ?? row.process_id)}#errors`
+        : null,
+  };
 }
 
 async function listErrorManifestSummaries(
