@@ -1,0 +1,176 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BidPortalProcontractResult",
+  "description": "Output envelope for the Procontract L6 bid portal skill. The result carries stable portal evidence only; sensitive operator input values stay daemon-side.",
+  "oneOf": [
+    {
+      "title": "SubmissionResultEnvelope",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "submission_result"
+        },
+        "submitted": {
+          "type": "boolean"
+        },
+        "confirmation_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "final_side_effect_class": {
+          "$ref": "#/definitions/SideEffectClass"
+        },
+        "screenshot_paths": {
+          "$ref": "#/definitions/ScreenshotPaths"
+        },
+        "portal_timestamp": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "portal_state_verified": {
+          "type": "boolean"
+        },
+        "validation_approved": {
+          "type": "boolean"
+        },
+        "validation_override_logged": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "submitted",
+        "final_side_effect_class",
+        "screenshot_paths"
+      ]
+    },
+    {
+      "title": "DraftSaveResultEnvelope",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "draft_save_result"
+        },
+        "draft_saved": {
+          "type": "boolean"
+        },
+        "portal_draft_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "side_effect_class": {
+          "$ref": "#/definitions/SideEffectClass"
+        },
+        "screenshot_paths": {
+          "$ref": "#/definitions/ScreenshotPaths"
+        },
+        "portal_timestamp": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "portal_state_verified": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "draft_saved",
+        "side_effect_class"
+      ]
+    },
+    {
+      "title": "FailureEnvelope",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "failure"
+        },
+        "error_code": {
+          "$ref": "#/definitions/BidFailureCode"
+        },
+        "step_reached": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 11
+        },
+        "side_effect_class_reached": {
+          "$ref": "#/definitions/SideEffectClass"
+        },
+        "screenshot_paths": {
+          "$ref": "#/definitions/ScreenshotPaths"
+        },
+        "error_message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "portal_state": {
+          "$ref": "#/definitions/PortalStateVerification"
+        }
+      },
+      "required": [
+        "kind",
+        "error_code",
+        "step_reached",
+        "side_effect_class_reached"
+      ]
+    }
+  ],
+  "definitions": {
+    "SideEffectClass": {
+      "type": "string",
+      "enum": [
+        "READ_ONLY",
+        "REMOTE_DRAFT",
+        "NOTIFICATION_OR_LOCK",
+        "LEGAL_DECLARATION",
+        "FORMAL_SUBMISSION",
+        "FUNDS_COMMITTED"
+      ]
+    },
+    "ScreenshotPaths": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "BidFailureCode": {
+      "type": "string",
+      "pattern": "^(BID_(SUBMISSION_FAILED|DUPLICATE_DETECTED|SIDE_EFFECT_CAP_EXCEEDED|READINESS_GATE_FAILED|PORTAL_CHANGED|PORTAL_AUTH_EXPIRED)|AUTH_STATE_STALE|PAGE_SHAPE_DRIFT|AGENT_.*|CDP_CONNECT_FAILED)$"
+    },
+    "PortalStateVerification": {
+      "type": "object",
+      "properties": {
+        "opportunity_found": {
+          "type": "boolean"
+        },
+        "existing_draft_detected": {
+          "type": "boolean"
+        },
+        "existing_submission_detected": {
+          "type": "boolean"
+        },
+        "portal_status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "opportunity_found",
+        "existing_draft_detected",
+        "existing_submission_detected",
+        "portal_status"
+      ]
+    }
+  }
+}

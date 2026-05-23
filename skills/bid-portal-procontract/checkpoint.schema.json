@@ -1,0 +1,67 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BidPortalProcontractCheckpoint",
+  "description": "Per-step resume checkpoint for the Procontract L6 bid portal skill.",
+  "type": "object",
+  "properties": {
+    "step": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 11
+    },
+    "side_effect_class_reached": {
+      "$ref": "#/definitions/SideEffectClass"
+    },
+    "screenshot_paths": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "portal_state": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "minLength": 1
+        },
+        "page_fingerprint": {
+          "type": "string",
+          "minLength": 1
+        },
+        "opportunity_ref_seen": {
+          "type": "string"
+        },
+        "portal_status": {
+          "type": "string"
+        },
+        "existing_draft_detected": {
+          "type": "boolean"
+        },
+        "existing_submission_detected": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "required": [
+    "step",
+    "side_effect_class_reached",
+    "screenshot_paths"
+  ],
+  "definitions": {
+    "SideEffectClass": {
+      "type": "string",
+      "enum": [
+        "READ_ONLY",
+        "REMOTE_DRAFT",
+        "NOTIFICATION_OR_LOCK",
+        "LEGAL_DECLARATION",
+        "FORMAL_SUBMISSION",
+        "FUNDS_COMMITTED"
+      ]
+    }
+  }
+}
