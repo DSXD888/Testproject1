@@ -252,6 +252,33 @@ fn ut_skl_008_run_manifest_instruction_block_required() -> Result<()> {
 }
 
 #[test]
+fn l6_t_bid_portal_procontract_skill_001_frontmatter_declares_l6_contract() -> Result<()> {
+    let skill = load_skill_metadata(&repo_skill_dir("bid-portal-procontract")?)?;
+    ensure!(skill.metadata.skill_id == "bid-portal/procontract");
+    ensure!(skill.metadata.skill_version == "0.1.0");
+    ensure!(skill.metadata.interaction_profile == "pty_interactive");
+    ensure!(skill.metadata.result_schema_version == "1.0.0");
+    ensure!(skill.metadata.checkpoint_schema_version.as_deref() == Some("1.0.0"));
+    ensure!(skill.metadata.model_profile == "portal_form_high_reliability");
+    ensure!(skill.metadata.side_effect_class == "external_mutation");
+    ensure!(skill.metadata.requires_cdp);
+    ensure!(skill.metadata.cdp_default_port == Some(9222));
+    ensure!(
+        skill.metadata.source_structure_version.as_deref()
+            == Some("procontract-bid-portal-2026-05-22")
+    );
+    ensure!(skill.metadata.promotion_stage.as_deref() == Some("draft"));
+    ensure!(
+        skill.metadata.worker_behavior_version.as_deref()
+            == Some("bid-portal/procontract@0.1.0+1.0")
+    );
+    ensure!(skill.metadata.version_change_affects_behavior);
+    ensure!(skill.skill_markdown.contains("agent_cli: claude"));
+    ensure!(skill.skill_markdown.contains("validation_policy: always"));
+    Ok(())
+}
+
+#[test]
 fn ut_skl_009_l3_promotion_metadata_is_visible_in_linted_operational_skills() -> Result<()> {
     let auth_refresh_alibaba = lint_skill_directory(&repo_skill_dir("auth-refresh/alibaba")?)?;
     ensure!(auth_refresh_alibaba.metadata.skill_version == DEFAULT_SOURCE_SKILL_VERSION);
