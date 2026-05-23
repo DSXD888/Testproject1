@@ -249,6 +249,46 @@ def _parse_iso_ts(value):
     return dt
 
 
+def _latest_start_mail_claim(messages, bead_id, agent, now=None):
+    """Return prior Start-mail state for this bead.
+
+    A different agent's recent Start mail remains a hard block. A different
+    agent's stale Start mail can be reclaimed only after the bead has been reset
+    to an open status; file reservations are still the collision detector.
+    """
+    now = now or datetime.now(timezone.utc)
+    stale_before = now - timedelta(hours=START_IDEMPOTENCY_HOURS)
+    prior_self_start = False
+    latest_other = None
+
+    for msg in messages:
+        if not isinstance(msg, dict):
+            continue
+        subj = msg.get("subject") or ""
+        if f"[{bead_id}] Start" not in subj:
+            continue
+        sender = (
+            msg.get("sender_name") or msg.get("from_agent") or msg.get("from") or msg.get("sender")
+            or ""
+        )
+        if not sender:
+            continue
+        created_ts = _parse_iso_ts(msg.get("created_ts") or msg.get("created_at"))
+        if sender == agent:
+            prior_self_start = True
+            continue
+        if latest_other is None:
+            latest_other = {"sender": sender, "created_ts": created_ts, "stale": False}
+            continue
+        current_ts = latest_other.get("created_ts")
+        if current_ts is None or (created_ts is not None and created_ts > current_ts):
+            latest_other = {"sender": sender, "created_ts": created_ts, "stale": False}
+
+    if latest_other and latest_other["created_ts"] is not None:
+        latest_other["stale"] = latest_other["created_ts"] < stale_before
+    return prior_self_start, latest_other
+
+
 def _normalize_peer_list(payload, *, exclude):
     """Flatten list_contacts/list_agents response shapes into peer names."""
     out = []
@@ -526,8 +566,6 @@ def main():
         "query": f"[{bead_id}] Start",
         "limit": 20,
     })
-    prior_self_start = False
-    prior_other_start = None
     messages = []
     if isinstance(search_res, dict):
         for key in ("result", "messages", "results"):
@@ -537,24 +575,22 @@ def main():
                 break
     elif isinstance(search_res, list):
         messages = search_res
-    for msg in messages:
-        if not isinstance(msg, dict):
-            continue
-        subj = msg.get("subject") or ""
-        if f"[{bead_id}] Start" not in subj:
-            continue
-        sender = (
-            msg.get("sender_name") or msg.get("from_agent") or msg.get("from") or msg.get("sender")
-            or ""
-        )
-        if sender and sender == agent:
-            prior_self_start = True
-        elif sender and sender != agent:
-            prior_other_start = sender
+    prior_self_start, prior_other_start = _latest_start_mail_claim(messages, bead_id, agent)
     if prior_other_start:
-        die(
-            f"bead {bead_id} already has Start mail from {prior_other_start!r}; abort."
-        )
+        prior_sender = prior_other_start["sender"]
+        prior_ts = prior_other_start.get("created_ts")
+        if prior_other_start.get("stale") and status in ("open", "ready", "blocked", "", "todo"):
+            ts_text = prior_ts.isoformat() if prior_ts else "unknown time"
+            warn(
+                f"stale Start mail from {prior_sender!r} at {ts_text}; "
+                "bead is open, so proceeding to file reservations as the collision detector."
+            )
+        else:
+            ts_text = prior_ts.isoformat() if prior_ts else "unknown time"
+            die(
+                f"bead {bead_id} already has Start mail from {prior_sender!r} "
+                f"at {ts_text}; abort."
+            )
 
     # 3. Determine files to reserve.
     paths = args.paths or parse_files_from_bead(description)

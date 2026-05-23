@@ -17,6 +17,7 @@ import os
 import socket
 import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -38,6 +39,57 @@ def _agentmail_reachable():
             return True
     except OSError:
         return False
+
+
+class StartMailClaimTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.br_claim = _load_module(BR_CLAIM, "br_claim_start_mail_under_test")
+
+    def test_recent_other_start_is_not_stale(self):
+        now = datetime(2026, 5, 23, 8, 0, tzinfo=timezone.utc)
+        _, other = self.br_claim._latest_start_mail_claim(
+            [{
+                "subject": "[test-bead] Start: work",
+                "from": "BlueLake",
+                "created_ts": (now - timedelta(minutes=10)).isoformat(),
+            }],
+            "test-bead",
+            "GrayMouse",
+            now=now,
+        )
+        self.assertEqual(other["sender"], "BlueLake")
+        self.assertFalse(other["stale"])
+
+    def test_stale_other_start_can_be_reclaimed_by_open_bead_path(self):
+        now = datetime(2026, 5, 23, 8, 0, tzinfo=timezone.utc)
+        _, other = self.br_claim._latest_start_mail_claim(
+            [{
+                "subject": "[test-bead] Start: work",
+                "from": "BlueLake",
+                "created_ts": (now - timedelta(hours=5)).isoformat(),
+            }],
+            "test-bead",
+            "GrayMouse",
+            now=now,
+        )
+        self.assertEqual(other["sender"], "BlueLake")
+        self.assertTrue(other["stale"])
+
+    def test_self_start_remains_idempotent_marker(self):
+        now = datetime(2026, 5, 23, 8, 0, tzinfo=timezone.utc)
+        prior_self, other = self.br_claim._latest_start_mail_claim(
+            [{
+                "subject": "[test-bead] Start: work",
+                "from": "GrayMouse",
+                "created_ts": now.isoformat(),
+            }],
+            "test-bead",
+            "GrayMouse",
+            now=now,
+        )
+        self.assertTrue(prior_self)
+        self.assertIsNone(other)
 
 
 @unittest.skipUnless(_agentmail_reachable(), "mcp-agent-mail not reachable on 127.0.0.1:8765")
