@@ -54,7 +54,63 @@ type BootstrapMode =
 const SNAPSHOT_AT = '2026-03-28T20:00:00Z';
 const SNAPSHOT_SEQ = 42;
 const SESSION_STREAM_INTERVAL_MS = 20;
+const SESSION_EXECUTION_MODE_FILTERS = ['pty', 'contract'] as const;
+const SESSION_PHASE_FILTERS = [
+  'created',
+  'spawned',
+  'active',
+  'terminating',
+  'exited',
+  'reaped',
+  'archived',
+] as const;
+const ERROR_SEVERITY_FILTERS = ['critical', 'warning', 'info'] as const satisfies readonly ErrorFixtureItem['severity'][];
+
 let restartScenarioCommitted = false;
+let restartScenarioRefreshPending = false;
+
+function allowedStringFilters<T extends string>(
+  source: unknown,
+  allowed: readonly T[],
+): T[] {
+  if (!Array.isArray(source)) {
+    return [];
+  }
+
+  return source.reduce<T[]>((filters, entry) => {
+    const candidate = String(entry);
+    if (allowed.includes(candidate as T)) {
+      filters.push(candidate as T);
+    }
+    return filters;
+  }, []);
+}
+
+function nonEmptyStringFilters(source: unknown): string[] {
+  if (!Array.isArray(source)) {
+    return [];
+  }
+
+  return source.reduce<string[]>((filters, entry) => {
+    if (typeof entry === 'string' && entry.length > 0) {
+      filters.push(entry);
+    }
+    return filters;
+  }, []);
+}
+
+function stringFilters(source: unknown): string[] {
+  if (!Array.isArray(source)) {
+    return [];
+  }
+
+  return source.reduce<string[]>((filters, entry) => {
+    if (typeof entry === 'string') {
+      filters.push(entry);
+    }
+    return filters;
+  }, []);
+}
 
 function makeProcessSummary(
   processId: string,
@@ -1137,27 +1193,11 @@ function sessionListItems(payload: InvokePayload) {
       ? (payload.args.filters as Record<string, unknown>)
       : null;
   const activeOnly = rawFilters?.activeOnly === true;
-  const executionModes = Array.isArray(rawFilters?.executionModes)
-    ? rawFilters.executionModes.filter(
-        (value): value is 'pty' | 'contract' =>
-          value === 'pty' || value === 'contract',
-      )
-    : [];
-  const phases = Array.isArray(rawFilters?.phases)
-    ? rawFilters.phases.filter(
-        (
-          value,
-        ): value is
-          | 'created'
-          | 'spawned'
-          | 'active'
-          | 'terminating'
-          | 'exited'
-          | 'reaped'
-          | 'archived' =>
-          typeof value === 'string',
-      )
-    : [];
+  const executionModes = allowedStringFilters(
+    rawFilters?.executionModes,
+    SESSION_EXECUTION_MODE_FILTERS,
+  );
+  const phases = allowedStringFilters(rawFilters?.phases, SESSION_PHASE_FILTERS);
   const search =
     typeof rawFilters?.search === 'string'
       ? rawFilters.search.trim().toLowerCase()
@@ -1195,17 +1235,11 @@ function filteredErrors(
     payload.args.filters !== null
       ? (payload.args.filters as Record<string, unknown>)
       : null;
-  const severities = Array.isArray(rawFilters?.severities)
-    ? rawFilters.severities.filter(
-        (value): value is ErrorFixtureItem['severity'] =>
-          value === 'critical' || value === 'warning' || value === 'info',
-      )
-    : [];
-  const pipelineStages = Array.isArray(rawFilters?.pipelineStages)
-    ? rawFilters.pipelineStages.filter(
-        (value): value is string => typeof value === 'string' && value.length > 0,
-      )
-    : [];
+  const severities = allowedStringFilters(
+    rawFilters?.severities,
+    ERROR_SEVERITY_FILTERS,
+  );
+  const pipelineStages = nonEmptyStringFilters(rawFilters?.pipelineStages);
   const search =
     typeof rawFilters?.search === 'string'
       ? rawFilters.search.trim().toLowerCase()
@@ -1232,16 +1266,29 @@ function filteredErrors(
   });
 }
 
+function fixtureNameFromArgs(
+  args: Record<string, unknown> | undefined,
+  fallback: string,
+): string {
+  const value = args?.['sessionId'];
+  switch (typeof value) {
+    case 'string':
+      return value || fallback;
+    default:
+      return fallback;
+  }
+}
+
 function sessionHistoryPayload(
-  sessionId: string,
+  fixtureName: string,
   fromSeq: number,
   toSeq: number,
   contractText?: string,
   contractMode: 'pty' | 'stdout' = 'pty',
 ) {
-  if (sessionId === 'session-live') {
+  if (fixtureName === 'session-live') {
     return {
-      sessionId,
+      sessionId: fixtureName,
       firstSeq: fromSeq,
       lastSeq: toSeq,
       availability: 'complete' as const,
@@ -1269,7 +1316,7 @@ function sessionHistoryPayload(
   }
 
   return {
-    sessionId,
+    sessionId: fixtureName,
     firstSeq: 1,
     lastSeq: contractText ? 1 : 3,
     availability: 'complete' as const,
@@ -1351,8 +1398,30 @@ export async function handleDevBridgeInvoke({
     payload.cmd === 'get_bootstrap_snapshot' ||
     payload.cmd === 'refresh_bootstrap_snapshot'
   ) {
-    if (payload.cmd === 'get_bootstrap_snapshot' && !restartScenario) {
+    const shouldPreserveRestart =
+      payload.cmd === 'refresh_bootstrap_snapshot' &&
+      restartScenario &&
+      restartScenarioRefreshPending;
+    if (!shouldPreserveRestart) {
       restartScenarioCommitted = false;
+    }
+    restartScenarioRefreshPending = false;
+    if (
+      payload.cmd === 'get_bootstrap_snapshot' ||
+      payload.cmd === 'refresh_bootstrap_snapshot'
+    ) {
+      const bridgeFixture = bridgeFixtureKey(request);
+      if (bridgeFixture) {
+        bridgeScenarioState.delete(bridgeFixture);
+      }
+      const decisionFixture = decisionFixtureKey(request);
+      if (decisionFixture) {
+        decisionFixtureState.delete(decisionFixture);
+      }
+      const errorsFixture = params.get('errorsFixture');
+      if (errorsFixture) {
+        errorFixtureState.delete(errorsFixture);
+      }
     }
     return bootstrapSnapshotForRequest(request);
   }
@@ -1362,17 +1431,9 @@ export async function handleDevBridgeInvoke({
       args && typeof args.filters === 'object' && args.filters !== null
         ? (args.filters as Record<string, unknown>)
         : null;
-    const sourceIds = Array.isArray(rawFilters?.sourceIds)
-      ? rawFilters.sourceIds.filter((value): value is string => typeof value === 'string')
-      : [];
-    const pipelineStates = Array.isArray(rawFilters?.pipelineStates)
-      ? rawFilters.pipelineStates.filter((value): value is string => typeof value === 'string')
-      : [];
-    const decisionDispositions = Array.isArray(rawFilters?.decisionDispositions)
-      ? rawFilters.decisionDispositions.filter(
-          (value): value is string => typeof value === 'string',
-        )
-      : [];
+    const sourceIds = stringFilters(rawFilters?.sourceIds);
+    const pipelineStates = stringFilters(rawFilters?.pipelineStates);
+    const decisionDispositions = stringFilters(rawFilters?.decisionDispositions);
     const staleOnly = rawFilters?.staleOnly === true;
     const search =
       typeof rawFilters?.search === 'string' ? rawFilters.search.trim().toLowerCase() : '';
@@ -1708,6 +1769,7 @@ export async function handleDevBridgeInvoke({
   if (payload.cmd === 'restart_daemon') {
     if (restartScenario) {
       restartScenarioCommitted = true;
+      restartScenarioRefreshPending = true;
       return {
         accepted: true,
         visibleAfterSeq: 90,
@@ -1781,11 +1843,10 @@ export async function handleDevBridgeInvoke({
     if (bridgeFixture === 'session-resize-terminal') {
       return envelope(sessionHistoryPayload('session-live', 1, 1));
     }
-    const sessionId =
-      (typeof args?.sessionId === 'string' && args.sessionId) || 'session-failed';
+    const historySessionName = fixtureNameFromArgs(args, 'session-failed');
     const fromSeq = typeof args?.fromSeq === 'number' ? args.fromSeq : 1;
     const toSeq = typeof args?.toSeq === 'number' ? args.toSeq : fromSeq;
-    return envelope(sessionHistoryPayload(sessionId, fromSeq, toSeq));
+    return envelope(sessionHistoryPayload(historySessionName, fromSeq, toSeq));
   }
 
   if (
@@ -1810,8 +1871,7 @@ export async function handleDevBridgeInvoke({
     return {
       accepted: true,
       visibleAfterSeq: SNAPSHOT_SEQ,
-      sessionId:
-        (typeof args?.sessionId === 'string' && args.sessionId) || 'session-live',
+      sessionId: fixtureNameFromArgs(args, 'session-live'),
     };
   }
 

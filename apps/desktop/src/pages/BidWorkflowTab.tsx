@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import { useState, type ReactElement } from 'react';
 
 import {
   BidScopeSummary,
@@ -12,11 +12,37 @@ import type {
   BidScopePayload,
   SideEffectClass,
 } from '../../../../packages/bidding/bid-scope-types';
+import {
+  invoke,
+  triggerBidWorkflow,
+  type BidDocumentPayload,
+  type CompanyProfilePayload,
+  type TriggerBidWorkflowParams,
+} from '../lib/transport';
+
+type StartStatus = 'idle' | 'starting' | 'queued' | 'error';
+
+type BidReadinessBlocker =
+  | string
+  | {
+      code: string;
+      diagnostic?: string | null;
+    };
+
+export interface DesktopBidWorkflowReadiness
+  extends Omit<BidWorkflowReadiness, 'blockers'> {
+  blockers?: readonly BidReadinessBlocker[];
+}
 
 export interface DesktopBidWorkflowState {
   bidState: BidWorkflowState;
   updatedAt?: string | null;
   bidScope?: BidScopePayload | null;
+  readiness?: DesktopBidWorkflowReadiness | null;
+  operatorId?: string | null;
+  companyProfile?: CompanyProfilePayload | null;
+  bidDocuments?: readonly BidDocumentPayload[];
+  stageRunId?: string | null;
   draftRef?: string | null;
   screenshotPaths?: readonly string[];
   manifestHref?: string | null;
@@ -27,16 +53,43 @@ export interface DesktopBidWorkflowState {
 export interface BidWorkflowTabProps {
   processId: string;
   workflowState?: DesktopBidWorkflowState | null;
-  readiness?: BidWorkflowReadiness | null;
+  readiness?: DesktopBidWorkflowReadiness | null;
   mutationsEnabled: boolean;
-  onStartBid?: () => void;
+  onStartBid?: () => void | Promise<void>;
+}
+
+function blockerCode(blocker: BidReadinessBlocker): string {
+  return typeof blocker === 'string' ? blocker : blocker.code;
+}
+
+function blockerDiagnostic(blocker: BidReadinessBlocker): string | null {
+  return typeof blocker === 'string' ? null : (blocker.diagnostic ?? null);
+}
+
+function appendBlocker(
+  readiness: DesktopBidWorkflowReadiness,
+  blocker: BidReadinessBlocker,
+): DesktopBidWorkflowReadiness {
+  return {
+    ...readiness,
+    blockers: [...(readiness.blockers ?? []), blocker],
+  };
+}
+
+function buttonReadiness(
+  readiness: DesktopBidWorkflowReadiness,
+): BidWorkflowReadiness {
+  return {
+    ...readiness,
+    blockers: readiness.blockers?.map(blockerCode),
+  };
 }
 
 function guardedReadiness(
-  readiness: BidWorkflowReadiness | null | undefined,
+  readiness: DesktopBidWorkflowReadiness | null | undefined,
   mutationsEnabled: boolean,
   hasStartHandler: boolean,
-): BidWorkflowReadiness {
+): DesktopBidWorkflowReadiness {
   if (!readiness) {
     return {
       eligible: false,
@@ -45,22 +98,48 @@ function guardedReadiness(
   }
 
   if (!mutationsEnabled) {
-    return {
-      ...readiness,
-      eligible: false,
-      blockers: [...(readiness.blockers ?? []), 'desktop_control_not_available'],
-    };
+    return appendBlocker(
+      {
+        ...readiness,
+        eligible: false,
+      },
+      'desktop_control_not_available',
+    );
   }
 
   if (!hasStartHandler) {
-    return {
-      ...readiness,
-      eligible: false,
-      blockers: [...(readiness.blockers ?? []), 'bid_scope_not_ready'],
-    };
+    return appendBlocker(
+      {
+        ...readiness,
+        eligible: false,
+      },
+      'bid_scope_not_ready',
+    );
   }
 
   return readiness;
+}
+
+function buildTriggerParams(
+  workflowState: DesktopBidWorkflowState | null | undefined,
+): TriggerBidWorkflowParams | null {
+  if (
+    !workflowState?.bidScope ||
+    !workflowState.operatorId ||
+    !workflowState.companyProfile ||
+    !workflowState.stageRunId
+  ) {
+    return null;
+  }
+
+  return {
+    processId: workflowState.bidScope.processId,
+    bidScope: workflowState.bidScope as TriggerBidWorkflowParams['bidScope'],
+    operatorId: workflowState.operatorId,
+    companyProfile: workflowState.companyProfile,
+    bidDocuments: [...(workflowState.bidDocuments ?? [])],
+    stageRunId: workflowState.stageRunId,
+  };
 }
 
 export function BidWorkflowTab({
@@ -70,9 +149,43 @@ export function BidWorkflowTab({
   mutationsEnabled,
   onStartBid,
 }: BidWorkflowTabProps): ReactElement {
+  const [startStatus, setStartStatus] = useState<StartStatus>('idle');
+  const [startError, setStartError] = useState<string | null>(null);
   const bidState = workflowState?.bidState ?? 'not_started';
-  const startReadiness = guardedReadiness(readiness, mutationsEnabled, Boolean(onStartBid));
+  const triggerParams = buildTriggerParams(workflowState);
+  const startReadiness = guardedReadiness(
+    readiness ?? workflowState?.readiness,
+    mutationsEnabled,
+    Boolean(onStartBid) || Boolean(triggerParams),
+  );
   const canShowStart = bidState === 'not_started' || bidState === 'ready_to_bid';
+  const blockerDetails = startReadiness.blockers ?? [];
+
+  const handleStartBid = async (): Promise<void> => {
+    if (!startReadiness.eligible || startStatus === 'starting') {
+      return;
+    }
+
+    setStartStatus('starting');
+    setStartError(null);
+
+    try {
+      if (onStartBid) {
+        await onStartBid();
+      } else if (triggerParams) {
+        const response = await triggerBidWorkflow({ invoke }, triggerParams);
+        if (!response.accepted) {
+          throw new Error('Bid workflow was not accepted by the daemon.');
+        }
+      } else {
+        throw new Error('Bid scope is not ready for submission.');
+      }
+      setStartStatus('queued');
+    } catch (error) {
+      setStartStatus('error');
+      setStartError(error instanceof Error ? error.message : 'Bid workflow start failed.');
+    }
+  };
 
   return (
     <section className="bid-workflow-tab" data-process-id={processId}>
@@ -92,11 +205,37 @@ export function BidWorkflowTab({
 
       {canShowStart ? (
         <BidWorkflowStartButton
-          readiness={startReadiness}
-          onStart={() => {
-            onStartBid?.();
-          }}
+          readiness={buttonReadiness(startReadiness)}
+          busy={startStatus === 'starting'}
+          onStart={() => void handleStartBid()}
         />
+      ) : null}
+
+      {!startReadiness.eligible && blockerDetails.length > 0 ? (
+        <section data-testid="readiness-blockers" role="status">
+          <h4>Readiness blockers</h4>
+          <ul>
+            {blockerDetails.map((blocker) => (
+              <li key={blockerCode(blocker)}>
+                <strong>{blockerCode(blocker)}</strong>
+                {blockerDiagnostic(blocker) ? (
+                  <p>{blockerDiagnostic(blocker)}</p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {startStatus === 'queued' ? (
+        <p data-testid="start-bid-status" role="status">
+          Bid workflow queued.
+        </p>
+      ) : null}
+      {startStatus === 'error' ? (
+        <p data-testid="start-bid-error" role="alert">
+          {startError}
+        </p>
       ) : null}
 
       {bidState === 'draft_saved' && workflowState?.draftRef ? (

@@ -353,83 +353,119 @@ export function ContractDetail({
 
       {activeTab === 'contracts' ? (
         <>
-      <section className="detail-grid">
-        <article className="detail-card">
-          <h3>Coverage</h3>
-          <dl className="metric-grid">
-            <div>
-              <dt>Priced coverage</dt>
-              <dd>{formatBps(data.coverage.pricedCoverageBps)}</dd>
-            </div>
-            <div>
-              <dt>Net-qualified coverage</dt>
-              <dd>{formatBps(data.coverage.netQualifiedCoverageBps)}</dd>
-            </div>
-            <div>
-              <dt>Landed-cost coverage</dt>
-              <dd>{formatBps(data.coverage.landedCostCoverageBps)}</dd>
-            </div>
-            <div>
-              <dt>Value-weighted gate</dt>
-              <dd>{formatBps(data.coverage.netQualifiedValueCoverageBps)}</dd>
-            </div>
-            <div>
-              <dt>Priced value coverage</dt>
-              <dd>{formatBps(data.coverage.pricedValueCoverageBps)}</dd>
-            </div>
-            <div>
-              <dt>Landed-cost value coverage</dt>
-              <dd>{formatBps(data.coverage.landedCostValueCoverageBps)}</dd>
-            </div>
-            <div>
-              <dt>Threshold label</dt>
-              <dd>{coverageBand.label}</dd>
-            </div>
-            <div>
-              <dt>Mandatory lots unresolved</dt>
-              <dd>{data.coverage.unresolvedMandatoryLots}</dd>
-            </div>
-            <div>
-              <dt>Auto-qualification floor</dt>
-              <dd>{formatBps(autoQualificationFloorBps)}</dd>
-            </div>
-          </dl>
-          {!valueWeightedGateReady ? (
-            <p className="warning-banner" data-testid="value-weighted-warning">
-              Coverage below threshold. Strong lot-count coverage does not override a failed
-              value-weighted gate.
-            </p>
-          ) : null}
-        </article>
-      </section>
+          <section className="detail-grid">
+            <article className="detail-card">
+              <h3>Review overview</h3>
+              <dl className="metric-grid">
+                <div>
+                  <dt>Process</dt>
+                  <dd>{sanitizeUntrustedText(data.processId)}</dd>
+                </div>
+                <div>
+                  <dt>Sources</dt>
+                  <dd>{sourceIds.map((sourceId) => sanitizeUntrustedText(sourceId)).join(', ')}</dd>
+                </div>
+                <div>
+                  <dt>Lots</dt>
+                  <dd>{data.lots.length}</dd>
+                </div>
+                <div>
+                  <dt>Candidates</dt>
+                  <dd>{data.candidates.length}</dd>
+                </div>
+                <div>
+                  <dt>Quotes</dt>
+                  <dd>{data.quotes.length}</dd>
+                </div>
+                <div>
+                  <dt>Decision</dt>
+                  <dd>
+                    {data.decision.status === 'withdrawn'
+                      ? 'withdrawn'
+                      : (data.decision.disposition ?? 'none')}
+                  </dd>
+                </div>
+              </dl>
+            </article>
 
-      <section className="detail-grid">
-        <article className="detail-card">
-          <h3>Notices</h3>
-          <ul className="stack-list">
-            {data.notices.map((notice) => (
-              <li key={notice.noticeId}>
-                <strong>{sanitizeUntrustedText(notice.title)}</strong>
-                <p>{sanitizeUntrustedText(notice.buyerName ?? 'Unknown buyer')}</p>
-                {(() => {
-                  const summary = renderBoundedCopy(
-                    notice.summary,
-                    'No summary provided.',
-                    800,
-                  );
-                  return (
-                    <>
-                      <p>{summary.text}</p>
-                      {summary.truncated ? (
-                        <p role="status">Notice summary truncated for safe rendering.</p>
-                      ) : null}
-                    </>
-                  );
-                })()}
-              </li>
-            ))}
-          </ul>
-        </article>
+            {decisionControls}
+
+            <article className="detail-card">
+              <h3>Coverage</h3>
+              <dl className="metric-grid">
+                <div>
+                  <dt>Priced coverage</dt>
+                  <dd>{formatBps(data.coverage.pricedCoverageBps)}</dd>
+                </div>
+                <div>
+                  <dt>Net-qualified coverage</dt>
+                  <dd>{formatBps(data.coverage.netQualifiedCoverageBps)}</dd>
+                </div>
+                <div>
+                  <dt>Landed-cost coverage</dt>
+                  <dd>{formatBps(data.coverage.landedCostCoverageBps)}</dd>
+                </div>
+                <div>
+                  <dt>Value-weighted gate</dt>
+                  <dd>{formatBps(data.coverage.netQualifiedValueCoverageBps)}</dd>
+                </div>
+                <div>
+                  <dt>Priced value coverage</dt>
+                  <dd>{formatBps(data.coverage.pricedValueCoverageBps)}</dd>
+                </div>
+                <div>
+                  <dt>Landed-cost value coverage</dt>
+                  <dd>{formatBps(data.coverage.landedCostValueCoverageBps)}</dd>
+                </div>
+                <div>
+                  <dt>Threshold label</dt>
+                  <dd>{coverageBand.label}</dd>
+                </div>
+                <div>
+                  <dt>Mandatory lots unresolved</dt>
+                  <dd>{data.coverage.unresolvedMandatoryLots}</dd>
+                </div>
+                <div>
+                  <dt>Auto-qualification floor</dt>
+                  <dd>{formatBps(autoQualificationFloorBps)}</dd>
+                </div>
+              </dl>
+              {!valueWeightedGateReady ? (
+                <p className="warning-banner" data-testid="value-weighted-warning">
+                  Coverage below threshold. Strong lot-count coverage does not override a
+                  failed value-weighted gate.
+                </p>
+              ) : null}
+            </article>
+          </section>
+
+          <section className="detail-grid">
+            <article className="detail-card">
+              <h3>Notices</h3>
+              <ul className="stack-list">
+                {data.notices.map((notice) => (
+                  <li key={notice.noticeId}>
+                    <strong>{sanitizeUntrustedText(notice.title)}</strong>
+                    <p>{sanitizeUntrustedText(notice.buyerName ?? 'Unknown buyer')}</p>
+                    {(() => {
+                      const summary = renderBoundedCopy(
+                        notice.summary,
+                        'No summary provided.',
+                        800,
+                      );
+                      return (
+                        <>
+                          <p>{summary.text}</p>
+                          {summary.truncated ? (
+                            <p role="status">Notice summary truncated for safe rendering.</p>
+                          ) : null}
+                        </>
+                      );
+                    })()}
+                  </li>
+                ))}
+              </ul>
+            </article>
 
         <article className="detail-card">
           <h3>Lots</h3>
