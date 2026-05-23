@@ -5,4 +5,8 @@ export const uiBarrelExportFixture = [
   'buildSyncFreshnessVm',
   'ManifestViewer',
   'ErrorSummaryList',
+  'BidWorkflowStatusBadge',
+  'BidScopeSummary',
+  'DraftSavedReviewPanel',
+  'BidWorkflowStartButton',
 ] as const;

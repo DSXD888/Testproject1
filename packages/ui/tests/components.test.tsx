@@ -1,11 +1,20 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
+import type { BidScopePayload } from '@testproject1/bidding/bid-scope-types';
+
 import * as uiBarrel from '../index';
 import {
   ContractCardFrame,
   type ContractCardFrameProps,
 } from '../contract-card-frame';
+import { BidScopeSummary } from '../bid-scope-summary';
+import { BidWorkflowStartButton } from '../bid-workflow-start-button';
+import {
+  BidWorkflowStatusBadge,
+  type BidWorkflowState,
+} from '../bid-workflow-status-badge';
+import { DraftSavedReviewPanel } from '../draft-saved-review-panel';
 import { freshnessBadgeVmFixture } from '../fixtures/freshness-badge';
 import {
   degradedFreshnessFixture,
@@ -26,6 +35,19 @@ import { ManifestViewer } from '../manifest-viewer';
 import { PipelineBadge } from '../pipeline-badge';
 
 describe('packages/ui components', () => {
+  const bidScopeFixture: BidScopePayload = {
+    processId: 'process-bid-1',
+    lotIds: ['lot-1', 'lot-2'],
+    candidateIds: ['candidate-1'],
+    selectedQuoteIds: ['quote-1'],
+    companyProfileVersion: 'profile-v7',
+    bidPortalType: 'procontract',
+    portalOpportunityRef: 'DN123456',
+    reviewRequired: true,
+    decisionBasisHash: 'basis-hash-1',
+    sideEffectCap: 'REMOTE_DRAFT',
+  };
+
   it('TS-UI-002 renders the contract card slots and error state', () => {
     const props: ContractCardFrameProps = {
       ...contractCardFrameFixture,
@@ -175,6 +197,87 @@ describe('packages/ui components', () => {
 
     expect(uiBarrel).not.toHaveProperty('invoke');
     expect(uiBarrel).not.toHaveProperty('subscribe');
+  });
+
+  it('L6-T-desktop_ui-001 renders bid workflow states, scope review, and draft evidence', () => {
+    const states: BidWorkflowState[] = [
+      'not_started',
+      'ready_to_bid',
+      'bid_in_progress',
+      'draft_saved',
+      'bid_submitted',
+      'bid_failed',
+      'portal_state_unknown',
+    ];
+    const statusMarkup = renderToStaticMarkup(
+      <>
+        {states.map((state) => (
+          <BidWorkflowStatusBadge key={state} state={state} updatedAt="2026-05-23T12:00:00Z" />
+        ))}
+      </>,
+    );
+    const scopeMarkup = renderToStaticMarkup(<BidScopeSummary scope={bidScopeFixture} />);
+    const reviewMarkup = renderToStaticMarkup(
+      <DraftSavedReviewPanel
+        processId="process-bid-1"
+        draftRef="draft-789"
+        screenshotPaths={['sessions/2026/05/step-01.webp', 'sessions/2026/05/step-02.webp']}
+        manifestHref="sessions/2026/05/run-manifest.md"
+        onResumeDraft={() => undefined}
+        onSubmitFinal={() => undefined}
+        onAbandonDraft={() => undefined}
+      />,
+    );
+
+    expect(statusMarkup).toContain('Not started');
+    expect(statusMarkup).toContain('Ready to bid');
+    expect(statusMarkup).toContain('Bid in progress');
+    expect(statusMarkup).toContain('Draft saved');
+    expect(statusMarkup).toContain('Bid submitted');
+    expect(statusMarkup).toContain('Bid failed');
+    expect(statusMarkup).toContain('Portal state unknown');
+    expect(statusMarkup).toContain('data-tone="review"');
+    expect(scopeMarkup).toContain('DN123456');
+    expect(scopeMarkup).toContain('lot-1, lot-2');
+    expect(scopeMarkup).toContain('basis-hash-1');
+    expect(reviewMarkup).toContain('draft-789');
+    expect(reviewMarkup).toContain('Screenshot trail');
+    expect(reviewMarkup).toContain('sessions/2026/05/run-manifest.md');
+    expect(reviewMarkup).toContain('Submit final');
+  });
+
+  it('L6-T-web_ui-001 keeps bid scope viewer mode bounded and start action readiness gated', () => {
+    const viewerMarkup = renderToStaticMarkup(
+      <BidScopeSummary scope={bidScopeFixture} viewerMode />,
+    );
+    const blockedMarkup = renderToStaticMarkup(
+      <BidWorkflowStartButton
+        readiness={{
+          eligible: false,
+          blockers: ['CLASSIFICATION_AMBIGUOUS', 'operator_decision_not_approved'],
+          checkedAt: '2026-05-23T12:05:00Z',
+        }}
+        onStart={() => undefined}
+      />,
+    );
+    const readyMarkup = renderToStaticMarkup(
+      <BidWorkflowStartButton
+        readiness={{ eligible: true, checkedAt: '2026-05-23T12:06:00Z' }}
+        onStart={() => undefined}
+      />,
+    );
+
+    expect(viewerMarkup).toContain('DN123456');
+    expect(viewerMarkup).toContain('REMOTE_DRAFT');
+    expect(viewerMarkup).not.toContain('lot-1');
+    expect(viewerMarkup).not.toContain('candidate-1');
+    expect(viewerMarkup).not.toContain('quote-1');
+    expect(viewerMarkup).not.toContain('basis-hash-1');
+    expect(blockedMarkup).toContain('disabled=""');
+    expect(blockedMarkup).toContain('CLASSIFICATION_AMBIGUOUS');
+    expect(blockedMarkup).toContain('operator_decision_not_approved');
+    expect(readyMarkup).not.toContain('disabled=""');
+    expect(readyMarkup).toContain('Ready to start');
   });
 
   it('TS-UI-008 keeps shared UI tests fixture-driven and backend-agnostic', async () => {

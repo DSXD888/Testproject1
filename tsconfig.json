@@ -18,7 +18,8 @@
       "@project/ui/*": ["packages/ui/*"],
       "@project/manifests/*": ["packages/manifests/*"],
       "@project/intelligence/*": ["packages/intelligence/src/*"],
-      "@project/contracts-schema/*": ["packages/contracts-schema/src/*"]
+      "@project/contracts-schema/*": ["packages/contracts-schema/src/*"],
+      "@testproject1/bidding/*": ["packages/bidding/*"]
     }
   },
   "exclude": ["node_modules", "target"]
