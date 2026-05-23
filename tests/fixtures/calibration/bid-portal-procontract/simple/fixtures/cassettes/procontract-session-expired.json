@@ -1,0 +1,45 @@
+{
+  "cassette_id": "procontract-session-expired",
+  "captured_at": "2026-05-22T00:00:00Z",
+  "portal": "procontract",
+  "source_structure_version": "procontract-bid-portal-2026-05-22",
+  "url": "https://procontract.due-north.com/Login",
+  "page_title": "ProContract - Login",
+  "body_text": "Login or register for free. Session expired. Please log in to continue.",
+  "dom_snapshot": {
+    "anchors": [
+      {
+        "selector": "form[action*='Login']",
+        "text": "Login"
+      },
+      {
+        "selector": "body",
+        "text": "Session expired. Please log in to continue."
+      }
+    ]
+  },
+  "expected_detection": {
+    "url_contains": "/Login",
+    "body_text_matches": "Session expired|Please log in",
+    "error_code": "AUTH_STATE_STALE",
+    "step_reached": 2,
+    "side_effect_class_reached": "READ_ONLY"
+  },
+  "expected_result": {
+    "kind": "failure",
+    "error_code": "AUTH_STATE_STALE",
+    "step_reached": 2,
+    "side_effect_class_reached": "READ_ONLY",
+    "screenshot_paths": [
+      "sessions/test-session/step-01-login-page.webp",
+      "sessions/test-session/step-02-auth-state.webp"
+    ],
+    "error_message": "Procontract session expired or missing; daemon must run auth-signin/procontract and retry",
+    "portal_state": {
+      "opportunity_found": false,
+      "existing_draft_detected": false,
+      "existing_submission_detected": false,
+      "portal_status": "auth_state_stale"
+    }
+  }
+}

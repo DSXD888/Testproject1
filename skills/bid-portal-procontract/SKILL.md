@@ -112,11 +112,32 @@ agent-browser --cdp ${CDP_PORT} snapshot
 ### Step 2 - Verify authenticated state
 - Side-effect class: `READ_ONLY`.
 - Screenshot: required.
-- Action: read the current URL and visible page text.
+- Action: read the current URL and visible page text using CDP-attached read-only probes.
 - If the URL contains `/Login` or the page text matches `Session expired|Please log in|Login or register for free`, return `AUTH_STATE_STALE` immediately.
 - Do not attempt portal sign-in.
+- Do not navigate to the login page after detecting stale auth.
+- Do not type credentials, click sign-in controls, or interact with Chrome credential prompts.
 - Do not call `auth-signin/procontract`.
 - The daemon owns the retry: it runs `auth-signin/procontract` as a sub-job and then reruns this bid job.
+
+Step 2 stale-auth result envelope:
+
+```json
+{
+  "kind": "failure",
+  "error_code": "AUTH_STATE_STALE",
+  "step_reached": 2,
+  "side_effect_class_reached": "READ_ONLY",
+  "screenshot_paths": ["sessions/<session_id>/step-02-auth-state.webp"],
+  "error_message": "Procontract session expired or missing; daemon must run auth-signin/procontract and retry",
+  "portal_state": {
+    "opportunity_found": false,
+    "existing_draft_detected": false,
+    "existing_submission_detected": false,
+    "portal_status": "auth_state_stale"
+  }
+}
+```
 
 ### Step 3 - Search or navigate to the target opportunity
 - Side-effect class: `READ_ONLY`.

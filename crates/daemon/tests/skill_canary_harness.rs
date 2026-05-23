@@ -112,6 +112,18 @@ fn bid_portal_auth_expired_context() -> Value {
     })
 }
 
+fn json_str_field_eq(value: Option<&Value>, expected: &str) -> bool {
+    value
+        .and_then(Value::as_str)
+        .is_some_and(|observed| observed.eq(expected))
+}
+
+fn json_i64_field_eq(value: Option<&Value>, expected: i64) -> bool {
+    value
+        .and_then(Value::as_i64)
+        .is_some_and(|observed| observed == expected)
+}
+
 #[test]
 fn e2e_can_001_fts_canary_fetches_minimum_viable_notice_set_and_validates_basic_ocds_structure()
 -> Result<()> {
@@ -191,7 +203,10 @@ fn e2e_can_003_auth_state_verification_is_enforced_when_declared() -> Result<()>
         !auth_state_valid(true, false),
         "required auth state should fail when privileged data is missing"
     );
-    ensure!(AUTH_STATE_STALE == "AUTH_STATE_STALE");
+    ensure!(
+        AUTH_STATE_STALE.eq("AUTH_STATE_STALE"),
+        "auth-state stale code must stay stable"
+    );
     Ok(())
 }
 
@@ -205,7 +220,7 @@ fn e2e_can_004_protocol_version_drift_enters_canary_handling_instead_of_producti
         "test version unexpectedly entered known-good set"
     );
     ensure!(
-        AGENT_PROTOCOL_MISMATCH == "AGENT_PROTOCOL_MISMATCH",
+        AGENT_PROTOCOL_MISMATCH.eq("AGENT_PROTOCOL_MISMATCH"),
         "protocol/version drift must classify explicitly"
     );
     Ok(())
@@ -302,23 +317,22 @@ fn e2e_can_010_bid_portal_canary_constants_cover_l6_error_codes() -> Result<()> 
         .collect::<Vec<_>>();
 
     ensure!(
-        observed_codes
-            == vec![
-                BID_SUBMISSION_FAILED,
-                BID_DUPLICATE_DETECTED,
-                BID_SIDE_EFFECT_CAP_EXCEEDED,
-                BID_READINESS_GATE_FAILED,
-                BID_PORTAL_CHANGED,
-                BID_PORTAL_AUTH_EXPIRED,
-            ],
+        observed_codes.as_slice().eq(&[
+            BID_SUBMISSION_FAILED,
+            BID_DUPLICATE_DETECTED,
+            BID_SIDE_EFFECT_CAP_EXCEEDED,
+            BID_READINESS_GATE_FAILED,
+            BID_PORTAL_CHANGED,
+            BID_PORTAL_AUTH_EXPIRED,
+        ]),
         "bid portal canaries must exercise every L6 bid error code once"
     );
     ensure!(
-        BID_PORTAL_CHANGED != PAGE_SHAPE_DRIFT,
+        !BID_PORTAL_CHANGED.eq(PAGE_SHAPE_DRIFT),
         "portal bid drift must remain distinct from generic page-shape drift"
     );
     ensure!(
-        BID_PORTAL_AUTH_EXPIRED != AUTH_STATE_STALE,
+        !BID_PORTAL_AUTH_EXPIRED.eq(AUTH_STATE_STALE),
         "portal bid auth expiry must remain distinct from generic stale auth"
     );
 
@@ -334,8 +348,89 @@ fn e2e_can_010_bid_portal_canary_constants_cover_l6_error_codes() -> Result<()> 
     ensure!(
         auth_expired["portalOpportunityRef"].is_string()
             && auth_expired["lastUrl"].is_string()
-            && auth_expired["daemonRetry"] == "auth-signin/procontract",
+            && json_str_field_eq(auth_expired.get("daemonRetry"), "auth-signin/procontract"),
         "BID_PORTAL_AUTH_EXPIRED canary context must carry opportunity and retry diagnostics"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn e2e_can_011_bid_portal_auth_stale_canary_replays_session_expired_cassette() -> Result<()> {
+    let fixture_root =
+        repo_root()?.join("tests/fixtures/calibration/bid-portal-procontract/simple");
+    let canary = load_first_canary_input(&fixture_root.join("canary.inputs.jsonl"))?;
+    let cassette_ref = canary
+        .get("cassette_ref")
+        .and_then(Value::as_str)
+        .ok_or_else(|| anyhow::anyhow!("bid portal auth-stale canary missing cassette_ref"))?;
+    let cassette: Value =
+        serde_json::from_str(&fs::read_to_string(fixture_root.join(cassette_ref))?)?;
+    let expected_result = canary
+        .get("expected_result")
+        .ok_or_else(|| anyhow::anyhow!("bid portal auth-stale canary missing expected_result"))?;
+    let skill_markdown = fs::read_to_string(skill_dir("bid-portal-procontract")?.join("SKILL.md"))?;
+
+    ensure!(
+        json_str_field_eq(canary.get("case_id"), "simple-auth-stale-01"),
+        "auth-stale canary must be the simple fixture's first row"
+    );
+    ensure!(
+        json_str_field_eq(canary.get("expected_error_code"), AUTH_STATE_STALE),
+        "auth-stale canary must expect AUTH_STATE_STALE"
+    );
+    ensure!(
+        json_str_field_eq(
+            canary.get("expected_side_effect_class_reached"),
+            "READ_ONLY",
+        ),
+        "auth-stale canary must stay read-only"
+    );
+    ensure!(
+        cassette
+            .get("url")
+            .and_then(Value::as_str)
+            .is_some_and(|url| url.contains("/Login"))
+            || cassette
+                .get("body_text")
+                .and_then(Value::as_str)
+                .is_some_and(
+                    |text| text.contains("Session expired") || text.contains("Please log in")
+                ),
+        "auth-stale cassette must expose a deterministic expiry signal"
+    );
+    ensure!(
+        json_str_field_eq(
+            cassette.pointer("/expected_detection/error_code"),
+            AUTH_STATE_STALE
+        ),
+        "cassette expected detection must classify AUTH_STATE_STALE"
+    );
+    ensure!(
+        json_str_field_eq(expected_result.get("kind"), "failure")
+            && json_str_field_eq(expected_result.get("error_code"), AUTH_STATE_STALE)
+            && json_i64_field_eq(expected_result.get("step_reached"), 2)
+            && json_str_field_eq(
+                expected_result.get("side_effect_class_reached"),
+                "READ_ONLY"
+            ),
+        "auth-stale expected result must match the Failure envelope"
+    );
+    ensure!(
+        expected_result
+            .get("screenshot_paths")
+            .and_then(Value::as_array)
+            .is_some_and(|screenshots| screenshots.len() >= 2),
+        "auth-stale expected result must carry step 1 and 2 screenshots"
+    );
+    ensure!(
+        skill_markdown.contains("Do not call `auth-signin/procontract`.")
+            && skill_markdown.contains("The daemon owns the retry"),
+        "bid portal skill must delegate auth recovery to the daemon"
+    );
+    ensure!(
+        !skill_markdown.contains("https://procontract.due-north.com/Login\""),
+        "bid portal skill must not navigate directly to the Procontract login page"
     );
 
     Ok(())
