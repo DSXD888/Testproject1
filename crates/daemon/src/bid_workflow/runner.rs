@@ -15,7 +15,8 @@ use super::side_effect_guard::{
     planned_procontract_steps,
 };
 use super::state_machine::{
-    BidStateMachine, BidTransition, TransitionContext, TransitionTrigger, ValidatorGate,
+    BidStateMachine, BidTransition, OperatorOverrideRecord as StateMachineOperatorOverrideRecord,
+    TransitionContext, TransitionTrigger, ValidatorGate,
 };
 use super::types::{
     BidDocument, BidScopePayload, BidWorkflowState, CompanyProfile, SideEffectClass,
@@ -25,9 +26,9 @@ use crate::agents::arbiter::{
     ResourceLease,
 };
 use crate::agents::artifacts::{
-    BidScopeSummary, DaemonEvidenceAppendix, GateResult, OutcomeClass, ReadinessEvidenceSnapshot,
-    RunManifestFrontmatter, RunNarrative, SideEffectCheckpoint, ValidatorVerdictSummary,
-    persist_run_manifest_metadata,
+    BidScopeSummary, DaemonEvidenceAppendix, GateResult, OperatorOverrideRecord, OutcomeClass,
+    ReadinessEvidenceSnapshot, RunManifestFrontmatter, RunNarrative, SideEffectCheckpoint,
+    ValidatorVerdictSummary, persist_run_manifest_metadata,
 };
 use crate::db::sqlite::DEFAULT_OWNER_ID;
 use crate::errors::manifest::ErrorCode;
@@ -331,6 +332,7 @@ struct BidSkillExecution {
     portal_state_verified: bool,
     validation_gate: ValidatorGate,
     validation_override_logged: bool,
+    validation_override: Option<OperatorOverrideRecord>,
     submission_confirmed: bool,
     confirmation_ref: Option<String>,
     draft_evidence_recorded: bool,
@@ -547,7 +549,9 @@ async fn execute_bid_portal_skill(
         submission_confirmed_from_result(&result_json, confirmation_ref.as_deref());
     let portal_state_verified = portal_state_verified_from_result(&result_json);
     let validation_gate = validation_gate_from_result(&result_json);
-    let validation_override_logged = validation_override_logged_from_result(&result_json);
+    let validation_override = validation_override_from_result(&result_json);
+    let validation_override_logged =
+        validation_override_logged_from_result(&result_json) || validation_override.is_some();
     let draft_evidence_recorded =
         draft_evidence_recorded_from_result(&result_json, side_effect_reached);
     Ok(BidSkillExecution {
@@ -563,6 +567,7 @@ async fn execute_bid_portal_skill(
         portal_state_verified,
         validation_gate,
         validation_override_logged,
+        validation_override,
         submission_confirmed,
         confirmation_ref,
         draft_evidence_recorded,
@@ -666,7 +671,9 @@ fn materialize_simulated_bid_execution(
         submission_confirmed_from_result(&result_json, confirmation_ref.as_deref());
     let portal_state_verified = portal_state_verified_from_result(&result_json);
     let validation_gate = validation_gate_from_result(&result_json);
-    let validation_override_logged = validation_override_logged_from_result(&result_json);
+    let validation_override = validation_override_from_result(&result_json);
+    let validation_override_logged =
+        validation_override_logged_from_result(&result_json) || validation_override.is_some();
     let draft_evidence_recorded =
         draft_evidence_recorded_from_result(&result_json, side_effect_reached);
     let stream_artifact_refs = stream_index
@@ -693,6 +700,7 @@ fn materialize_simulated_bid_execution(
         portal_state_verified,
         validation_gate,
         validation_override_logged,
+        validation_override,
         submission_confirmed,
         confirmation_ref,
         draft_evidence_recorded,
@@ -781,6 +789,15 @@ fn validation_override_logged_from_result(result_json: &Value) -> bool {
         .or_else(|| result_json.get("validation_override_logged"))
         .and_then(Value::as_bool)
         .unwrap_or(false)
+}
+
+fn validation_override_from_result(result_json: &Value) -> Option<OperatorOverrideRecord> {
+    result_json
+        .get("operatorOverride")
+        .or_else(|| result_json.get("operator_override"))
+        .or_else(|| result_json.get("validationOverride"))
+        .or_else(|| result_json.get("validation_override"))
+        .and_then(|value| serde_json::from_value(value.clone()).ok())
 }
 
 fn draft_evidence_recorded_from_result(
@@ -1111,7 +1128,7 @@ fn write_bid_run_manifest(
                 rubric_version: "validation/overlay-bid-portal-procontract@pending".to_owned(),
                 reasons: validation_verdict_reasons(execution),
             }),
-            override_metadata: None,
+            override_metadata: execution.validation_override.clone(),
             final_bid_state: Some(final_state.as_str().to_owned()),
         },
         disagreements: Vec::new(),
@@ -1141,7 +1158,7 @@ fn side_effect_progression(
         .iter()
         .enumerate()
         .map(|(index, screenshot_path)| {
-            let side_effect_class = if index + 1 == checkpoint_count {
+            let side_effect_class = if index.saturating_add(1) >= checkpoint_count {
                 format!("{:?}", execution.side_effect_reached)
             } else {
                 "ReadOnly".to_owned()
@@ -1211,6 +1228,9 @@ fn validation_verdict_reasons(execution: &BidSkillExecution) -> Vec<String> {
     if execution.validation_override_logged {
         reasons.push("validation_override_logged=true".to_owned());
     }
+    if let Some(override_record) = &execution.validation_override {
+        reasons.push(format!("validation_override_kind={}", override_record.kind));
+    }
     reasons
 }
 
@@ -1229,6 +1249,16 @@ fn final_transition_context(
     context.portal_state_verified = execution.portal_state_verified;
     context.validator_gate = execution.validation_gate;
     context.validation_override_logged = execution.validation_override_logged;
+    context.validation_override =
+        execution
+            .validation_override
+            .as_ref()
+            .map(|record| StateMachineOperatorOverrideRecord {
+                kind: record.kind.clone(),
+                reason: record.reason.clone(),
+                recorded_by: record.recorded_by.clone(),
+                recorded_at: record.recorded_at.clone(),
+            });
     context.submission_confirmed = execution.submission_confirmed;
     context
         .confirmation_ref

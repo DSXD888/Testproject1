@@ -8,8 +8,8 @@ mod state_machine;
 mod types;
 
 use state_machine::{
-    BidStateMachine, BidStateTransitionRejection, TransitionContext, TransitionTrigger,
-    ValidatorGate, allowed_transitions,
+    BidStateMachine, BidStateTransitionRejection, OperatorOverrideRecord, TransitionContext,
+    TransitionTrigger, ValidatorGate, allowed_transitions,
 };
 use types::{BidWorkflowState, SideEffectClass};
 
@@ -282,6 +282,11 @@ fn l6_t_bid_workflow_states_017_draft_saved_to_submitted_rejects_final_gate_fail
     let mut override_logged = satisfied(from, to);
     override_logged.validator_gate = ValidatorGate::Outage;
     override_logged.validation_override_logged = true;
+    override_logged.validation_override = Some(OperatorOverrideRecord::validation_gate(
+        "Operator accepted validator outage after reviewing portal confirmation evidence.",
+        "operator-alinaaitova",
+        "2026-05-23T12:00:00Z",
+    ));
     assert_transition(from, to, override_logged);
 }
 

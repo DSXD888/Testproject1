@@ -45,6 +45,38 @@ pub enum ValidatorGate {
     Missing,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OperatorOverrideRecord {
+    pub kind: String,
+    pub reason: String,
+    pub recorded_by: String,
+    pub recorded_at: String,
+}
+
+impl OperatorOverrideRecord {
+    #[must_use]
+    pub fn validation_gate(
+        reason: impl Into<String>,
+        recorded_by: impl Into<String>,
+        recorded_at: impl Into<String>,
+    ) -> Self {
+        Self {
+            kind: "validation_gate".to_owned(),
+            reason: reason.into(),
+            recorded_by: recorded_by.into(),
+            recorded_at: recorded_at.into(),
+        }
+    }
+
+    #[must_use]
+    pub fn is_structured_validation_gate(&self) -> bool {
+        self.kind == "validation_gate"
+            && !self.reason.trim().is_empty()
+            && !self.recorded_by.trim().is_empty()
+            && !self.recorded_at.trim().is_empty()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BidStateTransitionRejection {
     IllegalTransition,
@@ -124,6 +156,7 @@ pub struct TransitionContext {
     pub confirmation_ref: Option<String>,
     pub validator_gate: ValidatorGate,
     pub validation_override_logged: bool,
+    pub validation_override: Option<OperatorOverrideRecord>,
     pub error_manifest_recorded: bool,
     pub operator_reconciled: bool,
     pub retry_authorized: bool,
@@ -153,6 +186,7 @@ impl TransitionContext {
             confirmation_ref: None,
             validator_gate: ValidatorGate::Missing,
             validation_override_logged: false,
+            validation_override: None,
             error_manifest_recorded: false,
             operator_reconciled: false,
             retry_authorized: false,
@@ -189,8 +223,13 @@ impl TransitionContext {
     }
 
     #[must_use]
-    pub const fn validation_allows_submission(&self) -> bool {
-        matches!(self.validator_gate, ValidatorGate::Approved) || self.validation_override_logged
+    pub fn validation_allows_submission(&self) -> bool {
+        matches!(self.validator_gate, ValidatorGate::Approved)
+            || (self.validation_override_logged
+                && self
+                    .validation_override
+                    .as_ref()
+                    .is_some_and(OperatorOverrideRecord::is_structured_validation_gate))
     }
 }
 

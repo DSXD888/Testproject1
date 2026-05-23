@@ -21,10 +21,16 @@ pub const VALIDATOR_JOB_KIND: &str = "semantic_validate";
 pub const VALIDATOR_SKILL_PATH: &str = "skills/validation/base/SKILL.md";
 pub const VALIDATOR_RESULT_SCHEMA_PATH: &str = "skills/validation/base/result.schema.json";
 pub const VALIDATOR_RUBRIC_PATH: &str = "skills/validation/base/validator-rubric.yaml";
+pub const BID_PORTAL_PROCONTRACT_VALIDATOR_SKILL_PATH: &str =
+    "skills/validation/overlay-bid-portal-procontract/SKILL.md";
+pub const BID_PORTAL_PROCONTRACT_VALIDATOR_RUBRIC_PATH: &str =
+    "skills/bid-portal-procontract/validator-rubric.yaml";
 pub const VALIDATION_FLAGGED: &str = "VALIDATION_FLAGGED";
 pub const VALIDATION_SKIPPED_VALIDATOR_ERROR: &str = "VALIDATION_SKIPPED_VALIDATOR_ERROR";
 pub const AGENT_SUSPECT_OUTPUT: &str = "AGENT_SUSPECT_OUTPUT";
 const EXPECTED_VALIDATOR_SKILL_ID: &str = "validation/base";
+const EXPECTED_BID_PORTAL_PROCONTRACT_VALIDATOR_SKILL_ID: &str =
+    "validation/overlay-bid-portal-procontract";
 const EXPECTED_INTERACTION_PROFILE: &str = "headless_contract";
 const EXPECTED_MODEL_PROFILE: &str = "structured_extract_low_cost";
 const DEFAULT_AGENT_CLI: &str = "claude";
@@ -98,14 +104,40 @@ pub struct ValidatorSkillBundle {
 
 impl ValidatorSkillBundle {
     pub fn load(repo_root: &Path) -> Result<Self> {
-        let skill_markdown_path = repo_root.join(VALIDATOR_SKILL_PATH);
+        Self::load_from_paths(
+            repo_root,
+            VALIDATOR_SKILL_PATH,
+            VALIDATOR_RESULT_SCHEMA_PATH,
+            VALIDATOR_RUBRIC_PATH,
+            EXPECTED_VALIDATOR_SKILL_ID,
+        )
+    }
+
+    pub fn load_bid_portal_procontract_overlay(repo_root: &Path) -> Result<Self> {
+        Self::load_from_paths(
+            repo_root,
+            BID_PORTAL_PROCONTRACT_VALIDATOR_SKILL_PATH,
+            VALIDATOR_RESULT_SCHEMA_PATH,
+            BID_PORTAL_PROCONTRACT_VALIDATOR_RUBRIC_PATH,
+            EXPECTED_BID_PORTAL_PROCONTRACT_VALIDATOR_SKILL_ID,
+        )
+    }
+
+    fn load_from_paths(
+        repo_root: &Path,
+        skill_path: &str,
+        result_schema_path: &str,
+        validator_rubric_path: &str,
+        expected_skill_id: &str,
+    ) -> Result<Self> {
+        let skill_markdown_path = repo_root.join(skill_path);
         let skill_markdown = fs::read_to_string(&skill_markdown_path)
             .with_context(|| format!("reading {}", skill_markdown_path.display()))?;
         let (frontmatter, _) = split_frontmatter(&skill_markdown)?;
 
         ensure!(
-            frontmatter.skill_id == EXPECTED_VALIDATOR_SKILL_ID,
-            "validator skill_id `{}` must be `{EXPECTED_VALIDATOR_SKILL_ID}`",
+            frontmatter.skill_id == expected_skill_id,
+            "validator skill_id `{}` must be `{expected_skill_id}`",
             frontmatter.skill_id,
         );
         ensure!(
@@ -123,19 +155,19 @@ impl ValidatorSkillBundle {
             "validator result_schema_version must not be empty",
         );
 
-        let result_schema_path = repo_root.join(VALIDATOR_RESULT_SCHEMA_PATH);
+        let result_schema_path_buf = repo_root.join(result_schema_path);
         let result_schema = serde_json::from_str(
-            &fs::read_to_string(&result_schema_path)
-                .with_context(|| format!("reading {}", result_schema_path.display()))?,
+            &fs::read_to_string(&result_schema_path_buf)
+                .with_context(|| format!("reading {}", result_schema_path_buf.display()))?,
         )
-        .with_context(|| format!("parsing {}", result_schema_path.display()))?;
+        .with_context(|| format!("parsing {}", result_schema_path_buf.display()))?;
 
-        let validator_rubric_path = repo_root.join(VALIDATOR_RUBRIC_PATH);
-        let validator_rubric = fs::read(&validator_rubric_path)
-            .with_context(|| format!("reading {}", validator_rubric_path.display()))?;
+        let validator_rubric_path_buf = repo_root.join(validator_rubric_path);
+        let validator_rubric = fs::read(&validator_rubric_path_buf)
+            .with_context(|| format!("reading {}", validator_rubric_path_buf.display()))?;
 
         Ok(Self {
-            skill_path: VALIDATOR_SKILL_PATH.to_owned(),
+            skill_path: skill_path.to_owned(),
             skill_version: frontmatter.skill_version.clone(),
             result_schema_version: frontmatter.result_schema_version.clone(),
             interaction_profile: frontmatter.interaction_profile.clone(),
@@ -144,9 +176,9 @@ impl ValidatorSkillBundle {
                 .agent_cli
                 .clone()
                 .unwrap_or_else(|| DEFAULT_AGENT_CLI.to_owned()),
-            result_schema_path: VALIDATOR_RESULT_SCHEMA_PATH.to_owned(),
+            result_schema_path: result_schema_path.to_owned(),
             result_schema,
-            validator_rubric_path: VALIDATOR_RUBRIC_PATH.to_owned(),
+            validator_rubric_path: validator_rubric_path.to_owned(),
             validator_rubric_hash: sha256_hex(&validator_rubric),
             checkpoint_schema_version: frontmatter.checkpoint_schema_version().to_owned(),
             validator_overlay_version: frontmatter.validator_overlay_version().to_owned(),
