@@ -1,0 +1,40 @@
+expected_skill_id: bid-portal/procontract
+expected_interaction_profile: pty_interactive
+expected_model_profile: portal_form_high_reliability
+expected_validation_policy: always
+expected_side_effect_class: external_mutation
+expected_worker_behavior_version: bid-portal/procontract@0.1.0+1.0
+expected_source_structure_version: procontract-bid-portal-2026-05-22
+representative_cases:
+  skill-simple-cap-breach-01:
+    expected_result_kind: failure
+    expected_final_state: failed
+    expected_error_code: BID_SIDE_EFFECT_CAP_EXCEEDED
+    expected_highest_side_effect: READ_ONLY
+    expected_validator_anchors:
+      - side_effect_cap
+      - next_step_class
+      - no_remote_mutation
+  skill-medium-draft-01:
+    expected_result_kind: draft_save_result
+    expected_final_state: draft_saved
+    expected_highest_side_effect: REMOTE_DRAFT
+    expected_validator_anchors:
+      - opportunity_ref_match
+      - screenshot_completeness
+      - monotonic_side_effects
+      - draft_reference
+  skill-complex-final-submit-authorized-01:
+    expected_result_kind: submission_result
+    expected_final_state: bid_submitted
+    expected_highest_side_effect: FORMAL_SUBMISSION
+    expected_validator_anchors:
+      - confirmation_reference
+      - validation_clearance
+      - operator_authorization
+      - full_screenshot_trail
+calibration_corpus:
+  root: tests/fixtures/calibration/bid-portal-procontract
+  simple_minimum_rows: 6
+  medium_minimum_rows: 8
+  complex_minimum_rows: 10

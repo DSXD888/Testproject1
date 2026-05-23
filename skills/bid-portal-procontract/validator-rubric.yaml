@@ -1,0 +1,48 @@
+rubric_version: bid-portal-procontract-skill-local-v1
+worker_skill_id: bid-portal/procontract
+worker_behavior_version: bid-portal/procontract@0.1.0+1.0
+evidence_inputs:
+  - result_json
+  - checkpoint_json
+  - portal_screenshots
+  - bid_scope_payload
+  - calibration_corpus
+required_evidence_anchors:
+  - opportunity_ref_match
+  - process_id
+  - lot_ids
+  - candidate_ids
+  - quote_ids
+  - company_profile_version
+  - screenshot_checkpoints
+  - side_effect_progression
+  - draft_or_confirmation_evidence
+rejection_categories:
+  wrong_opportunity: reject
+  missing_screenshots: reject
+  non_monotonic_side_effects: reject
+  side_effect_above_cap: reject
+  malformed_confirmation_reference: reject
+  missing_narrative_citations: reject
+  pii_leakage: reject
+  validator_execution_outage: fail_closed_for_formal_submission
+approval_thresholds:
+  draft_saved: approve_when_required_anchors_present
+  bid_submitted: approve_only_with_validation_clearance_or_structured_override
+  failed_cap_breach: approve_when_no_remote_mutation_and_blocked_step_recorded
+cases:
+  cap-breach:
+    requires:
+      - side_effect_cap
+      - next_step_class
+      - no_remote_mutation
+  happy-draft:
+    requires:
+      - opportunity_ref_match
+      - draft_reference
+      - screenshot_checkpoints
+  final-submit-authorized:
+    requires:
+      - operator_authorization
+      - validation_clearance
+      - confirmation_reference
