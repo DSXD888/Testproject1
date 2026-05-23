@@ -31,6 +31,7 @@ const RUN_MANIFEST_REQUIRED_TOKENS: &[&str] = &[
 ];
 
 const SIGNED_IN_BROWSER_SKILLS: &[&str] = &[
+    "bid-portal-procontract",
     "procurement-ingestion/procontract-discover",
     "procurement-ingestion/procontract-enrich-tender",
     "procurement-ingestion/procontract-register-interest",
@@ -43,6 +44,7 @@ const SIGNED_IN_BROWSER_SKILLS: &[&str] = &[
 ];
 
 const CDP_BROWSER_SKILLS: &[&str] = &[
+    "bid-portal-procontract",
     "procurement-ingestion/fts",
     "procurement-ingestion/contracts-finder",
     "procurement-ingestion/procontract-discover",
@@ -275,6 +277,102 @@ fn l6_t_bid_portal_procontract_skill_001_frontmatter_declares_l6_contract() -> R
     ensure!(skill.metadata.version_change_affects_behavior);
     ensure!(skill.skill_markdown.contains("agent_cli: claude"));
     ensure!(skill.skill_markdown.contains("validation_policy: always"));
+    Ok(())
+}
+
+#[test]
+fn l6_t_bid_portal_procontract_skill_004_cdp_discipline_and_playbook_contract() -> Result<()> {
+    let skill = load_skill_metadata(&repo_skill_dir("bid-portal-procontract")?)?;
+    let markdown = skill.skill_markdown.as_str();
+
+    for required in [
+        "bin/ensure-cdp-9222",
+        "http://localhost:${CDP_PORT}/json/version",
+        "agent-browser --cdp ${CDP_PORT}",
+        "/Users/alinaaitova/.chrome-automation",
+        "return `AUTH_STATE_STALE` immediately",
+        "Do not call `auth-signin/procontract`.",
+        "The daemon owns the retry",
+        "return `BID_DUPLICATE_DETECTED`",
+        "return `PAGE_SHAPE_DRIFT` or `BID_PORTAL_CHANGED`",
+        "return `BID_SIDE_EFFECT_CAP_EXCEEDED`",
+    ] {
+        ensure!(
+            markdown.contains(required),
+            "bid portal skill missing `{required}`"
+        );
+    }
+
+    for step_heading in [
+        "### Step 1 - Navigate to Procontract portal login page",
+        "### Step 2 - Verify authenticated state",
+        "### Step 3 - Search or navigate to the target opportunity",
+        "### Step 4 - Verify opportunity and duplicate state",
+        "### Step 5 - Open bid response form",
+        "### Step 6 - Fill company details section",
+        "### Step 7 - Fill lot selection and pricing sections",
+        "### Step 8 - Upload required documents",
+        "### Step 9 - Review submission summary",
+        "### Step 10a - Save draft",
+        "### Step 10b - Submit expression of interest",
+        "### Step 11 - Capture confirmation page/reference",
+    ] {
+        ensure!(
+            markdown.contains(step_heading),
+            "bid portal skill missing `{step_heading}`"
+        );
+    }
+
+    ensure!(
+        markdown.matches("Screenshot: required.").count() >= 12,
+        "bid portal skill must require screenshots for every playbook branch"
+    );
+
+    for side_effect_contract in [
+        "Side-effect class: `READ_ONLY`.",
+        "Side-effect class: `REMOTE_DRAFT`.",
+        "Side-effect class: `REMOTE_DRAFT -> state transitions to draft_saved`.",
+        "Side-effect class: `FORMAL_SUBMISSION -> state transitions to bid_submitted`.",
+    ] {
+        ensure!(
+            markdown.contains(side_effect_contract),
+            "bid portal skill missing `{side_effect_contract}`"
+        );
+    }
+
+    for failure_mode in [
+        "`READ_ONLY`: Safe to retry",
+        "`REMOTE_DRAFT`: Call `verifyPortalState()` before retry",
+        "`NOTIFICATION_OR_LOCK`: Stop at `portal_state_unknown`",
+        "`LEGAL_DECLARATION`: Stop at `portal_state_unknown`",
+        "`FORMAL_SUBMISSION`: Never blind retry",
+        "`FUNDS_COMMITTED`: Procontract bid workflow must not intentionally reach this class",
+    ] {
+        ensure!(
+            markdown.contains(failure_mode),
+            "bid portal skill missing failure mode `{failure_mode}`"
+        );
+    }
+
+    for prohibition in [
+        "DO NOT launch a fresh browser profile",
+        "DO NOT close the operator's browser",
+        "DO NOT sign out",
+        "DO NOT solve captchas",
+        "DO NOT type credentials directly",
+        "DO NOT invoke auth-signin/procontract as a sub-skill",
+        "DO NOT escalate side-effect class past BidScopePayload.sideEffectCap",
+        "DO NOT submit any form OTHER than the bid response form",
+        "DO NOT cache or log filled values to disk",
+        "DO NOT proceed past Step 4 if verifyPortalState detects an existing submission",
+        "DO NOT continue if portal state diverged from the expected opportunity",
+    ] {
+        ensure!(
+            markdown.contains(prohibition),
+            "bid portal skill missing prohibition `{prohibition}`"
+        );
+    }
+
     Ok(())
 }
 
