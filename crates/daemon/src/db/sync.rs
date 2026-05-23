@@ -11,6 +11,9 @@ use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+#[cfg(not(test))]
+use crate::bid_workflow::redaction::redact_bid_workflow_state_payload;
+
 const DEFAULT_EXECUTOR_ID: &str = "local-daemon";
 const WRITER_LEASE_HEARTBEAT_INTERVAL_SECS: i64 = 30;
 const WRITER_LEASE_MIN_TTL_SECS: i64 = 120;
@@ -565,13 +568,19 @@ impl OutboxWriter {
         ensure_non_empty("commit_group_id", commit_group_id)?;
         ensure_non_empty("content_hash", content_hash)?;
 
-        let payload = parse_payload(payload_json)?;
+        let payload_json = redacted_push_payload_json(entity_kind, payload_json)?;
+        let payload = parse_payload(&payload_json)?;
         let row_version = payload_row_version(&payload)?;
-        let canonical_hash = canonical_content_hash(payload_json)?;
-        ensure!(
-            canonical_hash == content_hash,
-            "content_hash does not match canonical payload JSON"
-        );
+        let canonical_hash = canonical_content_hash(&payload_json)?;
+        let content_hash = if entity_kind == "bid_workflow_states" {
+            canonical_hash
+        } else {
+            ensure!(
+                canonical_hash == content_hash,
+                "content_hash does not match canonical payload JSON"
+            );
+            content_hash.to_owned()
+        };
 
         tx.execute(
             "\
@@ -656,7 +665,7 @@ impl ProjectionEpochRepair {
         let writer = OutboxWriter::new(&self.executor_id, self.schema_epoch)?;
         let mut republished_rows = 0;
 
-        for table_name in PUSH_OWNED_RESEED_TABLES {
+        for &table_name in PUSH_OWNED_RESEED_TABLES {
             for row in projection_reseed_rows_for_table(&tx, table_name, generation_id)? {
                 let content_hash = canonical_content_hash(&row.payload_json)?;
                 let commit_group_id =
@@ -3061,7 +3070,7 @@ fn mark_schema_epoch_repaired(
 
 fn projection_reseed_rows_for_table(
     conn: &Connection,
-    table_name: &str,
+    table_name: &'static str,
     generation_id: i64,
 ) -> Result<Vec<ProjectionReseedRow>> {
     let columns = reseed_table_columns(conn, table_name)?;
@@ -3110,7 +3119,8 @@ fn projection_reseed_rows_for_table(
                     || format!("{PROJECTION_REPAIR_STAGE_RUN_PREFIX}-{generation_id}"),
                     str::to_owned,
                 );
-            let payload_json = Value::Object(payload).to_string();
+            let payload_json = redacted_projection_payload_json(table_name, Value::Object(payload))
+                .map_err(to_sql_error)?;
             Ok(ProjectionReseedRow {
                 entity_id,
                 stage_run_id,
@@ -3148,6 +3158,76 @@ fn projection_payload_columns(columns: &[String]) -> Vec<String> {
         })
         .cloned()
         .collect()
+}
+
+fn redacted_push_payload_json(entity_kind: &str, payload_json: &str) -> Result<String> {
+    let payload = parse_payload(payload_json)?;
+    let redacted = redacted_projection_payload_value(entity_kind, payload);
+    serde_json::to_string(&redacted).context("serializing redacted push payload")
+}
+
+fn redacted_projection_payload_json(table_name: &str, payload: Value) -> Result<String> {
+    let redacted = redacted_projection_payload_value(table_name, payload);
+    serde_json::to_string(&redacted).context("serializing redacted projection payload")
+}
+
+fn redacted_projection_payload_value(table_name: &str, payload: Value) -> Value {
+    if table_name == "bid_workflow_states" {
+        redact_bid_workflow_state_payload(&payload)
+    } else {
+        payload
+    }
+}
+
+#[cfg(test)]
+fn redact_bid_workflow_state_payload(payload: &Value) -> Value {
+    let mut redacted = payload.clone();
+    if let Value::Object(map) = &mut redacted
+        && let Some(Value::String(raw_scope)) = map.get("bid_scope_json")
+    {
+        let replacement = serde_json::from_str::<Value>(raw_scope).map_or_else(
+            |_| Value::String("[REDACTED]".to_owned()),
+            |scope| redact_bid_scope_value(&scope),
+        );
+        map.insert("bid_scope_json".to_owned(), replacement.to_string().into());
+    }
+    redacted
+}
+
+#[cfg(test)]
+fn redact_bid_scope_value(value: &Value) -> Value {
+    match value {
+        Value::Array(items) => Value::Array(items.iter().map(redact_bid_scope_value).collect()),
+        Value::Object(object) => Value::Object(
+            object
+                .iter()
+                .map(|(key, value)| {
+                    let normalized = key.replace(['_', '-'], "").to_ascii_lowercase();
+                    if normalized.ends_with("hash")
+                        || matches!(normalized.as_str(), "sideeffectcap" | "reviewrequired")
+                    {
+                        return (key.clone(), value.clone());
+                    }
+                    let redacted = if matches!(
+                        normalized.as_str(),
+                        "processid"
+                            | "lotids"
+                            | "candidateids"
+                            | "selectedquoteids"
+                            | "portalopportunityref"
+                            | "filepath"
+                            | "documentpath"
+                    ) {
+                        Value::String("[REDACTED]".to_owned())
+                    } else {
+                        redact_bid_scope_value(value)
+                    };
+                    (key.clone(), redacted)
+                })
+                .collect(),
+        ),
+        _ => value.clone(),
+    }
 }
 
 fn projection_repair_commit_group_id(

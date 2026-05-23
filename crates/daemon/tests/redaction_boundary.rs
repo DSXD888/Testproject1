@@ -1,13 +1,44 @@
 #![forbid(unsafe_code)]
 
+#[path = "../src/agents/artifacts.rs"]
+#[allow(dead_code)]
+mod artifacts_impl;
+#[path = "../src/bid_workflow/redaction.rs"]
+#[allow(dead_code)]
+mod bid_redaction_impl;
+#[path = "../src/errors/manifest.rs"]
+#[allow(dead_code)]
+mod errors_manifest_impl;
+#[path = "../src/errors/markdown.rs"]
+#[allow(dead_code)]
+mod errors_markdown_impl;
+#[path = "../src/validation/manifest_writer.rs"]
+#[allow(dead_code)]
+mod manifest_writer_impl;
 mod support;
+
+mod agents {
+    pub mod artifacts {
+        pub use crate::artifacts_impl::*;
+    }
+}
 
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, ensure};
+use rusqlite::Connection;
+use serde_json::{Value, json};
 
+use artifacts_impl::{
+    BidScopeSummary, DaemonEvidenceAppendix, GateResult, OutcomeClass, ReadinessEvidenceSnapshot,
+    RunManifestFrontmatter, RunNarrative, SideEffectCheckpoint, ValidatorVerdictSummary,
+};
+use errors_manifest_impl::{
+    ErrorCode, ErrorManifestDraft, ErrorManifestStore, ErrorRuntimeContext,
+};
+use manifest_writer_impl::{ManifestWriteRequest, write_hybrid_run_manifest};
 use support::db::{
     LogicalColumn, LogicalSchema, TestStateDb, logical_schema_for_tables, logical_schema_hash,
     normalize_sql_type,
@@ -870,6 +901,451 @@ fn l4_t_redaction_boundary_025_browser_viewer_credentials_have_no_privilege() ->
         );
     }
 
+    Ok(())
+}
+
+#[test]
+fn l6_t_redaction_boundary_001_error_manifest_redacts_company_profile_sentinels() -> Result<()> {
+    let rendered = create_bid_error_manifest(json!({
+        "companyProfile": l6_company_profile_sentinel_payload(),
+        "blocker_code": "BID_READINESS_GATE_FAILED",
+        "decisionBasisHash": L6_DECISION_BASIS_HASH,
+    }))?;
+
+    assert_no_l6_sentinels(&rendered, "L6-T-redaction_boundary-001")?;
+    ensure!(
+        rendered.contains("BID_SUBMISSION_FAILED")
+            && rendered.contains("BID_READINESS_GATE_FAILED")
+            && rendered.contains(L6_DECISION_BASIS_HASH),
+        "L6-T-redaction_boundary-001 redaction must preserve error code, blocker code, and decision hash"
+    );
+    Ok(())
+}
+
+#[test]
+fn l6_t_redaction_boundary_002_error_manifest_redacts_bid_scope_payload_sentinels() -> Result<()> {
+    let rendered = create_bid_error_manifest(json!({
+        "bidScopePayload": l6_bid_scope_sentinel_payload(),
+        "bidDocuments": [{
+            "documentType": "pricing_schedule",
+            "filePath": L6_LOCAL_DOCUMENT_PATH_SENTINEL,
+            "contentHash": "sha256:document-ok"
+        }],
+        "field_categories": ["bid_scope", "portal_state"],
+        "blocker_code": "BID_PORTAL_CHANGED"
+    }))?;
+
+    assert_no_l6_sentinels(&rendered, "L6-T-redaction_boundary-002")?;
+    ensure!(
+        rendered.contains(L6_DECISION_BASIS_HASH)
+            && rendered.contains("BID_PORTAL_CHANGED")
+            && rendered.contains("field_categories"),
+        "L6-T-redaction_boundary-002 redaction must retain non-sensitive bid diagnostics"
+    );
+    Ok(())
+}
+
+#[test]
+fn l6_t_redaction_boundary_003_run_manifest_narrative_redacts_company_profile_sentinels()
+-> Result<()> {
+    let manifest = write_l6_manifest(
+        RunNarrative {
+            summary: format!("Prepared lot-audit-id using company {L6_COMPANY_NAME_SENTINEL}"),
+            steps_taken: format!("Contacted {L6_EMAIL_SENTINEL}"),
+            decisions_made:
+                "Retained lot-audit-id candidate-audit-id quote-audit-id profile-version-v1"
+                    .to_owned(),
+            warnings: "None.".to_owned(),
+            evidence: "Screenshot refs: step-01.webp override-id=override-audit-id".to_owned(),
+        },
+        l6_daemon_appendix(Value::Null),
+    )?;
+    let narrative = manifest
+        .split("## Daemon Evidence Appendix")
+        .next()
+        .context("manifest narrative prefix missing")?;
+
+    assert_no_l6_sentinels(narrative, "L6-T-redaction_boundary-003")?;
+    ensure!(
+        narrative.contains("lot-audit-id")
+            && narrative.contains("candidate-audit-id")
+            && narrative.contains("quote-audit-id")
+            && narrative.contains("profile-version-v1")
+            && narrative.contains("override-audit-id"),
+        "L6-T-redaction_boundary-003 audit-trail identifiers should remain in narrative"
+    );
+    Ok(())
+}
+
+#[test]
+fn l6_t_redaction_boundary_004_run_manifest_appendix_redacts_l6_sensitive_fields() -> Result<()> {
+    let appendix_payload = json!({
+        "companyProfile": l6_company_profile_sentinel_payload(),
+        "bidScopePayload": l6_bid_scope_sentinel_payload(),
+        "portalFormValues": {
+            "legalDeclaration": L6_PORTAL_FORM_VALUE_SENTINEL
+        }
+    });
+    let manifest = write_l6_manifest(l6_safe_narrative(), l6_daemon_appendix(appendix_payload))?;
+    let appendix = manifest
+        .split("## Daemon Evidence Appendix")
+        .nth(1)
+        .context("manifest daemon appendix missing")?;
+
+    assert_no_l6_sentinels(appendix, "L6-T-redaction_boundary-004")?;
+    ensure!(
+        appendix.contains("side_effect_progression:")
+            && appendix.contains("screenshot_path: step-01.webp")
+            && appendix.contains("validator_verdict:")
+            && appendix.contains("final_bid_state: draft_saved"),
+        "L6-T-redaction_boundary-004 appendix should retain audit trail fields"
+    );
+    Ok(())
+}
+
+#[test]
+fn l6_t_redaction_boundary_005_sync_projection_redacts_bid_scope_json() -> Result<()> {
+    let raw_payload = json!({
+        "process_id": L6_PROCESS_ID_SENTINEL,
+        "bid_state": "draft_saved",
+        "bid_scope_json": l6_bid_scope_sentinel_payload().to_string(),
+        "review_required": true,
+        "row_version": 1,
+        "stage_run_id": "stage-l6-redaction"
+    });
+    let redacted = bid_redaction_impl::redact_bid_workflow_state_payload(&raw_payload).to_string();
+    let sync_source = read_repo_file("crates/daemon/src/db/sync.rs")?;
+
+    assert_no_l6_sentinels(&redacted, "L6-T-redaction_boundary-005")?;
+    ensure!(
+        redacted.contains(L6_DECISION_BASIS_HASH) && redacted.contains("REMOTE_DRAFT"),
+        "L6-T-redaction_boundary-005 sync-safe bid scope must preserve decision hash and side-effect cap"
+    );
+    ensure!(
+        sync_source.contains("redacted_push_payload_json")
+            && sync_source.contains("bid_workflow_states")
+            && sync_source.contains("redact_bid_workflow_state_payload"),
+        "L6-T-redaction_boundary-005 db sync must route bid_workflow_states payloads through redaction"
+    );
+    Ok(())
+}
+
+#[test]
+fn l6_t_redaction_boundary_006_structured_trace_redacts_bid_workflow_fields() -> Result<()> {
+    let raw = json!({
+        "error_code": "BID_SUBMISSION_FAILED",
+        "bid_state": "bid_failed",
+        "side_effect_class": "REMOTE_DRAFT",
+        "companyProfile": l6_company_profile_sentinel_payload(),
+        "bidScopePayload": l6_bid_scope_sentinel_payload(),
+        "blocker_codes": ["BID_PORTAL_CHANGED"]
+    });
+    let redacted = bid_redaction_impl::redact_structured_trace_value(&raw).to_string();
+    let tracing_source = read_repo_file("crates/daemon/src/tracing/structured.rs")?;
+
+    assert_no_l6_sentinels(&redacted, "L6-T-redaction_boundary-006")?;
+    ensure!(
+        redacted.contains("BID_SUBMISSION_FAILED")
+            && redacted.contains("bid_failed")
+            && redacted.contains("REMOTE_DRAFT")
+            && redacted.contains("BID_PORTAL_CHANGED"),
+        "L6-T-redaction_boundary-006 tracing redaction must preserve operational metadata"
+    );
+    ensure!(
+        tracing_source.contains("redact_structured_trace_value"),
+        "L6-T-redaction_boundary-006 structured trace writer must call bid redaction helper"
+    );
+    Ok(())
+}
+
+const L6_COMPANY_NAME_SENTINEL: &str = "TestCompanyName-Sentinel-L6-2026";
+const L6_REGISTRATION_NUMBER_SENTINEL: &str = "12345678-Sentinel-L6-2026";
+const L6_VAT_SENTINEL: &str = "GB-VAT-Sentinel-L6-2026";
+const L6_ADDRESS_LINE1_SENTINEL: &str = "1 Sentinel Lane-L6-2026";
+const L6_ADDRESS_LINE2_SENTINEL: &str = "Suite Sentinel-L6-2026";
+const L6_CITY_SENTINEL: &str = "Sentinel City-L6-2026";
+const L6_COUNTY_SENTINEL: &str = "Sentinelshire-L6-2026";
+const L6_POSTCODE_SENTINEL: &str = "SW1A Sentinel-L6-2026";
+const L6_COUNTRY_SENTINEL: &str = "GB-Sentinel-L6-2026";
+const L6_CONTACT_NAME_SENTINEL: &str = "Contact Name Sentinel-L6-2026";
+const L6_EMAIL_SENTINEL: &str = "sentinel@sorelon.test-L6-2026";
+const L6_PHONE_SENTINEL: &str = "+44-1234567890-Sentinel-L6-2026";
+const L6_CONTACT_ROLE_SENTINEL: &str = "Bid Lead Sentinel-L6-2026";
+const L6_CERTIFICATION_NUMBER_SENTINEL: &str = "CERT-Sentinel-L6-2026";
+const L6_INSURANCE_POLICY_SENTINEL: &str = "POLICY-Sentinel-L6-2026";
+const L6_INSURANCE_COVER_SENTINEL: &str = "99999999-Sentinel-L6-2026";
+const L6_COMPANIES_HOUSE_REF_SENTINEL: &str = "CH-Sentinel-L6-2026";
+const L6_PROCESS_ID_SENTINEL: &str = "process-Sentinel-L6-2026";
+const L6_LOT_ID_SENTINEL: &str = "lot-Sentinel-L6-2026";
+const L6_CANDIDATE_ID_SENTINEL: &str = "candidate-Sentinel-L6-2026";
+const L6_QUOTE_ID_SENTINEL: &str = "quote-Sentinel-L6-2026";
+const L6_PORTAL_REF_SENTINEL: &str = "DN-Sentinel-L6-2026";
+const L6_LOCAL_DOCUMENT_PATH_SENTINEL: &str =
+    "/tmp/local-document-path-Sentinel-L6-2026/pricing.pdf";
+const L6_PORTAL_FORM_VALUE_SENTINEL: &str = "portal-form-value-Sentinel-L6-2026";
+const L6_DECISION_BASIS_HASH: &str =
+    "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
+fn l6_company_profile_sentinel_payload() -> Value {
+    json!({
+        "companyName": L6_COMPANY_NAME_SENTINEL,
+        "registrationNumber": L6_REGISTRATION_NUMBER_SENTINEL,
+        "vatNumber": L6_VAT_SENTINEL,
+        "address": {
+            "line1": L6_ADDRESS_LINE1_SENTINEL,
+            "line2": L6_ADDRESS_LINE2_SENTINEL,
+            "city": L6_CITY_SENTINEL,
+            "county": L6_COUNTY_SENTINEL,
+            "postcode": L6_POSTCODE_SENTINEL,
+            "country": L6_COUNTRY_SENTINEL
+        },
+        "primaryContact": {
+            "name": L6_CONTACT_NAME_SENTINEL,
+            "email": L6_EMAIL_SENTINEL,
+            "phone": L6_PHONE_SENTINEL,
+            "role": L6_CONTACT_ROLE_SENTINEL
+        },
+        "certifications": [{
+            "type": "iso9001",
+            "number": L6_CERTIFICATION_NUMBER_SENTINEL,
+            "expiryDate": "2027-01-01",
+            "issuingBody": "Sentinel QA"
+        }],
+        "insurancePolicies": [{
+            "type": "public_liability",
+            "provider": "Sentinel Insurer",
+            "policyNumber": L6_INSURANCE_POLICY_SENTINEL,
+            "coverAmountPence": L6_INSURANCE_COVER_SENTINEL,
+            "expiryDate": "2027-01-01"
+        }],
+        "financialStatements": {
+            "lastFiledYear": 2025,
+            "companiesHouseRef": L6_COMPANIES_HOUSE_REF_SENTINEL
+        }
+    })
+}
+
+fn l6_bid_scope_sentinel_payload() -> Value {
+    json!({
+        "processId": L6_PROCESS_ID_SENTINEL,
+        "lotIds": [L6_LOT_ID_SENTINEL],
+        "candidateIds": [L6_CANDIDATE_ID_SENTINEL],
+        "selectedQuoteIds": [L6_QUOTE_ID_SENTINEL],
+        "companyProfileVersion": "profile-version-v1",
+        "bidPortalType": "procontract",
+        "portalOpportunityRef": L6_PORTAL_REF_SENTINEL,
+        "reviewRequired": true,
+        "decisionBasisHash": L6_DECISION_BASIS_HASH,
+        "sideEffectCap": "REMOTE_DRAFT",
+        "localDocumentPath": L6_LOCAL_DOCUMENT_PATH_SENTINEL,
+        "portalFormValues": {
+            "commercialResponse": L6_PORTAL_FORM_VALUE_SENTINEL
+        }
+    })
+}
+
+fn l6_safe_narrative() -> RunNarrative {
+    RunNarrative {
+        summary: "Bid workflow reached draft_saved for scoped audit identifiers.".to_owned(),
+        steps_taken: "Daemon captured screenshots and PTY evidence.".to_owned(),
+        decisions_made: "Scoped IDs are represented by stable appendix hashes.".to_owned(),
+        warnings: "None.".to_owned(),
+        evidence: "Review screenshot artifact refs in the daemon appendix.".to_owned(),
+    }
+}
+
+fn l6_daemon_appendix(extra_payload: Value) -> DaemonEvidenceAppendix {
+    DaemonEvidenceAppendix {
+        observed_url_chain: vec!["https://procontract.due-north.com/opportunity".to_owned()],
+        observed_page_kind_sequence: vec!["procontract_opportunity".to_owned()],
+        daemon_observed_fingerprint_state: "procontract_bid_portal".to_owned(),
+        daemon_observed_locale: "en-GB".to_owned(),
+        daemon_observed_currency: "GBP".to_owned(),
+        auth_challenge_events: Vec::new(),
+        locator_fallback_depth: 0,
+        basis_sufficiency: "high".to_owned(),
+        page_fingerprint_hash: Some("page-hash".to_owned()),
+        auth_challenge_detected: false,
+        extraction_fill_rate_bps: Some(10_000),
+        checkpoint_count: 1,
+        byte_count_compressed: Some(256),
+        validator_rubric_hash: Some("rubric-hash".to_owned()),
+        drift_delta_json: extra_payload,
+        result_item_count: 1,
+        oqg_anomaly_summary: vec!["side_effect_reached=RemoteDraft".to_owned()],
+        representative_item_sample: json!({
+            "process_id_hash": "process-hash",
+            "portal_opportunity_ref_hash": "portal-hash"
+        }),
+        artifact_refs: vec!["sessions/2026/05/session-l6/step-01.webp".to_owned()],
+        bid_scope_summary: Some(BidScopeSummary {
+            process_id_hash: "process-hash".to_owned(),
+            lot_id_hashes: vec!["lot-hash".to_owned()],
+            candidate_id_hashes: vec!["candidate-hash".to_owned()],
+            selected_quote_id_hashes: vec!["quote-hash".to_owned()],
+            portal_opportunity_ref_hash: "portal-hash".to_owned(),
+            decision_basis_hash: L6_DECISION_BASIS_HASH.to_owned(),
+            side_effect_cap: "RemoteDraft".to_owned(),
+            review_required: true,
+        }),
+        side_effect_progression: vec![SideEffectCheckpoint {
+            step: "01".to_owned(),
+            side_effect_class: "RemoteDraft".to_owned(),
+            screenshot_path: "step-01.webp".to_owned(),
+            timestamp: "2026-05-23T09:30:00Z".to_owned(),
+        }],
+        readiness_evidence: Some(ReadinessEvidenceSnapshot {
+            gates_evaluated_at_start: vec![GateResult {
+                code: "ALL_READINESS_GATES_PASSED".to_owned(),
+                source: "bid_workflow_readiness_gate".to_owned(),
+                passed: true,
+                overrideable: false,
+            }],
+            gates_re_evaluated_at_final_submit: vec![GateResult {
+                code: "ALL_READINESS_GATES_PASSED".to_owned(),
+                source: "bid_workflow_readiness_gate".to_owned(),
+                passed: true,
+                overrideable: false,
+            }],
+            decision_basis_hash_at_start: L6_DECISION_BASIS_HASH.to_owned(),
+            decision_basis_hash_at_final_submit: Some(L6_DECISION_BASIS_HASH.to_owned()),
+        }),
+        validator_verdict: Some(ValidatorVerdictSummary {
+            verdict: "approved".to_owned(),
+            rubric_version: "validation/overlay-bid-portal-procontract@pending".to_owned(),
+            reasons: vec!["portal_state_verified=true".to_owned()],
+        }),
+        override_metadata: None,
+        final_bid_state: Some("draft_saved".to_owned()),
+    }
+}
+
+fn create_bid_error_manifest(error_context: Value) -> Result<String> {
+    let temp = tempfile::tempdir()?;
+    let conn = Connection::open_in_memory()?;
+    conn.execute_batch(
+        "\
+        CREATE TABLE error_manifests (
+          id TEXT PRIMARY KEY,
+          job_id TEXT,
+          process_id TEXT,
+          pipeline_stage TEXT NOT NULL,
+          workflow_step TEXT NOT NULL,
+          error_type TEXT NOT NULL,
+          error_message TEXT NOT NULL,
+          error_context TEXT NOT NULL,
+          skill_path TEXT,
+          agent_session_id TEXT,
+          markdown_path TEXT NOT NULL,
+          resolved INTEGER NOT NULL DEFAULT 0,
+          resolved_at TEXT,
+          resolved_by TEXT,
+          created_at TEXT NOT NULL
+        );
+        ",
+    )?;
+    let store = ErrorManifestStore::new(temp.path())?;
+    let stored = store.create(
+        &conn,
+        &ErrorManifestDraft {
+            job_id: Some("job-l6-redaction".to_owned()),
+            process_id: Some("process-safe-error-manifest-id".to_owned()),
+            pipeline_stage: "bid_workflow".to_owned(),
+            workflow_step: "submit_final".to_owned(),
+            error_type: ErrorCode::BidSubmissionFailed,
+            error_message: "Bid workflow failed before final submission".to_owned(),
+            error_context,
+            skill_path: Some("skills/bid-portal-procontract/SKILL.md".to_owned()),
+            agent_session_id: Some("session-l6-redaction".to_owned()),
+            runtime_context: ErrorRuntimeContext {
+                cli_vendor: None,
+                cli_version: None,
+                adapter_version: None,
+                model_id: None,
+                config_hash: None,
+                skill_version: Some("bid-portal/procontract@0.1.0+1.0".to_owned()),
+                pid: None,
+                pgid: None,
+                cleanup_verdict: None,
+                last_valid_checkpoint_sequence: Some(1),
+                daemon_instance_id: None,
+                commit_seq: None,
+            },
+            session_artifact_path: None,
+            next_debugging_action: "Review redacted bid diagnostics and retry after correction."
+                .to_owned(),
+        },
+        chrono::Utc::now(),
+    )?;
+    std::fs::read_to_string(stored.markdown_path).context("reading rendered error manifest")
+}
+
+fn write_l6_manifest(narrative: RunNarrative, appendix: DaemonEvidenceAppendix) -> Result<String> {
+    let temp = tempfile::tempdir()?;
+    let stored = write_hybrid_run_manifest(ManifestWriteRequest {
+        artifact_root: temp.path(),
+        started_at: chrono::Utc::now(),
+        frontmatter: RunManifestFrontmatter {
+            manifest_version: 1,
+            skill_id: "bid-portal/procontract".to_owned(),
+            skill_version: "bid-portal/procontract@0.1.0+1.0".to_owned(),
+            job_id: "job-l6-redaction".to_owned(),
+            session_id: "session-l6-redaction".to_owned(),
+            execution_mode: "pty".to_owned(),
+            started_at: "2026-05-23T09:30:00Z".to_owned(),
+            completed_at: "2026-05-23T09:31:00Z".to_owned(),
+            outcome_class: OutcomeClass::Completed,
+            items_processed: 1,
+            items_skipped: 0,
+            items_failed: 0,
+            warnings_count: 0,
+            agent_claimed_pages_visited: 1,
+            agent_claimed_source_url: "https://procontract.due-north.com".to_owned(),
+            agent_claimed_fingerprint_state: "procontract_bid_portal".to_owned(),
+            agent_claimed_locale_state: "en-GB".to_owned(),
+            agent_claimed_currency_state: "GBP".to_owned(),
+            agent_narrative_missing: false,
+        },
+        narrative: Some(narrative),
+        appendix,
+        disagreements: Vec::new(),
+        missing_narrative_reason: "not used",
+    })?;
+    std::fs::read_to_string(stored.path).context("reading rendered run manifest")
+}
+
+fn assert_no_l6_sentinels(rendered: &str, test_id: &str) -> Result<()> {
+    for sentinel in [
+        L6_COMPANY_NAME_SENTINEL,
+        L6_REGISTRATION_NUMBER_SENTINEL,
+        L6_VAT_SENTINEL,
+        L6_ADDRESS_LINE1_SENTINEL,
+        L6_ADDRESS_LINE2_SENTINEL,
+        L6_CITY_SENTINEL,
+        L6_COUNTY_SENTINEL,
+        L6_POSTCODE_SENTINEL,
+        L6_COUNTRY_SENTINEL,
+        L6_CONTACT_NAME_SENTINEL,
+        L6_EMAIL_SENTINEL,
+        L6_PHONE_SENTINEL,
+        L6_CONTACT_ROLE_SENTINEL,
+        L6_CERTIFICATION_NUMBER_SENTINEL,
+        L6_INSURANCE_POLICY_SENTINEL,
+        L6_INSURANCE_COVER_SENTINEL,
+        L6_COMPANIES_HOUSE_REF_SENTINEL,
+        L6_PROCESS_ID_SENTINEL,
+        L6_LOT_ID_SENTINEL,
+        L6_CANDIDATE_ID_SENTINEL,
+        L6_QUOTE_ID_SENTINEL,
+        L6_PORTAL_REF_SENTINEL,
+        L6_LOCAL_DOCUMENT_PATH_SENTINEL,
+        L6_PORTAL_FORM_VALUE_SENTINEL,
+    ] {
+        ensure!(
+            !rendered.contains(sentinel),
+            "{test_id} leaked sentinel `{sentinel}`"
+        );
+    }
     Ok(())
 }
 

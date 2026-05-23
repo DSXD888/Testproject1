@@ -2,6 +2,7 @@
 
 pub mod decision_basis_hash;
 pub mod readiness_gate;
+pub mod redaction;
 pub mod runner;
 pub mod side_effect_guard;
 pub mod state_machine;
@@ -12,6 +13,11 @@ pub use readiness_gate::{
     BidReadinessBlocker, BidReadinessGateResult, NON_OVERRIDEABLE_GATE_OVERRIDE_REASON_CODE,
     QUOTE_ROLE_QUALITY_OVERRIDE_REASON_CODE, TRUST_DEBT_ACCEPTANCE_REASON_CODE,
     evaluate_bid_readiness,
+};
+pub use redaction::{
+    REDACTED, redact_bid_error_context, redact_bid_scope_payload, redact_bid_skill_input,
+    redact_bid_workflow_state_payload, redact_company_profile, redact_sensitive_text,
+    redact_structured_trace_value, stable_redaction_hash,
 };
 pub use runner::run_bid_workflow_job;
 pub use side_effect_guard::{

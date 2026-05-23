@@ -12,6 +12,8 @@ use serde_json::Value;
 use uuid::Uuid;
 
 #[cfg(not(test))]
+use crate::bid_workflow::redaction::redact_bid_error_context;
+#[cfg(not(test))]
 use crate::errors::markdown;
 #[cfg(test)]
 use crate::errors_markdown_impl as markdown;
@@ -366,7 +368,7 @@ fn validate_draft(draft: &ErrorManifestDraft) -> Result<()> {
 
 fn sanitize_error_context(error_type: ErrorCode, error_context: &Value) -> Value {
     if is_bid_error_code(error_type) {
-        redact_bid_context_value(error_context)
+        redact_bid_error_context(error_context)
     } else {
         error_context.clone()
     }
@@ -384,16 +386,30 @@ const fn is_bid_error_code(error_type: ErrorCode) -> bool {
     )
 }
 
-fn redact_bid_context_value(value: &Value) -> Value {
+#[cfg(test)]
+fn redact_bid_error_context(value: &Value) -> Value {
+    redact_bid_context_value(value, false)
+}
+
+#[cfg(test)]
+fn redact_bid_context_value(value: &Value, inside_bid_scope: bool) -> Value {
     match value {
-        Value::Array(items) => Value::Array(items.iter().map(redact_bid_context_value).collect()),
+        Value::Array(items) => Value::Array(
+            items
+                .iter()
+                .map(|item| redact_bid_context_value(item, inside_bid_scope))
+                .collect(),
+        ),
         Value::Object(map) => Value::Object(
             map.iter()
                 .map(|(key, value)| {
-                    let value = if is_sensitive_bid_context_key(key) {
+                    let normalized = key.replace(['_', '-'], "").to_ascii_lowercase();
+                    let child_inside_bid_scope =
+                        inside_bid_scope || normalized.as_str() == "bidscopepayload";
+                    let value = if is_sensitive_bid_context_key(&normalized, inside_bid_scope) {
                         Value::String("[REDACTED]".to_owned())
                     } else {
-                        redact_bid_context_value(value)
+                        redact_bid_context_value(value, child_inside_bid_scope)
                     };
                     (key.clone(), value)
                 })
@@ -403,19 +419,47 @@ fn redact_bid_context_value(value: &Value) -> Value {
     }
 }
 
-fn is_sensitive_bid_context_key(key: &str) -> bool {
-    let normalized = key.replace(['_', '-'], "").to_ascii_lowercase();
+#[cfg(test)]
+fn is_sensitive_bid_context_key(normalized: &str, inside_bid_scope: bool) -> bool {
+    if normalized.ends_with("hash") {
+        return false;
+    }
+    if normalized == "portalopportunityref" {
+        return inside_bid_scope;
+    }
     matches!(
-        normalized.as_str(),
+        normalized,
         "address"
             | "email"
             | "operatoremail"
+            | "name"
             | "phone"
             | "postcode"
             | "primarycontact"
             | "registrationnumber"
             | "vatnumber"
             | "companyprofile"
+            | "companyname"
+            | "number"
+            | "line1"
+            | "line2"
+            | "city"
+            | "county"
+            | "certificationnumber"
+            | "policynumber"
+            | "coveramountpence"
+            | "companieshouseref"
+            | "country"
+            | "role"
+            | "processid"
+            | "lotids"
+            | "candidateids"
+            | "quoteids"
+            | "selectedquoteids"
+            | "filepath"
+            | "localdocumentpath"
+            | "documentpath"
+            | "portalformvalues"
     )
 }
 

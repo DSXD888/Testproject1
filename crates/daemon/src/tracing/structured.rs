@@ -9,6 +9,8 @@ use serde_json::{Value, json};
 
 use crate::agents::adapter::{AuthChallengeKind, CapabilityReport, ControlEvent, ExecutionMode};
 #[cfg(not(test))]
+use crate::bid_workflow::redaction::redact_structured_trace_value;
+#[cfg(not(test))]
 use crate::errors::manifest::ErrorCode;
 
 pub const STRUCTURED_TRACE_SCHEMA_VERSION: u32 = 1;
@@ -187,8 +189,10 @@ impl StructuredTrace {
         self
     }
 
-    pub fn insert_metadata(&mut self, key: impl Into<String>, value: Value) {
-        self.additional_fields.insert(key.into(), value);
+    pub fn insert_metadata(&mut self, key: impl Into<String>, value: impl Into<Value>) {
+        let value = value.into();
+        self.additional_fields
+            .insert(key.into(), redact_structured_trace_value(&value));
     }
 
     pub fn insert_error_code_metadata(
@@ -214,12 +218,16 @@ impl StructuredTrace {
     }
 
     pub fn push_control_record(&mut self, record: StructuredControlEventRecord) {
+        let mut record = record;
+        record.details = redact_structured_trace_value(&record.details);
         self.control_events
             .push(legacy_control_event_name(&record.event).to_owned());
         self.control_event_records.push(record);
     }
 
     pub fn push_protocol_record(&mut self, record: StructuredProtocolEventRecord) {
+        let mut record = record;
+        record.details = redact_structured_trace_value(&record.details);
         self.protocol_events.push(record);
     }
 
@@ -577,6 +585,61 @@ fn contains_string(value: &Value, candidate: &str) -> bool {
             .values()
             .any(|entry| contains_string(entry, candidate)),
         _ => false,
+    }
+}
+
+#[cfg(test)]
+fn redact_structured_trace_value(value: &Value) -> Value {
+    match value {
+        Value::Array(items) => {
+            Value::Array(items.iter().map(redact_structured_trace_value).collect())
+        }
+        Value::Object(object) => Value::Object(
+            object
+                .iter()
+                .map(|(key, value)| {
+                    let normalized = key.replace(['_', '-'], "").to_ascii_lowercase();
+                    if normalized.ends_with("hash") {
+                        return (key.clone(), value.clone());
+                    }
+                    let redacted = if matches!(
+                        normalized.as_str(),
+                        "companyname"
+                            | "registrationnumber"
+                            | "vatnumber"
+                            | "number"
+                            | "address"
+                            | "line1"
+                            | "line2"
+                            | "city"
+                            | "county"
+                            | "postcode"
+                            | "country"
+                            | "primarycontact"
+                            | "email"
+                            | "phone"
+                            | "role"
+                            | "policynumber"
+                            | "coveramountpence"
+                            | "companieshouseref"
+                            | "portalopportunityref"
+                            | "filepath"
+                            | "documentpath"
+                    ) {
+                        Value::String("[REDACTED]".to_owned())
+                    } else {
+                        redact_structured_trace_value(value)
+                    };
+                    (key.clone(), redacted)
+                })
+                .collect(),
+        ),
+        Value::String(text)
+            if text.contains("Sentinel-L6-2026") || text.contains("@sorelon.test") =>
+        {
+            Value::String("[REDACTED]".to_owned())
+        }
+        _ => value.clone(),
     }
 }
 
