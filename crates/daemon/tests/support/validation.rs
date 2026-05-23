@@ -277,6 +277,12 @@ impl ValidatorHarness {
             "oqg_anomaly_summary",
             "representative_item_sample",
             "artifact_refs",
+            "bid_scope_summary",
+            "side_effect_progression",
+            "readiness_evidence",
+            "validator_verdict",
+            "override_metadata",
+            "final_bid_state",
         ];
         ensure!(keys == expected);
         Ok(())

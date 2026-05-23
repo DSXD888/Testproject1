@@ -572,8 +572,9 @@ fn bid_runner_body_runs_simulated_draft_with_full_audit_trail() -> Result<()> {
     ensure!(
         manifest.contains("side_effect_reached=RemoteDraft")
             && manifest.contains(PORTAL_REF)
-            && manifest.contains("Screenshots:"),
-        "run manifest should cite side-effect progression, portal ref, and screenshots"
+            && manifest.contains("side_effect_progression:")
+            && manifest.contains("screenshot_path:"),
+        "run manifest should cite side-effect progression, portal ref, and screenshot appendix rows"
     );
     for artifact_ref in artifact_refs(&output_payload)? {
         ensure!(

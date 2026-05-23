@@ -79,6 +79,69 @@ pub struct DaemonEvidenceAppendix {
     pub oqg_anomaly_summary: Vec<String>,
     pub representative_item_sample: Value,
     pub artifact_refs: Vec<String>,
+    #[serde(default)]
+    pub bid_scope_summary: Option<BidScopeSummary>,
+    #[serde(default)]
+    pub side_effect_progression: Vec<SideEffectCheckpoint>,
+    #[serde(default)]
+    pub readiness_evidence: Option<ReadinessEvidenceSnapshot>,
+    #[serde(default)]
+    pub validator_verdict: Option<ValidatorVerdictSummary>,
+    #[serde(default)]
+    pub override_metadata: Option<OperatorOverrideRecord>,
+    #[serde(default)]
+    pub final_bid_state: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct BidScopeSummary {
+    pub process_id_hash: String,
+    pub lot_id_hashes: Vec<String>,
+    pub candidate_id_hashes: Vec<String>,
+    pub selected_quote_id_hashes: Vec<String>,
+    pub portal_opportunity_ref_hash: String,
+    pub decision_basis_hash: String,
+    pub side_effect_cap: String,
+    pub review_required: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SideEffectCheckpoint {
+    pub step: String,
+    pub side_effect_class: String,
+    pub screenshot_path: String,
+    pub timestamp: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ReadinessEvidenceSnapshot {
+    pub gates_evaluated_at_start: Vec<GateResult>,
+    pub gates_re_evaluated_at_final_submit: Vec<GateResult>,
+    pub decision_basis_hash_at_start: String,
+    pub decision_basis_hash_at_final_submit: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct GateResult {
+    pub code: String,
+    pub source: String,
+    pub passed: bool,
+    pub overrideable: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ValidatorVerdictSummary {
+    pub verdict: String,
+    pub rubric_version: String,
+    pub reasons: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct OperatorOverrideRecord {
+    pub kind: String,
+    pub reason: String,
+    pub recorded_by: String,
+    pub recorded_at: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

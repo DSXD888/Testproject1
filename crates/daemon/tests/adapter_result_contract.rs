@@ -108,6 +108,12 @@ mod tests {
                 "checkpoints/checkpoint-1.json".to_owned(),
                 "results/result.json".to_owned(),
             ],
+            bid_scope_summary: None,
+            side_effect_progression: Vec::new(),
+            readiness_evidence: None,
+            validator_verdict: None,
+            override_metadata: None,
+            final_bid_state: None,
         }
     }
 

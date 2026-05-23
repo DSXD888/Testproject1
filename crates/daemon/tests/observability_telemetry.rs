@@ -177,6 +177,12 @@ mod tests {
                 "checkpoints/checkpoint-1.json".to_owned(),
                 "results/result.json".to_owned(),
             ],
+            bid_scope_summary: None,
+            side_effect_progression: Vec::new(),
+            readiness_evidence: None,
+            validator_verdict: None,
+            override_metadata: None,
+            final_bid_state: None,
         }
     }
 
@@ -800,7 +806,7 @@ mod tests {
             "frontmatter inventory should assert every current RunManifestFrontmatter field"
         );
         ensure!(
-            appendix_keys.len() == 19,
+            appendix_keys.len() == 25,
             "appendix inventory should assert every current DaemonEvidenceAppendix field"
         );
         ensure!(
@@ -874,6 +880,12 @@ mod tests {
             "oqg_anomaly_summary",
             "representative_item_sample",
             "artifact_refs",
+            "bid_scope_summary",
+            "side_effect_progression",
+            "readiness_evidence",
+            "validator_verdict",
+            "override_metadata",
+            "final_bid_state",
         ];
         ensure!(
             keys == expected,

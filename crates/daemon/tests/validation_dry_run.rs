@@ -470,6 +470,12 @@ mod tests {
             oqg_anomaly_summary: vec!["duplicate_rate:none".to_owned()],
             representative_item_sample: json!({"item":"sample"}),
             artifact_refs: vec!["results/result.json".to_owned()],
+            bid_scope_summary: None,
+            side_effect_progression: Vec::new(),
+            readiness_evidence: None,
+            validator_verdict: None,
+            override_metadata: None,
+            final_bid_state: None,
         })?;
         Ok(())
     }

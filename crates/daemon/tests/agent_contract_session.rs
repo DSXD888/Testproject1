@@ -406,6 +406,12 @@ mod tests {
             oqg_anomaly_summary: Vec::new(),
             representative_item_sample: json!({"process_id":"process-123"}),
             artifact_refs: vec!["manifests/process-123.json".to_owned()],
+            bid_scope_summary: None,
+            side_effect_progression: Vec::new(),
+            readiness_evidence: None,
+            validator_verdict: None,
+            override_metadata: None,
+            final_bid_state: None,
         }
     }
 

@@ -21267,6 +21267,12 @@ fn write_run_manifest_for_session(
             "title": fixture.notices.first().map(|notice| notice.title.clone()),
         }),
         artifact_refs,
+        bid_scope_summary: None,
+        side_effect_progression: Vec::new(),
+        readiness_evidence: None,
+        validator_verdict: None,
+        override_metadata: None,
+        final_bid_state: None,
     };
 
     write_hybrid_run_manifest(ManifestWriteRequest {

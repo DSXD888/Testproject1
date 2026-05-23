@@ -9,7 +9,7 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
-use super::readiness_gate::evaluate_bid_readiness;
+use super::readiness_gate::{BidReadinessGateResult, evaluate_bid_readiness};
 use super::side_effect_guard::{
     CapDecision, enforce_procontract_observed_side_effect, enforce_procontract_step_cap,
     planned_procontract_steps,
@@ -25,7 +25,8 @@ use crate::agents::arbiter::{
     ResourceLease,
 };
 use crate::agents::artifacts::{
-    DaemonEvidenceAppendix, OutcomeClass, RunManifestFrontmatter, RunNarrative,
+    BidScopeSummary, DaemonEvidenceAppendix, GateResult, OutcomeClass, ReadinessEvidenceSnapshot,
+    RunManifestFrontmatter, RunNarrative, SideEffectCheckpoint, ValidatorVerdictSummary,
     persist_run_manifest_metadata,
 };
 use crate::db::sqlite::DEFAULT_OWNER_ID;
@@ -93,7 +94,7 @@ pub async fn run_bid_workflow_job(
 
         let company_profile = request
             .company_profile
-            .or(readiness.resolved_company_profile)
+            .or_else(|| readiness.resolved_company_profile.clone())
             .ok_or_else(|| anyhow!("bid workflow request missing resolved CompanyProfile"))?;
         let quote_summaries =
             load_selected_quote_summaries(runtime.state_db.connection(), &bid_scope)?;
@@ -155,6 +156,8 @@ pub async fn run_bid_workflow_job(
         .await?;
         let final_state =
             final_state_for_skill_result(&execution.result_json, bid_scope.side_effect_cap)?;
+        let final_readiness = evaluate_bid_readiness(runtime.state_db.connection(), &bid_scope)
+            .context("re-evaluating bid workflow readiness before final manifest")?;
         let manifest = write_bid_run_manifest(
             runtime,
             &skill_profile,
@@ -165,6 +168,8 @@ pub async fn run_bid_workflow_job(
             &stage_run_id,
             final_state,
             &execution,
+            &readiness,
+            &final_readiness,
         )?;
         persist_run_manifest_metadata(runtime.state_db.connection(), &session_id, &manifest)?;
 
@@ -982,6 +987,8 @@ fn write_bid_run_manifest(
     stage_run_id: &str,
     final_state: BidWorkflowState,
     execution: &BidSkillExecution,
+    start_readiness: &BidReadinessGateResult,
+    final_readiness: &BidReadinessGateResult,
 ) -> Result<crate::agents::artifacts::StoredManifest> {
     let outcome_class = match final_state {
         BidWorkflowState::DraftSaved
@@ -994,34 +1001,32 @@ fn write_bid_run_manifest(
     };
     let narrative = RunNarrative {
         summary: format!(
-            "Bid workflow for process {} reached {} on Procontract opportunity {}.",
-            bid_scope.process_id,
-            final_state.as_str(),
-            bid_scope.portal_opportunity_ref
+            "Bid workflow reached {} for the scoped Procontract run.",
+            final_state.as_str()
         ),
-        steps_taken: format!(
-            "Lots: {}. Candidates: {}. Quotes: {}. Side effect reached: {:?}.",
-            bid_scope.lot_ids.join(", "),
-            bid_scope.candidate_ids.join(", "),
-            bid_scope.selected_quote_ids.join(", "),
-            execution.side_effect_reached
-        ),
+        steps_taken:
+            "Daemon recorded portal automation checkpoints, screenshots, and forensic PTY output."
+                .to_owned(),
         decisions_made: format!(
-            "sideEffectCap={:?}; reviewRequired={}; stageRunId={stage_run_id}",
-            bid_scope.side_effect_cap, bid_scope.review_required
+            "Side-effect cap, review requirement, and scoped identifiers are recorded in the daemon evidence appendix for stageRunId={stage_run_id}."
         ),
         warnings: if matches!(final_state, BidWorkflowState::PortalStateUnknown) {
             "Portal state requires operator reconciliation before retry.".to_owned()
         } else {
             "None.".to_owned()
         },
-        evidence: format!(
-            "Screenshots: {}. Result contract: {}.",
-            execution.screenshot_paths.join(", "),
-            execution.result_path.display()
-        ),
+        evidence:
+            "Use daemon evidence appendix artifact refs for screenshots, result contract, and PTY capture."
+                .to_owned(),
     };
     let (items_failed, warnings_count) = bid_manifest_counts(final_state);
+    let side_effect_progression = side_effect_progression(execution, started_at);
+    let readiness_evidence = ReadinessEvidenceSnapshot {
+        gates_evaluated_at_start: readiness_gate_results(start_readiness),
+        gates_re_evaluated_at_final_submit: readiness_gate_results(final_readiness),
+        decision_basis_hash_at_start: bid_scope.decision_basis_hash.clone(),
+        decision_basis_hash_at_final_submit: Some(bid_scope.decision_basis_hash.clone()),
+    };
     write_hybrid_run_manifest(ManifestWriteRequest {
         artifact_root: &runtime.artifact_root,
         started_at,
@@ -1081,11 +1086,33 @@ fn write_bid_run_manifest(
                 execution.side_effect_reached, bid_scope.side_effect_cap
             )],
             representative_item_sample: json!({
-                "process_id": bid_scope.process_id,
-                "portal_opportunity_ref": bid_scope.portal_opportunity_ref,
+                "process_id_hash": stable_id_hash("process", &bid_scope.process_id),
+                "portal_opportunity_ref_hash": stable_id_hash("portal_ref", &bid_scope.portal_opportunity_ref),
                 "bid_state": final_state.as_str(),
             }),
             artifact_refs: execution.artifact_refs.clone(),
+            bid_scope_summary: Some(BidScopeSummary {
+                process_id_hash: stable_id_hash("process", &bid_scope.process_id),
+                lot_id_hashes: hash_id_list("lot", &bid_scope.lot_ids),
+                candidate_id_hashes: hash_id_list("candidate", &bid_scope.candidate_ids),
+                selected_quote_id_hashes: hash_id_list("quote", &bid_scope.selected_quote_ids),
+                portal_opportunity_ref_hash: stable_id_hash(
+                    "portal_ref",
+                    &bid_scope.portal_opportunity_ref,
+                ),
+                decision_basis_hash: bid_scope.decision_basis_hash.clone(),
+                side_effect_cap: format!("{:?}", bid_scope.side_effect_cap),
+                review_required: bid_scope.review_required,
+            }),
+            side_effect_progression,
+            readiness_evidence: Some(readiness_evidence),
+            validator_verdict: Some(ValidatorVerdictSummary {
+                verdict: validation_verdict_label(execution).to_owned(),
+                rubric_version: "validation/overlay-bid-portal-procontract@pending".to_owned(),
+                reasons: validation_verdict_reasons(execution),
+            }),
+            override_metadata: None,
+            final_bid_state: Some(final_state.as_str().to_owned()),
         },
         disagreements: Vec::new(),
         missing_narrative_reason: "bid workflow narrative was provided",
@@ -1102,6 +1129,89 @@ const fn bid_manifest_counts(final_state: BidWorkflowState) -> (u32, u32) {
         | BidWorkflowState::DraftSaved
         | BidWorkflowState::BidSubmitted => (0, 0),
     }
+}
+
+fn side_effect_progression(
+    execution: &BidSkillExecution,
+    started_at: chrono::DateTime<Utc>,
+) -> Vec<SideEffectCheckpoint> {
+    let checkpoint_count = execution.screenshot_paths.len();
+    execution
+        .screenshot_paths
+        .iter()
+        .enumerate()
+        .map(|(index, screenshot_path)| {
+            let side_effect_class = if index + 1 == checkpoint_count {
+                format!("{:?}", execution.side_effect_reached)
+            } else {
+                "ReadOnly".to_owned()
+            };
+            SideEffectCheckpoint {
+                step: format!("{:02}", index + 1),
+                side_effect_class,
+                screenshot_path: screenshot_path.clone(),
+                timestamp: started_at.to_rfc3339(),
+            }
+        })
+        .collect()
+}
+
+fn readiness_gate_results(readiness: &BidReadinessGateResult) -> Vec<GateResult> {
+    if readiness.approved {
+        return vec![GateResult {
+            code: "ALL_READINESS_GATES_PASSED".to_owned(),
+            source: "bid_workflow_readiness_gate".to_owned(),
+            passed: true,
+            overrideable: false,
+        }];
+    }
+    readiness
+        .blockers
+        .iter()
+        .map(|blocker| GateResult {
+            code: blocker.code().to_owned(),
+            source: blocker.source().to_owned(),
+            passed: false,
+            overrideable: blocker.overrideable(),
+        })
+        .collect()
+}
+
+fn hash_id_list(label: &str, values: &[String]) -> Vec<String> {
+    values
+        .iter()
+        .map(|value| stable_id_hash(label, value))
+        .collect()
+}
+
+fn stable_id_hash(label: &str, value: &str) -> String {
+    sha256_hex(format!("{label}:{value}").as_bytes())
+}
+
+const fn validation_verdict_label(execution: &BidSkillExecution) -> &'static str {
+    match execution.validation_gate {
+        ValidatorGate::Approved => "approved",
+        ValidatorGate::Rejected => "rejected",
+        ValidatorGate::Outage => "outage",
+        ValidatorGate::Missing => "missing",
+        ValidatorGate::NotRequired => "not_required",
+    }
+}
+
+fn validation_verdict_reasons(execution: &BidSkillExecution) -> Vec<String> {
+    let mut reasons = Vec::new();
+    reasons.push(format!(
+        "portal_state_verified={}",
+        execution.portal_state_verified
+    ));
+    reasons.push(format!(
+        "side_effect_reached={:?}",
+        execution.side_effect_reached
+    ));
+    if execution.validation_override_logged {
+        reasons.push("validation_override_logged=true".to_owned());
+    }
+    reasons
 }
 
 fn final_transition_context(
