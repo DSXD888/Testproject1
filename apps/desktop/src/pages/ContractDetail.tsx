@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import { useState, type ReactElement } from 'react';
 
 import {
   boundUntrustedText,
@@ -11,6 +11,10 @@ import {
   getCoverageDecisionSupport,
   type CoverageMetrics,
 } from '../../../../packages/intelligence/src/margins/coverage-rollup';
+import {
+  BidWorkflowTab,
+  type DesktopBidWorkflowState,
+} from './BidWorkflowTab';
 import { OperatorDecisionPanel } from './OperatorDecisionPanel';
 
 type DetailState =
@@ -91,6 +95,7 @@ type DetailState =
             isStale: boolean;
             decidedAt: string | null;
           };
+          bidWorkflow?: DesktopBidWorkflowState | null;
           errors: Array<{
             errorManifestId: string;
             processId: string | null;
@@ -105,6 +110,8 @@ type DetailState =
         };
       };
     };
+
+type DetailTab = 'contracts' | 'decisions' | 'bidWorkflow';
 
 function formatMoney(pence: number): string {
   return new Intl.NumberFormat('en-GB', {
@@ -165,6 +172,8 @@ export function ContractDetail({
     pendingAction: 'trigger_ingestion' | 'trigger_enrichment' | null;
   };
 }): ReactElement {
+  const [activeTab, setActiveTab] = useState<DetailTab>('contracts');
+
   if (state.status !== 'ready') {
     if (state.status === 'error') {
       return (
@@ -197,6 +206,94 @@ export function ContractDetail({
     valueWeightedGateReady,
     autoQualificationFloorBps,
   } = getCoverageDecisionSupport(data.coverage);
+  const decisionControls = (
+    <article className="detail-card">
+      <h3>Decision controls</h3>
+      <div className="decision-actions">
+        <button
+          disabled={
+            !mutationsEnabled ||
+            actionStatus.pendingAction === 'trigger_enrichment'
+          }
+          onClick={() => void onTriggerEnrichment(data.processId)}
+          type="button"
+        >
+          Rerun enrichment
+        </button>
+        {sourceIds.map((sourceId) => (
+          <button
+            disabled={
+              !mutationsEnabled ||
+              actionStatus.pendingAction === 'trigger_ingestion'
+            }
+            key={sourceId}
+            onClick={() => void onTriggerIngestion(sourceId)}
+            type="button"
+          >
+            Run {sourceId} ingestion
+          </button>
+        ))}
+      </div>
+      <div className="decision-actions">
+        <button
+          disabled={!mutationsEnabled || decisionStatus.status === 'saving'}
+          onClick={() => void onCaptureDecision(data.processId, 'approve')}
+          type="button"
+        >
+          Approve
+        </button>
+        <button
+          disabled={!mutationsEnabled || decisionStatus.status === 'saving'}
+          onClick={() => void onCaptureDecision(data.processId, 'reject')}
+          type="button"
+        >
+          Reject
+        </button>
+        <button
+          disabled={!mutationsEnabled || decisionStatus.status === 'saving'}
+          onClick={() => void onCaptureDecision(data.processId, 'watch')}
+          type="button"
+        >
+          Watch
+        </button>
+      </div>
+      <p>Reviewed at: {data.decision.decidedAt ?? 'Pending operator review'}</p>
+      {decisionStatus.status === 'saving' ? (
+        <p role="status">Saving decision…</p>
+      ) : null}
+      {actionStatus.status === 'running' ? (
+        <p role="status">
+          {actionStatus.pendingAction === 'trigger_ingestion'
+            ? 'Triggering source ingestion…'
+            : 'Triggering enrichment rerun…'}
+        </p>
+      ) : null}
+      {decisionStatus.status === 'error' && decisionStatus.message ? (
+        <p role="alert">{sanitizeUntrustedText(decisionStatus.message)}</p>
+      ) : null}
+      {actionStatus.message ? (
+        <p role={actionStatus.status === 'error' ? 'alert' : 'status'}>
+          {sanitizeUntrustedText(actionStatus.message)}
+        </p>
+      ) : null}
+      {decisionStatus.status === 'error' &&
+      decisionStatus.retryable &&
+      decisionStatus.pendingDisposition ? (
+        <button
+          onClick={() => {
+            const disposition = decisionStatus.pendingDisposition;
+            if (!disposition) {
+              return;
+            }
+            void onCaptureDecision(data.processId, disposition);
+          }}
+          type="button"
+        >
+          Retry last decision
+        </button>
+      ) : null}
+    </article>
+  );
 
   return (
     <section className="page page--detail">
@@ -227,6 +324,35 @@ export function ContractDetail({
         </div>
       </header>
 
+      <nav aria-label="Process detail sections" className="detail-tabs" role="tablist">
+        <button
+          aria-selected={activeTab === 'contracts'}
+          onClick={() => setActiveTab('contracts')}
+          role="tab"
+          type="button"
+        >
+          Contracts
+        </button>
+        <button
+          aria-selected={activeTab === 'decisions'}
+          onClick={() => setActiveTab('decisions')}
+          role="tab"
+          type="button"
+        >
+          Decisions
+        </button>
+        <button
+          aria-selected={activeTab === 'bidWorkflow'}
+          onClick={() => setActiveTab('bidWorkflow')}
+          role="tab"
+          type="button"
+        >
+          BidWorkflow
+        </button>
+      </nav>
+
+      {activeTab === 'contracts' ? (
+        <>
       <section className="detail-grid">
         <article className="detail-card">
           <h3>Coverage</h3>
@@ -275,106 +401,7 @@ export function ContractDetail({
             </p>
           ) : null}
         </article>
-
-        <article className="detail-card">
-          <h3>Decision controls</h3>
-          <div className="decision-actions">
-            <button
-              disabled={
-                !mutationsEnabled ||
-                actionStatus.pendingAction === 'trigger_enrichment'
-              }
-              onClick={() => void onTriggerEnrichment(data.processId)}
-              type="button"
-            >
-              Rerun enrichment
-            </button>
-            {sourceIds.map((sourceId) => (
-              <button
-                disabled={
-                  !mutationsEnabled ||
-                  actionStatus.pendingAction === 'trigger_ingestion'
-                }
-                key={sourceId}
-                onClick={() => void onTriggerIngestion(sourceId)}
-                type="button"
-              >
-                Run {sourceId} ingestion
-              </button>
-            ))}
-          </div>
-          <div className="decision-actions">
-            <button
-              disabled={!mutationsEnabled || decisionStatus.status === 'saving'}
-              onClick={() => void onCaptureDecision(data.processId, 'approve')}
-              type="button"
-            >
-              Approve
-            </button>
-            <button
-              disabled={!mutationsEnabled || decisionStatus.status === 'saving'}
-              onClick={() => void onCaptureDecision(data.processId, 'reject')}
-              type="button"
-            >
-              Reject
-            </button>
-            <button
-              disabled={!mutationsEnabled || decisionStatus.status === 'saving'}
-              onClick={() => void onCaptureDecision(data.processId, 'watch')}
-              type="button"
-            >
-              Watch
-            </button>
-          </div>
-          <p>Reviewed at: {data.decision.decidedAt ?? 'Pending operator review'}</p>
-          {decisionStatus.status === 'saving' ? (
-            <p role="status">Saving decision…</p>
-          ) : null}
-          {actionStatus.status === 'running' ? (
-            <p role="status">
-              {actionStatus.pendingAction === 'trigger_ingestion'
-                ? 'Triggering source ingestion…'
-                : 'Triggering enrichment rerun…'}
-            </p>
-          ) : null}
-          {decisionStatus.status === 'error' && decisionStatus.message ? (
-            <p role="alert">{sanitizeUntrustedText(decisionStatus.message)}</p>
-          ) : null}
-          {actionStatus.message ? (
-            <p role={actionStatus.status === 'error' ? 'alert' : 'status'}>
-              {sanitizeUntrustedText(actionStatus.message)}
-            </p>
-          ) : null}
-          {decisionStatus.status === 'error' &&
-          decisionStatus.retryable &&
-          decisionStatus.pendingDisposition ? (
-            <button
-              onClick={() => {
-                const disposition = decisionStatus.pendingDisposition;
-                if (!disposition) {
-                  return;
-                }
-                void onCaptureDecision(data.processId, disposition);
-              }}
-              type="button"
-            >
-              Retry last decision
-            </button>
-          ) : null}
-        </article>
       </section>
-
-      <OperatorDecisionPanel
-        processId={data.processId}
-        manifestBasisHash={
-          data.manifest?.manifestBasisHash ?? data.manifest?.basisHash ?? null
-        }
-        manifestHash={data.manifest?.artifactHash ?? null}
-        manifestStageRunId={data.manifest?.stageRunId ?? null}
-        clarificationPromptsJson={data.manifest?.clarificationPromptsJson ?? null}
-        latestDecision={data.decision}
-        onChanged={() => onPanelChanged?.()}
-      />
 
       <section className="detail-grid">
         <article className="detail-card">
@@ -543,6 +570,34 @@ export function ContractDetail({
           <ErrorSummaryList errors={data.errors} />
         )}
       </section>
+        </>
+      ) : null}
+
+      {activeTab === 'decisions' ? (
+        <>
+          <section className="detail-grid">{decisionControls}</section>
+          <OperatorDecisionPanel
+            processId={data.processId}
+            manifestBasisHash={
+              data.manifest?.manifestBasisHash ?? data.manifest?.basisHash ?? null
+            }
+            manifestHash={data.manifest?.artifactHash ?? null}
+            manifestStageRunId={data.manifest?.stageRunId ?? null}
+            clarificationPromptsJson={data.manifest?.clarificationPromptsJson ?? null}
+            latestDecision={data.decision}
+            onChanged={() => onPanelChanged?.()}
+          />
+        </>
+      ) : null}
+
+      {activeTab === 'bidWorkflow' ? (
+        <BidWorkflowTab
+          processId={data.processId}
+          workflowState={data.bidWorkflow ?? null}
+          readiness={null}
+          mutationsEnabled={mutationsEnabled}
+        />
+      ) : null}
     </section>
   );
 }
