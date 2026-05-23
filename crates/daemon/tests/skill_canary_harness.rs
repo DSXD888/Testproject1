@@ -150,6 +150,12 @@ fn json_i64_field_eq(value: Option<&Value>, expected: i64) -> bool {
         .is_some_and(|observed| observed == expected)
 }
 
+fn json_bool_field_eq(value: Option<&Value>, expected: bool) -> bool {
+    value
+        .and_then(Value::as_bool)
+        .is_some_and(|observed| observed == expected)
+}
+
 #[test]
 fn e2e_can_001_fts_canary_fetches_minimum_viable_notice_set_and_validates_basic_ocds_structure()
 -> Result<()> {
@@ -567,6 +573,112 @@ fn e2e_can_012_bid_portal_opportunity_lookup_canaries_cover_verified_lookup_dupl
                 .and_then(Value::as_array)
                 .is_some_and(|anchors| anchors.len() >= 3),
         "portal-drift cassette must expose deterministic fingerprint divergence"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn e2e_can_013_bid_portal_form_fill_and_upload_canaries_cover_remote_draft_hash_checks()
+-> Result<()> {
+    let fixture_root =
+        repo_root()?.join("tests/fixtures/calibration/bid-portal-procontract/simple");
+    let canaries = load_canary_inputs(&fixture_root.join("canary.inputs.jsonl"))?;
+    let skill_markdown = fs::read_to_string(skill_dir("bid-portal-procontract")?.join("SKILL.md"))?;
+
+    for required in [
+        "Field mapping (from `CompanyProfile`, NEVER from any other source)",
+        "`companyName` -> portal \"Company Name\" input",
+        "`registrationNumber` -> portal \"Company Registration Number\" input",
+        "`primaryContact.email` -> portal \"Contact Email\" input",
+        "DO NOT auto-fill from previously-saved portal data.",
+        "DO NOT log filled values to stdout/stderr.",
+        "DO NOT cache filled values to disk outside the daemon-managed artifact store.",
+        "Use only `BidScopePayload.lotIds`",
+        "`selectedQuoteIds` and daemon-provided `selected_quote_summaries`",
+        "For each `BidDocument` in `BidDocument[]`",
+        "Compute SHA-256 over the file contents.",
+        "Compare the observed hash against `BidDocument.contentHash`",
+        "`portal_acknowledgement_text`",
+    ] {
+        ensure!(
+            skill_markdown.contains(required),
+            "form-fill/upload playbook missing `{required}`"
+        );
+    }
+
+    let upload_success = find_canary_case(&canaries, "simple-form-fill-upload-01")?;
+    let hash_mismatch = find_canary_case(&canaries, "simple-upload-hash-mismatch-01")?;
+
+    ensure!(
+        json_str_field_eq(
+            upload_success.get("expected_terminal_state"),
+            "bid_in_progress"
+        ) && upload_success
+            .get("expected_error_code")
+            .is_some_and(Value::is_null)
+            && json_i64_field_eq(upload_success.get("expected_step_reached"), 8)
+            && json_str_field_eq(
+                upload_success.get("expected_side_effect_class_reached"),
+                "REMOTE_DRAFT",
+            ),
+        "upload-success canary must reach Step 8 remote-draft state without error"
+    );
+    let upload_success_cassette = load_bid_portal_cassette(&fixture_root, upload_success)?;
+    ensure!(
+        json_str_field_eq(
+            upload_success_cassette.pointer("/form_fill/source"),
+            "CompanyProfile",
+        ) && json_str_field_eq(
+            upload_success_cassette.pointer("/form_fill/company_profile_version"),
+            "test-profile-v1",
+        ) && json_bool_field_eq(
+            upload_success_cassette.pointer("/form_fill/pii_logged"),
+            false
+        ) && json_bool_field_eq(
+            upload_success_cassette.pointer("/form_fill/cached_outside_artifact_store"),
+            false,
+        ) && json_bool_field_eq(
+            upload_success_cassette.pointer("/lot_pricing/unscoped_lots_selected"),
+            false,
+        ) && upload_success_cassette
+            .pointer("/document_uploads/0/hash_match")
+            .and_then(Value::as_bool)
+            .is_some_and(|observed| observed)
+            && json_str_field_eq(
+                upload_success_cassette.pointer("/document_uploads/0/portal_acknowledgement_text",),
+                "Upload complete",
+            ),
+        "upload-success cassette must prove profile-only fill, scoped lots, and hash-checked upload"
+    );
+
+    ensure!(
+        json_str_field_eq(
+            hash_mismatch.get("expected_error_code"),
+            BID_SUBMISSION_FAILED,
+        ) && json_i64_field_eq(hash_mismatch.get("expected_step_reached"), 8)
+            && json_str_field_eq(
+                hash_mismatch.get("expected_side_effect_class_reached"),
+                "REMOTE_DRAFT",
+            ),
+        "hash-mismatch canary must fail at Step 8 with BID_SUBMISSION_FAILED"
+    );
+    let hash_mismatch_cassette = load_bid_portal_cassette(&fixture_root, hash_mismatch)?;
+    ensure!(
+        json_str_field_eq(
+            hash_mismatch_cassette.pointer("/expected_detection/error_code"),
+            BID_SUBMISSION_FAILED,
+        ) && json_bool_field_eq(
+            hash_mismatch_cassette.pointer("/document_uploads/0/hash_match"),
+            false,
+        ) && json_bool_field_eq(
+            hash_mismatch_cassette.pointer("/document_uploads/0/uploaded"),
+            false,
+        ) && json_str_field_eq(
+            hash_mismatch_cassette.pointer("/expected_detection/error_context/document_type"),
+            "insurance_certificate",
+        ),
+        "hash-mismatch cassette must expose structured document mismatch context"
     );
 
     Ok(())

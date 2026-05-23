@@ -1,0 +1,107 @@
+{
+  "cassette_id": "procontract-form-fill-upload",
+  "captured_at": "2026-05-22T00:05:00Z",
+  "portal": "procontract",
+  "source_structure_version": "procontract-bid-portal-2026-05-22",
+  "url": "https://procontract.due-north.com/Supplier/Response/FAKE-OPP-001",
+  "page_title": "ProContract - Response FAKE-OPP-001",
+  "body_text": "FAKE-OPP-001 Supplier response Lot 1 Upload documents Upload complete Saved draft",
+  "opportunity_metadata": {
+    "expected_ref": "FAKE-OPP-001",
+    "observed_ref": "FAKE-OPP-001",
+    "title": "Supply of calibration widgets",
+    "portal_status": "Open"
+  },
+  "form_fill": {
+    "step": 6,
+    "source": "CompanyProfile",
+    "company_profile_version": "test-profile-v1",
+    "field_mapping": [
+      {
+        "profile_path": "companyName",
+        "portal_label": "Company Name",
+        "value_redacted": true
+      },
+      {
+        "profile_path": "registrationNumber",
+        "portal_label": "Company Registration Number",
+        "value_redacted": true
+      },
+      {
+        "profile_path": "primaryContact.email",
+        "portal_label": "Contact Email",
+        "value_redacted": true
+      }
+    ],
+    "pii_logged": false,
+    "cached_outside_artifact_store": false,
+    "screenshot_path": "sessions/test-session/step-06-company-details.webp"
+  },
+  "lot_pricing": {
+    "step": 7,
+    "source": "BidScopePayload",
+    "lot_ids": [
+      "test-lot-001"
+    ],
+    "candidate_ids": [
+      "test-cand-001"
+    ],
+    "selected_quote_ids": [
+      "test-quote-001"
+    ],
+    "selected_quote_summaries": [
+      {
+        "quote_id": "test-quote-001",
+        "candidate_id": "test-cand-001",
+        "lot_id": "test-lot-001",
+        "value_redacted": true
+      }
+    ],
+    "unscoped_lots_selected": false,
+    "screenshot_path": "sessions/test-session/step-07-lot-pricing.webp"
+  },
+  "document_uploads": [
+    {
+      "step": 8,
+      "document_type": "insurance_certificate",
+      "file_name": "insurance-certificate.pdf",
+      "file_path": "fixtures/documents/insurance-certificate.pdf",
+      "content_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "observed_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "hash_match": true,
+      "uploaded": true,
+      "portal_acknowledgement_text": "Upload complete",
+      "screenshot_path": "sessions/test-session/step-08-document-upload.webp"
+    }
+  ],
+  "checkpoint": {
+    "step": 8,
+    "step_name": "upload_required_documents",
+    "side_effect_class_reached": "REMOTE_DRAFT",
+    "screenshot_paths": [
+      "sessions/test-session/step-06-company-details.webp",
+      "sessions/test-session/step-07-lot-pricing.webp",
+      "sessions/test-session/step-08-document-upload.webp"
+    ],
+    "portal_state": {
+      "opportunity_found": true,
+      "existing_draft_detected": true,
+      "existing_submission_detected": false,
+      "portal_status": "Open"
+    },
+    "document_uploads": [
+      {
+        "document_type": "insurance_certificate",
+        "file_name": "insurance-certificate.pdf",
+        "content_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "portal_acknowledgement_text": "Upload complete",
+        "screenshot_path": "sessions/test-session/step-08-document-upload.webp"
+      }
+    ]
+  },
+  "expected_detection": {
+    "error_code": null,
+    "step_reached": 8,
+    "side_effect_class_reached": "REMOTE_DRAFT"
+  }
+}

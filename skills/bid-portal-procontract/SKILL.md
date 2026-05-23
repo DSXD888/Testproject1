@@ -176,7 +176,27 @@ Step 2 stale-auth result envelope:
 - Screenshot: required.
 - Pre-step cap check: do not start if `sideEffectCap` is below `REMOTE_DRAFT`.
 - Action: fill company details from `CompanyProfile` at the daemon-specified `companyProfileVersion`.
+- Field mapping (from `CompanyProfile`, NEVER from any other source):
+  - `companyName` -> portal "Company Name" input.
+  - `registrationNumber` -> portal "Company Registration Number" input.
+  - `vatNumber` -> portal "VAT Number" input, omitting the portal field when absent.
+  - `address.line1` -> portal "Address Line 1" input.
+  - `address.line2` -> portal "Address Line 2" input, omitting the portal field when absent.
+  - `address.city` -> portal "City" input.
+  - `address.county` -> portal "County" input.
+  - `address.postcode` -> portal "Postcode" input.
+  - `address.country` -> portal "Country" input.
+  - `primaryContact.name` -> portal "Contact Name" input.
+  - `primaryContact.email` -> portal "Contact Email" input.
+  - `primaryContact.phone` -> portal "Contact Phone" input.
+  - `primaryContact.role` -> portal "Contact Role/Title" input.
+- DO NOT auto-fill from previously-saved portal data.
+- DO NOT log filled values to stdout/stderr.
+- DO NOT cache filled values to disk outside the daemon-managed artifact store.
 - Do not print filled values, do not echo them in command output, and do not serialize them into checkpoint or result narrative fields.
+- Use deterministic field selectors only after confirming the form still belongs to `BidScopePayload.portalOpportunityRef`.
+- After all fields are filled, click the portal save control if it is present; otherwise wait up to 5 seconds for the portal auto-save indicator.
+- The Step 6 checkpoint records `company_profile_version`, field names, omitted optional field names, and screenshot path only; every actual profile value must be redacted.
 - After filling, checkpoint `side_effect_class_reached: "REMOTE_DRAFT"` because portal auto-save may have committed a remote draft.
 
 ### Step 7 - Fill lot selection and pricing sections
@@ -184,17 +204,38 @@ Step 2 stale-auth result envelope:
 - Screenshot: required.
 - Pre-step cap check: do not start if `sideEffectCap` is below `REMOTE_DRAFT`.
 - Action: select only `BidScopePayload.lotIds`; fill pricing and quote evidence only for selected candidates and selected quotes.
+- Use only `BidScopePayload.lotIds`, `candidateIds`, `selectedQuoteIds` and daemon-provided `selected_quote_summaries`.
+- Never infer lots, candidates, quantities, prices, or quote roles from cached portal values, adjacent tender rows, previous drafts, or visible account history.
+- For each selected lot:
+  1. Confirm the portal lot identifier exactly matches one entry in `BidScopePayload.lotIds`.
+  2. Select the lot only once.
+  3. Fill pricing fields from the matching selected quote summary for the scoped candidate and selected quote.
+  4. Record only lot IDs, candidate IDs, quote IDs, pricing field names, and screenshot paths in the checkpoint; redact monetary values when the daemon marks them sensitive.
+- For qualification questions, answer only when the daemon input carries an explicit scoped answer or document reference. Stop with `BID_SUBMISSION_FAILED` rather than inventing narrative answers.
 - Do not add unscoped lots, optional alternatives, or whole-process blanket responses.
 - If a required scoped lot is missing, return `BID_PORTAL_CHANGED`.
+- If the portal preselects an unscoped lot or optional alternative, clear it before saving; if it cannot be cleared, stop with `BID_PORTAL_CHANGED`.
+- The Step 7 checkpoint must include the selected `lotIds`, `candidateIds`, `selectedQuoteIds`, selected field names, and screenshot path.
 
 ### Step 8 - Upload required documents
 - Side-effect class: `REMOTE_DRAFT`.
 - Screenshot: required.
 - Pre-step cap check: do not start if `sideEffectCap` is below `REMOTE_DRAFT`.
 - Action: upload only daemon-staged `BidDocument[]` entries.
-- Verify each document content hash before upload.
+- For each `BidDocument` in `BidDocument[]`:
+  1. Verify `BidDocument.filePath` exists and points inside the daemon-staged artifact area.
+  2. Compute SHA-256 over the file contents.
+  3. Compare the observed hash against `BidDocument.contentHash`.
+  4. If the hashes differ, return `BID_SUBMISSION_FAILED` before selecting the file. Include structured context with `document_type`, `expected_hash`, and `observed_hash`.
+  5. Locate the upload control for the matching document type. If no matching control exists, return `BID_SUBMISSION_FAILED`.
+  6. Click "Upload" or "Add document" and select only `BidDocument.filePath`.
+  7. Wait for portal acknowledgement such as "Upload complete", the filename appearing in the attachment list, or a portal-generated upload receipt.
+  8. Capture a screenshot after each upload and at the end of Step 8.
+  9. Record `{ document_type, file_name, content_hash, portal_acknowledgement_text, screenshot_path }` in the Step 8 checkpoint.
+- The checkpoint key for acknowledgement text is `portal_acknowledgement_text`.
 - Never browse outside daemon-staged document paths.
-- If a required upload control is absent or a hash does not match, return `BID_SUBMISSION_FAILED`.
+- Do not upload files that are not listed in `BidDocument[]`.
+- If a required upload control is absent, a hash does not match, the portal rejects file type or size, or acknowledgement text never appears, return `BID_SUBMISSION_FAILED`.
 
 ### Step 9 - Review submission summary
 - Side-effect class: `READ_ONLY`.
