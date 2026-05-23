@@ -136,5 +136,7 @@ CREATE POLICY operator_decision_heads_admin_all
 
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon, authenticated;
+REVOKE SELECT ON bid_workflow_states FROM anon, authenticated;
+GRANT SELECT (process_id, bid_state, review_required, bid_job_id, updated_at) ON bid_workflow_states TO anon, authenticated;
 GRANT INSERT, UPDATE, DELETE ON shared_company_profile, shared_source_configs, operator_decision_heads TO authenticated;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;
