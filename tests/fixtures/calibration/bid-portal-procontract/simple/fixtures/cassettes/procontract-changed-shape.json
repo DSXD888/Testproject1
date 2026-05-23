@@ -1,0 +1,86 @@
+{
+  "cassette_id": "procontract-changed-shape",
+  "captured_at": "2026-05-22T00:00:00Z",
+  "portal": "procontract",
+  "source_structure_version": "procontract-bid-portal-2026-05-22",
+  "url": "https://procontract.due-north.com/Supplier/Opportunities/UnexpectedLayout",
+  "page_title": "ProContract - Opportunity",
+  "body_text": "Unexpected opportunity layout. Reference FAKE-OPP-999. The response action bar and upload controls are not present.",
+  "opportunity_metadata": {
+    "expected_ref": "FAKE-OPP-001",
+    "observed_ref": "FAKE-OPP-999",
+    "title": "Unexpected opportunity layout",
+    "portal_status": "Open",
+    "deadline": "2026-06-30T12:00:00Z",
+    "existing_draft_detected": false,
+    "existing_submission_detected": false
+  },
+  "dom_snapshot": {
+    "anchors": [
+      {
+        "selector": "[data-testid='opportunity-summary']",
+        "text": "FAKE-OPP-999 Unexpected opportunity layout"
+      },
+      {
+        "selector": "[data-testid='opportunity-reference']",
+        "text": "FAKE-OPP-999"
+      },
+      {
+        "selector": "main",
+        "text": "The page layout changed and known response controls are absent"
+      }
+    ],
+    "missing_anchors": [
+      "[data-testid='response-action-bar']",
+      "[data-testid='response-form-root']",
+      "[data-testid='lot-selection-grid']",
+      "[data-testid='file-upload-widget']",
+      "[data-testid='declaration-submit-group']"
+    ]
+  },
+  "page_fingerprint": {
+    "expected_source_structure_version": "procontract-bid-portal-2026-05-22",
+    "observed_shape": {
+      "page_kind": "unexpected-opportunity-layout",
+      "fingerprint_delta_bps": 9100,
+      "missing_anchor_count": 5
+    },
+    "major_divergence": true
+  },
+  "portal_state_verification": {
+    "opportunity_found": false,
+    "existing_draft_detected": false,
+    "existing_submission_detected": false,
+    "portal_status": "shape_drift"
+  },
+  "expected_detection": {
+    "error_code": "PAGE_SHAPE_DRIFT",
+    "step_reached": 4,
+    "side_effect_class_reached": "READ_ONLY",
+    "portal_state": {
+      "opportunity_found": false,
+      "existing_draft_detected": false,
+      "existing_submission_detected": false,
+      "portal_status": "shape_drift"
+    }
+  },
+  "expected_result": {
+    "kind": "failure",
+    "error_code": "PAGE_SHAPE_DRIFT",
+    "step_reached": 4,
+    "side_effect_class_reached": "READ_ONLY",
+    "screenshot_paths": [
+      "sessions/test-session/step-01-login-page.webp",
+      "sessions/test-session/step-02-auth-state.webp",
+      "sessions/test-session/step-03-opportunity-search.webp",
+      "sessions/test-session/step-04-opportunity-verified.webp"
+    ],
+    "error_message": "Procontract opportunity page shape drift detected before mutation",
+    "portal_state": {
+      "opportunity_found": false,
+      "existing_draft_detected": false,
+      "existing_submission_detected": false,
+      "portal_status": "shape_drift"
+    }
+  }
+}

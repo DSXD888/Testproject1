@@ -142,24 +142,33 @@ Step 2 stale-auth result envelope:
 ### Step 3 - Search or navigate to the target opportunity
 - Side-effect class: `READ_ONLY`.
 - Screenshot: required.
-- Action: locate the opportunity using only `BidScopePayload.portalOpportunityRef`.
-- Prefer a direct opportunity URL if supplied by the daemon. Otherwise use the portal search UI and the exact reference.
+- Action: locate the opportunity using only `BidScopePayload.portalOpportunityRef`; do not browse adjacent tenders or infer from title alone.
+- Prefer a direct opportunity URL if supplied by the daemon. Otherwise use the portal search UI and enter the exact reference into the opportunity or tender-reference search field.
+- Read the search result row with CDP-attached read-only probes before clicking it. Capture the observed reference, tender title, buyer name when visible, deadline, and visible portal status.
+- If no row has an exact `portalOpportunityRef` match, stop with `BID_PORTAL_CHANGED` and include the expected reference plus the visible result references in the failure context.
 - Stop with `BID_PORTAL_CHANGED` if the search surface has changed enough that the reference cannot be entered or results cannot be interpreted.
 
 ### Step 4 - Verify opportunity and duplicate state
 - Side-effect class: `READ_ONLY`.
 - Screenshot: required.
 - Action: compare the visible tender reference, title, deadline, and portal status against `BidScopePayload.portalOpportunityRef` and daemon-provided context.
-- Detect existing draft, existing response, submitted expression of interest, withdrawn response, closed opportunity, or portal status that differs from the expected open-response state.
-- If an existing submission is detected, return `BID_DUPLICATE_DETECTED` and do not continue.
-- If an existing draft is detected, record `existing_draft_detected: true` and continue only if the daemon scope allows draft reconciliation.
-- If the page fingerprint or opportunity reference diverges, return `PAGE_SHAPE_DRIFT` or `BID_PORTAL_CHANGED`.
+- Read portal metadata with CDP-attached read-only probes. Do not type into the form or click mutation controls during this step.
+- Opportunity-reference check: the observed tender or opportunity reference must exactly equal `BidScopePayload.portalOpportunityRef`. A mismatch means the browser is on the wrong tender; return `PAGE_SHAPE_DRIFT` when the page structure is unrecognizable, otherwise return `BID_PORTAL_CHANGED` with expected and observed references.
+- Title check: compare the visible title against the daemon-provided title or decision context when present. Use a conservative substring or normalized-token match only as corroborating evidence; a severe mismatch returns `BID_PORTAL_CHANGED`.
+- Portal-status check: read the visible status text. `Open` or an equivalent active-response state may continue. `Closed`, `Withdrawn`, `Awarded`, `Cancelled`, or any status that prevents a response returns `BID_READINESS_GATE_FAILED` because the readiness gate allowed a stale portal state.
+- Existing-submission detection: search the current page and response summary for indicators such as `Already submitted`, `Submitted`, `View your response`, `Response submitted`, `Expression of interest submitted`, a portal confirmation reference, or a final-response timestamp. If any are present, return `BID_DUPLICATE_DETECTED` and do not continue.
+- Existing-draft detection: search for indicators such as `Resume draft`, `Saved draft`, `Continue response`, `Draft response`, or `Last saved`. Record `existing_draft_detected: true`; continue only when the daemon scope includes a continuation or draft-reconciliation chain. Otherwise stop before mutation with `BID_DUPLICATE_DETECTED` if the draft cannot be safely reconciled.
+- Page-fingerprint check: compute a read-only DOM-structure fingerprint for the source-structure version using these anchors: opportunity summary panel, opportunity reference element, response action bar, response form root, lot selection grid, document upload widget, and declaration/submit control group. Compare the anchor set against `source_structure_version: procontract-bid-portal-2026-05-22`. Major divergence returns `PAGE_SHAPE_DRIFT`; landing on a different Procontract tender, profile page, account page, or settings page returns `BID_PORTAL_CHANGED`.
+- If the page fingerprint or opportunity reference diverges, return `PAGE_SHAPE_DRIFT` or `BID_PORTAL_CHANGED` before any portal mutation.
+- Emit the Step 4 checkpoint with `PortalStateVerification`: `opportunity_found`, `existing_draft_detected`, `existing_submission_detected`, and `portal_status`. The checkpoint may include the opportunity reference and status, but must not include company-profile values.
 
 ### Step 5 - Open bid response form
 - Side-effect class: `READ_ONLY`.
 - Screenshot: required.
 - Action: open the response form for the verified opportunity.
 - Guard: confirm the form belongs to the same opportunity reference before touching any form field.
+- Re-run the opportunity-reference and page-fingerprint checks after the form opens. The response form root, lot selection grid, and upload widget anchors must all belong to the verified `portalOpportunityRef`.
+- Emit a Step 5 checkpoint that carries forward the Step 4 `PortalStateVerification` and records that no mutating side-effect class has been reached.
 - Stop with `BID_PORTAL_CHANGED` if the portal redirects to a different tender, profile page, account page, or notification settings page.
 
 ### Step 6 - Fill company details section

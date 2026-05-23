@@ -1,0 +1,100 @@
+{
+  "cassette_id": "procontract-happy-draft",
+  "captured_at": "2026-05-22T00:00:00Z",
+  "portal": "procontract",
+  "source_structure_version": "procontract-bid-portal-2026-05-22",
+  "url": "https://procontract.due-north.com/Supplier/Opportunities/FAKE-OPP-001",
+  "page_title": "ProContract - Opportunity FAKE-OPP-001",
+  "body_text": "FAKE-OPP-001 Supply of calibration widgets Open Response deadline 2026-06-30 Start response No existing response found.",
+  "opportunity_metadata": {
+    "expected_ref": "FAKE-OPP-001",
+    "observed_ref": "FAKE-OPP-001",
+    "title": "Supply of calibration widgets",
+    "portal_status": "Open",
+    "deadline": "2026-06-30T12:00:00Z",
+    "existing_draft_detected": false,
+    "existing_submission_detected": false
+  },
+  "dom_snapshot": {
+    "anchors": [
+      {
+        "selector": "[data-testid='opportunity-summary']",
+        "text": "FAKE-OPP-001 Supply of calibration widgets Open"
+      },
+      {
+        "selector": "[data-testid='opportunity-reference']",
+        "text": "FAKE-OPP-001"
+      },
+      {
+        "selector": "[data-testid='response-action-bar']",
+        "text": "Start response"
+      },
+      {
+        "selector": "[data-testid='response-form-root']",
+        "text": "Supplier response"
+      },
+      {
+        "selector": "[data-testid='lot-selection-grid']",
+        "text": "Lot 1"
+      },
+      {
+        "selector": "[data-testid='file-upload-widget']",
+        "text": "Upload documents"
+      },
+      {
+        "selector": "[data-testid='declaration-submit-group']",
+        "text": "Review response"
+      }
+    ]
+  },
+  "page_fingerprint": {
+    "expected_source_structure_version": "procontract-bid-portal-2026-05-22",
+    "anchor_hashes": {
+      "opportunity_summary": "sha256:happy-opportunity-summary",
+      "opportunity_reference": "sha256:happy-opportunity-reference",
+      "response_action_bar": "sha256:happy-response-action-bar",
+      "response_form_root": "sha256:happy-response-form-root",
+      "lot_selection_grid": "sha256:happy-lot-selection-grid",
+      "file_upload_widget": "sha256:happy-file-upload-widget",
+      "declaration_submit_group": "sha256:happy-declaration-submit-group"
+    },
+    "major_divergence": false
+  },
+  "portal_state_verification": {
+    "opportunity_found": true,
+    "existing_draft_detected": false,
+    "existing_submission_detected": false,
+    "portal_status": "Open"
+  },
+  "expected_detection": {
+    "error_code": null,
+    "step_reached": 5,
+    "side_effect_class_reached": "READ_ONLY",
+    "portal_state": {
+      "opportunity_found": true,
+      "existing_draft_detected": false,
+      "existing_submission_detected": false,
+      "portal_status": "Open"
+    }
+  },
+  "expected_result": {
+    "kind": "draft_save_result",
+    "draft_saved": true,
+    "portal_draft_ref": "DRAFT-FAKE-OPP-001",
+    "side_effect_class": "REMOTE_DRAFT",
+    "screenshot_paths": [
+      "sessions/test-session/step-01-login-page.webp",
+      "sessions/test-session/step-02-auth-state.webp",
+      "sessions/test-session/step-03-opportunity-search.webp",
+      "sessions/test-session/step-04-opportunity-verified.webp",
+      "sessions/test-session/step-05-response-form.webp",
+      "sessions/test-session/step-06-company-details.webp",
+      "sessions/test-session/step-07-lot-pricing.webp",
+      "sessions/test-session/step-08-document-upload.webp",
+      "sessions/test-session/step-09-review-summary.webp",
+      "sessions/test-session/step-10-save-draft.webp"
+    ],
+    "portal_timestamp": "2026-05-22T00:00:00Z",
+    "portal_state_verified": true
+  }
+}

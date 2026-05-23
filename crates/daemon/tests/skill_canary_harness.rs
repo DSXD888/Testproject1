@@ -67,6 +67,32 @@ fn load_first_canary_input(path: &Path) -> Result<Value> {
     Ok(serde_json::from_str(first_line)?)
 }
 
+fn load_canary_inputs(path: &Path) -> Result<Vec<Value>> {
+    let content = fs::read_to_string(path)?;
+    let mut inputs = Vec::new();
+    for line in content.lines().filter(|line| !line.trim().is_empty()) {
+        inputs.push(serde_json::from_str(line)?);
+    }
+    Ok(inputs)
+}
+
+fn find_canary_case<'a>(inputs: &'a [Value], case_id: &str) -> Result<&'a Value> {
+    inputs
+        .iter()
+        .find(|input| json_str_field_eq(input.get("case_id"), case_id))
+        .ok_or_else(|| anyhow::anyhow!("missing bid portal canary case {case_id}"))
+}
+
+fn load_bid_portal_cassette(fixture_root: &Path, canary: &Value) -> Result<Value> {
+    let cassette_ref = canary
+        .get("cassette_ref")
+        .and_then(Value::as_str)
+        .ok_or_else(|| anyhow::anyhow!("bid portal canary missing cassette_ref"))?;
+    Ok(serde_json::from_str(&fs::read_to_string(
+        fixture_root.join(cassette_ref),
+    )?)?)
+}
+
 fn fingerprint_matches(expected: &str, actual: &str) -> bool {
     expected == actual
 }
@@ -431,6 +457,116 @@ fn e2e_can_011_bid_portal_auth_stale_canary_replays_session_expired_cassette() -
     ensure!(
         !skill_markdown.contains("https://procontract.due-north.com/Login\""),
         "bid portal skill must not navigate directly to the Procontract login page"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn e2e_can_012_bid_portal_opportunity_lookup_canaries_cover_verified_lookup_duplicate_and_drift()
+-> Result<()> {
+    let fixture_root =
+        repo_root()?.join("tests/fixtures/calibration/bid-portal-procontract/simple");
+    let canaries = load_canary_inputs(&fixture_root.join("canary.inputs.jsonl"))?;
+    let skill_markdown = fs::read_to_string(skill_dir("bid-portal-procontract")?.join("SKILL.md"))?;
+
+    for required in [
+        "Opportunity-reference check",
+        "Title check",
+        "Portal-status check",
+        "Existing-submission detection",
+        "Existing-draft detection",
+        "Page-fingerprint check",
+        "`PortalStateVerification`",
+        "opportunity summary panel",
+        "response form root",
+        "lot selection grid",
+        "document upload widget",
+    ] {
+        ensure!(
+            skill_markdown.contains(required),
+            "opportunity verification playbook missing `{required}`"
+        );
+    }
+
+    let happy = find_canary_case(&canaries, "simple-happy-01")?;
+    let duplicate = find_canary_case(&canaries, "simple-duplicate-01")?;
+    let drift = find_canary_case(&canaries, "simple-portal-drift-01")?;
+
+    ensure!(
+        json_str_field_eq(happy.get("expected_terminal_state"), "draft_saved")
+            && happy.get("expected_error_code").is_some_and(Value::is_null)
+            && json_i64_field_eq(happy.get("expected_step_reached"), 5),
+        "happy opportunity canary must reach verified response form without a read-only error"
+    );
+    let happy_cassette = load_bid_portal_cassette(&fixture_root, happy)?;
+    ensure!(
+        json_str_field_eq(
+            happy_cassette.pointer("/opportunity_metadata/observed_ref"),
+            "FAKE-OPP-001"
+        ) && json_str_field_eq(
+            happy_cassette.pointer("/portal_state_verification/portal_status"),
+            "Open"
+        ) && happy_cassette
+            .pointer("/portal_state_verification/existing_draft_detected")
+            .and_then(Value::as_bool)
+            .is_some_and(|observed| !observed)
+            && happy_cassette
+                .pointer("/portal_state_verification/existing_submission_detected")
+                .and_then(Value::as_bool)
+                .is_some_and(|observed| !observed)
+            && happy_cassette
+                .pointer("/page_fingerprint/major_divergence")
+                .and_then(Value::as_bool)
+                .is_some_and(|observed| !observed),
+        "happy lookup cassette must verify the opportunity and absence of draft/submission"
+    );
+
+    ensure!(
+        json_str_field_eq(duplicate.get("expected_error_code"), BID_DUPLICATE_DETECTED)
+            && json_i64_field_eq(duplicate.get("expected_step_reached"), 4),
+        "duplicate canary must fail at Step 4 before mutation"
+    );
+    let duplicate_cassette = load_bid_portal_cassette(&fixture_root, duplicate)?;
+    ensure!(
+        json_str_field_eq(
+            duplicate_cassette.pointer("/expected_detection/error_code"),
+            BID_DUPLICATE_DETECTED
+        ) && duplicate_cassette
+            .pointer("/expected_detection/portal_state/existing_submission_detected")
+            .and_then(Value::as_bool)
+            .is_some_and(|observed| observed)
+            && duplicate_cassette
+                .get("body_text")
+                .and_then(Value::as_str)
+                .is_some_and(|text| {
+                    text.contains("Already submitted") && text.contains("View your response")
+                }),
+        "duplicate cassette must expose deterministic existing-submission evidence"
+    );
+
+    ensure!(
+        json_str_field_eq(drift.get("expected_error_code"), PAGE_SHAPE_DRIFT)
+            && json_i64_field_eq(drift.get("expected_step_reached"), 4),
+        "portal-drift canary must fail at Step 4 before mutation"
+    );
+    let drift_cassette = load_bid_portal_cassette(&fixture_root, drift)?;
+    ensure!(
+        json_str_field_eq(
+            drift_cassette.pointer("/expected_detection/error_code"),
+            PAGE_SHAPE_DRIFT
+        ) && !json_str_field_eq(
+            drift_cassette.pointer("/opportunity_metadata/observed_ref"),
+            "FAKE-OPP-001"
+        ) && drift_cassette
+            .pointer("/page_fingerprint/major_divergence")
+            .and_then(Value::as_bool)
+            .is_some_and(|observed| observed)
+            && drift_cassette
+                .pointer("/dom_snapshot/missing_anchors")
+                .and_then(Value::as_array)
+                .is_some_and(|anchors| anchors.len() >= 3),
+        "portal-drift cassette must expose deterministic fingerprint divergence"
     );
 
     Ok(())

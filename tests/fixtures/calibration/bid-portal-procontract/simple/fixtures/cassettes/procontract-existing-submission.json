@@ -1,0 +1,80 @@
+{
+  "cassette_id": "procontract-existing-submission",
+  "captured_at": "2026-05-22T00:00:00Z",
+  "portal": "procontract",
+  "source_structure_version": "procontract-bid-portal-2026-05-22",
+  "url": "https://procontract.due-north.com/Supplier/Opportunities/FAKE-OPP-001",
+  "page_title": "ProContract - Opportunity FAKE-OPP-001",
+  "body_text": "FAKE-OPP-001 Supply of calibration widgets Open Already submitted View your response Confirmation reference PCON-EOI-2026-0001.",
+  "opportunity_metadata": {
+    "expected_ref": "FAKE-OPP-001",
+    "observed_ref": "FAKE-OPP-001",
+    "title": "Supply of calibration widgets",
+    "portal_status": "Open",
+    "deadline": "2026-06-30T12:00:00Z",
+    "existing_draft_detected": false,
+    "existing_submission_detected": true,
+    "confirmation_ref": "PCON-EOI-2026-0001"
+  },
+  "dom_snapshot": {
+    "anchors": [
+      {
+        "selector": "[data-testid='opportunity-summary']",
+        "text": "FAKE-OPP-001 Supply of calibration widgets Open"
+      },
+      {
+        "selector": "[data-testid='opportunity-reference']",
+        "text": "FAKE-OPP-001"
+      },
+      {
+        "selector": "[data-testid='response-action-bar']",
+        "text": "Already submitted View your response"
+      },
+      {
+        "selector": "[data-testid='confirmation-reference']",
+        "text": "PCON-EOI-2026-0001"
+      }
+    ]
+  },
+  "duplicate_indicators": [
+    "Already submitted",
+    "View your response",
+    "PCON-EOI-2026-0001"
+  ],
+  "portal_state_verification": {
+    "opportunity_found": true,
+    "existing_draft_detected": false,
+    "existing_submission_detected": true,
+    "portal_status": "Open"
+  },
+  "expected_detection": {
+    "error_code": "BID_DUPLICATE_DETECTED",
+    "step_reached": 4,
+    "side_effect_class_reached": "READ_ONLY",
+    "portal_state": {
+      "opportunity_found": true,
+      "existing_draft_detected": false,
+      "existing_submission_detected": true,
+      "portal_status": "Open"
+    }
+  },
+  "expected_result": {
+    "kind": "failure",
+    "error_code": "BID_DUPLICATE_DETECTED",
+    "step_reached": 4,
+    "side_effect_class_reached": "READ_ONLY",
+    "screenshot_paths": [
+      "sessions/test-session/step-01-login-page.webp",
+      "sessions/test-session/step-02-auth-state.webp",
+      "sessions/test-session/step-03-opportunity-search.webp",
+      "sessions/test-session/step-04-opportunity-verified.webp"
+    ],
+    "error_message": "Existing Procontract submission detected for FAKE-OPP-001; refusing blind retry",
+    "portal_state": {
+      "opportunity_found": true,
+      "existing_draft_detected": false,
+      "existing_submission_detected": true,
+      "portal_status": "Open"
+    }
+  }
+}
