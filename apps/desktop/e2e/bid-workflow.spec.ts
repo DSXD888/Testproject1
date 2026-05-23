@@ -16,6 +16,10 @@ type BidWorkflowDetailOptions = {
   sideEffectCap?: 'REMOTE_DRAFT' | 'FORMAL_SUBMISSION';
   validatorVerdict?: 'approved' | 'rejected' | 'outage' | 'missing' | null;
   validatorMessage?: string | null;
+  formalSubmissionAuthorized?: boolean;
+  agentSessionId?: string | null;
+  screenshotPaths?: string[];
+  sessionHistoryText?: string;
 };
 
 type DevBridgePayload = {
@@ -81,6 +85,42 @@ async function installBidWorkflowFixture(
       return;
     }
 
+    if (payload.cmd === 'list_sessions') {
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          snapshotSeq: 501,
+          snapshotAt: '2026-05-23T10:00:00Z',
+          data: {
+            items: options.agentSessionId
+              ? [bidWorkflowSessionItem(options.agentSessionId)]
+              : [],
+            nextCursor: null,
+            hasMore: false,
+          },
+        }),
+      });
+      return;
+    }
+
+    if (payload.cmd === 'get_session_history') {
+      const sessionId = String(
+        payload.args?.sessionId ?? options.agentSessionId ?? 'session-bid-workflow',
+      );
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          snapshotSeq: 501,
+          snapshotAt: '2026-05-23T10:00:00Z',
+          data: bidWorkflowSessionHistory(
+            sessionId,
+            options.sessionHistoryText ?? 'Bid workflow draft saved.',
+          ),
+        }),
+      });
+      return;
+    }
+
     if (payload.cmd === 'trigger_bid_workflow') {
       await route.fulfill({
         contentType: 'application/json',
@@ -106,6 +146,48 @@ async function installBidWorkflowFixture(
 
     await route.fallback();
   });
+}
+
+function bidWorkflowSessionItem(sessionId: string): Record<string, unknown> {
+  return {
+    sessionId,
+    daemonInstanceId: 'daemon-bid-workflow',
+    skillPath: 'skills/bid-portal-procontract/SKILL.md',
+    skillVersion: '1.0.0',
+    executionMode: 'contract',
+    phase: 'archived',
+    startedAt: '2026-05-23T09:40:00Z',
+    endedAt: '2026-05-23T09:55:00Z',
+    durationMs: 900_000,
+    cleanupVerdict: 'clean',
+    errorType: null,
+    exitCode: 0,
+    checkpointCount: 4,
+    byteCount: 256,
+    reattachable: false,
+    jobId: 'job-bid-workflow',
+    archiveSeq: 501,
+  };
+}
+
+function bidWorkflowSessionHistory(
+  sessionId: string,
+  text: string,
+): Record<string, unknown> {
+  return {
+    sessionId,
+    firstSeq: 1,
+    lastSeq: 1,
+    availability: 'complete',
+    frames: [
+      {
+        seq: 1,
+        kind: 'stdout',
+        chunk: text,
+        ts: '2026-05-23T09:50:00Z',
+      },
+    ],
+  };
 }
 
 function bidWorkflowDetail(options: BidWorkflowDetailOptions): Record<string, unknown> {
@@ -247,7 +329,10 @@ function bidWorkflowDetail(options: BidWorkflowDetailOptions): Record<string, un
       draftRef: options.bidState === 'draft_saved' ? 'DRAFT-BID-001' : null,
       screenshotPaths:
         options.bidState === 'draft_saved'
-          ? ['screenshots/bid-001-step-1.png', 'screenshots/bid-001-step-2.png']
+          ? (options.screenshotPaths ?? [
+              'screenshots/bid-001-step-1.png',
+              'screenshots/bid-001-step-2.png',
+            ])
           : [],
       manifestHref:
         options.bidState === 'draft_saved'
@@ -258,6 +343,14 @@ function bidWorkflowDetail(options: BidWorkflowDetailOptions): Record<string, un
       sideEffectCap,
       validatorVerdict: options.validatorVerdict ?? null,
       validatorMessage: options.validatorMessage ?? null,
+      agentSessionId: options.agentSessionId ?? null,
+      formalSubmissionAuthorization: options.formalSubmissionAuthorized
+        ? {
+            reason: 'Operator authorized formal submission for test.',
+            recorded_by: 'operator-alinaaitova',
+            recorded_at: '2026-05-23T10:15:00Z',
+          }
+        : null,
     },
     errors: [],
   };
@@ -407,6 +500,7 @@ test.describe('bid workflow desktop controls', () => {
       sideEffectCap: 'FORMAL_SUBMISSION',
       validatorVerdict: 'rejected',
       validatorMessage: 'Validator rejected the final portal submission packet.',
+      formalSubmissionAuthorized: true,
     });
 
     await page.goto('/process/process-bid-validation-override?mode=full-control');
@@ -450,6 +544,112 @@ test.describe('bid workflow desktop controls', () => {
     const [triggerCall] = await triggerBidWorkflowCalls(page);
     expect(triggerCall?.args?.bidScope).toMatchObject({
       processId: 'process-bid-validation-override',
+      sideEffectCap: 'FORMAL_SUBMISSION',
+    });
+  });
+
+  test('L6-T-desktop_ui-004: draft_saved review panel renders evidence and actions', async ({
+    page,
+  }) => {
+    const screenshotPaths = Array.from(
+      { length: 11 },
+      (_, index) => `screenshots/bid-001-step-${String(index + 1).padStart(2, '0')}.png`,
+    );
+    await installBidWorkflowFixture(page, {
+      processId: 'process-bid-draft-review',
+      bidState: 'draft_saved',
+      readiness: {
+        eligible: true,
+        blockers: [],
+        checkedAt: '2026-05-23T10:20:00Z',
+      },
+      validatorVerdict: 'approved',
+      agentSessionId: 'session-bid-draft-review',
+      screenshotPaths,
+    });
+
+    await page.goto('/process/process-bid-draft-review?mode=full-control');
+    await page.getByRole('tab', { name: 'BidWorkflow' }).click();
+
+    await expect(page.getByTestId('draft-ref')).toContainText('DRAFT-BID-001');
+    await expect(page.getByTestId('screenshot-gallery').locator('img')).toHaveCount(11);
+    await expect(page.getByTestId('manifest-link')).toBeVisible();
+    await expect(page.getByTestId('action-resume')).toBeVisible();
+    await expect(page.getByTestId('action-submit-final')).toBeVisible();
+    await expect(page.getByTestId('action-abandon')).toBeVisible();
+    await expect(page.getByTestId('open-session-viewer')).toBeVisible();
+  });
+
+  test('L6-T-desktop_ui-006: SessionViewer redacts bid workflow PTY evidence', async ({
+    page,
+  }) => {
+    const sentinel = 'TestCompanyName-Sentinel-L6-2026';
+    await installBidWorkflowFixture(page, {
+      processId: 'process-bid-session-redaction',
+      bidState: 'draft_saved',
+      readiness: {
+        eligible: true,
+        blockers: [],
+        checkedAt: '2026-05-23T10:25:00Z',
+      },
+      validatorVerdict: 'approved',
+      agentSessionId: 'session-bid-redaction',
+      sessionHistoryText: `Captured companyProfile {"companyName":"${sentinel}","email":"operator@example.invalid"} while saving draft.`,
+    });
+
+    await page.goto('/process/process-bid-session-redaction?mode=full-control');
+    await page.getByRole('tab', { name: 'BidWorkflow' }).click();
+    await page.getByTestId('open-session-viewer').click();
+
+    await expect(page).toHaveURL(/\/sessions\/session-bid-redaction/);
+    await expect(page.getByTestId('pty-output')).toContainText(
+      '[REDACTED_BID_WORKFLOW_VALUE]',
+    );
+    await expect(page.getByTestId('pty-output')).not.toContainText(sentinel);
+    await expect(page.getByTestId('pty-output')).not.toContainText(
+      'operator@example.invalid',
+    );
+  });
+
+  test('L6-T-desktop_ui-007: formal submission requires cap and operator authorization', async ({
+    page,
+  }) => {
+    await installBidWorkflowFixture(page, {
+      processId: 'process-bid-formal-auth',
+      bidState: 'draft_saved',
+      readiness: {
+        eligible: true,
+        blockers: [],
+        checkedAt: '2026-05-23T10:30:00Z',
+      },
+      sideEffectCap: 'REMOTE_DRAFT',
+      validatorVerdict: 'approved',
+    });
+
+    await page.goto('/process/process-bid-formal-auth?mode=full-control');
+    await page.getByRole('tab', { name: 'BidWorkflow' }).click();
+
+    await expect(page.getByTestId('action-submit-final')).toBeDisabled();
+    await page.getByTestId('raise-cap-to-formal-submission').click();
+    await page.getByTestId('auth-confirm').click();
+    await expect(page.getByTestId('auth-error')).toContainText('Reason is required');
+
+    await page
+      .getByTestId('auth-reason')
+      .fill('Operator authorizes formal submission for opportunity DN-START-BID-001.');
+    await page.getByTestId('auth-confirmation').check();
+    await page.getByTestId('auth-confirm').click();
+
+    await expect(page.getByTestId('formal-submission-authorization-status')).toContainText(
+      'operator-alinaaitova',
+    );
+    await expect(page.getByTestId('action-submit-final')).toBeEnabled();
+    await page.getByTestId('action-submit-final').click();
+    await expect.poll(async () => triggerBidWorkflowCalls(page)).toHaveLength(1);
+
+    const [triggerCall] = await triggerBidWorkflowCalls(page);
+    expect(triggerCall?.args?.bidScope).toMatchObject({
+      processId: 'process-bid-formal-auth',
       sideEffectCap: 'FORMAL_SUBMISSION',
     });
   });

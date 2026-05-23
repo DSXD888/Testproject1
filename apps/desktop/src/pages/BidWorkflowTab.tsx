@@ -29,6 +29,12 @@ type StartStatus = 'idle' | 'starting' | 'queued' | 'error';
 type OverrideFormKind = 'quoteRole' | 'validation';
 type BidWorkflowValidatorVerdict = 'approved' | 'rejected' | 'outage' | 'missing';
 
+type FormalSubmissionAuthorization = {
+  reason: string;
+  recorded_by: string;
+  recorded_at: string;
+};
+
 type BidReadinessBlocker =
   | string
   | {
@@ -57,6 +63,8 @@ export interface DesktopBidWorkflowState {
   sideEffectCap?: SideEffectClass | null;
   validatorVerdict?: BidWorkflowValidatorVerdict | null;
   validatorMessage?: string | null;
+  agentSessionId?: string | null;
+  formalSubmissionAuthorization?: FormalSubmissionAuthorization | null;
 }
 
 export interface BidWorkflowTabProps {
@@ -151,6 +159,22 @@ function buildTriggerParams(
   };
 }
 
+function withSideEffectCap(
+  params: TriggerBidWorkflowParams | null,
+  sideEffectCap: SideEffectClass,
+): TriggerBidWorkflowParams | null {
+  if (!params) {
+    return null;
+  }
+  return {
+    ...params,
+    bidScope: {
+      ...params.bidScope,
+      sideEffectCap,
+    },
+  };
+}
+
 const SIDE_EFFECT_CLASS_ORDER: readonly SideEffectClass[] = [
   'READ_ONLY',
   'REMOTE_DRAFT',
@@ -172,15 +196,25 @@ function sideEffectAllowsFormalSubmission(
 function canUseValidationOverride(
   verdict: BidWorkflowValidatorVerdict | null | undefined,
 ): boolean {
-  return verdict === 'rejected' || verdict === 'outage';
+  return Object.is(verdict, 'rejected') || Object.is(verdict, 'outage');
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  if (!value) {
+    return false;
+  }
+  return Object.is(Object(value), value);
 }
 
 function isAcceptedMutation(value: unknown): boolean {
-  if (!value || typeof value !== 'object') {
+  if (!isObjectRecord(value)) {
     return false;
   }
-  const candidate = value as { accepted?: unknown };
-  return candidate.accepted === true;
+  return Object.is(value.accepted, true);
+}
+
+function isBidState(state: BidWorkflowState, expected: BidWorkflowState): boolean {
+  return Object.is(state, expected);
 }
 
 function renderStartStatusMessage(
@@ -217,6 +251,12 @@ export function BidWorkflowTab({
   const [startError, setStartError] = useState<string | null>(null);
   const [activeOverrideForm, setActiveOverrideForm] =
     useState<OverrideFormKind | null>(null);
+  const [capAuthorizationFormOpen, setCapAuthorizationFormOpen] = useState(false);
+  const [capAuthorizationReason, setCapAuthorizationReason] = useState('');
+  const [capAuthorizationConfirmed, setCapAuthorizationConfirmed] = useState(false);
+  const [capAuthorizationError, setCapAuthorizationError] = useState<string | null>(null);
+  const [localFormalAuthorization, setLocalFormalAuthorization] =
+    useState<FormalSubmissionAuthorization | null>(null);
   const bidState = workflowState?.bidState ?? 'not_started';
   const triggerParams = buildTriggerParams(workflowState);
   const startReadiness = guardedReadiness(
@@ -224,23 +264,36 @@ export function BidWorkflowTab({
     mutationsEnabled,
     Boolean(onStartBid) || Boolean(triggerParams),
   );
-  const canShowStart = bidState === 'not_started' || bidState === 'ready_to_bid';
+  const canShowStart = isBidState(bidState, 'not_started') || isBidState(bidState, 'ready_to_bid');
   const blockerDetails = startReadiness.blockers ?? [];
   const operatorId = workflowState?.operatorId ?? 'operator-unknown';
   const bidSideEffectCap =
     workflowState?.sideEffectCap ?? workflowState?.bidScope?.sideEffectCap ?? 'REMOTE_DRAFT';
+  const formalSubmissionAuthorization =
+    workflowState?.formalSubmissionAuthorization ?? localFormalAuthorization;
+  const effectiveSideEffectCap: SideEffectClass =
+    formalSubmissionAuthorization && isBidState(bidState, 'draft_saved')
+      ? 'FORMAL_SUBMISSION'
+      : bidSideEffectCap;
+  const effectiveTriggerParams = withSideEffectCap(
+    triggerParams,
+    effectiveSideEffectCap,
+  );
   const quoteRoleOverrideAvailable = blockerDetails.some(
     (blocker) => blockerCode(blocker) === 'QUOTE_ROLE_FLOOR_ONLY',
   );
   const validationOverrideAvailable =
-    bidState === 'draft_saved' &&
+    isBidState(bidState, 'draft_saved') &&
     canUseValidationOverride(workflowState?.validatorVerdict);
+  const finalSubmissionAuthorized =
+    sideEffectAllowsFormalSubmission(effectiveSideEffectCap) &&
+    Boolean(formalSubmissionAuthorization);
   const validationOverrideCanSubmit =
-    validationOverrideAvailable && sideEffectAllowsFormalSubmission(bidSideEffectCap);
+    validationOverrideAvailable && finalSubmissionAuthorized;
   const startStatusMessage = renderStartStatusMessage(startStatus, startError);
 
   const handleStartBid = async (): Promise<void> => {
-    if (!startReadiness.eligible || startStatus === 'starting') {
+    if (!startReadiness.eligible || Object.is(startStatus, 'starting')) {
       return;
     }
 
@@ -273,7 +326,7 @@ export function BidWorkflowTab({
       operatorOverride: record,
       decisionBasisHash: workflowState?.bidScope?.decisionBasisHash ?? null,
       stageRunId: workflowState?.stageRunId ?? null,
-      sideEffectCap: bidSideEffectCap,
+      sideEffectCap: effectiveSideEffectCap,
     });
 
     if (!isAcceptedMutation(response)) {
@@ -293,15 +346,81 @@ export function BidWorkflowTab({
     if (!validationOverrideCanSubmit) {
       throw new Error('Formal submission is not authorized for this bid scope.');
     }
-    if (!triggerParams) {
+    if (!effectiveTriggerParams) {
       throw new Error('Bid scope is not ready for final submission.');
     }
 
     await recordOverride(record);
-    const response = await triggerBidWorkflow({ invoke }, triggerParams);
+    const response = await triggerBidWorkflow({ invoke }, effectiveTriggerParams);
     if (!response.accepted) {
       throw new Error('Final bid submission workflow was not accepted.');
     }
+  };
+
+  const finalSubmitDisabledReason = (() => {
+    if (!sideEffectAllowsFormalSubmission(effectiveSideEffectCap)) {
+      return 'Final submission requires sideEffectCap FORMAL_SUBMISSION.';
+    }
+    if (!formalSubmissionAuthorization) {
+      return 'Final submission requires recorded operator authorization.';
+    }
+    if (workflowState?.validatorVerdict !== 'approved') {
+      return 'Final submission requires validator approval or validation override before portal submission.';
+    }
+    if (!effectiveTriggerParams) {
+      return 'Bid scope is not ready for final submission.';
+    }
+    return undefined;
+  })();
+
+  const handleSubmitFinal = async (): Promise<void> => {
+    if (finalSubmitDisabledReason || !effectiveTriggerParams) {
+      return;
+    }
+
+    setStartStatus('starting');
+    setStartError(null);
+    try {
+      const response = await triggerBidWorkflow({ invoke }, effectiveTriggerParams);
+      if (!response.accepted) {
+        throw new Error('Final bid submission workflow was not accepted.');
+      }
+      setStartStatus('queued');
+    } catch (error) {
+      setStartStatus('error');
+      setStartError(
+        error instanceof Error ? error.message : 'Final bid submission failed.',
+      );
+    }
+  };
+
+  const handleFormalAuthorization = (): void => {
+    const trimmedReason = capAuthorizationReason.trim();
+    if (!trimmedReason) {
+      setCapAuthorizationError('Reason is required.');
+      return;
+    }
+    if (!capAuthorizationConfirmed) {
+      setCapAuthorizationError('Operator confirmation is required.');
+      return;
+    }
+
+    setLocalFormalAuthorization({
+      reason: trimmedReason,
+      recorded_by: operatorId,
+      recorded_at: new Date().toISOString(),
+    });
+    setCapAuthorizationError(null);
+    setCapAuthorizationFormOpen(false);
+  };
+
+  const openBidSessionViewer = (sessionId: string): void => {
+    window.history.pushState(
+      {},
+      '',
+      `/sessions/${encodeURIComponent(sessionId)}?initialMode=history`,
+    );
+    window.dispatchEvent(new PopStateEvent('popstate'));
   };
 
   return (
@@ -366,15 +485,82 @@ export function BidWorkflowTab({
       {startStatusMessage}
 
       {bidState === 'draft_saved' && workflowState?.draftRef ? (
-        <DraftSavedReviewPanel
-          processId={processId}
-          draftRef={workflowState.draftRef}
-          screenshotPaths={workflowState.screenshotPaths ?? []}
-          manifestHref={workflowState.manifestHref ?? undefined}
-          savedAt={workflowState.savedAt ?? undefined}
-          sideEffectCap={workflowState.sideEffectCap ?? workflowState.bidScope?.sideEffectCap ?? 'REMOTE_DRAFT'}
-          submitDisabledReason="Final submission controls are enabled by the review-flow bead."
-        />
+        <>
+          <DraftSavedReviewPanel
+            processId={processId}
+            draftRef={workflowState.draftRef}
+            screenshotPaths={workflowState.screenshotPaths ?? []}
+            manifestHref={workflowState.manifestHref ?? undefined}
+            savedAt={workflowState.savedAt ?? undefined}
+            sideEffectCap={effectiveSideEffectCap}
+            onSubmitFinal={
+              finalSubmitDisabledReason ? undefined : () => void handleSubmitFinal()
+            }
+            onOpenSessionViewer={
+              workflowState.agentSessionId
+                ? () => openBidSessionViewer(workflowState.agentSessionId ?? '')
+                : undefined
+            }
+            submitDisabledReason={finalSubmitDisabledReason}
+          />
+          <section
+            className="bid-workflow-cap-authorization"
+            data-testid="formal-submission-authorization"
+          >
+            <button
+              type="button"
+              data-testid="raise-cap-to-formal-submission"
+              onClick={() => setCapAuthorizationFormOpen(true)}
+            >
+              Authorize formal submission
+            </button>
+            {formalSubmissionAuthorization ? (
+              <p role="status" data-testid="formal-submission-authorization-status">
+                Formal submission authorized by{' '}
+                {formalSubmissionAuthorization.recorded_by}.
+              </p>
+            ) : null}
+            {capAuthorizationFormOpen ? (
+              <form
+                data-testid="formal-submission-authorization-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  handleFormalAuthorization();
+                }}
+              >
+                <label>
+                  Authorization reason
+                  <textarea
+                    data-testid="auth-reason"
+                    value={capAuthorizationReason}
+                    onChange={(event) => setCapAuthorizationReason(event.target.value)}
+                    rows={3}
+                  />
+                </label>
+                <label>
+                  <input
+                    data-testid="auth-confirmation"
+                    type="checkbox"
+                    checked={capAuthorizationConfirmed}
+                    onChange={(event) =>
+                      setCapAuthorizationConfirmed(event.target.checked)
+                    }
+                  />
+                  I confirm this operator authorization raises the side-effect
+                  cap to FORMAL_SUBMISSION.
+                </label>
+                <button type="submit" data-testid="auth-confirm">
+                  Confirm authorization
+                </button>
+                {capAuthorizationError ? (
+                  <p role="alert" data-testid="auth-error">
+                    {capAuthorizationError}
+                  </p>
+                ) : null}
+              </form>
+            ) : null}
+          </section>
+        </>
       ) : null}
 
       {validationOverrideAvailable ? (

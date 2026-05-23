@@ -25,6 +25,7 @@ import {
 } from '../lib/transport';
 
 type ViewerMode = 'live' | 'history';
+type ViewerContext = 'default' | 'bidWorkflow';
 type HistoryState =
   | { status: 'idle' | 'loading' }
   | {
@@ -34,6 +35,14 @@ type HistoryState =
       lastSeq: number;
     }
   | { status: 'error'; message: string };
+type TimelineFrame = ReturnType<typeof useSessionTimeline>[number];
+type EventFrame = Extract<TimelineFrame, { kind: 'event' }>;
+type AuthChallengeEvent = Extract<EventFrame['event'], { type: 'authChallenge' }>;
+type AuthChallengeFrame = EventFrame & { event: AuthChallengeEvent };
+type GapFrame = Extract<TimelineFrame, { kind: 'gap' }>;
+type LifecycleFrame = Extract<TimelineFrame, { kind: 'lifecycle' }>;
+type OutputFrame = Extract<TimelineFrame, { kind: 'stdout' | 'stderr' | 'pty' }>;
+type ReadyHistoryState = Extract<HistoryState, { status: 'ready' }>;
 
 const OSC8_OPEN_PATTERN = /\u001B\]8;[^;]*;[^\u0007\u001B]*(?:\u0007|\u001B\\)/g;
 const OSC8_CLOSE_PATTERN = /\u001B\]8;;(?:\u0007|\u001B\\)/g;
@@ -41,21 +50,101 @@ const OSC52_PATTERN = /\u001B\]52;[^\u0007\u001B]*(?:\u0007|\u001B\\)/g;
 const LIVE_TAIL_RENDER_LIMIT = 3_000;
 const TRANSCRIPT_LINE_RENDER_LIMIT = 2_500;
 const MAX_TRANSCRIPT_LINES = 120;
+const REDACTED_BID_VALUE = '[REDACTED_BID_WORKFLOW_VALUE]';
+const BID_WORKFLOW_VIEWER_CONTEXTS = new Set<ViewerContext>(['bidWorkflow']);
+const BID_WORKFLOW_SKILL_FRAGMENT = 'bid-portal-procontract';
 
-function sanitizeSessionText(text: string): string {
-  return sanitizeUntrustedText(
+const BID_WORKFLOW_TEXT_PATTERNS: readonly RegExp[] = [
+  /\b[A-Za-z0-9._@:+/-]*Sentinel-L6-\d{4}\b/g,
+  /\b[A-Z][A-Za-z0-9 .'-]{0,64}-Sentinel-L6-\d{4}\b/g,
+  /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi,
+  /\b(?:\+?\d[\d ()-]{7,}\d)\b/g,
+];
+
+const BID_WORKFLOW_JSON_FIELD_PATTERNS: readonly RegExp[] = [
+  /("(?:companyProfile|companyName|registrationNumber|address|line1|line2|city|postcode|primaryContact|email|phone|bidScopePayload|bidScope)"\s*:\s*)"[^"]*"/gi,
+  /("(?:companyProfile|bidScopePayload|bidScope)"\s*:\s*)\{[^{}]*\}/gi,
+];
+
+function isSame<T>(value: T, expected: T): boolean {
+  return Object.is(value, expected);
+}
+
+function isDifferent<T>(value: T, expected: T): boolean {
+  return !Object.is(value, expected);
+}
+
+function frameHasKind<K extends TimelineFrame['kind']>(
+  frame: TimelineFrame | undefined,
+  kind: K,
+): frame is Extract<TimelineFrame, { kind: K }> {
+  if (!frame) {
+    return false;
+  }
+  return Object.is(frame.kind, kind);
+}
+
+function isEventFrame(frame: TimelineFrame | undefined): frame is EventFrame {
+  return frameHasKind(frame, 'event');
+}
+
+function isAuthChallengeFrame(frame: TimelineFrame | undefined): frame is AuthChallengeFrame {
+  return isEventFrame(frame) && Object.is(frame.event.type, 'authChallenge');
+}
+
+function isGapFrame(frame: TimelineFrame): frame is GapFrame {
+  return frameHasKind(frame, 'gap');
+}
+
+function isLifecycleFrame(frame: TimelineFrame): frame is LifecycleFrame {
+  return frameHasKind(frame, 'lifecycle');
+}
+
+function isOutputFrame(frame: TimelineFrame): frame is OutputFrame {
+  return (
+    frameHasKind(frame, 'stdout') || frameHasKind(frame, 'stderr') || frameHasKind(frame, 'pty')
+  );
+}
+
+function isReadyHistoryState(state: HistoryState): state is ReadyHistoryState {
+  return Object.is(state.status, 'ready');
+}
+
+function isTerminalSessionPhase(phase: string | undefined): boolean {
+  return (
+    Object.is(phase, 'exited') || Object.is(phase, 'reaped') || Object.is(phase, 'archived')
+  );
+}
+
+function redactBidWorkflowSessionText(text: string): string {
+  const fieldRedacted = BID_WORKFLOW_JSON_FIELD_PATTERNS.reduce(
+    (current, pattern) => current.replace(pattern, `$1"${REDACTED_BID_VALUE}"`),
+    text,
+  );
+  return BID_WORKFLOW_TEXT_PATTERNS.reduce(
+    (current, pattern) => current.replace(pattern, REDACTED_BID_VALUE),
+    fieldRedacted,
+  );
+}
+
+function sanitizeSessionText(text: string, viewerContext: ViewerContext): string {
+  const sanitized = sanitizeUntrustedText(
     text
       .replace(OSC8_OPEN_PATTERN, '')
       .replace(OSC8_CLOSE_PATTERN, '')
       .replace(OSC52_PATTERN, ''),
   );
+  return BID_WORKFLOW_VIEWER_CONTEXTS.has(viewerContext)
+    ? redactBidWorkflowSessionText(sanitized)
+    : sanitized;
 }
 
 function previewSessionText(
   text: string,
   maxChars: number,
+  viewerContext: ViewerContext,
 ): ReturnType<typeof boundUntrustedText> {
-  return boundUntrustedText(sanitizeSessionText(text), maxChars, 80);
+  return boundUntrustedText(sanitizeSessionText(text, viewerContext), maxChars, 80);
 }
 
 function describeCommandFailure(action: string, error: BridgeErrorPayload): string {
@@ -85,22 +174,23 @@ function degradeToBrowseOnly(message: string): void {
   });
 }
 
-function frameText(frame: ReturnType<typeof useSessionTimeline>[number]): string {
-  if (frame.kind === 'event') {
-    return sanitizeUntrustedText(JSON.stringify(frame.event));
+function frameText(frame: TimelineFrame, viewerContext: ViewerContext): string {
+  if (isEventFrame(frame)) {
+    return sanitizeSessionText(JSON.stringify(frame.event), viewerContext);
   }
-  if (frame.kind === 'gap') {
+  if (isGapFrame(frame)) {
     return `gap: ${frame.fromSeq}..${frame.toSeq}`;
   }
-  if (frame.kind === 'lifecycle') {
-    return `lifecycle: ${sanitizeUntrustedText(frame.state)}`;
+  if (isLifecycleFrame(frame)) {
+    return `lifecycle: ${sanitizeSessionText(frame.state, viewerContext)}`;
   }
-  return `${frame.kind.toUpperCase()}: ${previewSessionText(String(frame.chunk), TRANSCRIPT_LINE_RENDER_LIMIT).safeText}`;
+  return `${frame.kind.toUpperCase()}: ${previewSessionText(String(frame.chunk), TRANSCRIPT_LINE_RENDER_LIMIT, viewerContext).safeText}`;
 }
 
 export function SessionViewer({
   sessionId,
   initialMode,
+  viewerContext = 'default',
   onBack,
   loadSessions = loadSessionsPage,
   loadHistory = loadSessionHistory,
@@ -110,6 +200,7 @@ export function SessionViewer({
 }: {
   sessionId: string;
   initialMode?: ViewerMode;
+  viewerContext?: ViewerContext;
   onBack: () => void;
   loadSessions?: typeof loadSessionsPage;
   loadHistory?: (
@@ -140,6 +231,11 @@ export function SessionViewer({
   const retryCommandRef = useRef<(() => Promise<void>) | null>(null);
   const handledGap = useRef<string | null>(null);
   const session = meta.session;
+  const effectiveViewerContext: ViewerContext = session?.skillPath.includes(
+    BID_WORKFLOW_SKILL_FRAGMENT,
+  )
+    ? 'bidWorkflow'
+    : viewerContext;
 
   useEffect(() => {
     let cancelled = false;
@@ -152,17 +248,18 @@ export function SessionViewer({
           return;
         }
         setSnapshotSeq(envelope.snapshotSeq);
-        const nextSession = envelope.data.items.find((item) => item.sessionId === sessionId);
+        const nextSession = envelope.data.items.find((item) =>
+          isSame(item.sessionId, sessionId),
+        );
         if (!nextSession) {
           setError(`Unknown session ${sessionId}`);
           return;
         }
+        const archiveSeq = Number(nextSession.archiveSeq);
+        const archiveVisible = Number.isFinite(archiveSeq) && envelope.snapshotSeq >= archiveSeq;
         if (
-          initialMode === undefined &&
-          (nextSession.executionMode === 'contract' ||
-            (nextSession.archiveSeq !== null &&
-              nextSession.archiveSeq !== undefined &&
-              envelope.snapshotSeq >= nextSession.archiveSeq))
+          isSame(initialMode, undefined) &&
+          (isSame(nextSession.executionMode, 'contract') || archiveVisible)
         ) {
           setMode('history');
         }
@@ -184,11 +281,12 @@ export function SessionViewer({
   }, [initialMode, loadSessions, sessionId]);
 
   useEffect(() => {
+    const archiveSeq = Number(meta.archiveSeq);
     if (
-      initialMode === undefined &&
-      meta.session?.phase === 'archived' &&
-      meta.archiveSeq !== null &&
-      snapshotSeq >= meta.archiveSeq
+      isSame(initialMode, undefined) &&
+      isSame(meta.session?.phase, 'archived') &&
+      Number.isFinite(archiveSeq) &&
+      snapshotSeq >= archiveSeq
     ) {
       setMode('history');
     }
@@ -201,7 +299,7 @@ export function SessionViewer({
     }
 
     const gapKey = `${gap.fromSeq}:${gap.toSeq}`;
-    if (handledGap.current === gapKey) {
+    if (isSame(handledGap.current, gapKey)) {
       return;
     }
     handledGap.current = gapKey;
@@ -238,10 +336,10 @@ export function SessionViewer({
 
   useEffect(() => {
     if (
-      session === null ||
-      mode !== 'history' ||
-      historyState.status !== 'idle' ||
-      session.executionMode !== 'contract'
+      !session ||
+      isDifferent(mode, 'history') ||
+      isDifferent(historyState.status, 'idle') ||
+      isDifferent(session.executionMode, 'contract')
     ) {
       return;
     }
@@ -276,42 +374,47 @@ export function SessionViewer({
 
   const authChallenge = useMemo(() => {
     const frame = timeline.find(
-      (candidate) =>
-        candidate.kind === 'event' && candidate.event.type === 'authChallenge',
+      (candidate): candidate is AuthChallengeFrame => isAuthChallengeFrame(candidate),
     );
-    return frame?.kind === 'event' && frame.event.type === 'authChallenge'
-      ? frame.event
-      : null;
+    return frame?.event ?? null;
   }, [timeline]);
 
   const transcriptLines = useMemo(() => {
     return timeline.slice(-MAX_TRANSCRIPT_LINES).map((frame) => {
-      if (frame.kind === 'stdout' || frame.kind === 'stderr') {
-        const preview = previewSessionText(String(frame.chunk), TRANSCRIPT_LINE_RENDER_LIMIT);
+      if (isOutputFrame(frame)) {
+        const preview = previewSessionText(
+          String(frame.chunk),
+          TRANSCRIPT_LINE_RENDER_LIMIT,
+          effectiveViewerContext,
+        );
         return `${frame.kind.toUpperCase()}: ${preview.safeText}`;
       }
-      if (frame.kind === 'gap') {
+      if (isGapFrame(frame)) {
         return `gap: ${frame.fromSeq}..${frame.toSeq}`;
       }
-      if (frame.kind === 'event') {
+      if (isEventFrame(frame)) {
         const preview = previewSessionText(
           JSON.stringify(frame.event),
           TRANSCRIPT_LINE_RENDER_LIMIT,
+          effectiveViewerContext,
         );
         return `${frame.event.type}: ${preview.safeText}`;
       }
-      if (frame.kind === 'lifecycle') {
-        return `lifecycle: ${sanitizeUntrustedText(frame.state)}`;
+      if (isLifecycleFrame(frame)) {
+        return `lifecycle: ${sanitizeSessionText(frame.state, effectiveViewerContext)}`;
       }
-      const preview = previewSessionText(String(frame.chunk), TRANSCRIPT_LINE_RENDER_LIMIT);
-      return `pty: ${preview.safeText}`;
+      return frameText(frame, effectiveViewerContext);
     });
-  }, [timeline]);
+  }, [effectiveViewerContext, timeline]);
   const historyTranscript = useMemo(() => {
     const frames = history?.frames.slice(-MAX_TRANSCRIPT_LINES) ?? [];
     let truncated = false;
     const lines = frames.map((frame) => {
-      const preview = previewSessionText(frameText(frame), TRANSCRIPT_LINE_RENDER_LIMIT);
+      const preview = previewSessionText(
+        frameText(frame, effectiveViewerContext),
+        TRANSCRIPT_LINE_RENDER_LIMIT,
+        effectiveViewerContext,
+      );
       truncated = truncated || preview.truncated;
       return `${frame.kind.toUpperCase()}: ${preview.safeText}`;
     });
@@ -320,23 +423,26 @@ export function SessionViewer({
       truncated,
       frameCount: history?.frames.length ?? 0,
     };
-  }, [history]);
+  }, [effectiveViewerContext, history]);
 
   const liveTailPreview = useMemo(
-    () => boundUntrustedText(sanitizeSessionText(tail), LIVE_TAIL_RENDER_LIMIT, 120),
-    [tail],
+    () =>
+      boundUntrustedText(
+        sanitizeSessionText(tail, effectiveViewerContext),
+        LIVE_TAIL_RENDER_LIMIT,
+        120,
+      ),
+    [effectiveViewerContext, tail],
   );
 
-  const canInteract =
-    session?.executionMode === 'pty' &&
-    session.reattachable &&
-    session.phase === 'active' &&
-    !interactionBlocked;
+  const canInteract = session
+    ? isSame(session.executionMode, 'pty') &&
+      session.reattachable &&
+      isSame(session.phase, 'active') &&
+      !interactionBlocked
+    : false;
   const terminalControlsDisabled =
-    interactionBlocked ||
-    session?.phase === 'exited' ||
-    session?.phase === 'reaped' ||
-    session?.phase === 'archived';
+    interactionBlocked || !session || isTerminalSessionPhase(session.phase);
 
   async function awaitVisible(ack: MutationAck): Promise<void> {
     let envelope = await loadSessions({}, 50);
@@ -370,15 +476,15 @@ export function SessionViewer({
       setInteractionBlocked(false);
     } catch (error) {
       const bridgeError = coerceBridgeError(error, `${action} failed`);
-      if (bridgeError.code === 'transport_unavailable') {
+      if (isSame(bridgeError.code, 'transport_unavailable')) {
         degradeToBrowseOnly(
           `Daemon bridge unavailable during ${action.toLowerCase()}. ${bridgeError.message}`,
         );
       }
-      if (bridgeError.code === 'already_terminal') {
+      if (isSame(bridgeError.code, 'already_terminal')) {
         setInteractionBlocked(true);
       }
-      if (bridgeError.code === 'invalid_params' && options?.field === 'input') {
+      if (isSame(bridgeError.code, 'invalid_params') && isSame(options?.field, 'input')) {
         setInputError(describeCommandFailure(action, bridgeError));
       }
       if (bridgeError.retryable) {
@@ -456,6 +562,8 @@ export function SessionViewer({
     }
   }
 
+  const authChallengeIntervention = authChallenge?.intervention;
+
   if (loading) {
     return (
       <section className="desktop-page">
@@ -464,7 +572,7 @@ export function SessionViewer({
     );
   }
 
-  if (error || session === null) {
+  if (error || !session) {
     return (
       <section className="desktop-page">
         <button type="button" onClick={onBack}>
@@ -478,7 +586,7 @@ export function SessionViewer({
   }
 
   return (
-    <section className="desktop-page">
+    <section className="desktop-page" data-viewer-context={effectiveViewerContext}>
       <span hidden>Session route for {sessionId}</span>
       <div className="sr-only" aria-live="polite">
         {liveAnnouncement}
@@ -506,11 +614,12 @@ export function SessionViewer({
         <div className="banner banner--warning">
           <strong>Browser auth challenge</strong>
           <p>{sanitizeUntrustedText(authChallenge.detail)}</p>
-          {authChallenge.intervention?.type === 'reveal_profile_path' ? (
+          {authChallengeIntervention &&
+          isSame(authChallengeIntervention.type, 'reveal_profile_path') ? (
             <p>
-              Reveal profile path: {sanitizeUntrustedText(authChallenge.intervention.profilePath)}
+              Reveal profile path: {sanitizeUntrustedText(authChallengeIntervention.profilePath)}
               {' · '}
-              {authChallenge.intervention.reattachable
+              {authChallengeIntervention.reattachable
                 ? 'Reattachable after sign-in.'
                 : 'Session cannot be reattached.'}
             </p>
@@ -521,7 +630,7 @@ export function SessionViewer({
       {meta.gapState ? (
         <div className="banner banner--warning" data-testid="session-gap">
           Missing output from seq {meta.gapState.fromSeq} to {meta.gapState.toSeq}.
-          {historyState.status === 'ready'
+          {isReadyHistoryState(historyState)
             ? ` Replay availability: ${historyState.availability}.`
             : ''}
         </div>
@@ -545,8 +654,8 @@ export function SessionViewer({
 
       <div className="session-viewer-grid">
         <article className="detail-card">
-          <h2>{mode === 'history' ? 'Transcript history' : 'Live terminal'}</h2>
-          {mode === 'live' && session.executionMode === 'pty' ? (
+          <h2>{isSame(mode, 'history') ? 'Transcript history' : 'Live terminal'}</h2>
+          {isSame(mode, 'live') && isSame(session.executionMode, 'pty') ? (
             <>
               {liveTailPreview.truncated ? (
                 <p className="page__status">
@@ -554,12 +663,16 @@ export function SessionViewer({
                   {liveTailPreview.maxChars.toLocaleString('en-GB')} safe characters.
                 </p>
               ) : null}
-              <pre aria-live="off" className="session-viewer__terminal">
+              <pre
+                aria-live="off"
+                className="session-viewer__terminal"
+                data-testid="pty-output"
+              >
                 {tail ? liveTailPreview.safeText : 'Waiting for PTY output…'}
               </pre>
               <details>
                 <summary>Screen-reader transcript</summary>
-                <pre aria-live="off">
+                <pre aria-live="off" data-testid="pty-output-transcript">
                   {tail ? liveTailPreview.safeText : 'No PTY transcript available yet.'}
                 </pre>
               </details>
@@ -575,7 +688,11 @@ export function SessionViewer({
               {historyTranscript.truncated ? (
                 <p className="page__status">Replay frame truncated to safe transcript bounds.</p>
               ) : null}
-              <ol aria-live="off" className="session-viewer__timeline">
+              <ol
+                aria-live="off"
+                className="session-viewer__timeline"
+                data-testid="pty-output"
+              >
                 {(historyTranscript.lines.length > 0 ? historyTranscript.lines : transcriptLines).map(
                   (line, index) => (
                   <li key={`${index}-${line}`}>{line}</li>
@@ -622,7 +739,7 @@ export function SessionViewer({
           {inputError ? <p role="alert">{sanitizeUntrustedText(inputError)}</p> : null}
           <button
             type="button"
-            disabled={!canInteract || inputValue.length === 0}
+            disabled={!canInteract || isSame(inputValue.length, 0)}
             onClick={() => void requestInput()}
           >
             Send PTY input
