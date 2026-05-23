@@ -28,7 +28,9 @@ mod tests {
         SkillPromotionStage, ValidationPolicyConfig, ValidationPolicyContext, ValidationPolicyMode,
         evaluate_validation_policy,
     };
-    use crate::skills_support::{TestSkillDir, lint_skill_directory, repo_root, repo_skill_dir};
+    use crate::skills_support::{
+        TestSkillDir, lint_skill_directory, load_skill_metadata, repo_root, repo_skill_dir,
+    };
     use crate::sources_impl::{DEFAULT_SOURCE_SKILL_VERSION, PromotionStage, SourceRegistry};
 
     struct ManualSkillHarness {
@@ -286,6 +288,51 @@ mod tests {
         }
     }
 
+    fn bid_portal_corpus_row_count(category: &str) -> Result<usize> {
+        let inputs = fs::read_to_string(
+            repo_root()?
+                .join("tests/fixtures/calibration/bid-portal-procontract")
+                .join(category)
+                .join("canary.inputs.jsonl"),
+        )?;
+        Ok(inputs
+            .lines()
+            .filter(|line| !line.trim().is_empty())
+            .count())
+    }
+
+    fn bid_portal_corpus_contains_formal_submission_path() -> Result<bool> {
+        let corpus_root = repo_root()?.join("tests/fixtures/calibration/bid-portal-procontract");
+        for category in ["simple", "medium", "complex"] {
+            let inputs =
+                fs::read_to_string(corpus_root.join(category).join("canary.inputs.jsonl"))?;
+            for line in inputs.lines().filter(|line| !line.trim().is_empty()) {
+                let canary: Value = serde_json::from_str(line)
+                    .with_context(|| format!("parsing {category} bid portal canary row"))?;
+                if canary
+                    .get("side_effect_cap")
+                    .and_then(Value::as_str)
+                    .is_some_and(|cap| cap == "FORMAL_SUBMISSION")
+                    || canary
+                        .get("expected_side_effect_class_reached")
+                        .and_then(Value::as_str)
+                        .is_some_and(|observed| observed == "FORMAL_SUBMISSION")
+                {
+                    return Ok(true);
+                }
+            }
+        }
+        Ok(false)
+    }
+
+    fn bid_portal_canary_exit_allowed(
+        current_stage: &str,
+        formal_submission_path_present: bool,
+        operator_authorized: bool,
+    ) -> bool {
+        current_stage == "canary" && (!formal_submission_path_present || operator_authorized)
+    }
+
     fn section(markdown: &str, title: &str) -> Result<String> {
         let heading = format!("## {title}");
         let start = markdown
@@ -487,7 +534,11 @@ mod tests {
                     .map(str::to_owned)
             })
             .collect::<BTreeSet<_>>();
-        ensure!(auth_refresh_dirs == BTreeSet::from(["1688".to_owned(), "alibaba".to_owned()]));
+        ensure!(
+            auth_refresh_dirs.len().eq(&2)
+                && auth_refresh_dirs.contains("1688")
+                && auth_refresh_dirs.contains("alibaba")
+        );
 
         let source_health_dirs = fs::read_dir(repo_root()?.join("skills/source-health"))?
             .filter_map(|entry| entry.ok().map(|value| value.path()))
@@ -608,6 +659,60 @@ mod tests {
                 "{relative} must reject unrelated extraction work"
             );
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn l3_t_skill_golden_journeys_009_bid_portal_promotion_lifecycle_requires_operator_authorization()
+    -> Result<()> {
+        let linted = load_skill_metadata(&repo_skill_dir("bid-portal-procontract")?)?;
+        ensure!(linted.metadata.skill_id == "bid-portal/procontract");
+        ensure!(linted.metadata.promotion_stage.as_deref() == Some("draft"));
+        ensure!(
+            linted.metadata.worker_behavior_version.as_deref()
+                == Some("bid-portal/procontract@0.1.0+1.0")
+        );
+        ensure!(
+            linted.skill_markdown.contains("validation_policy: always"),
+            "bid portal worker must remain bound to fail-closed validation"
+        );
+
+        ensure!(bid_portal_corpus_row_count("simple")? >= 6);
+        ensure!(bid_portal_corpus_row_count("medium")? >= 8);
+        ensure!(bid_portal_corpus_row_count("complex")? >= 10);
+
+        let canary_metrics_green = CanaryPlan {
+            traffic_share_bps: 500,
+            shard_count: 0,
+            comparison_data_present: true,
+            stable_authoritative: true,
+            bounded_runs: 30,
+            validator_approval_bps: 9_900,
+            precision_or_recall_regressed: false,
+        };
+        ensure!(
+            canary_ready(&canary_metrics_green),
+            "baseline canary metrics should be green before applying bid-specific operator gate"
+        );
+
+        let formal_submission_path_present = bid_portal_corpus_contains_formal_submission_path()?;
+        ensure!(
+            formal_submission_path_present,
+            "bid portal canary corpus must include the formal-submission path"
+        );
+        ensure!(
+            !bid_portal_canary_exit_allowed("draft", formal_submission_path_present, true),
+            "draft bid skill must not skip directly past canary even with operator authorization"
+        );
+        ensure!(
+            !bid_portal_canary_exit_allowed("canary", formal_submission_path_present, false),
+            "formal-submission-capable bid skill must not auto-promote past canary"
+        );
+        ensure!(
+            bid_portal_canary_exit_allowed("canary", formal_submission_path_present, true),
+            "operator authorization is required before canary exit for bid submission automation"
+        );
 
         Ok(())
     }

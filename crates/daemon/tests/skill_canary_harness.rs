@@ -195,6 +195,143 @@ fn assert_bid_portal_corpus_category(
     Ok(())
 }
 
+fn side_effect_rank(side_effect_class: &str) -> Result<u8> {
+    match side_effect_class {
+        "READ_ONLY" => Ok(0),
+        "REMOTE_DRAFT" => Ok(1),
+        "NOTIFICATION_OR_LOCK" => Ok(2),
+        "LEGAL_DECLARATION" => Ok(3),
+        "FORMAL_SUBMISSION" => Ok(4),
+        "FUNDS_COMMITTED" => Ok(5),
+        _ => Err(anyhow::anyhow!(
+            "unknown bid portal side-effect class {side_effect_class}"
+        )),
+    }
+}
+
+fn highest_observed_side_effect<'a>(evidence: &'a Value, cassette: &'a Value) -> Option<&'a str> {
+    evidence
+        .get("highest_side_effect_class_reached")
+        .or_else(|| evidence.pointer("/checkpoint/highest_side_effect_class_reached"))
+        .or_else(|| evidence.pointer("/checkpoint/side_effect_class_reached"))
+        .or_else(|| evidence.pointer("/expected_detection/side_effect_class_reached"))
+        .or_else(|| cassette.pointer("/checkpoint/highest_side_effect_class_reached"))
+        .or_else(|| cassette.pointer("/checkpoint/side_effect_class_reached"))
+        .and_then(Value::as_str)
+}
+
+fn terminal_state_matches_cassette(expected_terminal_state: &str, evidence: &Value) -> bool {
+    json_str_field_eq(evidence.get("terminal_state"), expected_terminal_state)
+        || (expected_terminal_state == "draft_saved"
+            && json_str_field_eq(
+                evidence.pointer("/expected_result/kind"),
+                "draft_save_result",
+            ))
+        || (expected_terminal_state == "bid_submitted"
+            && json_str_field_eq(
+                evidence.pointer("/expected_result/kind"),
+                "submission_result",
+            ))
+        || (expected_terminal_state == "bid_in_progress"
+            && (evidence.get("checkpoint").is_some() || evidence.get("document_uploads").is_some()))
+}
+
+fn assert_bid_portal_cassette_replays_case(fixture_root: &Path, canary: &Value) -> Result<()> {
+    let case_id = canary
+        .get("case_id")
+        .and_then(Value::as_str)
+        .ok_or_else(|| anyhow::anyhow!("bid portal canary missing case_id"))?;
+    let cassette = load_bid_portal_cassette(fixture_root, canary)?;
+    let evidence = cassette
+        .get("cases")
+        .and_then(|cases| cases.get(case_id))
+        .unwrap_or(&cassette);
+    let rendered_cassette = serde_json::to_string(&cassette)?;
+    ensure!(
+        !rendered_cassette.contains("localhost:9222")
+            && !rendered_cassette.contains("agent-browser --cdp")
+            && !rendered_cassette.contains("bin/ensure-cdp-9222"),
+        "{case_id} cassette must be deterministic replay evidence, not a live CDP command"
+    );
+
+    let expected_error = canary
+        .get("expected_error_code")
+        .ok_or_else(|| anyhow::anyhow!("{case_id} missing expected_error_code"))?;
+    if let Some(expected_error_code) = expected_error.as_str() {
+        ensure!(
+            json_str_field_eq(
+                evidence.pointer("/expected_detection/error_code"),
+                expected_error_code,
+            ) || json_str_field_eq(
+                cassette.pointer("/expected_detection/error_code"),
+                expected_error_code,
+            ),
+            "{case_id} cassette must replay expected error {expected_error_code}"
+        );
+    } else {
+        let expected_terminal_state = canary
+            .get("expected_terminal_state")
+            .and_then(Value::as_str)
+            .ok_or_else(|| anyhow::anyhow!("{case_id} missing expected_terminal_state"))?;
+        ensure!(
+            terminal_state_matches_cassette(expected_terminal_state, evidence),
+            "{case_id} cassette must replay terminal state {expected_terminal_state}"
+        );
+    }
+
+    if let (Some(cap), Some(observed)) = (
+        canary.get("side_effect_cap").and_then(Value::as_str),
+        highest_observed_side_effect(evidence, &cassette),
+    ) {
+        ensure!(
+            side_effect_rank(observed)? <= side_effect_rank(cap)?,
+            "{case_id} observed side effect {observed} exceeds cap {cap}"
+        );
+    }
+
+    if case_id == "medium-resume-draft-01" {
+        ensure!(
+            json_bool_field_eq(
+                evidence.pointer("/portal_state_verification/portal_state_verified_before_edit"),
+                true,
+            ),
+            "resume-after-REMOTE_DRAFT canary must verify portal state before retry editing"
+        );
+    }
+    if case_id == "complex-remote-draft-changed-externally-01" {
+        ensure!(
+            json_str_field_eq(evidence.get("terminal_state"), "portal_state_unknown")
+                && json_bool_field_eq(
+                    evidence.pointer("/expected_detection/external_change_detected"),
+                    true,
+                ),
+            "remote-draft external-change canary must reconcile portal state before editing"
+        );
+    }
+
+    Ok(())
+}
+
+fn assert_bid_portal_corpus_replays_all_cases(category: &str, minimum_rows: usize) -> Result<()> {
+    let fixture_root = repo_root()?
+        .join("tests/fixtures/calibration/bid-portal-procontract")
+        .join(category);
+    let inputs = load_canary_inputs(&fixture_root.join("canary.inputs.jsonl"))?;
+    ensure!(
+        inputs.len() >= minimum_rows,
+        "{category} corpus must have at least {minimum_rows} replay cases"
+    );
+    for canary in &inputs {
+        ensure!(
+            json_str_field_eq(canary.get("skill_id"), "bid-portal/procontract")
+                && json_str_field_eq(canary.get("form_complexity"), category),
+            "{category} canary row must target bid-portal/procontract and its category"
+        );
+        assert_bid_portal_cassette_replays_case(&fixture_root, canary)?;
+    }
+    Ok(())
+}
+
 fn fingerprint_matches(expected: &str, actual: &str) -> bool {
     expected == actual
 }
@@ -986,4 +1123,19 @@ fn e2e_can_015_bid_portal_calibration_corpus_contract_covers_required_variants()
     )?;
 
     Ok(())
+}
+
+#[test]
+fn e2e_can_016_bid_portal_simple_corpus_replays_every_canary_case() -> Result<()> {
+    assert_bid_portal_corpus_replays_all_cases("simple", 6)
+}
+
+#[test]
+fn e2e_can_017_bid_portal_medium_corpus_replays_every_canary_case() -> Result<()> {
+    assert_bid_portal_corpus_replays_all_cases("medium", 8)
+}
+
+#[test]
+fn e2e_can_018_bid_portal_complex_corpus_replays_every_canary_case() -> Result<()> {
+    assert_bid_portal_corpus_replays_all_cases("complex", 10)
 }
