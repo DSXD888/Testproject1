@@ -8,7 +8,11 @@ pub mod state_machine;
 pub mod types;
 
 pub use decision_basis_hash::compute as compute_decision_basis_hash;
-pub use readiness_gate::{BidReadinessBlocker, BidReadinessGateResult, evaluate_bid_readiness};
+pub use readiness_gate::{
+    BidReadinessBlocker, BidReadinessGateResult, NON_OVERRIDEABLE_GATE_OVERRIDE_REASON_CODE,
+    QUOTE_ROLE_QUALITY_OVERRIDE_REASON_CODE, TRUST_DEBT_ACCEPTANCE_REASON_CODE,
+    evaluate_bid_readiness,
+};
 pub use runner::run_bid_workflow_job;
 pub use side_effect_guard::{
     BidPortalStep, CapDecision, enforce_cap, enforce_procontract_observed_side_effect,
@@ -105,6 +109,7 @@ mod tests {
             approved: false,
             blockers: vec![BidReadinessBlocker::Phase3Pending],
             override_required: None,
+            resolved_company_profile: None,
         };
         let machine = BidStateMachine::new(BidWorkflowState::NotStarted);
 

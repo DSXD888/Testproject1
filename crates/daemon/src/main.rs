@@ -1554,9 +1554,9 @@ fn bid_workflow_manual_readiness_blockers(
         }));
     }
 
-    let readiness = bid_workflow::evaluate_bid_readiness(scope);
+    let readiness = bid_workflow::evaluate_bid_readiness(conn, scope)?;
     for blocker in &readiness.blockers {
-        if let Some(blocker) = bid_workflow_manual_blocker_payload(blocker) {
+        if let Some(blocker) = bid_workflow_manual_blocker_payload(*blocker) {
             blockers.push(blocker);
         }
     }
@@ -1564,14 +1564,18 @@ fn bid_workflow_manual_readiness_blockers(
     Ok(blockers)
 }
 
-const fn bid_workflow_manual_blocker_payload(
-    blocker: &bid_workflow::BidReadinessBlocker,
+fn bid_workflow_manual_blocker_payload(
+    blocker: bid_workflow::BidReadinessBlocker,
 ) -> Option<Value> {
-    match blocker {
-        // Phase 3 replaces this scaffold blocker with the real L5/operator gate
-        // evidence. Phase 2 mirrors the IPC trigger by allowing enqueueable
-        // smoke paths while still exercising the readiness boundary.
-        bid_workflow::BidReadinessBlocker::Phase3Pending => None,
+    if matches!(blocker, bid_workflow::BidReadinessBlocker::Phase3Pending) {
+        None
+    } else {
+        Some(json!({
+            "code": blocker.code(),
+            "source": blocker.source(),
+            "overrideable": blocker.overrideable(),
+            "diagnostic": blocker.diagnostic(),
+        }))
     }
 }
 

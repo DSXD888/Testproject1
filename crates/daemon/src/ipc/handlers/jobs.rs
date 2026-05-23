@@ -26,6 +26,7 @@ const EXECUTOR_ID: &str = "local-daemon";
 
 #[cfg(test)]
 mod test_bid_workflow {
+    use rusqlite::Connection;
     use serde::{Deserialize, Serialize};
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -138,7 +139,7 @@ mod test_bid_workflow {
         Large,
     }
 
-    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
     #[serde(rename_all = "snake_case")]
     pub enum BidReadinessBlocker {
         Phase3Pending,
@@ -151,14 +152,19 @@ mod test_bid_workflow {
         pub approved: bool,
         pub blockers: Vec<BidReadinessBlocker>,
         pub override_required: Option<String>,
+        pub resolved_company_profile: Option<CompanyProfile>,
     }
 
-    pub fn evaluate_bid_readiness(scope: &BidScopePayload) -> BidReadinessGateResult {
+    pub fn evaluate_bid_readiness(
+        _conn: &Connection,
+        scope: &BidScopePayload,
+    ) -> BidReadinessGateResult {
         if scope.portal_opportunity_ref == "READINESS-BLOCKED" {
             return BidReadinessGateResult {
                 approved: false,
                 blockers: vec![BidReadinessBlocker::TestBlocked],
                 override_required: None,
+                resolved_company_profile: None,
             };
         }
 
@@ -166,6 +172,7 @@ mod test_bid_workflow {
             approved: true,
             blockers: Vec::new(),
             override_required: None,
+            resolved_company_profile: None,
         }
     }
 }
@@ -472,9 +479,13 @@ fn bid_workflow_readiness_blockers(
         }));
     }
 
-    let readiness = evaluate_bid_readiness(&params.bid_scope);
+    #[cfg(not(test))]
+    let readiness = evaluate_bid_readiness(state_db.connection(), &params.bid_scope)
+        .map_err(map_internal_error)?;
+    #[cfg(test)]
+    let readiness = evaluate_bid_readiness(state_db.connection(), &params.bid_scope);
     for blocker in &readiness.blockers {
-        if let Some(blocker) = bid_readiness_blocker_payload(blocker) {
+        if let Some(blocker) = bid_readiness_blocker_payload(*blocker) {
             blockers.push(blocker);
         }
     }
@@ -483,16 +494,21 @@ fn bid_workflow_readiness_blockers(
 }
 
 #[cfg(not(test))]
-const fn bid_readiness_blocker_payload(blocker: &BidReadinessBlocker) -> Option<Value> {
-    match blocker {
-        // Phase 3 replaces this scaffold blocker with the real L5/operator gate
-        // evidence. Phase 2 still needs an enqueueable smoke path.
-        BidReadinessBlocker::Phase3Pending => None,
+fn bid_readiness_blocker_payload(blocker: BidReadinessBlocker) -> Option<Value> {
+    if matches!(blocker, BidReadinessBlocker::Phase3Pending) {
+        None
+    } else {
+        Some(json!({
+            "code": blocker.code(),
+            "source": blocker.source(),
+            "overrideable": blocker.overrideable(),
+            "diagnostic": blocker.diagnostic(),
+        }))
     }
 }
 
 #[cfg(test)]
-fn bid_readiness_blocker_payload(blocker: &BidReadinessBlocker) -> Option<Value> {
+fn bid_readiness_blocker_payload(blocker: BidReadinessBlocker) -> Option<Value> {
     match blocker {
         BidReadinessBlocker::Phase3Pending => None,
         BidReadinessBlocker::TestBlocked => Some(json!({
