@@ -4,7 +4,7 @@
 
 BLOCKED. Do not run the REMOTE_DRAFT live smoke yet.
 
-This pass captured the automatable preflight evidence for `testproject1-3yqf.7.1`, but the live-demo target and bidder profile prerequisites are not present locally. The missing inputs are operator-owned and cannot be fabricated by an agent.
+This pass captured the automatable preflight evidence for `testproject1-3yqf.7.1`, but the live-demo target and bidder profile prerequisites are not present locally. The missing inputs are operator-owned and cannot be fabricated by an agent. A follow-up recheck at 2026-05-23T14:18Z confirmed CDP persistence is currently healthy; the remaining blockers are the operator-selected opportunity, company profile / approved decision data, and Supabase/PostgREST reachability.
 
 ## Captured Evidence
 
@@ -46,7 +46,13 @@ Observed output:
 }
 ```
 
-Follow-up note: a later `/json/list` probe could not reconnect to `localhost:9222` after the helper command completed. Before any live portal run, rerun the CDP health probe and confirm the endpoint remains reachable after the command exits.
+Follow-up recheck at 2026-05-23T14:18Z:
+
+```bash
+bin/ensure-cdp-9222 && curl -sfS -m 3 http://localhost:9222/json/version && sleep 3 && curl -sfS -m 3 http://localhost:9222/json/list
+```
+
+Result: exit code 0. Chrome launched with pid 27261; `/json/version` returned `Chrome/148.0.7778.179`; `/json/list` remained reachable after the helper command exited and returned live page/background/service-worker targets. Before any live portal run, still rerun this probe immediately to confirm the operator's persistent browser is reachable at that moment.
 
 ### L5 Readiness Fixture
 
@@ -70,7 +76,7 @@ Result: 45 passed, 0 failed. The passing tests include the constitutional blocke
 
 - `infra/supabase/config.toml` exists.
 - `infra/supabase/migrations/` exists.
-- `127.0.0.1:54321` was unreachable during this pass.
+- `127.0.0.1:54321` was unreachable during the first pass and remained unreachable in the 2026-05-23T14:18Z recheck.
 - `state/state.db`, `runtime/state.db`, `./state.db`, and `state/state.db.preB-cdp-live-20260503T100301Z.db` did not expose populated `shared_company_profile` or `operator_decision_heads` tables for the live preflight.
 - `state/state.db` does include `bid_workflow_states`, `operator_input_overrides`, `pending_operator_intent_receipts`, and `pending_operator_intents`.
 
@@ -88,8 +94,8 @@ Result: 45 passed, 0 failed. The passing tests include the constitutional blocke
 4. The Chrome saved credential and Touch ID state still require manual confirmation in the persistent profile.
    The locked L6 decision records that `sales@sorelon.com` and Touch-ID-removed credentials were operator-confirmed on 2026-05-21, but this pass did not verify Chrome Passwords directly.
 
-5. CDP persistence must be rechecked immediately before live smoke.
-   The helper reached `/json/version`, but a later `/json/list` probe failed after the helper exited.
+5. CDP persistence is currently green as of the 2026-05-23T14:18Z recheck.
+   This is no longer a standing blocker for this artifact, but the probe must be repeated immediately before any live smoke because the operator browser is an external state dependency.
 
 ## Next Step
 

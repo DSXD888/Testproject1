@@ -822,6 +822,8 @@ open_questions:
     blocks: "Phase 7 live demo execution"
     operator_action_required: "Pre-step-12: operator selects a real Procontract opportunity ref that (a) is open for expressions of interest, (b) won't generate buyer-visible legal commitment when reaching draft_saved (first run, sideEffectCap=REMOTE_DRAFT), (c) operator is genuinely willing to bid on (for the second run that escalates to FORMAL_SUBMISSION)."
     deliverable: "Record opportunity ref in live-demo/first-run-REMOTE_DRAFT.md per step 15 6c"
+    preflight_artifact: docs/pipeline/l6-request-pipeline-automation/live-demo/preflight-2026-05-23.md
+    preflight_status: "BLOCKED 2026-05-23: CDP persistence and AgentMail are green; operator-selected opportunity ref, populated shared_company_profile/operator_decision_heads data, and reachable Supabase/PostgREST verification path are still required."
 
   q12_company_profile_population_timing:
     question: "When does `shared_company_profile` (Supabase remote-owned) get populated?"
