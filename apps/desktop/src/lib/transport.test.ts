@@ -63,6 +63,7 @@ describe('transport shim', () => {
     await transport.invoke('list_processes', { limit: 10 });
     await transport.invoke('capture_decision', { processId: 'proc-1' });
     await transport.invoke('trigger_bid_workflow', { processId: 'proc-1' });
+    await transport.invoke('record_bid_workflow_override', { processId: 'proc-1' });
     await transport.invoke('get_decision_history', { processId: 'proc-1' });
     await transport.invoke('capture_clarification', {
       processId: 'proc-1',
@@ -75,6 +76,9 @@ describe('transport shim', () => {
       params: { processId: 'proc-1' },
     });
     expect(invoke).toHaveBeenCalledWith('trigger_bid_workflow', {
+      params: { processId: 'proc-1' },
+    });
+    expect(invoke).toHaveBeenCalledWith('record_bid_workflow_override', {
       params: { processId: 'proc-1' },
     });
     expect(invoke).toHaveBeenCalledWith('get_decision_history', {

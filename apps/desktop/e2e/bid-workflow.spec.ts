@@ -7,12 +7,15 @@ type DevBridgeCall = {
 
 type BidWorkflowDetailOptions = {
   processId: string;
-  bidState: 'not_started' | 'ready_to_bid';
+  bidState: 'not_started' | 'ready_to_bid' | 'draft_saved';
   readiness: {
     eligible: boolean;
     blockers?: Array<{ code: string; diagnostic: string }>;
     checkedAt?: string;
   };
+  sideEffectCap?: 'REMOTE_DRAFT' | 'FORMAL_SUBMISSION';
+  validatorVerdict?: 'approved' | 'rejected' | 'outage' | 'missing' | null;
+  validatorMessage?: string | null;
 };
 
 type DevBridgePayload = {
@@ -32,6 +35,12 @@ async function bridgeCalls(page: Page): Promise<DevBridgeCall[]> {
 
 async function triggerBidWorkflowCalls(page: Page): Promise<DevBridgeCall[]> {
   return (await bridgeCalls(page)).filter((call) => call.cmd === 'trigger_bid_workflow');
+}
+
+async function recordOverrideCalls(page: Page): Promise<DevBridgeCall[]> {
+  return (await bridgeCalls(page)).filter(
+    (call) => call.cmd === 'record_bid_workflow_override',
+  );
 }
 
 function readDevBridgePayload(route: Route): DevBridgePayload {
@@ -84,11 +93,23 @@ async function installBidWorkflowFixture(
       return;
     }
 
+    if (payload.cmd === 'record_bid_workflow_override') {
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          accepted: true,
+          visibleAfterSeq: 503,
+        }),
+      });
+      return;
+    }
+
     await route.fallback();
   });
 }
 
 function bidWorkflowDetail(options: BidWorkflowDetailOptions): Record<string, unknown> {
+  const sideEffectCap = options.sideEffectCap ?? 'REMOTE_DRAFT';
   const bidScope = {
     processId: options.processId,
     lotIds: ['lot-bid-1'],
@@ -99,7 +120,7 @@ function bidWorkflowDetail(options: BidWorkflowDetailOptions): Record<string, un
     portalOpportunityRef: 'DN-START-BID-001',
     reviewRequired: true,
     decisionBasisHash: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
-    sideEffectCap: 'REMOTE_DRAFT',
+    sideEffectCap,
   };
 
   return {
@@ -223,7 +244,20 @@ function bidWorkflowDetail(options: BidWorkflowDetailOptions): Record<string, un
         },
       ],
       stageRunId: 'stage-bid-1',
-      sideEffectCap: 'REMOTE_DRAFT',
+      draftRef: options.bidState === 'draft_saved' ? 'DRAFT-BID-001' : null,
+      screenshotPaths:
+        options.bidState === 'draft_saved'
+          ? ['screenshots/bid-001-step-1.png', 'screenshots/bid-001-step-2.png']
+          : [],
+      manifestHref:
+        options.bidState === 'draft_saved'
+          ? '/artifacts/process-bid-draft/run-manifest.md'
+          : null,
+      savedAt:
+        options.bidState === 'draft_saved' ? '2026-05-23T09:55:00Z' : null,
+      sideEffectCap,
+      validatorVerdict: options.validatorVerdict ?? null,
+      validatorMessage: options.validatorMessage ?? null,
     },
     errors: [],
   };
@@ -302,5 +336,121 @@ test.describe('bid workflow desktop controls', () => {
 
     await page.getByRole('button', { name: 'Start bid' }).click({ force: true });
     expect(await triggerBidWorkflowCalls(page)).toHaveLength(0);
+  });
+
+  test('L6-T-desktop_ui-003: quote-role override requires acknowledgment and records audit payload', async ({
+    page,
+  }) => {
+    await installBidWorkflowFixture(page, {
+      processId: 'process-bid-quote-role-override',
+      bidState: 'ready_to_bid',
+      readiness: {
+        eligible: false,
+        blockers: [
+          {
+            code: 'QUOTE_ROLE_FLOOR_ONLY',
+            diagnostic:
+              'Only floor evidence is available; operator acknowledgment is required.',
+          },
+        ],
+        checkedAt: '2026-05-23T10:05:00Z',
+      },
+    });
+
+    await page.goto('/process/process-bid-quote-role-override?mode=full-control');
+    await page.getByRole('tab', { name: 'BidWorkflow' }).click();
+    await page.getByTestId('override-quote-role').click();
+
+    await page.getByTestId('override-submit').click();
+    await expect(page.getByTestId('override-error')).toContainText('Reason is required');
+
+    await page
+      .getByTestId('override-reason')
+      .fill('Sole-source pricing; sample test bid.');
+    await page.getByTestId('override-acknowledged').check();
+    await page.getByTestId('override-submit').click();
+
+    await expect(page.getByTestId('override-status')).toContainText(
+      'Quote-role override recorded',
+    );
+    await expect.poll(async () => recordOverrideCalls(page)).toHaveLength(1);
+    expect(await triggerBidWorkflowCalls(page)).toHaveLength(0);
+
+    const [overrideCall] = await recordOverrideCalls(page);
+    expect(overrideCall?.args).toMatchObject({
+      processId: 'process-bid-quote-role-override',
+      decisionBasisHash:
+        '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+      operatorOverride: {
+        kind: 'quote_role_floor_only',
+        reason: 'Sole-source pricing; sample test bid.',
+        recorded_by: 'operator-alinaaitova',
+      },
+    });
+    expect(
+      (overrideCall?.args?.operatorOverride as Record<string, unknown> | undefined)
+        ?.recorded_at,
+    ).toEqual(expect.any(String));
+  });
+
+  test('L6-T-desktop_ui-005: validation override records a reason before final submission', async ({
+    page,
+  }) => {
+    await installBidWorkflowFixture(page, {
+      processId: 'process-bid-validation-override',
+      bidState: 'draft_saved',
+      readiness: {
+        eligible: true,
+        blockers: [],
+        checkedAt: '2026-05-23T10:10:00Z',
+      },
+      sideEffectCap: 'FORMAL_SUBMISSION',
+      validatorVerdict: 'rejected',
+      validatorMessage: 'Validator rejected the final portal submission packet.',
+    });
+
+    await page.goto('/process/process-bid-validation-override?mode=full-control');
+    await page.getByRole('tab', { name: 'BidWorkflow' }).click();
+    await page.getByTestId('override-validation').click();
+
+    await page.getByTestId('override-submit-final').click();
+    await expect(page.getByTestId('override-error')).toContainText('Reason is required');
+
+    await page
+      .getByTestId('override-reason')
+      .fill('Manually verified manifest; portal confirmation captured externally.');
+    await page.getByTestId('override-acknowledged').check();
+    await page.getByTestId('override-submit-final').click();
+
+    await expect(page.getByTestId('override-status')).toContainText(
+      'Validation override recorded; final submission queued',
+    );
+    await expect.poll(async () => recordOverrideCalls(page)).toHaveLength(1);
+    await expect.poll(async () => triggerBidWorkflowCalls(page)).toHaveLength(1);
+
+    const calls = await bridgeCalls(page);
+    const overrideIndex = calls.findIndex(
+      (call) => call.cmd === 'record_bid_workflow_override',
+    );
+    const triggerIndex = calls.findIndex((call) => call.cmd === 'trigger_bid_workflow');
+    expect(overrideIndex).toBeGreaterThanOrEqual(0);
+    expect(triggerIndex).toBeGreaterThan(overrideIndex);
+
+    const [overrideCall] = await recordOverrideCalls(page);
+    expect(overrideCall?.args).toMatchObject({
+      processId: 'process-bid-validation-override',
+      sideEffectCap: 'FORMAL_SUBMISSION',
+      operatorOverride: {
+        kind: 'validation_gate',
+        reason: 'Manually verified manifest; portal confirmation captured externally.',
+        recorded_by: 'operator-alinaaitova',
+      },
+    });
+
+    const [triggerCall] = await triggerBidWorkflowCalls(page);
+    expect(triggerCall?.args?.bidScope).toMatchObject({
+      processId: 'process-bid-validation-override',
+      sideEffectCap: 'FORMAL_SUBMISSION',
+    });
   });
 });

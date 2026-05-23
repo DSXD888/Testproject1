@@ -128,6 +128,7 @@ const TAURI_PARAMS_WRAPPED_COMMANDS = new Set([
   'trigger_ingestion',
   'trigger_enrichment',
   'trigger_bid_workflow',
+  'record_bid_workflow_override',
   'capture_decision',
   'get_decision_history',
   'get_active_overrides',
