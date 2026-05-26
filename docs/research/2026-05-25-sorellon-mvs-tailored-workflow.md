@@ -1,11 +1,25 @@
 # Sorellon Minimum Viable State — Tailored 60-Day Workflow
 
 **Companion to**: `docs/research/2026-05-25-sorellon-bidding-readiness-research.md` (generic)
-**Built from**: 5-round clarification session with operator (Dieter), 2026-05-25
+**Built from**: 5-round clarification session with operator (Dieter), 2026-05-25 — then refined after operator pushback to separate PRE-BID from POST-WIN spend
 **Target**: first live bid submission within 30-60 days
 **Operator time budget**: 10-20 hours/week (~120-180 hours total)
-**Year-1 cash budget**: ~£2,700-£3,500 + insurance bind cost + optional capital injection (£20-50k loan)
-**Constitutional**: Sorellon is China-direct importer of biocidal + medical-device + PPE products. This is the heaviest regulatory profile possible.
+**Rock-bottom PRE-BID cash to start bidding**: **~£1,500-£2,000 year-1** (excludes per-opportunity add-ons and post-win regulatory costs)
+**Constitutional**: Sorellon is China-direct importer of biocidal + medical-device + PPE products. The product-side regulatory load is high — BUT the bulk of it is POST-WIN per-contract, not PRE-BID year-1.
+
+---
+
+## ⚠ KEY REFRAME — what you need to BID vs what you need to DELIVER
+
+After operator pushback the spend stack was split into three tiers. **Do not confuse these.**
+
+| Tier | What it is | When you spend |
+|---|---|---|
+| **PRE-BID** | Items you must have in hand before submitting any bid response. Pre-qualification gates. | Once per year (mostly), before first bid |
+| **AT-BID-TIME** | Per-opportunity decisions. Some bids will demand them, others won't. Allocate cost to the bid. | When pursuing a specific bid that requires them |
+| **POST-WIN** | Only triggered IF you win a specific contract AND need to deliver under it. Per-contract regulatory compliance. | After winning a bid that requires the item |
+
+The original "year-1 cash" figure (£4,600-£6,200) conflated all three. The honest pre-bid number is much smaller. See §3 for full breakdown.
 
 ---
 
@@ -32,7 +46,83 @@
 
 ---
 
-## 1. Pruned scope — what's IN and what's OUT for year-1
+## 3. PRE-BID vs AT-BID-TIME vs POST-WIN — the honest breakdown
+
+### 3.1. PRE-BID (must be in hand before submitting any bid) — ~£1,500-£2,000 year-1 cash
+
+| Item | Cost | Why pre-bid | Time |
+|---|---|---|---|
+| Companies House active status + both PSCs ECCTA-verified | £0 | Procurement portals do live Companies House lookups; struck-off or unverified-IV → auto-rejection | 30 min each |
+| Confirmation Statement filed (next: 23 Jul 2026) | £50/yr | Companies House good standing required | 30 min |
+| HMRC active-status notification | £0 | If any RFQ activity, required within 3 mo | 10 min |
+| ICO Data Protection Fee (Tier 1, DD) | £47/yr | Many SQs ask "ICO registered? Number?" | 15 min |
+| **Cyber Essentials (basic, IASME direct)** | **£396** | PPN 014 mandate; pre-qual gate for central gov + NHS Trust direct + many LA bids; single highest-ROI cert | ~12 hr questionnaire |
+| **Basic combined insurance £5M EL/PL/PrL** | **£800-£1,200/yr** | Mandatory upload field on every framework portal — CCS, NHS Supply Chain MIA, Constructionline, Atamis, Bravo, Jaggaer ALL require it as binary YES/NO upload | 3 hr broker outreach |
+| Living Wage Foundation accreditation | £100/yr | Social-value scoring on many bids; trivially satisfied (you're sole director); zero downside | 1 hr |
+| Documented QMS procedure (ISO 9001 equivalent) | £0 | SQ Module 3 — quality management; Procurement Act 2023 equivalents clause | ~16 hr |
+| Modern Slavery Statement (voluntary) | £0 | Frequently asked in SQs; publish on website + gov.uk registry | ~6 hr |
+| HMRC VAT registration (voluntary) | £0 + ~£170/yr accounting software | VAT number routinely requested on bid forms | 1 hr application |
+| Find a Tender + CDP registration | £0 | Discovery + unique supplier ID | 2 hr |
+| Sell2Wales + PCS Scotland + eTendersNI | £0 | Geographic coverage (your decision) | 1.5 hr total |
+| NHS Supply Chain Atamis + Evergreen | £0 | Required for NHS framework participation | ~4 hr |
+| Policy suite (already held) | £0 | Pre-bid documents — Sorellon has all 11 ready | 0 (review only) |
+| Bid asset library (Social Value, DPA template, RoPA, Safeguarding, Logistics, Ethical Sourcing — basic versions) | £0 | SQ-stage documents | ~25 hr |
+| **PRE-BID TOTAL** | **~£1,393-£1,793/yr cash + ~75 hr operator time** | | |
+
+### 3.2. AT-BID-TIME (per-opportunity decisions, allocate cost to that bid)
+
+Don't pay for these year-1 in advance. Add when a specific bid actually needs them. Most LA tenders at £10-£25k don't.
+
+| Item | Cost | When needed |
+|---|---|---|
+| Insurance limit upgrade £5M → £10M PL/PrL | +£400/yr OR mid-bid endorsement (~£200-£400 per bid) | When a specific bid requires £10M — NHS Supply Chain frameworks, some CCS frameworks, MoD-touching contracts (you've opted out of MoD). Most LA + small NHS Trust direct purchases accept £5M. |
+| Product Recall extension £100k | £100-£400/yr OR per-bid endorsement | Only when actually selling biocidal or medical-device product under a live contract — POST-WIN-ish trigger |
+| Constructionline Bronze | £249/yr | Only if a target tender requires it. Many LA cleaning/janitorial tenders DO; many small-purchase routes DON'T. Decide per-bid. (Once paid, lasts a year.) |
+| SMAS Worksafe SSIP | £234/yr | Same — buyer-discretionary. Decide per-bid. |
+| Sub-contractor / consortium agreement legal review | £500-£1,500 per opportunity | Only when pursuing a sub-contractor or consortium route to a specific tender |
+| Disability Confident L1 self-declaration | £0 | Free, 30 min — register pre-bid when a target tender scores it positively |
+
+### 3.3. POST-WIN (triggered only if you win a contract AND need to deliver under it)
+
+**This is where most of the "scary" regulatory cost lives. None of it is required to BID.**
+
+| Item | Cost | When needed |
+|---|---|---|
+| **GB BPR per-product audit** | £200-£500/SKU in-house+AI OR £500-£1,500/SKU paid review | ONLY when actually selling a biocidal product into the UK market under a won contract. Bid can promise "we will supply GB BPR-compliant products" — audit completes before first delivery. NOT a year-1 blanket requirement. |
+| **MHRA UKRP verification per Chinese supplier** | £0 in-house + admin time | ONLY when actually selling a medical device under a won contract — per the supplier of that product |
+| **UK REACH importer registration** | £0 admin (or £2-5k if substance ≥1 t/yr) | ONLY if total annual imports of a substance crosses 1 tonne threshold — most Sorellon products won't reach this for years |
+| **HMRC GB EORI number** | £0 | ONLY before first import shipment — not before first bid |
+| **CDS customs declarations** | £0 DIY OR £50-£100/shipment via broker OR £0 if supplier accepts DDP terms | Per shipment. Negotiate DDP (Delivered Duty Paid) with Chinese suppliers so they're the importer of record for first few shipments. |
+| **GB CLP labelling audit per product** | £0 (in-house) | Per product before placing on GB market — done at delivery prep, not bid prep |
+| **UKCA / CE distributor verification per SKU** | £0 (in-house — Notified Body number lookup) | Same — verification per delivery, not per bid |
+| **Plastic Packaging Tax registration** | £0 + per-quarter returns | Only at 10-tonne threshold — likely year 2+ |
+| **EPR Packaging fees** | Tiered | Only at £1M turnover + 25t packaging — likely year 2+ |
+| **PAYE setup + Employers' Liability beyond exemption** | £0 setup + £60-£180 EL premium | Only if hiring a non-director employee. Per your Round 4 answer (contractors only) — skip |
+| **Accountant for first management accounts / year-end** | £500-£1,500 one-off | When approaching first accounting period end (2026-07-31 default) — engage ~3 months before, not retainer year-round |
+| **Customs broker for complex shipments** | £100-£250 per shipment | Per-shipment basis; or skip entirely if supplier accepts DDP |
+
+### 3.4. WHAT IS REGULATORY-WORK BLANKET YEAR-1 vs PER-CONTRACT?
+
+The question you raised directly: **is the BPR audit needed to bid or to deliver?**
+
+**Answer: To deliver.** A bid response describes what you WILL supply if awarded. It does not require pre-completed BPR audits for every product in your aspirational catalogue. The audit is performed when:
+1. A specific bid is being prepared AND the bid demands evidence of supplier compliance at SQ stage (less common) — then yes, audit before bidding
+2. A bid is being prepared AND the bid demands declaration that you'll comply at contract performance (more common) — declare it, audit before first delivery
+3. A contract is won AND the first delivery of biocidal product is scheduled — audit and complete authorisation verification before that delivery
+
+**In all cases**, the audit is PER-SKU PER-CONTRACT, not a blanket year-1 audit of every biocidal product Sorellon might one day sell.
+
+Same logic applies to:
+- MHRA UKRP verification per Chinese supplier — only when delivering THAT supplier's products under a won contract
+- UK REACH importer status — only when actually importing in volume
+- CDS declarations — per import shipment
+- GB CLP labelling audit — per product before placing on market
+
+**Practical implication: your YEAR-1 PRE-BID budget excludes all the per-contract regulatory work above.** That's why the honest pre-bid figure is ~£1,500-£2,000, not £4,600-£6,200.
+
+---
+
+## 4. Pruned scope — what's IN and what's OUT for year-1
 
 ### IN (year-1 must-do, given your decisions)
 
@@ -129,8 +219,8 @@ Given China-direct importer status + biocidal claims:
 **Operator actions (5-7 hours):**
 1. 🚨 GOV.UK One Login + Companies House identity verification for **Dieter** (15 min). His 14 Dec 2025 deadline lapsed ~5 months ago. https://www.gov.uk/guidance/verify-your-identity-for-companies-house
 2. 🚨 Same for **Zac** (15 min) ahead of 23 Jul 2026 deadline.
-3. Execute the share restructure: complete a stock transfer form (J30) or SH01 for 1% transfer Zac → Dieter. File update with Companies House. Update PSC register. (~1 hour)
-4. Engage an accountant (~£100-200/mo). Recommended SME-friendly firms: Crunch (online), Mazuma (online), or a local chartered accountant. Interview 2-3, sign with one. (~3-4 hours)
+3. Execute the share restructure: complete a stock transfer form (J30) or SH01 for 1% transfer Zac → Dieter. File update with Companies House. Update PSC register. (~1 hour). **NOTE on EL**: this restructure helps the statutory EL exemption ONLY if Dieter remains a non-executive PSC (no employment contract, no salary, no active work). If both directors are working employees, the exemption is lost regardless of ownership split. Either way: procurement portals require an EL certificate upload field; buy EL inside the bundle (~£20-£60 marginal) unless you're sure no target tender will demand it.
+4. Set up accounting software — **DIY year-1**. Pick Xero (~£16/mo) OR FreeAgent (free with NatWest Mettle business account) OR QuickBooks (~£14/mo). Engage an accountant only at year-end (~£500-£1,500 one-off, ~3 mo before first accounts due 2027-04-10). (~1-2 hours setup)
 5. ICO Data Protection Fee — pay £47 direct debit at https://ico.org.uk/registration. (~15 min)
 6. HMRC active-status notification (if any RFQ enquiries received). (~10 min)
 
@@ -264,45 +354,85 @@ Given China-direct importer status + biocidal claims:
 
 ---
 
-## 3. Year-1 budget envelope
+## 6. Year-1 cash envelope — ROCK BOTTOM vs SAFER vs CAUTIOUS
 
-| Item | Cost (incl VAT) | Cash / Time |
-|---|---|---|
-| Companies House IV (GOV.UK One Login) | £0 | 30 min |
-| Companies House SH01 / J30 share transfer | £0-£15 | 1 hr |
-| Confirmation Statement | £50 | 30 min |
-| ICO Data Protection Fee | £47/yr | 15 min |
-| HMRC VAT registration | £0 + accounting software £14-19/mo | 1 hr application |
-| HMRC GB EORI | £0 | 30 min |
-| Cyber Essentials | £396 | ~12 hr |
-| Insurance (mid-tier combined) | £1,200-£2,000 | ~3 hr broker outreach + bind |
-| Documented QMS | £0 | ~16 hr |
-| Modern Slavery Statement | £0 | ~6 hr |
-| Constructionline Bronze | £249/yr | ~4 hr |
-| SMAS Worksafe | £234/yr | ~3 hr |
-| Living Wage Foundation | £100/yr | 1 hr |
-| Disability Confident L1 | £0 (if you reconsider) | 30 min |
-| JOSCAR SME Portal | £0 (free entry) | 30 min |
-| Find a Tender / CDP / devolved portals | £0 | ~5 hr total |
-| NHS Supply Chain Atamis + Evergreen | £0 | ~4 hr |
-| Accountant retainer (year-1 × £150/mo) | ~£1,800 | ongoing |
-| BPR audit per SKU (in-house + AI) | ~£0 cash | ~30-50 hr |
-| MHRA UKRP verification per supplier | ~£0 cash | ~10-20 hr |
-| Customs broker engagement (year 1) | ~£500-£1,200 | per-shipment |
-| Bid asset drafting | £0 | ~30 hr |
-| **TOTAL YEAR-1 CASH** | **~£4,600-£6,200** | |
+Three tiers, depending on risk appetite. Pick one. The operator's pushback established that the original £4,600-£6,200 figure was over-cautious — it bundled per-contract POST-WIN regulatory costs into year-1 blanket spend.
 
-Plus optional:
-- Capital injection (director's loan or share allotment): £20,000-£50,000 (loan, not expense)
-- Specialist BPR legal review of AI-generated audit (recommended): £500-£1,500
+### ROCK BOTTOM — ~£1,500-£2,000 year-1 cash
 
-**Total operator time: ~120-180 hours across 60 days (~15 hr/week average).**
+Strictest interpretation: only items that are PRE-BID-mandatory or are zero-friction wins. Trade-off: misses some LA tender categories (Constructionline-required) and limits NHS framework participation to £5M-cover lots only.
 
-This is above the original £2,300-£4,000 minimum-viable envelope from the research because:
-1. Insurance bumped to mid-tier (~£1,500) given NHS Supply Chain requirements
-2. Accountant added (~£1,800 year-1)
-3. Customs broker added (~£500-£1,200) — China-direct importer obligation
-4. BPR/MHRA workload heavier than minimum
+| Item | Cost |
+|---|---|
+| Companies House IV (One Login, both PSCs) | £0 |
+| SH01 / J30 share transfer (50/50 restructure) | £0-£15 |
+| Confirmation Statement filing | £50 |
+| ICO Data Protection Fee (DD discount) | £47 |
+| HMRC VAT registration + accounting software (Xero or QuickBooks self-serve) | £0 reg + ~£170/yr software |
+| Cyber Essentials (basic, IASME direct) | £396 |
+| Insurance — BASIC £5M EL/PL/PrL combined | £800-£1,200 |
+| Living Wage Foundation (£100) — quick social-value win | £100 |
+| Documented QMS, Modern Slavery Statement, all profile docs | £0 (all in-house) |
+| Find a Tender / CDP / Sell2Wales / PCS / eTendersNI / Atamis registrations | £0 |
+| Disability Confident L1 (reconsider — free self-declaration) | £0 |
+| JOSCAR SME Portal (free entry, defence visibility at zero cost) | £0 |
+| **ROCK BOTTOM TOTAL** | **~£1,563-£1,963/yr** |
+
+**What's deliberately excluded at this tier:**
+- ❌ Constructionline Bronze (£249/yr) — defer; only join if/when a target tender requires it
+- ❌ SMAS Worksafe SSIP (£234/yr) — defer; same
+- ❌ Accountant retainer — DIY year-1 via Xero/FreeAgent; engage accountant ~3 months before first accounts due (~£500-£1,500 one-off, post-win-ish)
+- ❌ Customs broker — DIY CDS declarations OR negotiate DDP (Delivered Duty Paid) Incoterms with Chinese suppliers so they become importer of record for early shipments
+- ❌ Mid-tier insurance £10M PL/PrL — defer the upgrade until a specific bid requires it (mid-bid endorsement option)
+- ❌ Product Recall extension — defer until actually selling biocidal/medical products under contract
+- ❌ Paid BPR legal review — accept enforcement risk OR defer until first biocidal-product contract win
+- ❌ All POST-WIN regulatory items (BPR per-SKU audit, MHRA UKRP per-supplier, REACH importer, EORI, CDS, CLP labelling, UKCA verification) — none required to BID; all per-contract
+
+**Trade-offs accepted:**
+- LA tenders requiring Constructionline Bronze → miss until Bronze added (~£249 when needed)
+- LA tenders requiring SSIP → miss until SMAS added (~£234 when needed)
+- NHS Supply Chain framework lots requiring £10M PL/PrL → miss until insurance upgraded
+- Some compliance risk on first biocidal product delivery (mitigated by NOT shipping biocidal products without confirmed authorisation, even if bid was written)
+
+### SAFER — ~£2,000-£2,500 year-1 cash
+
+Adds the two LA gate certs to broaden the bidable opportunity pool. Most pragmatic for LA-dominant pipeline.
+
+| Item | Cost |
+|---|---|
+| Rock bottom items above | £1,563-£1,963 |
+| + Constructionline Bronze | £249/yr |
+| + SMAS Worksafe SSIP | £234/yr |
+| **SAFER TOTAL** | **~£2,046-£2,446/yr** |
+
+### CAUTIOUS — ~£3,500-£4,500 year-1 cash (NHS-Supply-Chain-ready)
+
+Adds NHS Supply Chain framework participation capacity. Only worth it if specifically targeting NHS frameworks (Hand Hygiene re-tender Jun 2026, PPE re-tender Sep 2026).
+
+| Item | Cost |
+|---|---|
+| Safer items above | £2,046-£2,446 |
+| + Insurance upgrade £5M → £10M PL/PrL aggregate | +£400-£800/yr |
+| + Product Recall extension £100k | +£100-£400/yr |
+| + Paid BPR legal review (one-off, before first biocidal sale) | +£500-£1,500 |
+| + Customs broker for first 6 imports | +£500-£1,200 (one-off) |
+| **CAUTIOUS TOTAL** | **~£3,546-£6,346/yr** |
+
+### Recommended path: SAFER (£2,046-£2,446)
+
+Start at SAFER tier for your stated buyer mix (LA + NHS Trusts + central gov via CCS/GCA at £10-£100k contract size). Upgrade to CAUTIOUS items only when a specific NHS Supply Chain framework bid (Hand Hygiene Jun 2026 / PPE Sep 2026) is in your sights — likely month 3-5, not pre-bid.
+
+### Capital + post-win regulatory work — NOT counted in year-1 PRE-BID cash
+
+- Capital injection (director's loan): £20-£50k — your call, decide before week 5
+- POST-WIN BPR audit per SKU: £0-£500/SKU in-house; paid review £500-£1,500/SKU
+- POST-WIN MHRA UKRP verification per supplier: £0 in-house
+- POST-WIN per-shipment customs broker: £50-£100/shipment OR £0 if supplier accepts DDP
+- POST-WIN accountant for first management accounts (3 mo before year-end): £500-£1,500 one-off
+
+All of these are triggered by SPECIFIC events (winning a contract, importing a specific shipment, approaching year-end), not by general year-1 readiness.
+
+**Operator time: ~120-180 hours across 60 days (~15 hr/week average), same as before — the time budget didn't change, only the cash budget.**
 
 ---
 
