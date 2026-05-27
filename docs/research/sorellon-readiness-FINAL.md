@@ -2,7 +2,7 @@
 
 > **Single source of truth.** Combines comprehensive research + tailored workflow + operator clarifications into one document. Table of contents below.
 > **Last updated**: 2026-05-26 (sourcing flexibility correction + pipeline alignment + customs analysis).
-> **Prior versions** (still on disk for audit; not the authoritative reference): `2026-05-25-sorellon-bidding-readiness-research.md`, `2026-05-25-sorellon-mvs-tailored-workflow.md`.
+> **Prior versions removed 2026-05-27** — this is now the only research document for Sorellon bidding readiness. Earlier multi-file structure (research-doc + tailored-workflow + scratch sections 0-11) consolidated here at operator request.
 
 ---
 
@@ -34,26 +34,28 @@
 
 ## 0. Executive Summary
 
-**Sorellon Limited** (Companies House #16575318), incorporated 2025-07-10, pre-revenue B2B wholesale supplier of PPE / hygiene / cleaning / healthcare consumables / janitorial / education stationery / construction-adjacent goods. The company sources from multiple countries (UK, EU, China, global — whichever cheapest per product), targets UK public procurement at £10k-£100k contract size, intends to bid to LA + LA-affiliated + NHS (Trusts + NHS Supply Chain) + central government via CCS/GCA. MoD is explicitly out of scope for year-1.
+**Sorellon Limited** (Companies House #16575318), incorporated 2025-07-10, pre-revenue B2B wholesale supplier. **Year-1 catalogue is SCOPED TO THE PLATFORM'S L0 WHITELIST** (decision 2026-05-27): office supplies (paper, stationery, envelopes, binders, notebooks), non-chemical cleaning equipment (buckets, brushes, mops — NOT wipes / chemicals), basic PPE Cat I/II (hi-vis, basic gloves, simple safety footwear — NOT medical-grade / chemical-resistant), hand tools (non-powered only), basic wooden furniture, packaging (cartons only — NOT foil / glass / tin / aluminium). Source: `docs/strategy/layers/layer-0-gold-set-evaluation.md:100-122`. The company sources from multiple countries (UK, EU, China, global — whichever cheapest per product), targets UK public procurement at £10k-£100k contract size, intends to bid to LA + LA-affiliated + NHS Trusts (direct purchases, not Supply Chain frameworks) + central government via CCS/GCA. MoD is explicitly out of scope for year-1. Biocidal products, medical devices, chemicals, IT hardware, vehicles, construction materials, food, and bespoke are ALL deferred (aligned to L0 no-list).
 
 ### The big numbers
 
-- **Rock-bottom PRE-BID cash**: **~£1,500-£2,000 year-1**. Enough to start bidding on LA + NHS Trust direct purchases at £10-£25k contract size.
-- **Operator time**: ~15 hours/week for 60 days. Front-loaded weeks 1-4.
-- **First bid target**: 30-60 days from today.
-- **Capital injection** (director's loan or share allotment): £20k-£50k recommended, decided before week 5.
+- **Rock-bottom PRE-BID cash**: **~£1,400-£1,800 year-1**. Lower than before because L0-aligned products have lower Product Liability exposure → lower insurance premium. Enough to start bidding on LA + academy + small NHS Trust direct purchases at £10-£25k contract size.
+- **Operator time**: ~50-70 hours total spread over 30-40 days (was ~120-180 hours over 60 days). Halved because BPR audit + MHRA UKRP verification + REACH importer setup are ELIMINATED entirely (L0 excludes all the products that triggered them).
+- **First bid target**: 30-40 days from today (down from 60).
+- **Capital injection** (director's loan or share allotment): £20k-£50k still recommended for any contract >£50k, but less urgent — most pipeline-surfaced opportunities will be sub-£25k where capital adequacy is rarely a hard gate.
 
 ### Single highest-urgency item
 
 🚨 **Companies House ECCTA identity verification for Dieter** — deadline 14 Dec 2025 lapsed ~5 months ago. Company strike-off risk. Resolve THIS WEEK via GOV.UK One Login (free, 15 min). Zac due 23 Jul 2026.
 
-### Three critical reframes
+### Four critical reframes
 
-1. **Most regulatory work is POST-WIN per-contract, not blanket year-1.** Bid responses describe what you WILL supply; audits and per-supplier verifications happen before first delivery, not before first bid. The "scary £4,600-£6,200 year-1 number" I quoted earlier conflated post-win costs with pre-bid costs.
+1. **L0 scope alignment (2026-05-27 decision).** Sorellon's year-1 catalogue narrows to the platform's existing L0 whitelist. This ELIMINATES the heaviest regulatory work entirely (BPR audit, MHRA UKRP verification, UK REACH importer registration, GB CLP labelling audit on chemicals, anti-dumping duty exposure). The platform's pipeline now ALIGNS with Sorellon's catalogue — no more scope mismatch.
 
-2. **Multi-country sourcing reduces regulatory burden significantly.** UK suppliers + EU suppliers with UK Only Representative + DDP-Incoterm supplier shipments all keep Sorellon as a *distributor* (light burden) rather than *importer of record* (heavy burden). Sourcing from China-direct without DDP is the most regulatory-heavy path; sorellon.md says Sorellon sources "UK, EU, China, and trusted global locations" — the operator should preferentially route the regulated products (medical devices, biocidal products) through UK-supplier or EU-with-OR routes when commercially viable.
+2. **Most remaining regulatory work is POST-WIN per-contract, not blanket year-1.** Bid responses describe what you WILL supply; UKCA/CE verification and GPSR traceability happen before first delivery, not before first bid.
 
-3. **The 50/50 ownership restructure helps EL exemption only if Dieter stays non-executive.** Procurement portals require EL certificate upload regardless of exemption status — so the EL purchase is a procurement decision, not a statutory one. £20-£60 marginal inside the combined business policy.
+3. **Multi-country sourcing — even simpler under L0 alignment.** L0-aligned products (office supplies, non-chemical cleaning equipment, basic PPE Cat I/II, hand tools, basic furniture, cartons) have low regulatory burden regardless of source country. DDP from cheapest-source is the optimal sourcing posture; UK supplier preference only matters for the residual UKCA/CE verification on basic PPE.
+
+4. **The 50/50 ownership restructure helps EL exemption only if Dieter stays non-executive.** Procurement portals require EL certificate upload regardless of exemption status — so the EL purchase is a procurement decision, not a statutory one. £20-£60 marginal inside the combined business policy.
 
 ---
 
@@ -418,7 +420,7 @@ Plus optional capital injection (£20-£50k as director's loan, recoverable).
 
 | Dimension | Decision |
 |---|---|
-| **Buyers** | LA + LA-affiliated (district / borough / county councils, schools, MATs, housing); NHS (Trusts direct purchases + NHS Supply Chain frameworks); central government via CCS/GCA. **MoD explicitly out** for year-1. |
+| **Buyers** | LA + LA-affiliated (district / borough / county councils, schools, MATs, housing); NHS **Trusts direct purchases only** (NHS Supply Chain frameworks deferred — they require biocidal/medical-grade products outside L0); central government via CCS/GCA. **MoD explicitly out** for year-1. |
 | **Contract size** | £10k-£100k dominant tier |
 | **Geography** | All 4 UK nations (England + Wales + Scotland + NI). All devolved portals are free; ~1.5 hours one-off registration time. |
 | **Bid posture** | Mix per opportunity — prime / sub-contractor / consortium evaluated case-by-case |
@@ -426,9 +428,9 @@ Plus optional capital injection (£20-£50k as director's loan, recoverable).
 | **Companies House IV** | ❌ NEITHER PSC verified yet. Dieter ~5 months overdue (deadline 14 Dec 2025). Zac due 23 Jul 2026. |
 | **Advisors** | ❌ None engaged. Will engage accountant only at year-end (one-off, not retainer); broker outreach via this plan; solicitor on-demand. |
 | **Trading state** | Pre-trading — no live RFQ activity yet. Clean window for VAT registration. |
-| **Product scope** | All 4 categories (healthcare + cleaning/janitorial + education/office + construction-adjacent) — comprehensive offer matching sorellon.md |
-| **Sourcing** | **Multi-country — UK, EU, China, global, whichever cheapest per product**. NOT China-only. See §5 for regulatory implications. |
-| **Biocidal claims** | YES — antimicrobial wipes / sanitisers / disinfectants are core. GB BPR compliance handled PER-CONTRACT POST-WIN, not blanket year-1. |
+| **Product scope** | **L0-WHITELIST-ALIGNED (decision 2026-05-27)**: office supplies, non-chemical cleaning equipment (buckets/brushes/mops only — NOT wipes/chemicals), basic PPE Cat I/II only, hand tools (non-powered), basic wooden furniture, carton packaging. EXCLUDED: medical devices, pharmaceuticals, IT hardware, vehicles, construction materials, food, chemicals, biocidal products, bespoke. Source: `docs/strategy/layers/layer-0-gold-set-evaluation.md:100-122`. |
+| **Sourcing** | Multi-country — UK, EU, China, global, whichever cheapest per product. With L0 alignment, regulatory burden is light regardless of source (no chemicals, no medical devices, no biocidal products in catalogue). DDP from cheapest-source is the dominant pattern. |
+| **Biocidal claims** | **NO — DEFERRED to year-2+** (aligned with L0 exclusion of chemicals + chemically-treated wipes). GB BPR audit work eliminated entirely from year-1 plan. |
 | **Re-branding** | NO — manufacturer-branded only. Sorellon stays as distributor, not legal manufacturer. |
 | **Structure** | Zac transfers 1% to Dieter → 50/50 PSC. Dieter remains non-executive PSC (no employment contract) to preserve EL exemption. Contractors only otherwise (accountant, etc.). |
 | **Restructure timing** | This week / month 1 alongside IV |
@@ -480,21 +482,24 @@ Not paid for in advance. Add only when a specific bid requires them.
 
 ### 3.3 POST-WIN — triggered only if you win a contract requiring delivery
 
-**The bulk of "scary regulatory work" lives here. None of it is required to BID.**
+**With L0 alignment, this list is now MUCH shorter than before.** The biggest items (BPR, MHRA, REACH) are ELIMINATED entirely because the products triggering them are out of scope.
 
 | Item | Cost | When needed |
 |---|---|---|
-| GB BPR per-product audit | £200-£500/SKU in-house+AI, or £500-£1,500 paid review | Only when selling biocidal product under a won contract |
-| MHRA UKRP verification per supplier | £0 in-house | Only when selling medical device under a won contract |
-| UK REACH importer registration | £0 (or £2-5k if substance ≥ 1 t/yr) | Only if substance crosses threshold |
-| HMRC GB EORI | £0 | Only before first import shipment |
-| CDS customs declarations | £0 DIY / £50-£100/shipment via broker / £0 if supplier DDP | Per shipment |
-| GB CLP labelling audit | £0 in-house | Per product before placing on UK market |
-| UKCA/CE distributor verification | £0 in-house | Per SKU before placing on market |
+| ~~GB BPR per-product audit~~ | ~~£200-£1,500/SKU~~ | **ELIMINATED** — L0 excludes biocidal products |
+| ~~MHRA UKRP verification per supplier~~ | ~~£0 in-house~~ | **ELIMINATED** — L0 excludes medical devices |
+| ~~UK REACH importer registration~~ | ~~£0 or £2-5k~~ | **ELIMINATED** — L0 excludes chemicals |
+| ~~GB CLP labelling audit~~ | ~~£0~~ | **ELIMINATED** — L0 excludes chemicals; residual packaging only |
+| ~~Customs broker for complex chemical/medical shipments~~ | ~~£50-£250/shipment~~ | **ELIMINATED** — L0 products are simple commodity goods; DDP-from-China is straightforward |
+| ~~Paid BPR legal review~~ | ~~£500-£1,500 one-off~~ | **ELIMINATED** |
+| HMRC GB EORI | £0 | Before first import shipment (still needed for any non-DDP imports) |
+| CDS customs declarations | £0 DIY / £50/shipment via broker / £0 if supplier DDP | Per shipment; DDP-from-China is typical for L0-aligned products |
+| UKCA/CE distributor verification | £0 in-house | Per SKU before placing on market — narrows to basic PPE Cat I/II only |
+| PPE Regulation 2018/425 compliance | £0 in-house | Per PPE SKU; Cat I = manufacturer self-declares, Cat II = NB cert from manufacturer |
+| GPSR traceability records | £0 | Per SKU + per customer (from-whom-bought, to-whom-sold) |
 | Plastic Packaging Tax | £0 + per-quarter returns | Only at 10-tonne threshold (year 2+) |
 | EPR Packaging fees | Tiered | Only at £1M turnover (year 2+) |
 | Accountant for first management accounts | £500-£1,500 one-off | ~3 months before year-end (Apr 2027) |
-| Customs broker | £50-£250/shipment OR £0 with DDP | Per shipment |
 
 ### 3.4 Why this distinction matters
 
@@ -518,10 +523,10 @@ Strictest interpretation: only items pre-bid mandatory.
 | ICO Data Protection Fee (DD) | £47 |
 | HMRC VAT registration + accounting software | £0 + ~£170/yr |
 | Cyber Essentials (basic) | £396 |
-| Insurance — BASIC £5M EL/PL/PrL combined | £800-£1,200 |
+| Insurance — BASIC £5M EL/PL/PrL combined | £600-£1,000 (lower band, reflects L0-aligned PrL profile — no biocidal/medical exposure) |
 | Living Wage Foundation | £100 |
 | All other items | £0 (in-house) |
-| **ROCK BOTTOM TOTAL** | **~£1,563-£1,963/yr** |
+| **ROCK BOTTOM TOTAL** | **~£1,363-£1,763/yr** |
 
 **Trade-offs accepted at Rock Bottom:**
 - LA tenders requiring Constructionline Bronze → miss until added (~£249 when needed)
@@ -535,10 +540,10 @@ Adds the two main LA gate certs.
 
 | Item | Cost |
 |---|---|
-| Rock bottom items | £1,563-£1,963 |
+| Rock bottom items | £1,363-£1,763 |
 | + Constructionline Bronze | £249/yr |
 | + SMAS Worksafe SSIP | £234/yr |
-| **SAFER TOTAL** | **~£2,046-£2,446/yr** |
+| **SAFER TOTAL** | **~£1,846-£2,246/yr** |
 
 This is the recommended starting tier for your buyer mix (LA + NHS + central gov at £10-£100k).
 
@@ -555,9 +560,9 @@ Only worth it if specifically targeting NHS Supply Chain framework re-tenders.
 | + Customs broker for first 6 imports | +£500-£1,200 (one-off) |
 | **CAUTIOUS TOTAL** | **~£3,546-£6,346/yr** |
 
-### 4.4 Recommendation
+### 4.4 Recommendation (UPDATED 2026-05-27)
 
-**Start at SAFER (~£2,046-£2,446).** Upgrade to CAUTIOUS items only when a specific NHS Supply Chain framework bid (Hand Hygiene Jun 2026 / PPE Sep 2026) is in your sights — month 3-5, not pre-bid.
+**Start at SAFER (~£1,846-£2,246).** With L0 alignment, **CAUTIOUS tier is NOT APPLICABLE** — NHS Supply Chain Hand Hygiene + PPE frameworks are outside L0 scope and require items (ISO 9001 UKAS, ISO 13485, capital adequacy >£20k, 3 contract references) that aren't in any MVS tier. Year-1 mission: ride the SAFER tier to pursue the L0-aligned opportunity stream (office, cleaning equipment, basic PPE, hand tools, furniture, packaging) sold to LA + academy + small NHS Trust + central gov.
 
 Capital injection (£20-£50k director's loan) is separate from this budget — it's a loan recoverable, not an expense.
 
@@ -671,9 +676,11 @@ This isn't blocking your first bid; it's an internal-tooling improvement worth r
 ---
 
 
-## 7. Pipeline alignment — major scope mismatch surfaced
+## 7. Pipeline alignment — now ALIGNED (2026-05-27 decision)
 
-Subagent inspection of the platform's own qualification logic (`docs/strategy/layers/layer-0-gold-set-evaluation.md:96-122` and the foundational research at `docs/research/2026-03-08-public-procurement-intelligence-platform-research.md`) finds a **significant mismatch between what the pipeline qualifies as bidable and what Sorellon's stated commercial targets are**.
+**Update**: Operator chose 2026-05-27 to scope Sorellon's year-1 catalogue to match the platform's L0 whitelist exactly. The mismatch noted in earlier versions of this doc is now resolved — Sorellon and the platform pipeline are scope-aligned.
+
+The L0 whitelist is in `docs/strategy/layers/layer-0-gold-set-evaluation.md:100-122` and L0 evaluation harness validates it. The pipeline's qualification logic is documented in `docs/research/2026-03-08-public-procurement-intelligence-platform-research.md`.
 
 ### 7.1. What the pipeline actually qualifies as bidable
 
@@ -693,15 +700,26 @@ The pipeline applies seven orthogonal filters before surfacing an opportunity:
 6. **Quoteability score**: < 0.45 → manual/RFQ only
 7. **Margin gates**: net_margin_low ≥ 20% + no critical blockers + netQualifiedValueCoverageBps ≥ 5000
 
-### 7.2. 🚨 The major mismatch
+### 7.2. ✅ Scope alignment achieved (2026-05-27)
 
-**The pipeline's L0 whitelist EXCLUDES Sorellon's stated #1 commercial target.**
+**Sorellon's year-1 catalogue now matches the L0 whitelist exactly.** No more scope mismatch.
 
-- Sorellon's Round 3 answer: "biocidal products core to offer"
-- Sorellon's executive-summary commercial windows: NHS Supply Chain Hand Hygiene re-tender (Jun 2026) + NHS Supply Chain PPE re-tender (Sep 2026)
-- The pipeline whitelist: EXCLUDES chemically-treated wipes, EXCLUDES chemicals, EXCLUDES medical devices
+- Office supplies: ✅ in scope (Sorellon catalogue) AND in pipeline (L0 whitelist)
+- Non-chemical cleaning equipment: ✅ in both
+- Basic PPE Cat I/II: ✅ in both
+- Hand tools (non-powered): ✅ in both
+- Basic wooden furniture: ✅ in both
+- Carton packaging: ✅ in both
 
-**Translation**: opportunities for antimicrobial wipes / hand sanitisers / biocidal cleaners / medical-grade PPE will NOT be surfaced as `final_qualified` by the platform regardless of MVS tier. The platform's qualification gate filters them out at the goods-classification stage.
+**Out-of-scope items consciously deferred to year-2+** (when platform L0 expansion may bring them in):
+- Biocidal wipes / hand sanitisers (would need BPR + L0 expansion)
+- Chemicals (cleaning agents, disinfectants, degreasers) (would need REACH + L0 expansion)
+- Medical devices (gloves IIa, syringes, catheters, dressings) (would need MHRA + ISO 13485 + L0 expansion)
+- Cat III PPE (chemical-resistant gloves, FFP masks) (would need Notified Body verification + L0 expansion)
+- NHS Supply Chain Hand Hygiene framework (out — biocidal-dependent)
+- NHS Supply Chain PPE framework (out — medical-grade Cat III)
+
+These are reachable in year-2+ via either (a) Sorellon manually pursuing them outside the platform's auto-feed, or (b) L5 category expansion as platform development work. Neither is a year-1 blocker.
 
 ### 7.3. What the pipeline DOES surface that Sorellon can bid on
 
@@ -722,25 +740,27 @@ Per-category MVS tier mapping:
 | **Painting/maintenance kits** | ⚠️ Construction-adjacent; mixed | ~30% | ~40% | ~50% |
 | **Education stationery** | ✅ Yes (office supplies) | ~70% | ~80% | ~85% |
 
-### 7.4. Net pipeline-bidable percentage by tier
+### 7.4. Net pipeline-bidable percentage by tier (UPDATED 2026-05-27)
 
-Aggregating across categories, weighted by pipeline volume:
+With L0 alignment, bidable % rises significantly because the pipeline no longer surfaces opportunities that Sorellon's catalogue can't address.
 
 | Tier | Year-1 cash | Bidable % of pipeline-qualified opportunities | Pipeline waste |
 |---|---|---|---|
-| ROCK BOTTOM | £1,500-£2,000 | ~30-40% | ~60-70% |
-| **SAFER** | **£2,000-£2,500** | **~55-70%** | **~30-45%** |
-| CAUTIOUS | £3,500-£4,500 | ~60-75% | ~25-40% |
+| ROCK BOTTOM | £1,400-£1,800 | ~50-70% | ~30-50% |
+| **SAFER** | **£1,800-£2,300** | **~75-90%** | **~10-25%** |
+| ~~CAUTIOUS~~ | ~~£3,500-£4,500~~ | **N/A (NHS frameworks outside L0)** | — |
 
-**SAFER is the inflection point.** CAUTIOUS only buys 5-15% more bidability, most of which is NHS Supply Chain framework participation that ALSO needs out-of-MVS items (ISO 9001-UKAS ~£6k, ISO 13485 if medical, 3 contract references, capital adequacy >£20k).
+**SAFER is the right answer** for L0-aligned Sorellon. The Constructionline Bronze + SMAS additions cover the LA tender SQ gates that ROCK BOTTOM misses (~£483/yr for ~20-pt bidability gain — excellent ROI).
 
-### 7.5. What this means for Sorellon's commercial strategy
+### 7.5. The chosen path — Pipeline-aligned year-1
 
-Two paths the operator should consider:
+Operator decision 2026-05-27: **scope Sorellon's year-1 catalogue to match the platform's L0 whitelist**. The pipeline auto-feeds the "boring SKU lanes" — office supplies, non-chemical cleaning equipment, basic PPE Cat I/II, hand tools, basic furniture, packaging — sold to LA + academy + small NHS Trust + central gov via CCS/GCA at sub-£50k contract size. This is exactly what the SAFER MVS tier was built for.
 
-**Path A — Pipeline-aligned (recommended for year-1)**: Accept that the platform's pipeline will surface the "boring SKU lanes" only — office supplies, non-chemical cleaning equipment, basic PPE Cat I/II, hand tools, basic furniture, packaging — sold to LA + academy + small NHS Trust direct buyers under £50k. This matches Sorellon's stated buyer mix + contract size, and is exactly what the SAFER MVS tier was built for. Pursue NHS Hand Hygiene and NHS PPE framework opportunities MANUALLY outside the pipeline, not via the platform's automatic feed.
+Out-of-L0 opportunities (NHS Hand Hygiene, NHS PPE, etc.) are explicitly DEFERRED to year-2+. Two paths to reach them later:
+- **Operator manual pursuit**: monitor Atamis directly, prepare those bids outside the platform's feed
+- **Platform L5 category expansion**: per `docs/strategy/layers/layer-5-expanded-commercial-intelligence.md:40-41` — this is platform-development work (~1 sprint per category), not pre-bid work
 
-**Path B — Expand pipeline scope**: Drive L5 category expansion (per `docs/strategy/layers/layer-5-expanded-commercial-intelligence.md:40-41`) to bring biocidal / medical-device categories into the gold-set whitelist. This requires per-category gold-set validation, additional landed-cost engine work for biocidal products' REACH/BPR cost-stack, and probably a quarter of platform-development effort. **Decision: this is platform-development work for the implementation team, NOT pre-bid work for the operator.** Worth flagging as a roadmap item; not a year-1 blocker.
+Year-1 is about establishing trading history + references in the boring lanes. Year-2 opens broader scope once Sorellon has 3 contract references + 6 months trading + filed accounts.
 
 ### 7.6. Two further codebase gaps surfaced
 
@@ -748,11 +768,11 @@ Two paths the operator should consider:
 
 2. **Pipeline doesn't segment by buyer type or geography.** Per `layer-strategy.md:34-37`, the pipeline ingests across all UK nations and all buyer types but doesn't filter by Sorellon's chosen MoD-out + size band. Suggested fix: per-bidder-profile filter at L5 qualification stage. Smaller change; lower priority.
 
-### 7.7. Bottom line — what to do with this finding
+### 7.7. Bottom line
 
-For the FIRST BID specifically (week 5-6 of the plan): **accept the pipeline scope mismatch and bid into office supplies + non-chemical cleaning equipment + basic PPE Cat I/II opportunities**. These are real, high-volume, easy entry points. Your SAFER MVS tier covers ~55-70% of what the pipeline will surface — that's plenty for early-pipeline learning.
+With L0 alignment, SAFER MVS tier covers ~75-90% of pipeline-surfaced opportunities. First bid possible within 30-40 days. Cash budget ~£1,800-£2,300 year-1. This is the simplest, fastest path to a working bid pipeline.
 
-For NHS Hand Hygiene + NHS PPE framework opportunities (Jun + Sep 2026): **prep these manually, outside the pipeline's automatic feed**. Set up calendar reminders to monitor Atamis directly. Build the BPR-compliance evidence pack for the biocidal products in your catalogue independently of the platform's qualification engine.
+If commercial demand later forces NHS framework participation, treat that as a year-2 strategic project — gather the trading history + ISO 9001 UKAS + ISO 13485 + £20k+ capital + 3 references during year-1 in parallel with the L0-aligned bid stream.
 
 ---
 
@@ -5185,8 +5205,6 @@ All inline `[Source: <URL>]` citations consolidated. Operator should re-verify a
 ### Internal references
 
 - `sorellon.md` (project root) — operator-maintained company profile source of truth
-- `docs/research/2026-05-25-sorellon-bidding-readiness-research.md` — original comprehensive research doc (this FINAL doc supersedes)
-- `docs/research/2026-05-25-sorellon-mvs-tailored-workflow.md` — tailored workflow companion (this FINAL doc supersedes)
 - `docs/handoff-2026-05-25-l6-p7-live-demo.md` — L6 Phase 7 live-demo handoff for fresh agent session
 - `docs/pipeline/l6-request-pipeline-automation/live-demo/2026-05-25-smoke-test.md` — Session 1 smoke-test diary
 - `packages/bidding/company-profile-schema.ts` — bid readiness gate TypeScript schema

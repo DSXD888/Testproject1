@@ -39,7 +39,7 @@ You are closing the live-demo half of L6 Phase 7 on behalf of the operator, **Di
 After this session:
 - Bead `testproject1-3yqf.7.1` is **closed**
 - Bead `testproject1-3yqf.7.2` is **closed** (potentially with DoD #9 = PARTIAL noted)
-- Bead `testproject1-3yqf.7.3` is **closed as PARTIAL** with constitutional-blocker reference to `docs/research/2026-05-25-sorellon-bidding-readiness-research.md`
+- Bead `testproject1-3yqf.7.3` is **closed as PARTIAL** with constitutional-blocker reference to `docs/research/sorellon-readiness-FINAL.md`
 - Beads 7.4, 7.5, 7.6, 7.7 are **unblocked** (i.e., appear in `br ready --label l6 --json`)
 - Live-demo diary at `docs/pipeline/l6-request-pipeline-automation/live-demo/` is updated with all evidence
 - Commits pushed; `git status` clean against `origin/main`
@@ -119,7 +119,7 @@ The 8 §1.10 invariants from the L6 spec, plus 4 session-specific bright lines f
 9. **You may escalate cap to NOTIFICATION_OR_LOCK on one goods-category opportunity to register interest.** This is pre-authorized. You may NOT escalate to LEGAL_DECLARATION or FORMAL_SUBMISSION on any opportunity, ever, under any circumstance, during this session.
 10. **You MUST stop and surface to operator if the response form requires a legal declaration tick-box.** Even with the NOTIFICATION_OR_LOCK delegation, declaration tick-boxes are constitutional and require operator presence.
 11. **Bid content (form-fill data) MUST reflect the smoke-test nature.** If you reach a response form, fill it with values that are clearly NOT a real bid — e.g., quantities containing `SMOKE_TEST`, lead times listed as "PLACEHOLDER — not for live procurement", "company name" already smoke-labeled in profile. If the buyer ever reads this draft, they should immediately understand it's not a genuine offer.
-12. **All Phase 7 work must reference the new research doc**. Bead 7.3 closes with explicit pointer to `docs/research/2026-05-25-sorellon-bidding-readiness-research.md` (created in parallel with this handoff). Do not close 7.3 without that reference.
+12. **All Phase 7 work must reference the new research doc**. Bead 7.3 closes with explicit pointer to `docs/research/sorellon-readiness-FINAL.md` (created in parallel with this handoff). Do not close 7.3 without that reference.
 
 ---
 
@@ -133,7 +133,7 @@ The 8 §1.10 invariants from the L6 spec, plus 4 session-specific bright lines f
 6. **Original kickoff** `docs/pipeline/l6-request-pipeline-automation/artifacts/l6-request-pipeline-automation-kickoff.md` — §11 (AgentMail), §12 (CDP discipline), §13 (live demo constraints — read TWICE), §15 (quick reference).
 7. **The original handoff prompt** that Session 1 was given. It's not stored as a file — it was in the initial chat message of Session 1. Key parts are re-stated here.
 8. **Bid skill** `skills/bid-portal-procontract/SKILL.md`. Read the full 11-step playbook.
-9. **The research doc** at `docs/research/2026-05-25-sorellon-bidding-readiness-research.md` — this exists when you start. Critical context for 7.3 closure.
+9. **The research doc** at `docs/research/sorellon-readiness-FINAL.md` — this exists when you start. Critical context for 7.3 closure.
 10. **`br show testproject1-3yqf.7.1`, `7.2`, `7.3`** — the authoritative bead definitions.
 
 ---
@@ -514,7 +514,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 
 **If closing as PARTIAL**: in the complete-mail body and the bead's close comment, write explicitly:
 ```
-DoD #9 PARTIAL: smoke-test outcome captured cap-respect at <gate> on <opp>. draft_saved NOT reached because <reason>. Evidence: <diary path>. Re-test with real form-fill once Sorellon clears regulatory blockers per docs/research/2026-05-25-sorellon-bidding-readiness-research.md.
+DoD #9 PARTIAL: smoke-test outcome captured cap-respect at <gate> on <opp>. draft_saved NOT reached because <reason>. Evidence: <diary path>. Re-test with real form-fill once Sorellon clears regulatory blockers per docs/research/sorellon-readiness-FINAL.md.
 ```
 
 ---
@@ -524,7 +524,7 @@ DoD #9 PARTIAL: smoke-test outcome captured cap-respect at <gate> on <opp>. draf
 **Constitutional bright line bead.** This bead's AC requires `bid_state='bid_submitted'` with portal confirmation. **You are NOT authorized to submit a real bid** because:
 
 1. The seeded `shared_company_profile` contains `SMOKE_TEST_PLACEHOLDER` strings. Submitting this to a real buyer would be deceptive.
-2. Sorellon lacks the real insurance + certifications that the buyer's evaluation criteria require — see `docs/research/2026-05-25-sorellon-bidding-readiness-research.md`. Submitting without those is a misrepresentation.
+2. Sorellon lacks the real insurance + certifications that the buyer's evaluation criteria require — see `docs/research/sorellon-readiness-FINAL.md`. Submitting without those is a misrepresentation.
 3. FORMAL_SUBMISSION cap escalation is NOT in your delegation envelope. Per kickoff §13, it requires a SEPARATE WRITTEN operator authorization on the bead's AgentMail thread with the EXACT phrase: `AUTHORIZE FORMAL_SUBMISSION for <opp-ref> on process <process-id> with sideEffectCap=FORMAL_SUBMISSION`.
 
 **Your job for 7.3 is to close it as PARTIAL with a complete deferral rationale, NOT to attempt formal submission.**
@@ -543,7 +543,7 @@ DoD #9 PARTIAL: smoke-test outcome captured cap-respect at <gate> on <opp>. draf
      subject="[testproject1-3yqf.7.3] DEFERRED: FORMAL_SUBMISSION blocked on regulatory + data prerequisites",
      body_md="DoD #8 (formal submission) cannot honestly complete in the current state.
 
-     Blockers (all surfaced in docs/research/2026-05-25-sorellon-bidding-readiness-research.md):
+     Blockers (all surfaced in docs/research/sorellon-readiness-FINAL.md):
      1. Sorellon has no real insurance evidence (employers' liability, public liability, product liability minimums).
      2. Sorellon has no real certifications (Cyber Essentials, ISO 9001, etc.).
      3. shared_company_profile contains SMOKE_TEST_PLACEHOLDER strings.
@@ -563,7 +563,7 @@ DoD #9 PARTIAL: smoke-test outcome captured cap-respect at <gate> on <opp>. draf
 
 5. `bin/br-complete testproject1-3yqf.7.3` with the close-comment:
    ```
-   PARTIAL: DoD #8 deferred. Constitutional blocker — Sorellon lacks real insurance + certifications + FORMAL_SUBMISSION authorization. See docs/research/2026-05-25-sorellon-bidding-readiness-research.md and the deferral mail on this thread. Reactivate after regulatory acquisition.
+   PARTIAL: DoD #8 deferred. Constitutional blocker — Sorellon lacks real insurance + certifications + FORMAL_SUBMISSION authorization. See docs/research/sorellon-readiness-FINAL.md and the deferral mail on this thread. Reactivate after regulatory acquisition.
    ```
 
 **This explicitly unblocks 7.7's dependency on 7.3 being closed.** It is dishonest to call this PASS; PARTIAL with documented blocker is the right state.
@@ -665,7 +665,7 @@ Never `git reset --hard`, `git push --force`, `git clean -fd`. AGENTS.md Rule 1 
 | shared_company_profile org_id | `sorellon` |
 | Last good commit | `7b3bd21` (smoke-test diary + sorellon.md committed) |
 | Session 1 diary | `docs/pipeline/l6-request-pipeline-automation/live-demo/2026-05-25-smoke-test.md` |
-| Research doc | `docs/research/2026-05-25-sorellon-bidding-readiness-research.md` |
+| Research doc | `docs/research/sorellon-readiness-FINAL.md` |
 | Live-demo dir | `docs/pipeline/l6-request-pipeline-automation/live-demo/` |
 | Artifacts dir (gitignored) | `artifacts/sessions/` |
 | Spec | `docs/strategy/layers/layer-6-request-pipeline-automation.md` |
