@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "verdict",
+    "basis_sufficiency",
+    "enforcement_eligible",
+    "confidence_bps",
+    "issues",
+    "summary"
+  ],
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": ["approved", "rejected", "flagged"]
+    },
+    "basis_sufficiency": {
+      "type": "string",
+      "enum": ["high", "medium", "low"]
+    },
+    "enforcement_eligible": {
+      "type": "boolean"
+    },
+    "confidence_bps": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10000
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["severity", "category", "description", "evidence_refs"],
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": ["critical", "major", "minor", "observation"]
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "opportunity_ref_match",
+              "screenshot_completeness",
+              "side_effect_progression",
+              "side_effect_cap",
+              "confirmation_ref_shape",
+              "citation_completeness",
+              "pii_redaction",
+              "override_anomaly"
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "evidence_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "summary": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-01
 **Auditor:** Claude (Opus 4.8, completion-audit skill v4.0)
-**Verdict:** **BLOCKED** — implementation 100% complete and verified; DoD #8 (real end-to-end live demo) is human/operator-gated and was explicitly deferred. Escalate to operator.
+**Verdict:** **COMPLETE (smoke-test basis)** — see Operator Decision Addendum at the end. Implementation is 100% complete and verified across all 127 FRs and all quality gates; DoD #8's real end-to-end submission is formally deferred until Sorellon acquires real insurance/certs/VAT (operator-accepted 2026-06-01). Original audit finding was BLOCKED; operator exercised standing authority to accept the smoke-test basis as the L6 exit criterion.
 
 ---
 
@@ -181,3 +181,25 @@ The layer cannot be declared COMPLETE because **DoD #8's real end-to-end live de
 - **(B)** Formally accept the **smoke-test basis** as the L6 exit criterion (consistent with the closed `testproject1-3yqf.7.7` "M6 achieved — smoke-test basis" and recorded operator feedback that placeholder-data REMOTE_DRAFT smoke tests are acceptable). Under (B), L6 is operationally COMPLETE and the audit's only divergence is the spec's literal DoD #8 wording — which the operator has standing authority to waive. Bead #1 then closes as "accepted: smoke-test basis."
 
 Either path requires the operator's decision; neither can be taken autonomously. Per the completion-audit conditional stop, the audit **stops here and escalates** rather than routing to autonomous fix-bead execution (step 13) — a fresh agent must not attempt a real portal submission.
+
+---
+
+## Operator Decision Addendum (2026-06-01)
+
+After the BLOCKED verdict was escalated, the operator reviewed the two genuine paths and made the following decisions:
+
+1. **Accepted the smoke-test basis as the L6 exit criterion** (audit Option B). Rationale (operator): the sole remaining blocker — Sorellon's missing insurance/certifications/VAT — is a real-world credential-acquisition effort spanning weeks, and it does not block any other part of the system. The operator wants L6 marked done now so the discovery/intelligence/viewing functionality can be used immediately while credentials are obtained in parallel. The operator holds standing authority over the spec and the business and explicitly waives the literal DoD #8 "real submission" wording for now.
+
+2. **Revised verdict: COMPLETE (smoke-test basis).** All 127 L6-FR IDs are implemented and verified; all static/unit/integration/E2E quality gates are GREEN; every mechanism behind DoD #8 is proven correct. The genuine real-portal submission is **deferred** (tracked on `testproject1-3yqf.8`) and remains gated on real-world action: Sorellon obtaining at minimum employers'/public/product liability insurance + relevant certifications (ideally VAT), after which a real REMOTE_DRAFT→`draft_saved`→operator-reviewed→authorized `FORMAL_SUBMISSION` run can execute. No code work remains for this — the readiness gate (L6-FR-1.3.21 / DoD #10) is correctly, constitutionally enforcing the gap.
+
+### Minor items fixed during closeout (bead `testproject1-3yqf.9`)
+- **`apps/desktop/package.json`**: added `"test:e2e": "bunx playwright test"` alias so the documented quality-gate command (`cd apps/desktop && bun run test:e2e`, referenced in kickoff §8 / bootstrap §11) resolves; previously only `e2e` existed. Verified.
+- **`skills/validation/overlay-bid-portal-procontract/result.schema.json`**: added (modeled on the 5 sibling overlays + base, which all ship one) with bid-specific issue categories (`opportunity_ref_match`, `screenshot_completeness`, `side_effect_progression`, `side_effect_cap`, `confirmation_ref_shape`, `citation_completeness`, `pii_redaction`, `override_anomaly`). Structural-consistency only; the overlay already functioned via the base validator bundle. Verified `validator_overlay_bid` 18/18 and `skill_golden_journeys` 32/32 still pass.
+
+### Non-blocking recommendation left open (not a product bug)
+- Web E2E `webServer` uses `bun run dev` (Next dev mode), which makes render tests timing-flaky on slower hosts; the identical suite passes 29/29 against a production build. Recommend switching the web e2e `webServer` to `next build && next start` (or raising `expect.timeout`) for deterministic dev-mode runs. Left as a team-preference config decision, not changed during this audit.
+
+### Bug summary for L6
+**No product bugs found.** The audit surfaced only: (1) the real-world credential blocker for DoD #8 (not a defect — the gate working as designed), (2) the desktop e2e script-name inconsistency (fixed), (3) the overlay result-schema consistency gap (fixed), and (4) the web e2e dev-server flakiness (test-harness config, recommendation left open). The implementation itself is clean.
+
+**Final status: L6 COMPLETE (smoke-test basis). M6 achieved. L6 is the final layer (L0–L6); no further layer implementation remains for a fully-functional discovery/intelligence/viewing system. Real bid submission deferred to `testproject1-3yqf.8` pending Sorellon credential acquisition.**

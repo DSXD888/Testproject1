@@ -12,6 +12,7 @@
     "lint": "bunx tsc --noEmit -p tsconfig.json",
     "test": "bunx vitest run",
     "e2e": "bunx playwright test",
+    "test:e2e": "bunx playwright test",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build"
   },
