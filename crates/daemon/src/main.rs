@@ -21618,6 +21618,100 @@ fn parse_cpv_division(code: &str) -> Option<u32> {
     std::str::from_utf8(&bytes[..2]).ok()?.parse::<u32>().ok()
 }
 
+/// Text-classification fallback for notices whose CPV division is indeterminate — e.g.
+/// ProContract's `"399999 - Not Elsewhere Classified"` catch-all, which carries no
+/// parseable 8-digit CPV code so [`parse_cpv_division`] returns `None`. Scans the notice
+/// title and raw payload text for physical-goods signals so genuine SKU tenders (boilers,
+/// BMS / fire-alarm panels, pumps, valves, etc.) are not silently excluded from goods
+/// qualification (and therefore from `--ingest marketplace-coverage`).
+///
+/// Conservative and recall-oriented: returns `Some("goods")` only on a positive
+/// physical-goods keyword match, and suppresses the match when a dominant services-only
+/// signal is present without any strong goods anchor. Callers MUST apply it ONLY when
+/// CPV-based classification already returned `"unknown"`, so it never overrides a
+/// confident code.
+#[allow(clippy::doc_markdown)]
+fn goods_text_classification_fallback(
+    title: &str,
+    payload_json: Option<&str>,
+) -> Option<&'static str> {
+    // Concrete physical-goods nouns + supply verbs (lowercase substring match).
+    // Deliberately excludes generic framework words like bare "goods" / "panel" that
+    // appear in services-framework boilerplate ("goods and services", "panel of suppliers").
+    const GOODS_TERMS: &[&str] = &[
+        "boiler",
+        "pump",
+        "valve",
+        "bms",
+        "building management system",
+        "fire alarm",
+        "control panel",
+        "alarm panel",
+        "distribution board",
+        "furniture",
+        "appliance",
+        "heater",
+        "radiator",
+        "luminaire",
+        "lighting unit",
+        "flooring",
+        "machinery",
+        "ppe",
+        "glove",
+        "uniform",
+        "white goods",
+        "consumable",
+        "stationery",
+        "spare part",
+        "spares",
+        "ductwork",
+        "pipework",
+        "kitchen equipment",
+        "catering equipment",
+        "supply of",
+        "supply and deliver",
+        "supply, delivery",
+        "supply & deliver",
+    ];
+    // Strong services-only signals that suppress the goods fallback (unless a goods anchor wins).
+    const SERVICES_TERMS: &[&str] = &[
+        "consultancy",
+        "advisory service",
+        "training service",
+        "professional service",
+        "legal service",
+        "audit service",
+        "recruitment",
+        "feasibility study",
+        "design service",
+    ];
+
+    let mut blob = title.to_lowercase();
+    if let Some(raw) = payload_json {
+        blob.push(' ');
+        blob.push_str(&raw.to_lowercase());
+    }
+
+    if !GOODS_TERMS.iter().any(|t| blob.contains(t)) {
+        return None;
+    }
+    let has_services = SERVICES_TERMS.iter().any(|t| blob.contains(t));
+    let has_strong_goods_anchor = [
+        "supply of",
+        "supply and deliver",
+        "supply, delivery",
+        "boiler",
+        "fire alarm",
+        "bms",
+    ]
+    .iter()
+    .any(|t| blob.contains(t));
+    if has_services && !has_strong_goods_anchor {
+        return None;
+    }
+    Some("goods")
+}
+
 /// Stage: Prequalify Notice — classify goods/services using CPV codes from raw OCDS payloads.
 #[allow(clippy::too_many_lines, clippy::type_complexity)]
 fn run_prequalify_stage(state_db: &mut StateDb, source_id: &str) -> Result<usize> {
@@ -21679,7 +21773,7 @@ fn run_prequalify_stage(state_db: &mut StateDb, source_id: &str) -> Result<usize
         let visible_after_seq = next_commit_seq(tx)?;
         let mut qualified_count = 0_usize;
 
-        for (notice_id, process_id, _title, deadline_at, value_pence, payload_json, lot_id) in
+        for (notice_id, process_id, title, deadline_at, value_pence, payload_json, lot_id) in
             &notice_rows
         {
             let cpv_division = payload_json
@@ -21727,7 +21821,7 @@ fn run_prequalify_stage(state_db: &mut StateDb, source_id: &str) -> Result<usize
             // Division 45: construction works
             // Divisions 48-49: software packages and transport (goods/mixed)
             // Divisions 50-98: services
-            let legal_category = match cpv_division {
+            let cpv_legal_category = match cpv_division {
                 Some(d) if (3..=44).contains(&d) => "goods",
                 Some(45) => "works",
                 Some(d) if (48..=49).contains(&d) => "goods",
@@ -21735,12 +21829,30 @@ fn run_prequalify_stage(state_db: &mut StateDb, source_id: &str) -> Result<usize
                 _ => "unknown",
             };
 
-            let goods_density_score_bps: i64 = match legal_category {
-                "goods" => 8500,
-                "mixed" => 6000,
-                "works" => 3000,
-                "services" => 1500,
-                _ => 4500,
+            // When the CPV division is indeterminate (e.g. "399999 - Not Elsewhere
+            // Classified"), fall back to text classification so physical-goods notices
+            // are not excluded from goods qualification. Never overrides a confident code.
+            let (legal_category, classification_basis) = if cpv_legal_category == "unknown" {
+                goods_text_classification_fallback(title, payload_json.as_deref())
+                    .map_or((cpv_legal_category, "cpv_division"), |cat| {
+                        (cat, "text_fallback")
+                    })
+            } else {
+                (cpv_legal_category, "cpv_division")
+            };
+
+            let goods_density_score_bps: i64 = if classification_basis == "text_fallback" {
+                // Keyword-based recall: moderate confidence, below CPV-confirmed goods (8500)
+                // but enough to clear the goods qualification gate.
+                6000
+            } else {
+                match legal_category {
+                    "goods" => 8500,
+                    "mixed" => 6000,
+                    "works" => 3000,
+                    "services" => 1500,
+                    _ => 4500,
+                }
             };
 
             let expiry_qualified = deadline_at
@@ -21770,8 +21882,9 @@ fn run_prequalify_stage(state_db: &mut StateDb, source_id: &str) -> Result<usize
             };
 
             let rationale = format!(
-                "CPV division {}: legal_category={legal_category}, density={goods_density_score_bps}bps, \
-                 expiry={expiry_qualified}, result={qualification_result}",
+                "CPV division {}: legal_category={legal_category}, basis={classification_basis}, \
+                 density={goods_density_score_bps}bps, expiry={expiry_qualified}, \
+                 result={qualification_result}",
                 cpv_division.map_or_else(|| "unknown".to_owned(), |d| d.to_string()),
             );
 
@@ -24630,6 +24743,58 @@ mod tests {
                 }
             })
         }
+    }
+
+    #[test]
+    fn goods_text_fallback_qualifies_399999_physical_goods_notices() {
+        // testproject1-ohhv: "399999 - Not Elsewhere Classified" notices carry no
+        // parseable CPV division, so the text fallback must recover physical-goods lots.
+        assert_eq!(
+            super::parse_cpv_division("399999 - Not Elsewhere Classified"),
+            None
+        );
+
+        // Oldham boiler-batch shape: title + payload mention concrete goods → goods.
+        let payload = json!({
+            "main_category": "399999 - Not Elsewhere Classified",
+            "categories": "399999 - Not Elsewhere Classified",
+            "detail": {"description": "Replacement gas boilers, BMS panels, pumps and valves across five sites"}
+        })
+        .to_string();
+        assert_eq!(
+            super::goods_text_classification_fallback(
+                "Boiler replacement programme",
+                Some(&payload)
+            ),
+            Some("goods"),
+        );
+
+        // Fire-alarm panel goods notice → goods (anchor wins even with generic text).
+        assert_eq!(
+            super::goods_text_classification_fallback(
+                "Fire alarm panel supply and installation",
+                None
+            ),
+            Some("goods"),
+        );
+
+        // Pure consultancy with no goods signal → no fallback (stays unknown).
+        assert_eq!(
+            super::goods_text_classification_fallback(
+                "Provision of legal advisory services and consultancy",
+                None
+            ),
+            None,
+        );
+
+        // Services-dominant text with no strong goods anchor is suppressed.
+        assert_eq!(
+            super::goods_text_classification_fallback(
+                "Design services framework with luminaire specification consultancy",
+                None
+            ),
+            None,
+        );
     }
 
     #[test]
