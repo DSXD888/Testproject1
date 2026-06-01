@@ -41,9 +41,9 @@ Run these checks from `/Users/alinaaitova/Desktop/Testproject1`.
 | CDP helper | `bin/ensure-cdp-9222` exists and can start or find Chrome on port 9222. | `bin/ensure-cdp-9222` |
 | Persistent Chrome profile | `/Users/alinaaitova/.chrome-automation` exists and is the profile used by port 9222. | `test -d /Users/alinaaitova/.chrome-automation` |
 | Procontract credential | `sales@sorelon.com` is saved in Chrome Passwords for Procontract. Touch ID is not required. | Manual check at `chrome://settings/passwords` in the CDP profile. |
-| Live demo opportunity | Operator selects at least one Procontract opportunity reference that permits a draft-only smoke. | Record reference in live-demo diary before the run. |
+| Live demo opportunity | Operator selects at least one Procontract opportunity reference that permits a draft-only smoke and, with separate written authorization, a formal-submission smoke. | Record reference, deadline, portal status, duplicate-state check, and authorization scope in the live-demo diary before the run. |
 | L5 completion | L5 status confirms `ready_for_l6: true`. | `docs/pipeline/l5-expanded-commercial-intelligence/artifacts/l5-expanded-commercial-intelligence-status.yaml` |
-| Local Supabase stack | Available for sync/RLS/web E2E when those tests run. | Existing L4/L5 Supabase bootstrap commands. |
+| Local Supabase stack | Available for sync/RLS/web E2E when those tests run. | `test -f infra/supabase/config.toml && test -d infra/supabase/migrations && bash -lc ':</dev/tcp/127.0.0.1/54321'` |
 
 ### 3.1 Six Prerequisite Categories
 
@@ -54,9 +54,9 @@ only one category is not sufficient for L6 work.
 |---|---|---|
 | Toolchain | Rust nightly from `rust-toolchain.toml`, Cargo, Bun 1.3.10, Git on `main`, `rg`, `curl`, and shell tools. | Any missing command or wrong Bun version. |
 | Prior layers | L5 status file has `ready_for_l6: true`; L4/L5 sync and RLS infrastructure are present. | L5 not complete or source documents missing. |
-| Local services | AgentMail liveness on `127.0.0.1:8765`; local Supabase stack available for sync/RLS/web E2E. | AgentMail down for coordinated work or Supabase unavailable for RLS tests. |
+| Local services | AgentMail liveness on `127.0.0.1:8765`; local Supabase stack config, migrations, and API port `54321` available for sync/RLS/web E2E. | AgentMail down for coordinated work or Supabase unavailable for RLS tests. |
 | Browser automation | `bin/ensure-cdp-9222` succeeds; `/json/version` responds; profile path is `/Users/alinaaitova/.chrome-automation`. | CDP unreachable or wrong profile. |
-| Credentials and live target | `sales@sorelon.com` saved in Chrome Passwords; operator-selected Procontract opportunity reference recorded. | Credential missing or no safe draft-only target. |
+| Credentials and live target | `sales@sorelon.com` saved in Chrome Passwords; operator-selected Procontract opportunity reference recorded with deadline, status, duplicate-state check, and authorization scope. | Credential missing or no safe draft-only target. |
 | Scope controls | Zero new paid accounts; no paid API key variables required; no buyer-visible legal commitment under default cap. | A bead or script requires paid procurement, supplier, freight, FX, tariff, or bid-writing services. |
 
 ### 3.2 Manual Checks Not Automatable
@@ -65,7 +65,7 @@ The validation script can prove toolchain, files, local services, CDP reachabili
 and environment variables. It cannot safely prove the following:
 
 - The saved Chrome password is for `sales@sorelon.com`.
-- The selected Procontract opportunity is appropriate for a draft-only smoke.
+- The selected Procontract opportunity is appropriate for draft-save evidence and any separately authorized formal submission.
 - The operator has authorized any formal submission.
 - The visible browser session is in a state the operator is comfortable using.
 
@@ -146,6 +146,13 @@ set_contact_policy(
 )
 ```
 
+Set the shell identity used by the bead wrappers in the same terminal:
+
+```bash
+export AGENT_MAIL_NAME="<you>"
+export AGENT_MAIL_PROJECT_KEY="/Users/alinaaitova/Desktop/Testproject1"
+```
+
 Handshake every visible peer before using bead wrappers:
 
 ```text
@@ -171,13 +178,15 @@ file_reservation_paths(
 )
 ```
 
-For bead-tracked work, use `bin/br-claim <bead-id>` and
-`bin/br-complete <bead-id>`. Do not bypass the wrappers with raw status updates.
+For bead-tracked work, use `bin/br-claim <bead-id>`,
+`bin/br-complete <bead-id>`, and `bin/br-sync`. Do not bypass the wrappers with
+raw status updates.
 
 ## 7. Beads Authority
 
-The authoritative issue-tracking block is the `br` block in `AGENTS.md` lines
-279-330. Do not use the archived viewer-era issue-tracking block.
+AGENTS.md Rule 2 makes the wrappers mandatory. The authoritative
+issue-tracking block is the `br` block in `AGENTS.md` lines 279-330. Do not use
+the archived viewer-era issue-tracking block.
 
 Required commands:
 
@@ -185,7 +194,7 @@ Required commands:
 br ready --json
 bin/br-claim <bead-id>
 bin/br-complete <bead-id>
-br sync --flush-only
+bin/br-sync
 ```
 
 Rules for L6 implementation agents:
@@ -195,14 +204,14 @@ Rules for L6 implementation agents:
 - Do not use raw `br update --status=in_progress`.
 - Do not use raw `br close <id>`.
 - Do not use archived viewer-era commands from the stale block.
-- Keep `br sync --flush-only` separate from Git staging and commits.
+- Keep `bin/br-sync` separate from Git staging and commits.
 - Use the bead ID in reservation reasons, mail subjects, and commit messages.
 
 Minimal bead-tracked closeout:
 
 ```bash
 bin/br-complete <bead-id>
-br sync --flush-only
+bin/br-sync
 git add .beads/
 git add <changed-files>
 git commit -m "<bead-id>: <summary>"
@@ -244,7 +253,7 @@ if [ "$(pwd)" != "$ROOT" ]; then
   fail "run from $ROOT"
 fi
 
-for cmd in cargo rustc rustup bun git curl rg find wc; do
+for cmd in cargo rustc rustup bun git curl rg find wc bash sqlite3; do
   require_cmd "$cmd"
 done
 
@@ -271,6 +280,8 @@ for path in \
   docs/pipeline/l6-request-pipeline-automation/manifest.yaml \
   docs/pipeline/l6-request-pipeline-automation/artifacts/l6-request-pipeline-automation-tdd.md \
   docs/pipeline/l5-expanded-commercial-intelligence/artifacts/l5-expanded-commercial-intelligence-status.yaml \
+  infra/supabase/config.toml \
+  infra/supabase/migrations \
   crates/daemon/src/main.rs \
   crates/daemon/src/errors/manifest.rs \
   crates/daemon/tests/skill_canary_harness.rs \
@@ -285,6 +296,10 @@ fi
 
 if ! curl -sfS -m 3 http://127.0.0.1:8765/health/liveness >/dev/null; then
   fail "AgentMail liveness probe failed at http://127.0.0.1:8765/health/liveness"
+fi
+
+if ! bash -lc ':</dev/tcp/127.0.0.1/54321' >/dev/null 2>&1; then
+  fail "local Supabase API port 54321 is not reachable"
 fi
 
 if [ ! -x bin/ensure-cdp-9222 ]; then
@@ -349,16 +364,19 @@ tests/fixtures/calibration/bid-portal-procontract/
   simple/
     canary.inputs.jsonl
     golden.assertions.yaml
+    validator-rubric.yaml
     metadata.json
     manifest.md
   medium/
     canary.inputs.jsonl
     golden.assertions.yaml
+    validator-rubric.yaml
     metadata.json
     manifest.md
   complex/
     canary.inputs.jsonl
     golden.assertions.yaml
+    validator-rubric.yaml
     metadata.json
     manifest.md
 ```
@@ -382,7 +400,7 @@ replace portal behavior with generic HTTP mocks.
 |---|---:|---|
 | `simple` | 6 | Happy draft, missing company profile, stale auth, duplicate draft, cap breach, portal reference not found. |
 | `medium` | 8 | Happy draft, upload success, upload hash mismatch, quote override, validation rejection, selector drift, resume draft, duplicate submission. |
-| `complex` | 10 | Multi-lot draft, multi-document upload, conditional declarations, legal acknowledgement boundary, final submit authorized, final submit blocked, validator outage, validation override, remote draft changed externally, unknown portal state reconciliation. |
+| `complex` | 10 | Multi-lot draft, multi-document upload, conditional declarations, legal declaration boundary, final submit authorized, final submit blocked, validator outage, validation override, remote draft changed externally, unknown portal state reconciliation. |
 
 ### 9.2 Fixture File Contracts
 
@@ -418,6 +436,17 @@ replace portal behavior with generic HTTP mocks.
 - Expected validator overlay verdict.
 - Expected redaction result.
 
+`validator-rubric.yaml` must define:
+
+- Evidence anchors required for opportunity ref, process ID, lot IDs, candidate
+  IDs, quote IDs, company-profile version, screenshot checkpoints, side-effect
+  progression, and confirmation or draft evidence.
+- Rejection categories for wrong opportunity, missing screenshots, non-monotonic
+  side effects, malformed confirmation reference, missing narrative citations,
+  PII leakage, and validator execution outage.
+- Approval thresholds for clean simple, medium, and complex run manifests.
+- Rubric version emitted into the validator verdict and daemon appendix.
+
 `canary.inputs.jsonl` must be line-delimited JSON. Every row must include:
 
 - `case_id`
@@ -432,6 +461,7 @@ replace portal behavior with generic HTTP mocks.
 - `expected_error_code`
 - `cassette_ref`
 - `screenshot_expectations`
+- `validator_rubric_ref`
 
 The canary harness must fail before running individual cases if the row count is
 below the required count for a variant.
@@ -458,6 +488,9 @@ Disallowed evidence:
 Implement in this order to keep failures local:
 
 1. `packages/bidding` types and pure tests:
+   - `package.json` with `build`, `lint`, and `test` scripts
+   - `tsconfig.json`
+   - `vitest.config.ts`
    - `workflow-registry.ts`
    - `procontract-workflow.ts`
    - `company-profile-schema.ts`
@@ -472,7 +505,7 @@ Implement in this order to keep failures local:
    - `skills/bid-portal-procontract/checkpoint.schema.json`
    - `skills/bid-portal-procontract/canary.inputs.jsonl`
    - `skills/bid-portal-procontract/golden.assertions.yaml`
-   - `skills/bid-portal-procontract/validator-rubric.md`
+   - `skills/bid-portal-procontract/validator-rubric.yaml`
    - `skills/validation/overlay-bid-portal-procontract/SKILL.md`
 4. Skill canary and golden-journey daemon tests.
 5. Desktop and web E2E.
@@ -489,15 +522,20 @@ cargo clippy --all-targets -- -D warnings
 cargo test -p daemon --bin daemon
 for t in crates/daemon/tests/*.rs; do cargo test --test "$(basename "$t" .rs)" || exit 1; done
 bun run build
+(cd packages/bidding && bun run build)
 bun run lint
+(cd packages/bidding && bun run lint)
 bun run test
-(cd apps/desktop && bun run test:e2e)
+(cd packages/bidding && bun run test)
+(cd apps/desktop && bun run e2e)
 (cd apps/web && bun run test:e2e)
 ```
 
 Do not substitute `cargo test -p daemon --bin daemon` for the integration loop.
 That command excludes the daemon integration tests and is not a valid L6 gate by
-itself.
+itself. Do not rely on the root Bun scripts alone until `packages/bidding` is
+explicitly included in the root `build`, `lint`, and `test` scripts; the package
+commands above are the direct guard that the new TS tests run.
 
 ### 11.1 Gate Evidence To Retain
 
@@ -545,13 +583,30 @@ sideEffectCap = REMOTE_DRAFT
 Pre-run evidence to record:
 
 - Operator-selected Procontract opportunity reference.
+- Portal deadline, current portal status, and tender title copied from the
+  authenticated Procontract page.
 - Confirmation that the target run will not create buyer-visible legal
   commitment under `REMOTE_DRAFT`.
+- Duplicate-state check showing no existing draft/submission for the same
+  opportunity, or a recorded operator reconciliation if one exists.
 - Company profile version.
 - Process ID, lot IDs, candidate IDs, selected quote IDs.
 - `decisionBasisHash`.
 - CDP `/json/version` response timestamp.
 - AgentMail identity and bead ID, if bead-tracked.
+
+Opportunity reference selection rules:
+
+- Prefer an open Procontract opportunity with a visible reference, title,
+  response deadline, and response/draft controls reachable after sign-in.
+- Prefer a tender where saving a draft does not notify the buyer, lock the
+  account, accept legal declarations, or commit funds.
+- Avoid opportunities with a same-account draft or submission unless the
+  operator explicitly chooses that target for reconciliation testing.
+- Avoid opportunities whose deadline is inside the current test window, whose
+  portal status is closed/awarded/withdrawn, or whose documents require paid
+  tender fees, bonds, or external accounts.
+- Record the selected reference in the diary before running `trigger_bid_workflow`.
 
 Run expectations:
 
@@ -567,13 +622,31 @@ Run expectations:
 - Show viewer-role bid-state badge on web without exposing BidScopePayload or
   run manifest body.
 
-Optional formal-submission smoke:
+Draft-state SQL verification:
+
+```bash
+sqlite3 state/state.db "SELECT process_id,bid_state,bid_job_id,stage_run_id,updated_at FROM bid_workflow_states WHERE process_id = '<process-id>';"
+```
+
+Expected `bid_state`: `draft_saved`.
+
+Formal-submission smoke:
 
 - Requires separate written operator authorization.
 - Requires `sideEffectCap >= FORMAL_SUBMISSION`.
 - Requires fail-closed validator accepted verdict or structured validation
   override.
 - Requires confirmation reference evidence.
+- Requires SQL verification that `bid_workflow_states` reaches `bid_submitted`
+  for the authorized run and remains linked to the same process/scope.
+
+Formal-submit SQL verification:
+
+```bash
+sqlite3 state/state.db "SELECT process_id,bid_state,bid_job_id,stage_run_id,completed_at FROM bid_workflow_states WHERE process_id = '<process-id>';"
+```
+
+Expected `bid_state`: `bid_submitted`.
 
 ## 13. False Positive Prevention
 
@@ -584,7 +657,7 @@ Optional formal-submission smoke:
 | Auth handling drifts into bid skill | `L6-T-bid_portal_procontract_skill-005` and `L6-T-daemon_runner-009` enforce daemon-orchestrated retry. |
 | Final submission fails open during validator outage | `L6-T-validator_overlay-009` blocks submission on outage. |
 | Remote draft retry creates duplicate buyer-visible state | `L6-T-portal_side_effects-008`, `009`, and `010` force verification and unknown-state handling. |
-| New ErrorCode variants are incomplete | `L6-T-error_codes-001` through `005` require six exact bid variants, round-trips, and propagation-site coverage. |
+| New ErrorCode variants are incomplete | `L6-T-error_codes-001` through `023` require six exact bid variants, per-variant enum/as_str/parser checks, and propagation-site coverage. |
 | Web viewer leaks sensitive bid scope | `L6-T-web_ui-002` and `L6-T-sync_propagation-004` test both UI and data boundaries. |
 | Desktop allows formal submit under default cap | `L6-T-desktop_ui-007` and `L6-T-portal_side_effects-005` enforce cap. |
 
@@ -603,11 +676,12 @@ Before an implementation agent starts:
 
 Before closing L6:
 
-- [ ] All 127 `L6-T-*` requirement-bearing checks are implemented or explicitly
+- [ ] All 153 `L6-T-*` requirement-bearing checks are implemented or explicitly
       represented by the named automated/manual surface.
 - [ ] Coverage matrix still maps all 127 `L6-FR-*` IDs.
 - [ ] Static gates `CI-L6-001` through `CI-L6-010` pass.
-- [ ] Live REMOTE_DRAFT smoke evidence exists.
+- [ ] Live `REMOTE_DRAFT` smoke evidence exists, and the separately authorized
+      formal-submission smoke reaches `bid_submitted` with confirmation evidence.
 - [ ] No sensitive BidScopePayload, company profile, portal artifact, or manifest
       body leaks to viewer-role surfaces.
 - [ ] `git status` and bead status reflect the intended changes only.

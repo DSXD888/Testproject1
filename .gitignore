@@ -17,6 +17,14 @@ node_modules/
 # bv (beads viewer) local config and caches
 .bv/
 
+# Machine-local editor / tool configs (may contain MCP server tokens)
+.codex/
+.vscode/
+
+# Supabase CLI local state + temp (reproducible; not source)
+infra/supabase/.branches/
+infra/supabase/.temp/
+
 # Build artifacts
 .next/
 apps/desktop/dist/

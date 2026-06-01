@@ -800,8 +800,8 @@ https://procontract.due-north.com/Supplier/Advert/View?advertId=83a118df-7c2e-f1
 
 ### User (2026-04-13T13:51:38)
 
-[Image source: /Users/alinaaitova/Desktop/Screenshot 2026-04-13 at 15.47.42 (2).png]
-[Image source: /Users/alinaaitova/Desktop/Screenshot 2026-04-13 at 15.47.42.png]
+[Image source: /Users/alinaaitova/Desktop/Desktop/Screenshot 2026-04-13 at 15.47.42 (2).png]
+[Image source: /Users/alinaaitova/Desktop/Desktop/Screenshot 2026-04-13 at 15.47.42.png]
 
 ---
 
@@ -858,13 +858,13 @@ Ultrathink and be meticulous
 
 [Image: source: /Users/alinaaitova/.claude/image-cache/1944b8be-38ba-45d0-84a4-158d688d2b7f/6.jpeg]
 [Image: source: /Users/alinaaitova/.claude/image-cache/1944b8be-38ba-45d0-84a4-158d688d2b7f/7.jpeg]
-[Image source: /Users/alinaaitova/Desktop/Screenshot 2026-04-13 at 15.57.17 (2).png]
-[Image source: /Users/alinaaitova/Desktop/Screenshot 2026-04-13 at 16.00.20 (2).png]
-[Image source: /Users/alinaaitova/Desktop/Screenshot 2026-04-13 at 16.00.07 (2).png]
-[Image source: /Users/alinaaitova/Desktop/Screenshot 2026-04-13 at 16.02.33 (2).png]
-[Image source: /Users/alinaaitova/Desktop/Screenshot 2026-04-13 at 16.02.33 (2).png]
-[Image source: /Users/alinaaitova/Desktop/Screenshot 2026-04-13 at 16.02.43 (2).png]
-[Image: source: /Users/alinaaitova/Desktop/Screenshot 2026-04-13 at 16.09.14.png]
+[Image source: /Users/alinaaitova/Desktop/Desktop/Screenshot 2026-04-13 at 15.57.17 (2).png]
+[Image source: /Users/alinaaitova/Desktop/Desktop/Screenshot 2026-04-13 at 16.00.20 (2).png]
+[Image source: /Users/alinaaitova/Desktop/Desktop/Screenshot 2026-04-13 at 16.00.07 (2).png]
+[Image source: /Users/alinaaitova/Desktop/Desktop/Screenshot 2026-04-13 at 16.02.33 (2).png]
+[Image source: /Users/alinaaitova/Desktop/Desktop/Screenshot 2026-04-13 at 16.02.33 (2).png]
+[Image source: /Users/alinaaitova/Desktop/Desktop/Screenshot 2026-04-13 at 16.02.43 (2).png]
+[Image: source: /Users/alinaaitova/Desktop/Desktop/Screenshot 2026-04-13 at 16.09.14.png]
 
 ---
 

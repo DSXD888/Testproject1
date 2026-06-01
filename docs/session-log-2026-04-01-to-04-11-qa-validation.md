@@ -715,7 +715,7 @@ Yes, daemon is running (PID 27493, started at 7:13 PM).
 
 ### User (2026-04-01T17:20:54.790Z)
 
-[Image: source: /Users/alinaaitova/Desktop/Screenshot 2026-04-01 at 19.19.01.png]
+[Image: source: /Users/alinaaitova/Desktop/Desktop/Screenshot 2026-04-01 at 19.19.01.png]
 
 ---
 
