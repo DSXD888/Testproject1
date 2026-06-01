@@ -1,4 +1,9 @@
-# L6 Phase 7 — Live Demo Execution Handoff (Session 2)
+> ⚠️ **SUPERSEDED (2026-06-01).** Do NOT run this handoff. The canonical, code-verified, smoke-test-reframed handoff is
+> **`docs/pipeline/l6-request-pipeline-automation/artifacts/l6-phase-7-live-demo-handoff.md`**.
+> That version designs out the failures this one led to (never claimed a bead, chased a real bid, infra rabbit hole,
+> waited indefinitely for FORMAL_SUBMISSION authorization). This file is retained only for history.
+
+# L6 Phase 7 — Live Demo Execution Handoff (Session 2) — SUPERSEDED
 
 > **Paste this entire file into a fresh Claude Code session that has computer-use access AND agent-browser via CDP.** This handoff onboards a single agent to autonomously claim and close beads `testproject1-3yqf.7.1`, `testproject1-3yqf.7.2`, and `testproject1-3yqf.7.3` — the live-demo half of L6 Phase 7 — using the infrastructure and smoke-test state established by Session 1 on 2026-05-25 (commit `7b3bd21` on `main`).
 
