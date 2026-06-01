@@ -20,6 +20,7 @@ A prior agent was handed an earlier version of this doc on 2026-05-23/25. It did
 | 6 | Hit the **`AGENT_NAME` pre-commit-hook block** and the **gitignored `artifacts/` dir**. | Both pre-solved in §8. Export `AGENT_NAME`; the handoff itself was committed with `git add -f`. |
 | 7 | **CDP Chrome kept dying** between sessions. | `bin/ensure-cdp-9222` is your standing first step every session (§7). |
 | 8 | Wrong diary path (`docs/operations/live-demo-diary/`) vs the bead's real AC path. | Use **`docs/pipeline/l6-request-pipeline-automation/live-demo/`** — the bead AC path (§9). |
+| 9 | Did a lot of prep, then **stopped without closing a bead** and waited for the next session. | **§1A Autonomous Execution Contract:** run the master loop to completion. Do not end the turn while a bead is closeable. No push prompt is coming. |
 
 **The meta-lesson: the bar for Phase 7 closure is "the mechanism works and is correct, proven via a live-but-synthetic smoke test, and honestly documented" — NOT "a real bid was placed for Sorellon Limited."** Real bidding is a future, separately-authorized exercise once the company has real certifications, insurance, and a chosen genuine opportunity.
 
@@ -43,6 +44,55 @@ Close **Layer 6 — Request Pipeline Automation** by taking all 7 Phase-7 beads 
 **Bead label:** `l6` · **Bead pattern:** `testproject1-3yqf.7.*` · **CLI:** `br` (never `bd`) · **Sync:** `bin/br-sync` · **Claim/Complete:** `bin/br-claim <id>` / `bin/br-complete <id>`
 
 **Dependency reality:** `br ready --label l6 --json` returns **only 7.1** right now. 7.2–7.7 are dependency-blocked and unlock strictly in order as each closes. You MUST close 7.1, then 7.2, then 7.3 before 7.4/7.5/7.6/7.7 become claimable. (The earlier handoff's "do 7.4/7.5 while waiting" was wrong — the bead graph blocks them.)
+
+---
+
+## §1A. Autonomous Execution Contract — runs start-to-finish, NO push prompts
+
+You are the ONLY agent. There is **no second session, no push prompt, no operator standing by to nudge you.** You run continuously until **all 7 Phase-7 task beads + the Phase-7 epic + the L6 implementation epic are `closed`**, or you hit a genuine constitutional bright line (§2) or a documented irrecoverable technical failure (§13, a true last resort). **Do not stop to ask. Do not wait for replies. Do not end your turn while a Phase-7 bead is open and closeable.**
+
+The smoke-test reframe (§1) + the operator's standing authorization (§3) mean the **default fully-synthetic path needs ZERO operator interaction.** Do NOT send opportunity-selection mail and wait for a pick; do NOT wait for FORMAL_SUBMISSION authorization — use synthetic data and the standing authorization. (A *real* bid would need future auth, but you never place one, so nothing blocks the run.)
+
+### Master driver loop
+```
+ONCE:  §5 SOT load · §7 env bootstrap · §8 AgentMail register+handshake (export AGENT_NAME!)
+LOOP:
+  git pull --rebase
+  fetch_inbox(limit=10)                  # ACK only; never block waiting on mail
+  ready ← br ready --label l6 --json     # Phase-7 task beads
+  if a ready Phase-7 task bead exists:
+      pick the lowest-numbered one
+      CLAIM (§4) → EXECUTE (§10) → VALIDATE→REPAIR loop (below) → CLOSE (§4)
+      continue LOOP
+  elif any Phase-7 task bead still open but not "ready":
+      re-run §7 env checks + re-resolve deps; if still nothing claimable after 2 passes → §13
+  else (all 7 task beads closed):
+      close Phase-7 epic, then L6 impl epic, announce M6 (§10 bead 7.7) → DONE, exit LOOP
+```
+Re-run `git pull --rebase` + `fetch_inbox` at the TOP of every iteration. Never idle-wait: if a bead is genuinely blocked, act on the block — don't pause.
+
+### Per-bead VALIDATE → REPAIR → RE-VALIDATE loop (the self-healing core)
+After doing a bead's work you MUST validate; if validation fails you REPAIR and re-validate. **Never close a bead red. Never move on leaving a mess.**
+```
+attempt ← 0
+repeat:
+  attempt ← attempt + 1
+  run the bead's validation (its AC checks + any gate it owns)
+  if GREEN: break → CLOSE
+  root-cause the failure — read the ACTUAL error / file / test output; do not guess. Classify:
+    • real regression / real bug      → FIX the code; never weaken the test
+    • fixture / cassette drift          → update the fixture per its rubric, ONLY if the
+                                          behaviour change is intended AND correct
+    • environment (db/cdp/supabase)     → repair per §7/§12, re-run
+    • constitutional gate red           → STOP. Not "repairable." Bright-line event → §2/§13
+  apply the smallest correct fix; re-run
+until attempt = 6
+if still red AND it blocks closure:
+  • run the `error-manifest` skill to capture repro + every attempt
+  • if the bug is outside this bead's scope: file a follow-up bead, note it in the diary;
+    land (§13) ONLY if it genuinely blocks M6 — otherwise continue the master loop
+```
+**Repair guardrails (NEVER violate):** no `--no-verify`; no deleting / weakening / `.skip`-ing tests or assertions to go green; no `git push --force`; no `git reset --hard`; no bypassing a constitutional gate. A gate that enforces a bright line going red means the run STOPS — not that you patch the gate. Every "repair" is a real root-cause fix or it is not a repair.
 
 ---
 
@@ -228,6 +278,8 @@ Commit + push the diary at the end of EACH bead.
 
 ## §10. Per-Bead Playbook
 
+> Drive this under the §1A master loop: claim → execute the steps below → run the VALIDATE→REPAIR loop until the bead's checks are green → close → immediately pick the next ready bead. **Do not pause between beads.** Each bead's "Done =" line is its validation target.
+
 ### 7.1 — `l6-p7-preflight-evidence`  →  CLOSE
 1. `git pull --rebase && bin/br-claim testproject1-3yqf.7.1`
 2. Run §7 bootstrap; capture outputs into the diary **Environment** section.
@@ -336,7 +388,15 @@ Diary, commit, push, `bin/br-complete`.
 }
 ```
 
-**If you drive the full workflow (7.2 Proof B(i)),** the readiness gate needs a minimal synthetic upstream chain + `operator_decision_heads(disposition='approved', reviewed_basis_hash=<matching>)`. The 2026-05-25 session judged this ~80 NOT-NULL-column fabrication too heavy and pivoted to `--skill-path`. **Time-box it to 30 min; if it balloons, take the §10-7.2 Proof B(ii) fallback and cite the test suite.** Either path legitimately closes the bead under the smoke-test mandate.
+**Profile injection differs by path (verified `runner.rs:99/268/284` vs `main.rs:1354`):**
+- **`--skill-path` path** does NOT inject `CompanyProfile` from SQLite — it passes your `--job-parameters-json` raw. So **embed the placeholder `CompanyProfile` object directly in the params** (shape per `readiness_gate.rs:609-617`: `address`, `primary_contact`, `certifications`, `insurance_policies`, `sme_status`, …).
+- **Full-workflow path** (`--run-bid-workflow` / desktop Start Bid) resolves the profile from the seeded `shared_company_profile` row automatically — do NOT also pass it in params there.
+
+**`decisionBasisHash`** is format-validated to be **64 hex chars** (`require_decision_basis_hash`, `DECISION_BASIS_HASH_LENGTH = 64`). A synthetic 64-hex string passes the format gate for the `--skill-path` proof; semantic matching (`reviewedBasisHash == current`) only matters on the full-workflow readiness path, where the daemon computes it.
+
+**Locating the run manifest:** don't guess the dir — read the path the daemon recorded (`persist_run_manifest_metadata` writes `run_manifest_path`/`run_manifest_hash` into the session-log row), or search the configured artifact store (`artifacts/sessions/.../run-manifest.md`).
+
+**If you drive the full workflow (7.2 Proof B(i)),** the readiness gate needs a minimal synthetic upstream chain + `operator_decision_heads(disposition='approved', reviewed_basis_hash=<matching>)`, and **`--run-bid-workflow` itself re-checks readiness and refuses if blockers remain** (`run_bid_workflow_manual_trigger` → `ensure!(blockers.is_empty())`). The 2026-05-25 session judged this ~80 NOT-NULL-column fabrication too heavy and pivoted to `--skill-path`. **Time-box it to 30 min; if it balloons, take the §10-7.2 Proof B(ii) fallback and cite the test suite.** A *blocked* manual trigger that prints its blockers JSON is itself a valid proof the gate enforces its invariants — capture it. Either path legitimately closes the bead under the smoke-test mandate.
 
 **Never** present any of this as real. Every synthetic artifact carries a `SMOKE-TEST` / `SMOKE_TEST_PLACEHOLDER` marker.
 
@@ -359,9 +419,11 @@ Diary, commit, push, `bin/br-complete`.
 
 ---
 
-## §13. Session Landing (only if genuinely blocked)
+## §13. Session Landing (TRUE LAST RESORT — exhaust the §1A repair loop first)
 
-If a constitutional block or irrecoverable technical failure stops you: push WIP (`git commit -m "wip: <id> — handoff"`, set `AGENT_NAME`), `bin/br-sync && git add .beads/ && commit && push`, reset the in-progress bead to `open` with a `br comments add` note, `release_file_reservations(...)`, send an `[l6] handoff` AgentMail with done/blocked/next, confirm `git status` clean, stop. Never `git reset --hard` / `git push --force`. **But first re-read §0 #2/#5 — most "blocks" last time were the agent over-scoping a real bid; the smoke-test path is almost always completable.**
+Landing the plane is failure, not a checkpoint. Before you even consider it: re-read §0 #2/#5 (most "blocks" last time were self-inflicted over-scoping), run the §1A VALIDATE→REPAIR loop to its 5-attempt bound, and confirm the block is a genuine constitutional bright line (§2) or a truly irrecoverable technical failure — NOT "a safe decision I'd rather defer to the operator." There is no operator coming; decide and proceed.
+
+If — and only if — you are genuinely, irrecoverably blocked: push WIP (`git commit -m "wip: <id> — handoff"`, set `AGENT_NAME`), `bin/br-sync && git add .beads/ && commit && push`, reset the in-progress bead to `open` with a `br comments add` note, `release_file_reservations(...)`, send an `[l6] handoff` AgentMail with done/blocked/next, confirm `git status` clean, stop. Never `git reset --hard` / `git push --force`. **But first re-read §0 #2/#5 — most "blocks" last time were the agent over-scoping a real bid; the smoke-test path is almost always completable.**
 
 ---
 
