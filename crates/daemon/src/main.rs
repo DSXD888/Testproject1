@@ -306,6 +306,15 @@ const STAGE11_SKILL_RETRY_BACKOFF_2_SECONDS_DEFAULT: u64 = 45;
 const STAGE11_SKILL_RETRY_BACKOFFS_ENV: &str = "STAGE11_SKILL_RETRY_BACKOFFS_SECONDS";
 const STAGE11_FREIGHT_CACHE_TTL_DAYS_DEFAULT: u64 = 7;
 const STAGE11_FREIGHT_CACHE_TTL_DAYS_ENV: &str = "STAGE11_FREIGHT_CACHE_TTL_DAYS";
+// Stage 11 freshness windows (obep / testproject1-obep): explicit, policy-driven TTLs
+// for the three rerun-able data classes. A stored lookup is "stale" once its checked-at
+// timestamp is older than its window; stale/missing → rerun rather than reuse.
+// FX moves fastest (daily), freight reuses its existing 7-day cache window, tariff/duty
+// schedules change slowly (monthly cadence).
+const STAGE11_TARIFF_FRESHNESS_DAYS_DEFAULT: u64 = 30;
+const STAGE11_TARIFF_FRESHNESS_DAYS_ENV: &str = "STAGE11_TARIFF_FRESHNESS_DAYS";
+const STAGE11_FX_FRESHNESS_DAYS_DEFAULT: u64 = 1;
+const STAGE11_FX_FRESHNESS_DAYS_ENV: &str = "STAGE11_FX_FRESHNESS_DAYS";
 const STAGE11_SIMULATE_CAPTCHA_ENV: &str = "STAGE11_SIMULATE_CAPTCHA";
 const NET_MARGIN_STAGE_NAME: &str = "net margin gate";
 const NET_MARGIN_PASS_THRESHOLD_BPS: i64 = 2_000;
@@ -7174,6 +7183,98 @@ struct CachedFreightSnapshot {
     created_at: String,
 }
 
+/// Freshness verdict for a stored Stage 11 lookup (tariff / freight / FX).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Stage11Freshness {
+    /// `checked_at` is present and within its configured window.
+    Fresh,
+    /// `checked_at` is present but older than its window → rerun.
+    Stale,
+    /// `checked_at` is absent or unparseable → rerun (treat as never-checked).
+    Missing,
+}
+
+impl Stage11Freshness {
+    /// `true` when the lookup should be rerun rather than reused.
+    const fn needs_rerun(self) -> bool {
+        matches!(self, Self::Stale | Self::Missing)
+    }
+}
+
+/// Pure freshness decision: is a `checked_at` timestamp within `window_days` of `now`?
+///
+/// `None`, empty, or unparseable timestamps are `Missing` (rerun). A timestamp newer
+/// than `now` is treated as `Fresh` (clock skew should not force a needless rerun).
+/// Split out so the rerun policy is unit-testable without a database or real clock.
+fn classify_stage11_freshness(
+    checked_at: Option<&str>,
+    window_days: u64,
+    now: chrono::DateTime<Utc>,
+) -> Stage11Freshness {
+    let Some(raw) = checked_at.map(str::trim).filter(|s| !s.is_empty()) else {
+        return Stage11Freshness::Missing;
+    };
+    let Ok(parsed) = chrono::DateTime::parse_from_rfc3339(raw) else {
+        return Stage11Freshness::Missing;
+    };
+    let age = now.signed_duration_since(parsed.with_timezone(&Utc));
+    // `window_days` fits comfortably in i64 for any realistic policy value.
+    let window = chrono::Duration::days(i64::try_from(window_days).unwrap_or(i64::MAX));
+    if age <= window {
+        Stage11Freshness::Fresh
+    } else {
+        Stage11Freshness::Stale
+    }
+}
+
+/// Explicit, policy-driven freshness windows for the three rerun-able Stage 11 data
+/// classes (obep / testproject1-obep). Loaded from env with `STAGE11_*_FRESHNESS_DAYS`
+/// / `STAGE11_FREIGHT_CACHE_TTL_DAYS` overrides; falls back to the `*_DEFAULT` constants.
+#[derive(Debug, Clone, Copy)]
+#[allow(clippy::struct_field_names)] // `_days` is a meaningful unit suffix on every window
+struct Stage11FreshnessPolicy {
+    tariff_days: u64,
+    freight_days: u64,
+    fx_days: u64,
+}
+
+impl Stage11FreshnessPolicy {
+    fn from_env() -> Self {
+        Self::from_env_lookup(|key| std::env::var(key).ok())
+    }
+
+    fn from_env_lookup<F: Fn(&str) -> Option<String>>(lookup: F) -> Self {
+        let read = |env_key: &str, default: u64| {
+            lookup(env_key)
+                .and_then(|raw| raw.trim().parse::<u64>().ok())
+                .unwrap_or(default)
+        };
+        Self {
+            tariff_days: read(
+                STAGE11_TARIFF_FRESHNESS_DAYS_ENV,
+                STAGE11_TARIFF_FRESHNESS_DAYS_DEFAULT,
+            ),
+            freight_days: read(
+                STAGE11_FREIGHT_CACHE_TTL_DAYS_ENV,
+                STAGE11_FREIGHT_CACHE_TTL_DAYS_DEFAULT,
+            ),
+            fx_days: read(
+                STAGE11_FX_FRESHNESS_DAYS_ENV,
+                STAGE11_FX_FRESHNESS_DAYS_DEFAULT,
+            ),
+        }
+    }
+
+    /// Freshness verdict for a stored FX rate against the configured FX window.
+    fn fx_freshness(
+        &self,
+        checked_at: Option<&str>,
+        now: chrono::DateTime<Utc>,
+    ) -> Stage11Freshness {
+        classify_stage11_freshness(checked_at, self.fx_days, now)
+    }
+}
+
 /// Looks up the most recent successful freight number for this
 /// (`process_id`, `supplier_quote_id`) tuple, scoped to the cache TTL window.
 ///
@@ -9071,6 +9172,17 @@ async fn run_landed_cost_live_loop(
     let mut searates_skill_runs = 0_usize;
     let mut fx_skill_runs = 0_usize;
     let retry_config = SearatesRetryConfig::from_env_and_job_parameters(&job_parameters);
+    let freshness_policy = Stage11FreshnessPolicy::from_env();
+    // Surface the active rerun policy. Tariff and FX are re-derived on every Stage 11
+    // run (so they are inherently fresh); the freight cache and the cached-freight FX
+    // reuse are gated against these windows below. tariff_days is the configured policy
+    // value that applies once tariff results are cached for reuse.
+    ::tracing::debug!(
+        tariff_freshness_days = freshness_policy.tariff_days,
+        freight_freshness_days = freshness_policy.freight_days,
+        fx_freshness_days = freshness_policy.fx_days,
+        "stage11.freshness_policy"
+    );
 
     for row in &assessments {
         attempted += 1;
@@ -9269,7 +9381,7 @@ async fn run_landed_cost_live_loop(
                 runtime.state_db.connection(),
                 &row.process_id,
                 &row.selected_quote_id,
-                retry_config.cache_ttl_days,
+                freshness_policy.freight_days,
             )?;
             if let Some(snapshot) = cached {
                 ::tracing::info!(
@@ -9277,13 +9389,29 @@ async fn run_landed_cost_live_loop(
                     cached_at = %snapshot.created_at,
                     "Stage 11 SeaRates blocked; substituting cached freight estimate"
                 );
-                let warning = Stage11Issue::warning(
+                let mut cache_warnings = vec![Stage11Issue::warning(
                     "FREIGHT_FROM_CACHED_ESTIMATE",
                     format!(
                         "Captcha/CDP failure; using cached freight from {} (within {} day TTL).",
                         snapshot.created_at, retry_config.cache_ttl_days
                     ),
-                );
+                )];
+                // The cached freight snapshot also reuses the cached FX rate. Flag it
+                // when that FX rate is older than the FX freshness window so the operator
+                // knows the substituted estimate carries a stale conversion (obep).
+                if freshness_policy
+                    .fx_freshness(snapshot.fx_checked_at.as_deref(), Utc::now())
+                    .needs_rerun()
+                {
+                    cache_warnings.push(Stage11Issue::warning(
+                        "FX_FROM_STALE_CACHE",
+                        format!(
+                            "Cached freight reuses an FX rate checked at {} which is older than the {} day FX freshness window; refresh FX when CDP recovers.",
+                            snapshot.fx_checked_at.as_deref().unwrap_or("unknown"),
+                            freshness_policy.fx_days
+                        ),
+                    ));
+                }
                 freight = FreightScenarioGbp {
                     low_gbp_pence: snapshot.low_gbp_pence,
                     base_gbp_pence: snapshot.base_gbp_pence,
@@ -9293,7 +9421,7 @@ async fn run_landed_cost_live_loop(
                     fx_status: "cached".to_owned(),
                     fx_session_id: None,
                     fx_job_id: None,
-                    warnings: vec![warning],
+                    warnings: cache_warnings,
                     blockers: Vec::new(),
                 };
             } else {
@@ -29394,6 +29522,92 @@ mod tests {
         });
         assert_eq!(cfg.backoffs[0].as_secs(), 1);
         assert_eq!(cfg.backoffs[1].as_secs(), 3);
+    }
+
+    /// obep / testproject1-obep — Stage 11 freshness windows are explicit policy values
+    /// and the rerun decision classifies fresh/stale/missing for tariff, freight, and FX.
+    #[test]
+    fn stage11_freshness_policy_classifies_all_three_classes() {
+        use super::{Stage11Freshness, Stage11FreshnessPolicy, classify_stage11_freshness};
+        let now = chrono::DateTime::parse_from_rfc3339("2026-06-01T12:00:00Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+
+        // Explicit policy values, env-overridable.
+        let policy = Stage11FreshnessPolicy::from_env_lookup(|k| match k {
+            "STAGE11_TARIFF_FRESHNESS_DAYS" => Some("30".to_owned()),
+            "STAGE11_FREIGHT_CACHE_TTL_DAYS" => Some("7".to_owned()),
+            "STAGE11_FX_FRESHNESS_DAYS" => Some("1".to_owned()),
+            _ => None,
+        });
+        assert_eq!(
+            (policy.tariff_days, policy.freight_days, policy.fx_days),
+            (30, 7, 1)
+        );
+
+        // Missing / empty / unparseable checked_at → Missing (rerun) for every class.
+        for window in [policy.tariff_days, policy.freight_days, policy.fx_days] {
+            assert_eq!(
+                classify_stage11_freshness(None, window, now),
+                Stage11Freshness::Missing
+            );
+            assert_eq!(
+                classify_stage11_freshness(Some("   "), window, now),
+                Stage11Freshness::Missing
+            );
+            assert_eq!(
+                classify_stage11_freshness(Some("not-a-timestamp"), window, now),
+                Stage11Freshness::Missing
+            );
+            assert!(classify_stage11_freshness(None, window, now).needs_rerun());
+        }
+
+        // Tariff (30d): 10 days old fresh, ~42 days old stale.
+        assert_eq!(
+            classify_stage11_freshness(Some("2026-05-22T12:00:00Z"), policy.tariff_days, now),
+            Stage11Freshness::Fresh
+        );
+        assert_eq!(
+            classify_stage11_freshness(Some("2026-04-20T12:00:00Z"), policy.tariff_days, now),
+            Stage11Freshness::Stale
+        );
+
+        // Freight (7d): 3 days old fresh, 12 days old stale.
+        assert_eq!(
+            classify_stage11_freshness(Some("2026-05-29T12:00:00Z"), policy.freight_days, now),
+            Stage11Freshness::Fresh
+        );
+        assert_eq!(
+            classify_stage11_freshness(Some("2026-05-20T12:00:00Z"), policy.freight_days, now),
+            Stage11Freshness::Stale
+        );
+
+        // FX (1d): 6h old fresh, 3 days old stale (and reruns).
+        assert_eq!(
+            classify_stage11_freshness(Some("2026-06-01T06:00:00Z"), policy.fx_days, now),
+            Stage11Freshness::Fresh
+        );
+        let stale_fx =
+            classify_stage11_freshness(Some("2026-05-29T12:00:00Z"), policy.fx_days, now);
+        assert_eq!(stale_fx, Stage11Freshness::Stale);
+        assert!(stale_fx.needs_rerun());
+
+        // Clock skew: a future checked_at is treated as fresh, not stale.
+        assert_eq!(
+            classify_stage11_freshness(Some("2026-06-02T12:00:00Z"), policy.fx_days, now),
+            Stage11Freshness::Fresh
+        );
+
+        // Defaults apply when env is absent.
+        let defaults = Stage11FreshnessPolicy::from_env_lookup(|_| None);
+        assert_eq!(
+            (
+                defaults.tariff_days,
+                defaults.freight_days,
+                defaults.fx_days
+            ),
+            (30, 7, 1)
+        );
     }
 
     /// CDP.13 — Scenario B's handoff command drives captcha simulation through
