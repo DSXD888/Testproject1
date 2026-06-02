@@ -193,7 +193,11 @@ fn l5_t_customs_classification_007_036_and_measure_interaction_019_complete_land
 
     let null_columns = landed_cost_null_columns(conn, "l5-landed-cost-complete")?;
     ensure!(
-        null_columns == BTreeSet::from(["cbam_estimate_gbp_pence".to_owned()]),
+        null_columns
+            == BTreeSet::from([
+                "cbam_estimate_gbp_pence".to_owned(),
+                "permit_responsibility".to_owned(),
+            ]),
         "unexpected explicit-null landed-cost columns: {null_columns:?}"
     );
 
@@ -348,6 +352,15 @@ const LANDED_COST_COLUMN_CONTRACT: &[&str] = &[
     "vat_recovery_rate_bps",
     "uk_final_mile_cost_gbp_pence",
     "other_fees_gbp_pence",
+    "goods_landed_cost_gbp_pence",
+    "installation_labour_cost_gbp_pence",
+    "installation_labour_low_gbp_pence",
+    "installation_labour_high_gbp_pence",
+    "installation_labour_confidence_bps",
+    "permit_traffic_mgmt_cost_gbp_pence",
+    "permit_traffic_mgmt_low_gbp_pence",
+    "permit_traffic_mgmt_high_gbp_pence",
+    "permit_responsibility",
     "economic_landed_cost_gbp_pence",
     "cash_outlay_gbp_pence",
     "cash_to_clear_gbp_pence",

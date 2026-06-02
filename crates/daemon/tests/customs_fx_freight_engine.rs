@@ -351,7 +351,10 @@ fn assert_marketplace_source_health_dispatch() -> Result<()> {
         dispatch.definition.cron_expression == cron_impl::MARKETPLACE_SOURCE_HEALTH_CANARY_CRON
     );
     ensure!(dispatch.job_class == cron_impl::CronJobClass::SourceHealth);
-    ensure!(dispatch.priority == arbiter_impl::AdmissionPriority::AuthRefreshOrHealthProbe);
+    ensure!(matches!(
+        dispatch.priority,
+        arbiter_impl::AdmissionPriority::AuthRefreshOrHealthProbe
+    ));
     ensure!(dispatch.enqueue_request.kind == "source_health");
     ensure!(dispatch.enqueue_request.scope_kind.as_deref() == Some("source"));
     ensure!(
@@ -457,7 +460,10 @@ fn source_health_canary_sources(canary_text: &str) -> Result<BTreeSet<String>> {
     for line in canary_text.lines().filter(|line| !line.trim().is_empty()) {
         let row: Value = serde_json::from_str(line)?;
         ensure!(
-            row.get("paid_api_auth_check").and_then(Value::as_bool) == Some(false),
+            matches!(
+                row.get("paid_api_auth_check").and_then(Value::as_bool),
+                Some(false)
+            ),
             "source-health canary must not perform paid API auth checks"
         );
         let source_id = row
@@ -572,6 +578,7 @@ fn assert_landed_cost_fx_row(conn: &Connection, local_seq: i64) -> Result<()> {
             local_seq
         )
     );
+    assert_landed_cost_labour_defaults(conn, "l5-fx-landed")?;
     Ok(())
 }
 
@@ -689,6 +696,7 @@ fn assert_freight_landed_cost_issue(
             ensure!(decision_grade == "broker_required");
         }
     }
+    assert_landed_cost_labour_defaults(conn, landed_cost_id)?;
     Ok(())
 }
 
@@ -699,6 +707,41 @@ fn issue_codes(issue_json: &str) -> Result<BTreeSet<String>> {
         .filter_map(|issue| issue.get("code").and_then(Value::as_str))
         .map(str::to_owned)
         .collect())
+}
+
+fn assert_landed_cost_labour_defaults(conn: &Connection, landed_cost_id: &str) -> Result<()> {
+    let defaults = conn.query_row(
+        "\
+        SELECT installation_labour_cost_gbp_pence,
+               installation_labour_low_gbp_pence,
+               installation_labour_high_gbp_pence,
+               installation_labour_confidence_bps,
+               permit_traffic_mgmt_cost_gbp_pence,
+               permit_traffic_mgmt_low_gbp_pence,
+               permit_traffic_mgmt_high_gbp_pence,
+               permit_responsibility
+        FROM landed_cost_estimates
+        WHERE id = ?1
+        ",
+        [landed_cost_id],
+        |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, i64>(1)?,
+                row.get::<_, i64>(2)?,
+                row.get::<_, i64>(3)?,
+                row.get::<_, i64>(4)?,
+                row.get::<_, i64>(5)?,
+                row.get::<_, i64>(6)?,
+                row.get::<_, Option<String>>(7)?,
+            ))
+        },
+    )?;
+    ensure!(
+        defaults == (0, 0, 0, 0, 0, 0, 0, None),
+        "legacy landed_cost_estimates INSERT should default labour/permit fields for {landed_cost_id}"
+    );
+    Ok(())
 }
 
 const fn freight_landed_cost_insert_sql() -> &'static str {

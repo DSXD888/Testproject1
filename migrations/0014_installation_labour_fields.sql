@@ -51,6 +51,37 @@ ALTER TABLE landed_cost_estimates
     )
   );
 
+ALTER TABLE pipeline_assessments
+  ADD COLUMN goods_value_share_bps INTEGER CHECK (
+    goods_value_share_bps BETWEEN 0 AND 10000
+  );
+
+ALTER TABLE pipeline_assessments
+  ADD COLUMN goods_value_share_basis TEXT CHECK (
+    goods_value_share_basis IS NULL
+    OR goods_value_share_basis IN ('contract_value', 'cost_proxy')
+  );
+
+ALTER TABLE pipeline_assessments
+  ADD COLUMN installation_labour_coverage_bps INTEGER CHECK (
+    installation_labour_coverage_bps BETWEEN 0 AND 10000
+  );
+
+ALTER TABLE pipeline_assessments
+  ADD COLUMN installation_labour_value_coverage_bps INTEGER CHECK (
+    installation_labour_value_coverage_bps BETWEEN 0 AND 10000
+  );
+
+ALTER TABLE pipeline_assessments
+  ADD COLUMN permit_traffic_mgmt_coverage_bps INTEGER CHECK (
+    permit_traffic_mgmt_coverage_bps BETWEEN 0 AND 10000
+  );
+
+ALTER TABLE pipeline_assessments
+  ADD COLUMN permit_traffic_mgmt_value_coverage_bps INTEGER CHECK (
+    permit_traffic_mgmt_value_coverage_bps BETWEEN 0 AND 10000
+  );
+
 CREATE TABLE IF NOT EXISTS maintenance_period_estimates (
   id TEXT PRIMARY KEY,
   process_id TEXT NOT NULL REFERENCES procurement_processes(id),

@@ -193,6 +193,7 @@ pub fn logical_schema_from_sql(sql: &str, table_names: &[&str]) -> Result<Logica
     for table_name in table_names {
         let block = create_table_block(sql, table_name)?;
         let mut columns = parse_columns(&block)?;
+        apply_alter_table_columns(sql, table_name, &mut columns)?;
         ensure!(
             !columns.is_empty(),
             "expected Supabase table `{table_name}` to define at least one column"
@@ -214,19 +215,81 @@ fn create_table_block(sql: &str, table_name: &str) -> Result<String> {
         .filter_map(|needle| lower_sql.find(needle))
         .min()
         .with_context(|| format!("missing CREATE TABLE block for `{table_name}`"))?;
-    let open = sql[start..]
+    let search_sql = sql
+        .get(start..)
+        .with_context(|| format!("invalid CREATE TABLE start offset for `{table_name}`"))?;
+    let open = search_sql
         .find('(')
         .map(|offset| start + offset)
         .with_context(|| format!("missing opening parenthesis for `{table_name}`"))?;
     let close = matching_close_parenthesis(sql, open)
         .with_context(|| format!("missing closing parenthesis for `{table_name}`"))?;
-    Ok(sql[open + 1..close].to_owned())
+    sql.get(open + 1..close)
+        .map(str::to_owned)
+        .with_context(|| format!("invalid CREATE TABLE column block range for `{table_name}`"))
+}
+
+fn apply_alter_table_columns(
+    sql: &str,
+    table_name: &str,
+    columns: &mut Vec<LogicalColumn>,
+) -> Result<()> {
+    let lower_sql = sql.to_ascii_lowercase();
+    let needles = [
+        format!("alter table if exists {table_name}"),
+        format!("alter table {table_name}"),
+    ];
+    let mut search_start = 0usize;
+
+    while search_start < sql.len() {
+        let remaining_lower_sql = lower_sql
+            .get(search_start..)
+            .context("invalid ALTER TABLE search offset")?;
+        let Some((relative_start, needle_len)) = needles
+            .iter()
+            .filter_map(|needle| {
+                remaining_lower_sql
+                    .find(needle)
+                    .map(|offset| (offset, needle.len()))
+            })
+            .min_by_key(|(offset, _)| *offset)
+        else {
+            break;
+        };
+        let statement_start = search_start + relative_start;
+        let after_table = statement_start + needle_len;
+        let statement_sql = sql
+            .get(statement_start..)
+            .context("invalid ALTER TABLE statement start offset")?;
+        let statement_end = statement_sql
+            .find(';')
+            .map_or(sql.len(), |offset| statement_start + offset);
+        let statement_body = sql
+            .get(after_table..statement_end)
+            .context("invalid ALTER TABLE statement body range")?;
+        let clauses = split_top_level_commas(statement_body);
+        for clause in clauses {
+            let clause = clause.trim();
+            let Some(column_definition) = strip_ascii_prefix(clause, "add column if not exists ")
+                .or_else(|| strip_ascii_prefix(clause, "add column "))
+            else {
+                continue;
+            };
+            let column = parse_column(column_definition)?;
+            if !columns.iter().any(|existing| existing.name == column.name) {
+                columns.push(column);
+            }
+        }
+        search_start = statement_end.saturating_add(1);
+    }
+
+    Ok(())
 }
 
 fn matching_close_parenthesis(sql: &str, open: usize) -> Option<usize> {
     let mut depth = 0usize;
     let mut in_single_quote = false;
-    for (offset, character) in sql[open..].char_indices() {
+    for (offset, character) in sql.get(open..)?.char_indices() {
         match character {
             '\'' => in_single_quote = !in_single_quote,
             '(' if !in_single_quote => depth += 1,
@@ -338,6 +401,15 @@ fn clean_identifier(identifier: &str) -> String {
         .trim_matches('"')
         .trim_matches('`')
         .to_owned()
+}
+
+fn strip_ascii_prefix<'a>(value: &'a str, prefix: &str) -> Option<&'a str> {
+    let candidate = value.get(..prefix.len())?;
+    if candidate.eq_ignore_ascii_case(prefix) {
+        Some(value[prefix.len()..].trim_start())
+    } else {
+        None
+    }
 }
 
 fn psql_available() -> bool {
