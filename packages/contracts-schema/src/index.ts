@@ -14,6 +14,39 @@ export type OperatorDisposition =
   | 'approved'
   | 'rejected';
 
+export type PermitResponsibility =
+  | 'authority_provided'
+  | 'contractor_provided'
+  | 'shared'
+  | 'unknown';
+
+export type GoodsValueShareBasis = 'contract_value' | 'cost_proxy';
+
+export type MaintenanceSchedule = {
+  visits_per_year: number | null;
+  term_years: number | null;
+  visit_scope: string | null;
+} & { [key: string]: Json | undefined };
+
+export type InstallationRequirement = {
+  requires_installation: boolean;
+  requires_maintenance: boolean;
+  installation_scope: string | null;
+  maintenance_schedule: MaintenanceSchedule | string | null;
+  site_access: string | null;
+  at_height_m: number | null;
+  uk_region: string | null;
+  estimated_units: number | null;
+  equipment_hint: string | null;
+  permit_responsibility: PermitResponsibility;
+  public_realm: boolean | null;
+  lane_rental_zone: boolean | null;
+} & { [key: string]: Json | undefined };
+
+export type ProductCandidateCriticalAttributes = {
+  installation_requirement?: InstallationRequirement;
+} & { [key: string]: Json | undefined };
+
 export interface ProcurementProcessRow {
   id: string;
   canonical_ocid: string | null;
@@ -55,7 +88,7 @@ export interface ProductCandidateRow {
   handling_restrictions_json: Json | null;
   material: string | null;
   brand_model: string | null;
-  critical_attributes_json: Json | null;
+  critical_attributes_json: ProductCandidateCriticalAttributes | Json | null;
   numeric_specs_json: Json | null;
   standards_json: Json | null;
   preferred_terms_json: Json | null;
@@ -174,6 +207,15 @@ export interface LandedCostEstimateRow {
   packing_scenario: string | null;
   declarable_commodity_code_10: string | null;
   candidate_commodity_codes_json: Json | null;
+  goods_landed_cost_gbp_pence: number | null;
+  installation_labour_cost_gbp_pence: number | null;
+  installation_labour_low_gbp_pence: number | null;
+  installation_labour_high_gbp_pence: number | null;
+  installation_labour_confidence_bps: number | null;
+  permit_traffic_mgmt_cost_gbp_pence: number | null;
+  permit_traffic_mgmt_low_gbp_pence: number | null;
+  permit_traffic_mgmt_high_gbp_pence: number | null;
+  permit_responsibility: PermitResponsibility | null;
   economic_landed_cost_gbp_pence: number;
   net_margin_low_bps: number;
   net_margin_base_bps: number;
@@ -227,6 +269,12 @@ export interface PipelineAssessmentRow {
   priced_value_coverage_bps: number | null;
   landed_cost_value_coverage_bps: number | null;
   net_qualified_value_coverage_bps: number | null;
+  goods_value_share_bps: number | null;
+  goods_value_share_basis: GoodsValueShareBasis | null;
+  installation_labour_coverage_bps: number | null;
+  installation_labour_value_coverage_bps: number | null;
+  permit_traffic_mgmt_coverage_bps: number | null;
+  permit_traffic_mgmt_value_coverage_bps: number | null;
   unresolved_mandatory_lots: number;
   decision_basis_hash: string | null;
   review_stage: string | null;
