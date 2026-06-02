@@ -42,6 +42,16 @@ cases:
       hire_default: operated
       min_days_source: profile_duration_or_band_minimum
     expected_permit_responsibility: unknown
+    permit_traffic_mgmt:
+      separate_from_labour: true
+      expected_responsibility: unknown
+      required_line_item_components:
+        - ttro
+        - parking_suspension
+        - physical_traffic_management
+      low_may_be_zero: true
+      requires_positive_base: true
+      requires_high_gte_base: true
     required_warning_codes:
       - ACCESS_AT_HEIGHT_ASSUMED_MEWP
       - PERMIT_RESPONSIBILITY_UNKNOWN
@@ -76,6 +86,17 @@ cases:
       - PERMIT_RESPONSIBILITY_UNKNOWN
       - LANE_RENTAL_ZONE
       - TTRO_LEAD_TIME_RISK
+    permit_traffic_mgmt:
+      separate_from_labour: true
+      expected_responsibility: unknown
+      required_line_item_components:
+        - ttro
+        - lane_rental
+        - parking_suspension
+        - physical_traffic_management
+      required_warning_codes:
+        - LANE_RENTAL_ZONE
+        - TTRO_LEAD_TIME_RISK
   cctv-yh-install-01:
     result_schema_valid: true
     expected_labour_status: estimated
@@ -175,6 +196,35 @@ shared_assertions:
     operated_hire_default: true
     auto_selected_mewp_warning: ACCESS_AT_HEIGHT_ASSUMED_MEWP
     furniture_assembly_forbids_equipment_line: true
+  permit_traffic_mgmt_resolver:
+    reference_table: uk-permit-tm-bands-2026-q2.json
+    component_contract: PermitTrafficMgmtLineItem
+    output_fields:
+      - permit_traffic_mgmt_line_items
+      - permit_traffic_mgmt_base_gbp_pence
+      - permit_traffic_mgmt_low_gbp_pence
+      - permit_traffic_mgmt_high_gbp_pence
+      - permit_responsibility
+    distinct_from_labour: true
+    permit_responsibility_values:
+      - authority_provided
+      - contractor_provided
+      - shared
+      - unknown
+    authority_provided_prices_zero: true
+    unknown_policy:
+      low_may_be_zero: true
+      base_and_high_are_modelled: true
+      warning_code: PERMIT_RESPONSIBILITY_UNKNOWN
+    public_realm_components:
+      - ttro
+      - street_works_notice
+      - lane_rental
+      - parking_suspension
+      - highway_scaffold_licence
+      - physical_traffic_management
+    lane_rental_zone_warning: LANE_RENTAL_ZONE
+    ttro_warning: TTRO_LEAD_TIME_RISK
   excluded_cost_flags_include:
     - firm_pricing_excluded
     - subcontractor_compliance_excluded

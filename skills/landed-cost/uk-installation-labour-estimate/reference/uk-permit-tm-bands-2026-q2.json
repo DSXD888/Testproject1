@@ -26,6 +26,46 @@
     "unknown_warning_code": "PERMIT_RESPONSIBILITY_UNKNOWN",
     "near_authority_boundary_review": true
   },
+  "line_item_contract": {
+    "component_name": "PermitTrafficMgmtLineItem",
+    "required_fields": [
+      "component",
+      "responsibility",
+      "low_gbp_pence",
+      "base_gbp_pence",
+      "high_gbp_pence",
+      "basis"
+    ],
+    "fold_into_labour": false
+  },
+  "responsibility_pricing_policy": {
+    "authority_provided": {
+      "low_multiplier_bps": 0,
+      "base_multiplier_bps": 0,
+      "high_multiplier_bps": 0,
+      "warning_codes": []
+    },
+    "contractor_provided": {
+      "low_multiplier_bps": 10000,
+      "base_multiplier_bps": 10000,
+      "high_multiplier_bps": 10000,
+      "warning_codes": []
+    },
+    "shared": {
+      "low_multiplier_bps": 5000,
+      "base_multiplier_bps": 5000,
+      "high_multiplier_bps": 10000,
+      "warning_codes": []
+    },
+    "unknown": {
+      "low_multiplier_bps": 0,
+      "base_multiplier_bps": 10000,
+      "high_multiplier_bps": 10000,
+      "warning_codes": [
+        "PERMIT_RESPONSIBILITY_UNKNOWN"
+      ]
+    }
+  },
   "lane_rental_zones": [
     {
       "zone_id": "london_tfl_red_route",
@@ -98,6 +138,80 @@
       "high_gbp_pence": 220000
     }
   },
+  "public_realm_component_rules": [
+    {
+      "rule_id": "private_or_authority_provided",
+      "conditions": [
+        "private_site",
+        "authority_provided"
+      ],
+      "components": [],
+      "band_id": "none"
+    },
+    {
+      "rule_id": "footway_public_realm",
+      "conditions": [
+        "public_realm",
+        "footway"
+      ],
+      "components": [
+        "street_works_notice",
+        "highway_scaffold_licence"
+      ],
+      "band_id": "footway_access_low_traffic"
+    },
+    {
+      "rule_id": "high_street_public_realm",
+      "conditions": [
+        "public_realm",
+        "high_street"
+      ],
+      "components": [
+        "ttro",
+        "parking_suspension",
+        "physical_traffic_management"
+      ],
+      "band_id": "public_realm_high_street_standard"
+    },
+    {
+      "rule_id": "lane_rental_high_street",
+      "conditions": [
+        "public_realm",
+        "high_street",
+        "lane_rental_zone"
+      ],
+      "components": [
+        "ttro",
+        "lane_rental",
+        "parking_suspension",
+        "physical_traffic_management"
+      ],
+      "band_id": "london_lane_rental_high_street",
+      "warning_codes": [
+        "LANE_RENTAL_ZONE",
+        "TTRO_LEAD_TIME_RISK"
+      ]
+    },
+    {
+      "rule_id": "roadside_lane_closure",
+      "conditions": [
+        "public_realm",
+        "roadside",
+        "lane_closure"
+      ],
+      "components": [
+        "ttro",
+        "street_works_notice",
+        "lane_rental",
+        "physical_traffic_management"
+      ],
+      "band_id": "lane_closure_traffic_signals",
+      "warning_codes": [
+        "LANE_RENTAL_ZONE",
+        "TTRO_LEAD_TIME_RISK"
+      ]
+    }
+  ],
   "bands": [
     {
       "band_id": "none",
