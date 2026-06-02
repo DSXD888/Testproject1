@@ -4,7 +4,7 @@
 Order (do not reorder):
   1. resolve agent identity
   2. `br show <id> --json` → status MUST be in_progress
-  3. confirm a `[<id>] Start` from the SAME agent exists in the archive
+  3. confirm a `[<id>] Start:` from the SAME agent exists in the archive
      (otherwise the bead was never properly claimed via br-claim)
   4. resolve commit hash (--commit, else `git log --grep` for `<id>:`)
   5. verify HEAD == @{u} so the commit is actually on the remote
@@ -38,6 +38,10 @@ def die(msg, code=1):
 
 def warn(msg):
     sys.stderr.write(f"br-complete: warning: {msg}\n")
+
+
+def _is_canonical_start_subject(subject, bead_id):
+    return (subject or "").startswith(f"[{bead_id}] Start:")
 
 
 def resolve_agent_name():
@@ -550,7 +554,7 @@ def main():
         if not isinstance(msg, dict):
             continue
         subj = msg.get("subject") or ""
-        if f"[{bead_id}] Start" not in subj:
+        if not _is_canonical_start_subject(subj, bead_id):
             continue
         sender = (
             msg.get("sender_name") or msg.get("from_agent") or msg.get("from") or msg.get("sender")

@@ -4,7 +4,7 @@
 Order (do not reorder):
   1. resolve agent identity ($AGENT_MAIL_NAME, fallback $AGENT_NAME)
   2. `br show <id> --json` → check status (open / not closed / not in_progress by another)
-  3. search_messages for `[<id>] Start` → idempotency: skip mail if our own Start exists,
+  3. search_messages for `[<id>] Start:` → idempotency: skip mail if our own Start exists,
      abort if a different agent has Start
   4. file_reservation_paths(...) — FIRST mutating call; failure here aborts (collision detector)
   5. discover_peers (list_contacts, then list_agents liveness fallback;
@@ -249,6 +249,10 @@ def _parse_iso_ts(value):
     return dt
 
 
+def _is_canonical_start_subject(subject, bead_id):
+    return (subject or "").startswith(f"[{bead_id}] Start:")
+
+
 def _latest_start_mail_claim(messages, bead_id, agent, now=None):
     """Return prior Start-mail state for this bead.
 
@@ -265,7 +269,7 @@ def _latest_start_mail_claim(messages, bead_id, agent, now=None):
         if not isinstance(msg, dict):
             continue
         subj = msg.get("subject") or ""
-        if f"[{bead_id}] Start" not in subj:
+        if not _is_canonical_start_subject(subj, bead_id):
             continue
         sender = (
             msg.get("sender_name") or msg.get("from_agent") or msg.get("from") or msg.get("sender")
