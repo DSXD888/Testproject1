@@ -15,6 +15,27 @@ cases:
     labour_base_gbp_pence_between: [210000, 265000]
     labour_band_default: plus_minus_20_percent
     required_trades: [electrician, labourer]
+    labour_event_model:
+      distinct_visits: true
+      no_weekly_hire_amortisation: true
+      required_labour_types: [installation, deinstallation]
+      event_trade_hours:
+        installation:
+          electrician: 32
+          labourer: 24
+        deinstallation:
+          electrician: 12
+          labourer: 12
+      regional_multiplier_bps: 9300
+      expected_base_from_q2_seed_rates_gbp_pence: 255564
+    labour_line_item_required_fields:
+      - labour_type
+      - trade
+      - quantity_hours
+      - rate_gbp_per_hour_pence
+      - subtotal_gbp_pence
+      - confidence_bps
+      - rate_source
     required_access_equipment_class: boom_mewp
     expected_permit_responsibility: unknown
     required_warning_codes:
