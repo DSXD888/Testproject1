@@ -1,0 +1,245 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://testproject1.local/schemas/uk-installation-labour-estimate-result.schema.json",
+  "title": "UK Installation Labour Estimate Result",
+  "type": "object",
+  "required": [
+    "status",
+    "labour_status",
+    "uk_region",
+    "labour_line_items",
+    "access_equipment_line_items",
+    "labour_base_gbp_pence",
+    "labour_low_gbp_pence",
+    "labour_high_gbp_pence",
+    "labour_confidence_bps",
+    "permit_traffic_mgmt_line_items",
+    "permit_traffic_mgmt_base_gbp_pence",
+    "permit_traffic_mgmt_low_gbp_pence",
+    "permit_traffic_mgmt_high_gbp_pence",
+    "permit_responsibility",
+    "vat_treatment",
+    "excluded_cost_flags",
+    "evidence",
+    "warnings",
+    "blockers"
+  ],
+  "properties": {
+    "status": {
+      "enum": ["estimated", "partial", "blocked"]
+    },
+    "labour_status": {
+      "enum": ["estimated", "not_required", "blocked"]
+    },
+    "uk_region": {
+      "type": ["string", "null"],
+      "minLength": 1
+    },
+    "labour_line_items": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/labour_line_item" }
+    },
+    "access_equipment_line_items": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/access_equipment_line_item" }
+    },
+    "labour_base_gbp_pence": { "$ref": "#/$defs/money_or_null" },
+    "labour_low_gbp_pence": { "$ref": "#/$defs/money_or_null" },
+    "labour_high_gbp_pence": { "$ref": "#/$defs/money_or_null" },
+    "labour_confidence_bps": { "$ref": "#/$defs/bps" },
+    "permit_traffic_mgmt_line_items": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/permit_traffic_mgmt_line_item" }
+    },
+    "permit_traffic_mgmt_base_gbp_pence": { "$ref": "#/$defs/money_or_null" },
+    "permit_traffic_mgmt_low_gbp_pence": { "$ref": "#/$defs/money_or_null" },
+    "permit_traffic_mgmt_high_gbp_pence": { "$ref": "#/$defs/money_or_null" },
+    "permit_responsibility": {
+      "enum": ["authority_provided", "contractor_provided", "shared", "unknown", null]
+    },
+    "vat_treatment": {
+      "type": "string",
+      "minLength": 1
+    },
+    "excluded_cost_flags": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "firm_pricing_excluded",
+          "subcontractor_compliance_excluded",
+          "delivery_responsibility_excluded",
+          "authority_resolved_permit_uncertainty",
+          "vat_treatment_assumption",
+          "non_modelled_plant_or_materials"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "evidence": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/evidence_item" }
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/message" }
+    },
+    "blockers": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/message" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "money": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "money_or_null": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "bps": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10000
+    },
+    "message": {
+      "type": "object",
+      "required": ["code", "message", "severity"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "severity": {
+          "enum": ["info", "warning", "blocker"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "labour_line_item": {
+      "type": "object",
+      "required": [
+        "trade",
+        "hours",
+        "crew_size",
+        "hourly_rate_gbp_pence",
+        "region_multiplier_bps",
+        "base_gbp_pence",
+        "basis"
+      ],
+      "properties": {
+        "trade": {
+          "type": "string",
+          "minLength": 1
+        },
+        "hours": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "crew_size": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "hourly_rate_gbp_pence": { "$ref": "#/$defs/money" },
+        "region_multiplier_bps": { "$ref": "#/$defs/bps" },
+        "base_gbp_pence": { "$ref": "#/$defs/money" },
+        "basis": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "access_equipment_line_item": {
+      "type": "object",
+      "required": [
+        "equipment_class",
+        "days",
+        "day_rate_gbp_pence",
+        "base_gbp_pence",
+        "basis"
+      ],
+      "properties": {
+        "equipment_class": {
+          "type": "string",
+          "minLength": 1
+        },
+        "days": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "day_rate_gbp_pence": { "$ref": "#/$defs/money" },
+        "base_gbp_pence": { "$ref": "#/$defs/money" },
+        "basis": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "permit_traffic_mgmt_line_item": {
+      "type": "object",
+      "required": [
+        "component",
+        "responsibility",
+        "low_gbp_pence",
+        "base_gbp_pence",
+        "high_gbp_pence",
+        "basis"
+      ],
+      "properties": {
+        "component": {
+          "type": "string",
+          "minLength": 1
+        },
+        "responsibility": {
+          "enum": ["authority_provided", "contractor_provided", "shared", "unknown"]
+        },
+        "low_gbp_pence": { "$ref": "#/$defs/money" },
+        "base_gbp_pence": { "$ref": "#/$defs/money" },
+        "high_gbp_pence": { "$ref": "#/$defs/money" },
+        "basis": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "evidence_item": {
+      "type": "object",
+      "required": ["kind", "source", "message"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rate_table_version": {
+          "type": ["string", "null"],
+          "minLength": 1
+        },
+        "provenance": {
+          "type": ["string", "null"],
+          "minLength": 1
+        },
+        "source_url": {
+          "type": ["string", "null"],
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
