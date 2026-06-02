@@ -19,8 +19,21 @@
     "no_height_threshold_m": 2,
     "at_height_warning_code": "ACCESS_AT_HEIGHT_ASSUMED_MEWP",
     "prefer_equipment_hint_when_present": true,
+    "hire_default": "operated",
     "default_public_realm_equipment_class": "boom_mewp",
-    "default_private_site_equipment_class": "scissor_lift"
+    "default_private_site_equipment_class": "scissor_lift",
+    "selector_inputs": [
+      "at_height_m",
+      "site_access",
+      "equipment_hint"
+    ],
+    "selectable_equipment_classes": [
+      "none",
+      "tower_scaffold",
+      "scissor_lift",
+      "boom_mewp",
+      "truck_mount"
+    ]
   },
   "equipment_bands": [
     {

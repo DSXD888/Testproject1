@@ -37,6 +37,10 @@ cases:
       - confidence_bps
       - rate_source
     required_access_equipment_class: boom_mewp
+    access_equipment_selector:
+      selected_from: [at_height_m, site_access, equipment_hint, access_equipment_bands]
+      hire_default: operated
+      min_days_source: profile_duration_or_band_minimum
     expected_permit_responsibility: unknown
     required_warning_codes:
       - ACCESS_AT_HEIGHT_ASSUMED_MEWP
@@ -80,6 +84,12 @@ cases:
     region_multiplier_bps: 8800
     required_access_equipment_class: scissor_lift
     required_access_equipment_when_at_height: true
+    access_equipment_selector:
+      selected_from: [at_height_m, site_access, equipment_hint, access_equipment_bands]
+      hire_default: operated
+      only_when_at_height: true
+    required_warning_codes:
+      - ACCESS_AT_HEIGHT_ASSUMED_MEWP
     forbidden_trade_set_match_case: lights-nw-2day-01
     required_profile_resolution_evidence:
       match_basis: catalogue
@@ -90,6 +100,8 @@ cases:
     expected_labour_status: estimated
     required_trades: [handyperson]
     forbidden_access_equipment_line_items: true
+    forbidden_warning_codes:
+      - ACCESS_AT_HEIGHT_ASSUMED_MEWP
   region-unknown-01:
     result_schema_valid: true
     expected_labour_status: estimated
@@ -156,6 +168,13 @@ shared_assertions:
       - duration_days
       - complexity_multiplier_bps
       - route_reason
+  access_equipment_selector:
+    reference_table: uk-access-equipment-bands-2026-q2.json
+    inputs: [at_height_m, site_access, equipment_hint]
+    selectable_classes: [none, tower_scaffold, scissor_lift, boom_mewp, truck_mount]
+    operated_hire_default: true
+    auto_selected_mewp_warning: ACCESS_AT_HEIGHT_ASSUMED_MEWP
+    furniture_assembly_forbids_equipment_line: true
   excluded_cost_flags_include:
     - firm_pricing_excluded
     - subcontractor_compliance_excluded
