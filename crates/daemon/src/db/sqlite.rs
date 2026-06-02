@@ -79,7 +79,7 @@ const MIGRATIONS: &[(&str, i64, &str)] = &[
     ),
 ];
 
-pub const DEFAULT_SCHEMA_EPOCH: i64 = 9;
+pub const DEFAULT_SCHEMA_EPOCH: i64 = 10;
 pub const DEFAULT_OWNER_ID: &str = "local-owner";
 pub const FTS_SOURCE_ID: &str = "fts";
 
