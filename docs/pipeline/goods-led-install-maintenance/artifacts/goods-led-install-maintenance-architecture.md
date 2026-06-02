@@ -547,7 +547,7 @@ No `crates/daemon/src/sources/registry.rs` edit is needed.
 
 ### 5.5 Goods-Share Calculator
 
-Use a pure integer function:
+Use a pure integer function that rounds to the nearest bps:
 
 ```rust
 fn goods_value_share_bps(goods_landed: i64, labour: i64, permits: i64) -> i64 {
@@ -557,7 +557,7 @@ fn goods_value_share_bps(goods_landed: i64, labour: i64, permits: i64) -> i64 {
     if denominator <= 0 {
         return 0;
     }
-    goods_landed.saturating_mul(10_000) / denominator
+    goods_landed.saturating_mul(10_000).saturating_add(denominator / 2) / denominator
 }
 ```
 

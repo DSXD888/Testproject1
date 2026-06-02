@@ -102,7 +102,7 @@ The following remain excluded:
 
 - `AC-FR-Q.3-a`: Phase 2 runs after landed-cost labour and permit/TM fields are available, not inside early `determineQualificationDecision()`.
 - `AC-FR-Q.3-b`: Preferred basis is contract-value share when `goodsAddressableValuePence` and `totalValuePence` are available.
-- `AC-FR-Q.3-c`: Fallback basis is cost proxy: `goods_landed_cost_gbp_pence * 10000 / (goods_landed_cost_gbp_pence + installation_labour_cost_gbp_pence + permit_traffic_mgmt_cost_gbp_pence)`.
+- `AC-FR-Q.3-c`: Fallback basis is cost proxy: `round(goods_landed_cost_gbp_pence * 10000 / (goods_landed_cost_gbp_pence + installation_labour_cost_gbp_pence + permit_traffic_mgmt_cost_gbp_pence))`.
 - `AC-FR-Q.3-d`: `GOODS_DOMINANCE_FLOOR_BPS` defaults to `6000` and is configurable.
 - `AC-FR-Q.3-e`: Above-floor goods-led mixed contracts resolve to `pass` or `review` according to access route and confidence.
 - `AC-FR-Q.3-f`: Clearly below-floor labour-dominant contracts reject as economically service-only.
@@ -492,7 +492,7 @@ The following remain excluded:
 
 - `AC-FR-V.2-a`: Add `crates/daemon/tests/installation_labour_engine.rs`.
 - `AC-FR-V.2-b`: Tests seed real SQLite rows using existing support helpers, not mocks.
-- `AC-FR-V.2-c`: Every scenario asserts `goods_value_share_bps` is reconstructable from persisted row fields.
+- `AC-FR-V.2-c`: Every scenario asserts `goods_value_share_bps` is reconstructable from persisted row fields using `round(goods_landed_cost_gbp_pence * 10000 / (goods_landed_cost_gbp_pence + installation_labour_cost_gbp_pence + permit_traffic_mgmt_cost_gbp_pence))`.
 - `AC-FR-V.2-d`: Scenario 1 asserts `210000 <= installation_labour_cost_gbp_pence <= 265000`.
 - `AC-FR-V.2-e`: Every scenario asserts integer pence and bps conventions.
 
