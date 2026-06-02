@@ -22,6 +22,10 @@ export type PermitResponsibility =
 
 export type GoodsValueShareBasis = 'contract_value' | 'cost_proxy';
 
+export type SupplierQuoteClass = 'installer_quote' | (string & {});
+
+export type MaintenanceMarginSignal = string & {};
+
 export type MaintenanceSchedule = {
   visits_per_year: number | null;
   term_years: number | null;
@@ -115,7 +119,7 @@ export interface SupplierQuoteRow {
   search_attempt_id: string | null;
   product_name: string;
   region: string;
-  quote_class: string;
+  quote_class: SupplierQuoteClass;
   source_name: string;
   source_url: string | null;
   source_listing_id: string | null;
@@ -154,6 +158,31 @@ export interface SupplierQuoteRow {
   query_wave_number: number | null;
   evidence: string;
   valid_until: string | null;
+  owner_id: string;
+  row_version: number;
+  last_local_seq: number | null;
+  stage_run_id: string | null;
+  updated_at: string;
+  created_at: string;
+}
+
+export interface MaintenancePeriodEstimateRow {
+  id: string;
+  process_id: string;
+  notice_id: string;
+  product_candidate_id: string;
+  landed_cost_estimate_id: string;
+  supplier_quote_id: string | null;
+  visit_scope: string | null;
+  visits_per_year: number;
+  term_years: number;
+  per_visit_labour_cost_gbp_pence: number;
+  annualised_opex_gbp_pence: number;
+  total_visible_term_opex_gbp_pence: number;
+  maintenance_confidence_bps: number;
+  margin_signal: MaintenanceMarginSignal | null;
+  warnings: Json;
+  evidence_json: Json;
   owner_id: string;
   row_version: number;
   last_local_seq: number | null;
@@ -417,6 +446,7 @@ export type ReadableProjectionTable =
   | 'procurement_processes'
   | 'product_candidates'
   | 'supplier_quotes'
+  | 'maintenance_period_estimates'
   | 'candidate_pricing_assessments'
   | 'landed_cost_estimates'
   | 'manifests'
@@ -447,6 +477,7 @@ export interface SharedVisibilityDatabase {
       procurement_processes: ReadOnlyTable<ProcurementProcessRow>;
       product_candidates: ReadOnlyTable<ProductCandidateRow>;
       supplier_quotes: ReadOnlyTable<SupplierQuoteRow>;
+      maintenance_period_estimates: ReadOnlyTable<MaintenancePeriodEstimateRow>;
       candidate_pricing_assessments: ReadOnlyTable<CandidatePricingAssessmentRow>;
       landed_cost_estimates: ReadOnlyTable<LandedCostEstimateRow>;
       manifests: ReadOnlyTable<ManifestRow>;
@@ -488,6 +519,7 @@ export const READABLE_PROJECTION_TABLES = [
   'procurement_processes',
   'product_candidates',
   'supplier_quotes',
+  'maintenance_period_estimates',
   'candidate_pricing_assessments',
   'landed_cost_estimates',
   'manifests',
