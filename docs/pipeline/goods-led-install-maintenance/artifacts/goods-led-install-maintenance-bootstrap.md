@@ -295,6 +295,8 @@ Mirror these patterns:
 - Use `L4TestStateDb::new()` or `TestStateDb::new()`.
 - Assert `PRAGMA user_version == DEFAULT_SCHEMA_EPOCH`.
 - Assert migration `0014_installation_labour_fields` exists in `schema_migrations`.
+- Define a local `const fn landed_cost_insert_sql() -> &'static str` helper with an explicit `landed_cost_estimates` column list, mirroring `customs_fx_freight_engine.rs`.
+- Direct-seed deterministic scenario rows through `landed_cost_insert_sql()` before invoking the real rollup/gate assertions. Do not scatter ad hoc landed-cost INSERT strings through each scenario.
 - Seed `sources`, `contract_notices`, `notice_lots`, `product_candidates`, `supplier_quotes`, and `landed_cost_estimates` using real `rusqlite` inserts.
 - Run real rollup/gate code, or call the smallest real public/internal function boundary that computes the same persisted decision state.
 - Use `anyhow::ensure!` for integration assertions.
@@ -345,6 +347,14 @@ ensure!(
     "Scenario 1 NW labour base must stay within 210000..=265000 pence"
 );
 ```
+
+Negative-control implementation requirements:
+
+| Scenario | Description-quality test | Integration test |
+|---|---|---|
+| 5 Grounds maintenance | `TS-DQ-005` asserts `reject_service`. | `E2E-IL-005` asserts the candidate never reaches Stage 11 and no `landed_cost_estimates` row exists. |
+| 6 Managed cleaning | `TS-DQ-006` asserts `reject_service`. | `E2E-IL-006` asserts the controlled Phase-2 twin has goods share `500` bps and rejects below `GOODS_DOMINANCE_FLOOR_BPS` if it reaches Phase 2. |
+| 7 Electrical maintenance | `TS-DQ-007` asserts `reject_service`. | `E2E-IL-007` asserts no labour skill invocation and no Stage 11 row. |
 
 ## 7. Skill And Fixture Implementation Notes
 
@@ -456,6 +466,25 @@ Required files:
 - `golden.assertions.yaml`
 
 The overlay profile is `headless_contract`. It checks hours vs scope, regional rate bounds, postcode/region plausibility, equipment proportionality, permit responsibility handling, and warning completeness. Rejection or outage forces `review`.
+
+### 7.4 Rate Refresh Skill
+
+Path: `skills/source-health/uk-installation-labour-rate-refresh/`
+
+Required files:
+
+- `SKILL.md`
+- `result.schema.json`
+- `canary.inputs.jsonl`
+- `golden.assertions.yaml`
+- `validator-rubric.yaml`
+
+Required tests:
+
+- `SKL-RATE-REFRESH-001`: skill lints as a source-health-style enrichment skill.
+- `SKL-RATE-REFRESH-002`: result schema exposes candidate updated JSON files for labour rates, access-equipment bands, installation profiles, and permit/TM bands.
+- `SKL-RATE-REFRESH-003`: skill text and golden assertions forbid direct production mutation without an explicit reviewed update path.
+- `CAN-RATE-REFRESH-001`: canary uses stale `2026-q2` reference inputs and asserts candidate output includes source URLs, `as_of`, changed cells, provenance, and no mutation of `skills/landed-cost/uk-installation-labour-estimate/reference/*.json`.
 
 ## 8. UI Verification
 

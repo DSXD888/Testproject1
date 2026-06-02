@@ -77,7 +77,8 @@ Spec inventory:
 | `L4TestStateDb` and `TestStateDb` | daemon integration tests | All SQLite tests use shared support helpers. No bespoke temp DB setup outside support helpers. |
 | `InstallationLabourEngineHarness` | new `crates/daemon/tests/installation_labour_engine.rs` | Mirrors `customs_fx_freight_engine.rs`: schema epoch assert, migration assert, real row seeding, direct pence assertions. |
 | `DecisionBasisHashHarness` | `decision_basis_hash.rs` | Extends `seed_candidate_quote_and_landed_cost()` and `assert_single_vector_mutation_changes_hash()` for labour and permit fields. |
-| `LabourSkillCanaryCorpus` | `tests/fixtures/calibration/landed-cost/uk-installation-labour/` | Requires `canary.inputs.jsonl`, `golden.assertions.yaml`, `validator-rubric.yaml`, `metadata.json`, `manifest.md`; row count and `rubric_version` are asserted. |
+| `LabourSkillCanaryCorpus` | `tests/fixtures/calibration/landed-cost/uk-installation-labour/` | Requires `canary.inputs.jsonl`, `golden.assertions.yaml`, `validator-rubric.yaml`, `metadata.json`, `manifest.md`; `metadata.json.row_count` must equal the seven JSONL rows and `rubric_version` is asserted. |
+| `RateRefreshSkillHarness` | `skills/source-health/uk-installation-labour-rate-refresh/` | Source-health-style quarterly refresh skill canary. Produces candidate JSON updates with provenance and changed-cell evidence; never mutates production reference files without reviewed update path. |
 | `LabourSkillLintHarness` | `skill_lint.rs` | Checks worker frontmatter, `http_public`, required sections, warning codes, run-manifest tokens, and no CDP allowlist membership. |
 | `OverlayLabourCostHarness` | `skills/validation/overlay-labour-cost/` | Runs real overlay canary/golden assertions with `headless_contract`, including outage/rejection -> review. |
 | `AgentBrowserUiHarness` | `/agent-browser` | Drives the real desktop/web UI to inspect manifest viewer and contract card text. |
@@ -93,9 +94,10 @@ Spec inventory:
 | daemon bin tests in touched rollup modules | extend | `RS-ROLLUP-001` through `RS-ROLLUP-005` |
 | `crates/daemon/tests/decision_basis_hash.rs` | extend | `RS-HASH-001` through `RS-HASH-003` |
 | `crates/daemon/tests/customs_fx_freight_engine.rs` | preserve/extend schema assert | `RS-SCHEMA-001` |
-| `crates/daemon/tests/installation_labour_engine.rs` | new | `E2E-IL-001` through `E2E-IL-011`, `GOLD-L0-001` |
+| `crates/daemon/tests/installation_labour_engine.rs` | new | `E2E-IL-001` through `E2E-IL-011`, `GOLD-L0-001`, `NEG-CTRL-001` through `NEG-CTRL-003` |
 | `crates/daemon/tests/skill_lint.rs` | extend | `SKL-LINT-001` through `SKL-LINT-005` |
-| `crates/daemon/tests/skill_canary_harness.rs` | extend | `CAN-LAB-001` through `CAN-LAB-007`, `CAN-WARN-001`, `CAN-OVERLAY-001` |
+| `crates/daemon/tests/skill_canary_harness.rs` | extend | `CAN-LAB-001` through `CAN-LAB-007`, `CAN-WARN-001`, `CAN-OVERLAY-001`, `CAN-RATE-REFRESH-001` |
+| `skills/source-health/uk-installation-labour-rate-refresh/` lint tests | new/extend | `SKL-RATE-REFRESH-001`, `SKL-RATE-REFRESH-002`, `SKL-RATE-REFRESH-003` |
 | live smoke target | new/nightly | `SMOKE-LIVE-001` |
 | agent-browser UI evidence | new | `UI-AGB-001` through `UI-AGB-003` |
 | research-spike beads | future | `SPIKE-Z-001` through `SPIKE-Z-003` |
@@ -157,6 +159,7 @@ The new file is `packages/intelligence/src/customs/description-quality.test.ts`.
 | `RS-SCHEMA-001` | T2 | `customs_fx_freight_engine.rs` keeps passing with direct `landed_cost_estimates` INSERT statements that omit new labour/permit columns; `DEFAULT_SCHEMA_EPOCH` and SQLite `user_version` are `10`. |
 | `RS-SCHEMA-002` | T2 | `migrations/0014_installation_labour_fields.sql` is applied and present in `schema_migrations`; all added direct-INSERT-sensitive columns are nullable or `DEFAULT 0`. |
 | `RS-SCHEMA-003` | T2 | Supabase projection migration `infra/supabase/migrations/0010_*.sql` projects new `landed_cost_estimates_viewer` and `pipeline_assessments` fields, and `schema_metadata` is epoch `10`. |
+| `RS-SEED-001` | T2 | `installation_labour_engine.rs` defines and uses a local `landed_cost_insert_sql()` helper with an explicit column list, mirroring `customs_fx_freight_engine.rs`; deterministic scenario rows are direct-seeded through that helper before real rollup/gate assertions. |
 | `RS-HASH-001` | T2 | Decision-basis vector includes goods-only subtotal, labour base/low/high/confidence, permit/TM base/low/high/responsibility, goods-share basis, and goods-share bps. |
 | `RS-HASH-002` | T2 | `assert_single_vector_mutation_changes_hash()` changes the hash when any labour or permit field mutates. |
 | `RS-HASH-003` | T2 | Historical rows with null/default labour and permit fields hash deterministically and produce a lowercase 64-character SHA-256 string. |
@@ -179,6 +182,10 @@ The new file is `packages/intelligence/src/customs/description-quality.test.ts`.
 | `CAN-LAB-007` | T2 | `rate-stale-01` emits `RATE_TABLE_STALE` and still produces a three-point estimate. |
 | `CAN-WARN-001` | T2 | The canary/golden corpus and Scenario 4 E2E cover all eight warning codes with no unpinned code. |
 | `CAN-OVERLAY-001` | T2 | `skills/validation/overlay-labour-cost` lints and canary-runs as `headless_contract`; validator rejection or outage forces review, not pass or crash. |
+| `SKL-RATE-REFRESH-001` | T2 | `skills/source-health/uk-installation-labour-rate-refresh/` lints as a source-health-style enrichment skill with `SKILL.md`, `result.schema.json`, `canary.inputs.jsonl`, `golden.assertions.yaml`, and `validator-rubric.yaml`. |
+| `SKL-RATE-REFRESH-002` | T2 | The refresh skill contract enumerates the four candidate output families: labour rates, access-equipment bands, installation profiles, and permit/TM bands. |
+| `SKL-RATE-REFRESH-003` | T2 | The refresh skill declares no production reference-file mutation without an explicit reviewed update path. |
+| `CAN-RATE-REFRESH-001` | T2 | Refresh skill canary feeds stale `2026-q2` reference inputs and asserts candidate updated JSON files, source URLs, `as_of`, changed cells, provenance, and no in-place mutation of `skills/landed-cost/uk-installation-labour-estimate/reference/*.json`. |
 
 ### 7.7 Appendix-E Deterministic E2E Manifests
 
@@ -199,6 +206,14 @@ All `E2E-IL-*` tests live in `crates/daemon/tests/installation_labour_engine.rs`
 | `E2E-IL-009` | CCTV camera supply/install | goods `1500000`; labour `420000`; permit `0`; economic `1920000`; goods share `7813`; YH multiplier `8800`; resolver trade differs from Scenario 1. | `review`, because at-height mounting and cabling assumptions require operator review |
 | `E2E-IL-010` | Traffic signal supply/installation | goods `600000`; labour `900000`; permit `400000`; economic `1900000`; goods share `3158`; reject is due to Phase-2 dominance floor; resolver confidence may be lower but category gate is not the cause. | `reject` |
 | `E2E-IL-011` | Bespoke made-to-measure windows | goods `3000000`; labour `400000`; permit `0`; economic `3400000`; goods share `8824`; control twin without bespoke flag would pass; real case emits `out_of_scope_bespoke`. | `review` flagged out of scope |
+
+Negative-control dual assertions:
+
+| Test ID | Description-quality assertion | Integration assertion |
+|---|---|---|
+| `NEG-CTRL-001` | Scenario 5 maps to `TS-DQ-005` and `reject_service`. | `E2E-IL-005` asserts no candidate reaches Stage 11 and no landed-cost row exists. |
+| `NEG-CTRL-002` | Scenario 6 maps to `TS-DQ-006` and `reject_service`. | `E2E-IL-006` asserts the controlled dominance-floor twin has goods share `500` bps and rejects if it reaches Phase 2. |
+| `NEG-CTRL-003` | Scenario 7 maps to `TS-DQ-007` and `reject_service`. | `E2E-IL-007` asserts no labour estimate is invoked and no Stage 11 row exists. |
 
 ### 7.8 Live Loop, Gold-Set, And Promotion
 
@@ -259,7 +274,7 @@ These are tracked coverage entries, not code tests.
 | `FR-L.7` | A | `E2E-IL-001`, `E2E-IL-010`, `CAN-LAB-001`, `CAN-LAB-002`, `UI-AGB-002` | Covered |
 | `FR-L.8` | A | `E2E-IL-004`, `TS-SCHEMA-005`, `CAN-WARN-001` | Covered |
 | `FR-L.9` | A | `CAN-LAB-001`, `CAN-LAB-003`, `CAN-LAB-004`, `E2E-IL-001`, `E2E-IL-009` | Covered |
-| `FR-L.10` | A | `CAN-LAB-007`, `SKL-LINT-005`, `SMOKE-LIVE-001` | Covered |
+| `FR-L.10` | A | `CAN-LAB-007`, `SKL-RATE-REFRESH-001`, `SKL-RATE-REFRESH-002`, `SKL-RATE-REFRESH-003`, `CAN-RATE-REFRESH-001` | Covered |
 | `FR-L.11` | A | `CAN-OVERLAY-001`, `CAN-LAB-006`, `SKL-LINT-005` | Covered |
 | `FR-L.12` | A | `CAN-WARN-001`, `CAN-LAB-005`, `CAN-LAB-006`, `CAN-LAB-007`, `E2E-IL-004` | Covered |
 | `FR-R.1` | A | `RS-SCHEMA-001`, `RS-SCHEMA-002`, `RS-ROLLUP-004`, `TS-SCHEMA-002`, `E2E-IL-008` | Covered |
@@ -267,7 +282,7 @@ These are tracked coverage entries, not code tests.
 | `FR-R.3` | A | `SMOKE-LIVE-001`, `SKL-LINT-002`, `E2E-IL-001`, `E2E-IL-008` | Covered |
 | `FR-R.4` | A | `TS-COV-007`, `TS-COV-008`, `TS-COV-009`, `TS-SCHEMA-003`, `E2E-IL-001`, `E2E-IL-006`, `E2E-IL-010` | Covered |
 | `FR-R.5` | A | `TS-SCHEMA-001`, `TS-SCHEMA-002`, `TS-SCHEMA-003`, `TS-SCHEMA-004`, `TS-SCHEMA-005` | Covered |
-| `FR-R.6` | A | `RS-SCHEMA-001`, `RS-SCHEMA-002`, `RS-SCHEMA-003`, `CI-GIM-001`, `CI-GIM-002`, `CI-GIM-003`, `CI-GIM-004`, `CI-GIM-005` | Covered |
+| `FR-R.6` | A | `RS-SCHEMA-001`, `RS-SCHEMA-002`, `RS-SCHEMA-003`, `RS-SEED-001`, `CI-GIM-001`, `CI-GIM-002`, `CI-GIM-003`, `CI-GIM-004`, `CI-GIM-005` | Covered |
 | `FR-R.7` | A | `RS-HASH-001`, `RS-HASH-002`, `RS-HASH-003` | Covered |
 | `FR-U.1` | A | `UI-AGB-001`, `UI-AGB-002`, `E2E-IL-001`, `CAN-WARN-001` | Covered |
 | `FR-U.2` | A | `UI-AGB-003`, `TS-COV-009`, `E2E-IL-001`, `E2E-IL-011` | Covered |
@@ -293,7 +308,7 @@ These are tracked coverage entries, not code tests.
 | Recurring maintenance produces multi-period estimate | `E2E-IL-004`, `TS-SCHEMA-005` |
 | Screening-grade +/-20 percent, ex-VAT, not firm quote | `CAN-LAB-001`, `CAN-LAB-007`, `UI-AGB-002` |
 | Labour skill failures fail-soft and route review | `CAN-LAB-006`, `CAN-OVERLAY-001` |
-| New region/rate quarter is JSON edit plus version bump | `CAN-LAB-007`, `SKL-LINT-005` |
+| New region/rate quarter is JSON edit plus version bump | `CAN-LAB-007`, `SKL-LINT-005`, `SKL-RATE-REFRESH-001`, `CAN-RATE-REFRESH-001` |
 
 ## 11. Downstream Consumer Notes
 
