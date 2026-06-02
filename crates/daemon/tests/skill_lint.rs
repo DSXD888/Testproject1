@@ -254,6 +254,47 @@ fn ut_skl_008_run_manifest_instruction_block_required() -> Result<()> {
 }
 
 #[test]
+fn qoa5_skl_lint_001_uk_installation_labour_frontmatter_is_http_public() -> Result<()> {
+    let skill = load_skill_metadata(&repo_skill_dir(
+        "landed-cost/uk-installation-labour-estimate",
+    )?)?;
+
+    ensure!(skill.metadata.skill_id == "landed-cost/uk-installation-labour-estimate");
+    ensure!(skill.metadata.skill_version == "0.1.0");
+    ensure!(skill.metadata.interaction_profile == "http_public");
+    ensure!(skill.metadata.result_schema_version == "1.0.0");
+    ensure!(skill.metadata.checkpoint_schema_version.is_none());
+    ensure!(skill.metadata.model_profile == "browse_stable_low_cost");
+    ensure!(!skill.metadata.requires_cdp);
+    ensure!(skill.metadata.cdp_default_port.is_none());
+    ensure!(skill.metadata.side_effect_class == "none");
+    ensure!(skill.skill_markdown.contains("agent_cli: claude"));
+    Ok(())
+}
+
+#[test]
+fn qoa5_skl_lint_002_uk_installation_labour_has_no_browser_membership() -> Result<()> {
+    let relative = "landed-cost/uk-installation-labour-estimate";
+    ensure!(!CDP_BROWSER_SKILLS.contains(&relative));
+    ensure!(!SIGNED_IN_BROWSER_SKILLS.contains(&relative));
+
+    let skill = load_skill_metadata(&repo_skill_dir(relative)?)?;
+    for forbidden in [
+        "bin/ensure-cdp-9222",
+        "agent-browser --cdp",
+        "cdp_default_port",
+        "CDP_BROWSER_SKILLS",
+        "SIGNED_IN_BROWSER_SKILLS",
+    ] {
+        ensure!(
+            !skill.skill_markdown.contains(forbidden),
+            "{relative} must not document browser membership marker `{forbidden}`"
+        );
+    }
+    Ok(())
+}
+
+#[test]
 fn l6_t_bid_portal_procontract_skill_001_frontmatter_declares_l6_contract() -> Result<()> {
     let skill = load_skill_metadata(&repo_skill_dir("bid-portal-procontract")?)?;
     ensure!(skill.metadata.skill_id == "bid-portal/procontract");
