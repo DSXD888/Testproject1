@@ -59,8 +59,8 @@ impl SupabaseLocalStack {
     pub fn apply_migrations(&self) -> Result<AppliedMigrations> {
         let paths = self.migration_paths()?;
         ensure!(
-            paths.len() == 9,
-            "expected exactly nine Supabase migrations, found {}",
+            paths.len() == 10,
+            "expected exactly ten Supabase migrations, found {}",
             paths.len()
         );
 

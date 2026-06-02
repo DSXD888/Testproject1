@@ -480,7 +480,9 @@ fn l4_t_sqlite_supabase_sync_009_batch_rejects_mixed_schema_epoch() -> Result<()
     let state_db = L4TestStateDb::new()?;
     let mut harness = OutboxHarness::new(&state_db)?;
     harness.mutate_push_owned_fixture(PushOwnedFixture::new("l4-epoch-a", 1))?;
-    harness.mutate_push_owned_fixture(PushOwnedFixture::new("l4-epoch-b", 2).schema_epoch(10))?;
+    harness.mutate_push_owned_fixture(
+        PushOwnedFixture::new("l4-epoch-b", 2).schema_epoch(DEFAULT_SCHEMA_EPOCH + 1),
+    )?;
 
     println!("[EXEC] attempt batch assembly");
     let result = harness.assemble_batch(10, 5);

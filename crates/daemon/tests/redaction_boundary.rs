@@ -604,8 +604,8 @@ fn l4_t_redaction_boundary_026_schema_hash_coordination_gate() -> Result<()> {
     let supabase = SupabaseLocalStack::start_or_reuse()?;
     let applied = supabase.apply_migrations()?;
     ensure!(
-        applied.paths.len() == 9,
-        "L4-T-redaction_boundary-026 expected all nine Supabase migrations to apply"
+        applied.paths.len() == 10,
+        "L4-T-redaction_boundary-026 expected all ten Supabase migrations to apply"
     );
     ensure!(
         applied
@@ -613,6 +613,13 @@ fn l4_t_redaction_boundary_026_schema_hash_coordination_gate() -> Result<()> {
             .iter()
             .any(|path| path.ends_with("0009_l5_field_level_projection.sql")),
         "L4-T-redaction_boundary-026 expected the L5 field-level projection migration to apply"
+    );
+    ensure!(
+        applied
+            .paths
+            .iter()
+            .any(|path| path.ends_with("0010_installation_labour_projection.sql")),
+        "L4-T-redaction_boundary-026 expected the installation labour projection migration to apply"
     );
     let supabase_schema = supabase.logical_schema_from_migrations(PUSH_OWNED_TABLES)?;
     assert_push_owned_tracking_fields("Supabase", &supabase_schema)?;

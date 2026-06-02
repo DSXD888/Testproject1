@@ -1397,12 +1397,12 @@ fn l4_t_sqlite_schema_018_supabase_config_and_migrations_exist() -> Result<()> {
     });
     names.sort();
 
-    let expected = (1..=9)
+    let expected = (1..=10)
         .map(|ordinal| format!("{ordinal:04}_"))
         .collect::<Vec<_>>();
     ensure!(
-        names.len() == 9,
-        "expected exactly nine Supabase migrations, got {names:?}"
+        names.len() == 10,
+        "expected exactly ten Supabase migrations, got {names:?}"
     );
     ensure!(
         names
@@ -1410,12 +1410,54 @@ fn l4_t_sqlite_schema_018_supabase_config_and_migrations_exist() -> Result<()> {
             .any(|name| name == "0009_l5_field_level_projection.sql"),
         "expected L5 field-level projection migration, got {names:?}"
     );
+    ensure!(
+        names
+            .iter()
+            .any(|name| name == "0010_installation_labour_projection.sql"),
+        "expected installation labour projection migration, got {names:?}"
+    );
     for (name, prefix) in names.iter().zip(expected) {
         ensure!(
             name.starts_with(&prefix),
             "migration `{name}` did not have expected prefix `{prefix}`"
         );
     }
+    Ok(())
+}
+
+#[test]
+#[doc = "RS-SCHEMA-003"]
+fn rs_schema_003_supabase_installation_labour_projection_migration() -> Result<()> {
+    let sql = read_repo_file("infra/supabase/migrations/0010_installation_labour_projection.sql")?;
+    let lower_sql = sql.to_ascii_lowercase();
+
+    assert_sql_contains_all(
+        &lower_sql,
+        &[
+            "alter table if exists landed_cost_estimates",
+            "goods_landed_cost_gbp_pence",
+            "installation_labour_cost_gbp_pence",
+            "installation_labour_low_gbp_pence",
+            "installation_labour_high_gbp_pence",
+            "installation_labour_confidence_bps",
+            "permit_traffic_mgmt_cost_gbp_pence",
+            "permit_traffic_mgmt_low_gbp_pence",
+            "permit_traffic_mgmt_high_gbp_pence",
+            "permit_responsibility",
+            "alter table if exists pipeline_assessments",
+            "goods_value_share_bps",
+            "goods_value_share_basis",
+            "installation_labour_coverage_bps",
+            "installation_labour_value_coverage_bps",
+            "permit_traffic_mgmt_coverage_bps",
+            "permit_traffic_mgmt_value_coverage_bps",
+            "create or replace view landed_cost_estimates_viewer",
+            "grant select on landed_cost_estimates_viewer to anon, authenticated",
+            "insert into schema_metadata",
+            "values ('default', 10, 0)",
+            "set schema_epoch = 10",
+        ],
+    )?;
     Ok(())
 }
 
