@@ -66,6 +66,8 @@ cases:
   region-unknown-01:
     result_schema_valid: true
     expected_labour_status: estimated
+    input_uk_region: null
+    resolved_uk_region: national
     fallback_region_multiplier_bps: 10000
     required_warning_codes:
       - LABOUR_REGION_UNKNOWN
@@ -93,6 +95,23 @@ shared_assertions:
     - installation_requirement
     - goods_landed_cost_gbp_pence
     - rate_table_version
+  installation_requirement_fields_include:
+    - requires_installation
+    - requires_maintenance
+    - installation_scope
+    - maintenance_schedule
+    - site_access
+    - at_height_m
+    - uk_region
+    - estimated_units
+    - equipment_hint
+    - permit_responsibility
+    - public_realm
+    - lane_rental_zone
+  pure_goods_policy:
+    no_installation_requirement_when_no_install_or_maintenance_signal: true
+    labour_gbp_pence: 0
+    permit_traffic_mgmt_gbp_pence: 0
   warnings_and_blockers_are_objects:
     required_fields: [code, message, severity]
   excluded_cost_flags_include:

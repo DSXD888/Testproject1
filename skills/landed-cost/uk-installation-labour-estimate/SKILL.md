@@ -33,6 +33,23 @@ The input JSON object must include:
 - `goods_landed_cost_gbp_pence`
 - `rate_table_version`
 
+The `installation_requirement` object is derived from the product candidate when the notice implies installation, de-installation, or maintenance. It must carry:
+
+- `requires_installation`
+- `requires_maintenance`
+- `installation_scope`
+- `maintenance_schedule`
+- `site_access`
+- `at_height_m`
+- `uk_region`
+- `estimated_units`
+- `equipment_hint`
+- `permit_responsibility`
+- `public_realm`
+- `lane_rental_zone`
+
+When there is no installation, de-installation, or maintenance signal, do not fabricate an `InstallationRequirement`. The daemon skips this worker for pure-goods candidates and leaves labour and permit/traffic-management pence at zero or null.
+
 ## Outputs
 Write raw JSON to `result.json`, not Markdown. The result envelope must include:
 
@@ -59,6 +76,7 @@ Write raw JSON to `result.json`, not Markdown. The result envelope must include:
 All money values are integer pence. Confidence and share ratios are basis points.
 
 ## Rules
+- Resolve `uk_region` from `destination_country` and `destination_postcode` before pricing. Unknown or unmapped UK regions fall back to the `national` baseline multiplier (`10000` bps), emit `LABOUR_REGION_UNKNOWN`, and keep `labour_status` as `estimated`.
 - Default `labour_low_gbp_pence` to base minus 20 percent and `labour_high_gbp_pence` to base plus 20 percent unless narrower evidence-backed bounds are available.
 - Keep permit and traffic-management costs separate from labour. Never fold permit or traffic-management pence into the labour line items.
 - Set `excluded_cost_flags` for screening omissions, including firm pricing, subcontractor compliance, delivery responsibility, authority-resolved permit uncertainty, VAT treatment assumptions, and non-modelled plant or materials.

@@ -259,6 +259,9 @@
   "unknown_region_policy": {
     "fallback_region": "national",
     "fallback_multiplier_bps": 10000,
+    "postcode_source": "destination_postcode",
+    "destination_country_required": "GB",
+    "labour_status_on_fallback": "estimated",
     "warning_code": "LABOUR_REGION_UNKNOWN",
     "confidence_penalty_bps": 1500
   },
