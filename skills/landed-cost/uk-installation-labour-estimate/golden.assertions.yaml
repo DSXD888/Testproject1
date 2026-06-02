@@ -54,10 +54,16 @@ cases:
   cctv-yh-install-01:
     result_schema_valid: true
     expected_labour_status: estimated
-    required_trades: [security_installer]
+    required_profile_id: cctv_security_install
+    required_trades: [security_installer, electrician]
     region_multiplier_bps: 8800
+    required_access_equipment_class: scissor_lift
     required_access_equipment_when_at_height: true
     forbidden_trade_set_match_case: lights-nw-2day-01
+    required_profile_resolution_evidence:
+      match_basis: catalogue
+      inferred_archetype: cctv
+      forbidden_match_basis: constrained_fallback
   furniture-lon-assembly-01:
     result_schema_valid: true
     expected_labour_status: estimated
@@ -114,6 +120,21 @@ shared_assertions:
     permit_traffic_mgmt_gbp_pence: 0
   warnings_and_blockers_are_objects:
     required_fields: [code, message, severity]
+  profile_resolver:
+    catalogue_first: true
+    fallback_trade_source: national_trade_rates
+    fallback_confidence_cap_bps: 5000
+    fallback_warning_code: LABOUR_SCOPE_UNRESOLVED
+    fallback_requires_inferred_archetype_evidence: true
+    overlay_evidence_fields:
+      - profile_id
+      - match_basis
+      - inferred_archetype
+      - selected_trades
+      - access_equipment_class
+      - duration_days
+      - complexity_multiplier_bps
+      - route_reason
   excluded_cost_flags_include:
     - firm_pricing_excluded
     - subcontractor_compliance_excluded

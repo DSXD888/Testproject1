@@ -19,7 +19,20 @@
     "fallback_profile_id": "scope_unresolved_generic_install",
     "fallback_warning_code": "LABOUR_SCOPE_UNRESOLVED",
     "bespoke_review_reason": "out_of_scope_bespoke",
-    "profile_match_confidence_floor_bps": 5500
+    "profile_match_confidence_floor_bps": 5500,
+    "fallback_confidence_cap_bps": 5000,
+    "fallback_trade_source": "uk-regional-labour-rates-2026-q2.json:national_trade_rates",
+    "fallback_evidence_kind": "profile_resolution",
+    "required_overlay_evidence_fields": [
+      "profile_id",
+      "match_basis",
+      "inferred_archetype",
+      "selected_trades",
+      "access_equipment_class",
+      "duration_days",
+      "complexity_multiplier_bps",
+      "route_reason"
+    ]
   },
   "profiles": [
     {
