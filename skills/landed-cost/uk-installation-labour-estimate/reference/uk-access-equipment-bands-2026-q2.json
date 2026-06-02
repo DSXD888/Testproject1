@@ -1,0 +1,111 @@
+{
+  "schema_version": "1.0.0",
+  "reference_kind": "uk_access_equipment_bands",
+  "rate_table_version": "uk-installation-labour-2026-q2",
+  "as_of": "2026-04-01",
+  "valid_from": "2026-04-01",
+  "valid_to": "2026-06-30",
+  "currency": "GBP",
+  "money_unit": "pence",
+  "ratio_unit": "bps",
+  "provenance": [
+    {
+      "source_id": "screening_model_seed_2026_q2",
+      "source_type": "internal_screening_model",
+      "description": "Screening-grade operated access-equipment bands for UK install/de-install work; later resolver may replace with reviewed hire-market evidence."
+    }
+  ],
+  "selection_rules": {
+    "no_height_threshold_m": 2,
+    "at_height_warning_code": "ACCESS_AT_HEIGHT_ASSUMED_MEWP",
+    "prefer_equipment_hint_when_present": true,
+    "default_public_realm_equipment_class": "boom_mewp",
+    "default_private_site_equipment_class": "scissor_lift"
+  },
+  "equipment_bands": [
+    {
+      "equipment_class": "none",
+      "label": "No access equipment",
+      "min_height_m": 0,
+      "max_height_m": 2,
+      "site_access": [
+        "indoor",
+        "ground_level",
+        "bench_work"
+      ],
+      "operated_day_rate_gbp_pence": 0,
+      "minimum_days": 0,
+      "confidence_bps": 9000
+    },
+    {
+      "equipment_class": "tower_scaffold",
+      "label": "Mobile tower scaffold",
+      "min_height_m": 2,
+      "max_height_m": 5,
+      "site_access": [
+        "indoor",
+        "courtyard",
+        "level_private_site"
+      ],
+      "operated_day_rate_gbp_pence": 18000,
+      "minimum_days": 1,
+      "confidence_bps": 7000
+    },
+    {
+      "equipment_class": "scissor_lift",
+      "label": "Operated scissor lift",
+      "min_height_m": 3,
+      "max_height_m": 10,
+      "site_access": [
+        "indoor",
+        "level_private_site",
+        "car_park"
+      ],
+      "operated_day_rate_gbp_pence": 22000,
+      "minimum_days": 1,
+      "confidence_bps": 7000
+    },
+    {
+      "equipment_class": "boom_mewp",
+      "label": "Operated boom MEWP",
+      "min_height_m": 4,
+      "max_height_m": 18,
+      "site_access": [
+        "public_realm",
+        "high_street",
+        "uneven_ground",
+        "external_facade"
+      ],
+      "operated_day_rate_gbp_pence": 28000,
+      "minimum_days": 1,
+      "confidence_bps": 6800
+    },
+    {
+      "equipment_class": "truck_mount",
+      "label": "Operated truck-mounted platform",
+      "min_height_m": 12,
+      "max_height_m": 35,
+      "site_access": [
+        "public_realm",
+        "high_street",
+        "roadside",
+        "restricted_footway"
+      ],
+      "operated_day_rate_gbp_pence": 65000,
+      "minimum_days": 1,
+      "confidence_bps": 6200
+    }
+  ],
+  "duration_rules": [
+    {
+      "rule_id": "match_install_duration",
+      "description": "Default equipment hire days to the install/de-install duration when the profile marks access as required.",
+      "days_source": "installation_profile.default_duration_days"
+    },
+    {
+      "rule_id": "minimum_for_public_realm",
+      "description": "Public-realm access equipment is never less than one operated day.",
+      "minimum_days": 1
+    }
+  ]
+}

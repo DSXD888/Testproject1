@@ -1,0 +1,213 @@
+{
+  "schema_version": "1.0.0",
+  "reference_kind": "uk_permit_tm_bands",
+  "rate_table_version": "uk-installation-labour-2026-q2",
+  "as_of": "2026-04-01",
+  "valid_from": "2026-04-01",
+  "valid_to": "2026-06-30",
+  "currency": "GBP",
+  "money_unit": "pence",
+  "ratio_unit": "bps",
+  "provenance": [
+    {
+      "source_id": "screening_model_seed_2026_q2",
+      "source_type": "internal_screening_model",
+      "description": "Screening-grade UK permit and traffic-management bands for public-realm installation work; authority-specific refinement is a Tier-B extension."
+    }
+  ],
+  "permit_responsibility_values": [
+    "authority_provided",
+    "contractor_provided",
+    "shared",
+    "unknown"
+  ],
+  "default_policy": {
+    "permit_responsibility": "unknown",
+    "unknown_warning_code": "PERMIT_RESPONSIBILITY_UNKNOWN",
+    "near_authority_boundary_review": true
+  },
+  "lane_rental_zones": [
+    {
+      "zone_id": "london_tfl_red_route",
+      "region": "London",
+      "postcode_prefixes": [
+        "E",
+        "EC",
+        "N",
+        "NW",
+        "SE",
+        "SW",
+        "W",
+        "WC"
+      ],
+      "warning_codes": [
+        "LANE_RENTAL_ZONE",
+        "TTRO_LEAD_TIME_RISK"
+      ]
+    },
+    {
+      "zone_id": "kent_lane_rental",
+      "region": "SE",
+      "postcode_prefixes": [
+        "CT",
+        "ME",
+        "TN"
+      ],
+      "warning_codes": [
+        "LANE_RENTAL_ZONE"
+      ]
+    }
+  ],
+  "component_catalogue": {
+    "ttro": {
+      "label": "Temporary traffic regulation order",
+      "low_gbp_pence": 25000,
+      "base_gbp_pence": 50000,
+      "high_gbp_pence": 90000,
+      "lead_time_warning_code": "TTRO_LEAD_TIME_RISK"
+    },
+    "street_works_notice": {
+      "label": "Street works notice or permit",
+      "low_gbp_pence": 15000,
+      "base_gbp_pence": 30000,
+      "high_gbp_pence": 60000
+    },
+    "lane_rental": {
+      "label": "Lane rental allowance",
+      "low_gbp_pence": 50000,
+      "base_gbp_pence": 120000,
+      "high_gbp_pence": 250000,
+      "zone_warning_code": "LANE_RENTAL_ZONE"
+    },
+    "parking_suspension": {
+      "label": "Parking bay suspension",
+      "low_gbp_pence": 10000,
+      "base_gbp_pence": 30000,
+      "high_gbp_pence": 60000
+    },
+    "highway_scaffold_licence": {
+      "label": "Highway or scaffold licence",
+      "low_gbp_pence": 10000,
+      "base_gbp_pence": 25000,
+      "high_gbp_pence": 60000
+    },
+    "physical_traffic_management": {
+      "label": "Physical traffic-management crew and equipment",
+      "low_gbp_pence": 80000,
+      "base_gbp_pence": 120000,
+      "high_gbp_pence": 220000
+    }
+  },
+  "bands": [
+    {
+      "band_id": "none",
+      "label": "No modelled permit or traffic management",
+      "site_conditions": [
+        "indoor",
+        "private_site",
+        "ground_level"
+      ],
+      "components": [],
+      "low_gbp_pence": 0,
+      "base_gbp_pence": 0,
+      "high_gbp_pence": 0,
+      "permit_responsibility": "authority_provided",
+      "warnings": [],
+      "confidence_bps": 8500
+    },
+    {
+      "band_id": "footway_access_low_traffic",
+      "label": "Footway access with low traffic-management exposure",
+      "site_conditions": [
+        "public_realm",
+        "footway",
+        "low_traffic"
+      ],
+      "components": [
+        "street_works_notice",
+        "highway_scaffold_licence"
+      ],
+      "low_gbp_pence": 25000,
+      "base_gbp_pence": 55000,
+      "high_gbp_pence": 120000,
+      "permit_responsibility": "unknown",
+      "warnings": [
+        "PERMIT_RESPONSIBILITY_UNKNOWN"
+      ],
+      "confidence_bps": 6200
+    },
+    {
+      "band_id": "public_realm_high_street_standard",
+      "label": "High-street public-realm install with TTRO and physical TM allowance",
+      "site_conditions": [
+        "public_realm",
+        "high_street",
+        "at_height"
+      ],
+      "components": [
+        "ttro",
+        "parking_suspension",
+        "physical_traffic_management"
+      ],
+      "low_gbp_pence": 130000,
+      "base_gbp_pence": 200000,
+      "high_gbp_pence": 340000,
+      "permit_responsibility": "unknown",
+      "warnings": [
+        "PERMIT_RESPONSIBILITY_UNKNOWN",
+        "TTRO_LEAD_TIME_RISK"
+      ],
+      "confidence_bps": 6000
+    },
+    {
+      "band_id": "lane_closure_traffic_signals",
+      "label": "Roadside traffic-signal install with lane closure and TM",
+      "site_conditions": [
+        "public_realm",
+        "roadside",
+        "lane_closure"
+      ],
+      "components": [
+        "ttro",
+        "street_works_notice",
+        "lane_rental",
+        "physical_traffic_management"
+      ],
+      "low_gbp_pence": 240000,
+      "base_gbp_pence": 400000,
+      "high_gbp_pence": 720000,
+      "permit_responsibility": "unknown",
+      "warnings": [
+        "PERMIT_RESPONSIBILITY_UNKNOWN",
+        "LANE_RENTAL_ZONE",
+        "TTRO_LEAD_TIME_RISK"
+      ],
+      "confidence_bps": 5200
+    },
+    {
+      "band_id": "london_lane_rental_high_street",
+      "label": "London high-street lane-rental exposure",
+      "site_conditions": [
+        "public_realm",
+        "high_street",
+        "lane_rental_zone"
+      ],
+      "components": [
+        "ttro",
+        "lane_rental",
+        "parking_suspension",
+        "physical_traffic_management"
+      ],
+      "low_gbp_pence": 250000,
+      "base_gbp_pence": 500000,
+      "high_gbp_pence": 900000,
+      "permit_responsibility": "unknown",
+      "warnings": [
+        "PERMIT_RESPONSIBILITY_UNKNOWN",
+        "LANE_RENTAL_ZONE",
+        "TTRO_LEAD_TIME_RISK"
+      ],
+      "confidence_bps": 5000
+    }
+  ]
+}
