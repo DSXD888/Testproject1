@@ -1,0 +1,106 @@
+cases:
+  lights-nw-2day-01:
+    result_schema_valid: true
+    input_fields:
+      - process_id
+      - notice_id
+      - product_candidate_id
+      - selected_quote_id
+      - destination_country
+      - destination_postcode
+      - installation_requirement
+      - goods_landed_cost_gbp_pence
+      - rate_table_version
+    expected_labour_status: estimated
+    labour_base_gbp_pence_between: [210000, 265000]
+    labour_band_default: plus_minus_20_percent
+    required_trades: [electrician, labourer]
+    required_access_equipment_class: boom_mewp
+    expected_permit_responsibility: unknown
+    required_warning_codes:
+      - ACCESS_AT_HEIGHT_ASSUMED_MEWP
+      - PERMIT_RESPONSIBILITY_UNKNOWN
+    output_fields:
+      - status
+      - labour_status
+      - uk_region
+      - labour_line_items
+      - access_equipment_line_items
+      - labour_base_gbp_pence
+      - labour_low_gbp_pence
+      - labour_high_gbp_pence
+      - labour_confidence_bps
+      - permit_traffic_mgmt_line_items
+      - permit_traffic_mgmt_base_gbp_pence
+      - permit_traffic_mgmt_low_gbp_pence
+      - permit_traffic_mgmt_high_gbp_pence
+      - permit_responsibility
+      - vat_treatment
+      - excluded_cost_flags
+      - evidence
+      - warnings
+      - blockers
+  lights-lon-2day-01:
+    result_schema_valid: true
+    expected_labour_status: estimated
+    compare_to_case: lights-nw-2day-01
+    labour_base_ratio_bps: 15054
+    ratio_tolerance_bps: 100
+    required_warning_codes:
+      - ACCESS_AT_HEIGHT_ASSUMED_MEWP
+      - PERMIT_RESPONSIBILITY_UNKNOWN
+      - LANE_RENTAL_ZONE
+      - TTRO_LEAD_TIME_RISK
+  cctv-yh-install-01:
+    result_schema_valid: true
+    expected_labour_status: estimated
+    required_trades: [security_installer]
+    region_multiplier_bps: 8800
+    required_access_equipment_when_at_height: true
+    forbidden_trade_set_match_case: lights-nw-2day-01
+  furniture-lon-assembly-01:
+    result_schema_valid: true
+    expected_labour_status: estimated
+    required_trades: [handyperson]
+    forbidden_access_equipment_line_items: true
+  region-unknown-01:
+    result_schema_valid: true
+    expected_labour_status: estimated
+    fallback_region_multiplier_bps: 10000
+    required_warning_codes:
+      - LABOUR_REGION_UNKNOWN
+  scope-unresolved-01:
+    result_schema_valid: true
+    expected_warning_codes:
+      - LABOUR_SCOPE_UNRESOLVED
+    confidence_below_bps: 5500
+    expected_route: review
+    fail_soft: true
+  rate-stale-01:
+    result_schema_valid: true
+    required_warning_codes:
+      - RATE_TABLE_STALE
+    requires_three_point_estimate: true
+    fail_soft: true
+shared_assertions:
+  input_fields_include:
+    - process_id
+    - notice_id
+    - product_candidate_id
+    - selected_quote_id
+    - destination_country
+    - destination_postcode
+    - installation_requirement
+    - goods_landed_cost_gbp_pence
+    - rate_table_version
+  warnings_and_blockers_are_objects:
+    required_fields: [code, message, severity]
+  excluded_cost_flags_include:
+    - firm_pricing_excluded
+    - subcontractor_compliance_excluded
+    - delivery_responsibility_excluded
+    - authority_resolved_permit_uncertainty
+    - vat_treatment_assumption
+    - non_modelled_plant_or_materials
+  money_unit: integer_pence
+  ratio_unit: bps

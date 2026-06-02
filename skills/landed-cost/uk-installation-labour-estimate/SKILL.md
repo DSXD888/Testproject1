@@ -21,6 +21,8 @@ Use this skill for UK landed-cost jobs where a product candidate has an `Install
 Do not use this skill for pure-goods contracts with no installation requirement, service-only contracts, non-UK destination work, freight/customs/VAT calculation, or any workflow that requires browser access, sign-in, CDP, or external mutation.
 
 ## Inputs
+The input JSON object must include:
+
 - `process_id`
 - `notice_id`
 - `product_candidate_id`
@@ -32,7 +34,36 @@ Do not use this skill for pure-goods contracts with no installation requirement,
 - `rate_table_version`
 
 ## Outputs
-Write raw JSON to `result.json`, not Markdown. The result envelope includes `status`, `labour_status`, low/base/high labour pence, permit and traffic-management low/base/high pence, warnings, blockers, and evidence. All money values are integer pence; confidence and share ratios are basis points.
+Write raw JSON to `result.json`, not Markdown. The result envelope must include:
+
+- `status`
+- `labour_status`
+- `uk_region`
+- `labour_line_items`
+- `access_equipment_line_items`
+- `labour_base_gbp_pence`
+- `labour_low_gbp_pence`
+- `labour_high_gbp_pence`
+- `labour_confidence_bps`
+- `permit_traffic_mgmt_line_items`
+- `permit_traffic_mgmt_base_gbp_pence`
+- `permit_traffic_mgmt_low_gbp_pence`
+- `permit_traffic_mgmt_high_gbp_pence`
+- `permit_responsibility`
+- `vat_treatment`
+- `excluded_cost_flags`
+- `evidence`
+- `warnings`
+- `blockers`
+
+All money values are integer pence. Confidence and share ratios are basis points.
+
+## Rules
+- Default `labour_low_gbp_pence` to base minus 20 percent and `labour_high_gbp_pence` to base plus 20 percent unless narrower evidence-backed bounds are available.
+- Keep permit and traffic-management costs separate from labour. Never fold permit or traffic-management pence into the labour line items.
+- Set `excluded_cost_flags` for screening omissions, including firm pricing, subcontractor compliance, delivery responsibility, authority-resolved permit uncertainty, VAT treatment assumptions, and non-modelled plant or materials.
+- Return `warnings` and `blockers` as arrays of objects with `code`, `message`, and `severity`.
+- Use `vat_treatment` to state the VAT assumption explicitly; estimates remain screening-grade and are not firm quotes.
 
 ## Non-goals
 - This is a screening-grade estimate, not a firm installer quote.

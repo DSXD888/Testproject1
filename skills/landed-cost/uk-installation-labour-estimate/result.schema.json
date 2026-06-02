@@ -2,6 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://testproject1.local/schemas/uk-installation-labour-estimate-result.schema.json",
   "title": "UK Installation Labour Estimate Result",
+  "description": "Raw JSON result envelope written to result.json by the UK installation labour estimate skill. Money fields are integer GBP pence and confidence fields are basis points.",
   "type": "object",
   "required": [
     "status",
@@ -44,8 +45,14 @@
       "items": { "$ref": "#/$defs/access_equipment_line_item" }
     },
     "labour_base_gbp_pence": { "$ref": "#/$defs/money_or_null" },
-    "labour_low_gbp_pence": { "$ref": "#/$defs/money_or_null" },
-    "labour_high_gbp_pence": { "$ref": "#/$defs/money_or_null" },
+    "labour_low_gbp_pence": {
+      "$ref": "#/$defs/money_or_null",
+      "description": "Defaults to labour_base_gbp_pence minus 20 percent unless a narrower evidence-backed band is available."
+    },
+    "labour_high_gbp_pence": {
+      "$ref": "#/$defs/money_or_null",
+      "description": "Defaults to labour_base_gbp_pence plus 20 percent unless a narrower evidence-backed band is available."
+    },
     "labour_confidence_bps": { "$ref": "#/$defs/bps" },
     "permit_traffic_mgmt_line_items": {
       "type": "array",
@@ -62,6 +69,7 @@
       "minLength": 1
     },
     "excluded_cost_flags": {
+      "description": "Screening omissions that keep the estimate from being treated as a firm quote.",
       "type": "array",
       "items": {
         "enum": [
