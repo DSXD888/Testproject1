@@ -1,0 +1,73 @@
+cases:
+  labour-overlay-clean-001:
+    expected_verdict: approved
+    expected_basis_sufficiency_state: sufficient
+    expected_downstream_route: pass
+    worker_result_status: estimated
+    required_domain_checks:
+      - hours_scope_consistency
+      - regional_rate_bounds
+      - postcode_region_plausibility
+      - access_equipment_proportionality
+      - permit_responsibility_handling
+      - warning_completeness
+    required_issue_categories: []
+    provenance: clean-real
+  labour-overlay-mutated-bad-001:
+    expected_verdict: rejected
+    expected_basis_sufficiency_state: sufficient
+    expected_downstream_route: review
+    worker_result_status: estimated
+    required_domain_checks:
+      - hours_scope_consistency
+      - regional_rate_bounds
+      - postcode_region_plausibility
+      - access_equipment_proportionality
+      - permit_responsibility_handling
+      - warning_completeness
+    required_issue_categories:
+      - hours_scope_consistency
+      - regional_rate_bounds
+      - postcode_region_plausibility
+      - access_equipment_proportionality
+      - permit_responsibility_handling
+      - warning_completeness
+    provenance: mutated-bad
+  labour-overlay-worker-outage-001:
+    expected_verdict: flagged
+    expected_basis_sufficiency_state: insufficient
+    expected_downstream_route: review
+    worker_result_status: unavailable
+    required_domain_checks: []
+    required_issue_categories:
+      - worker_result_unavailable
+      - basis_sufficiency
+    provenance: fail-soft-outage
+
+shared_assertions:
+  interaction_profile: headless_contract
+  worker_skill_id: landed-cost/uk-installation-labour-estimate
+  validator_skill_id: validation/overlay-labour-cost
+  required_standard_files:
+    - SKILL.md
+    - result.schema.json
+    - checkpoint.schema.json
+    - validator-rubric.yaml
+    - canary.inputs.jsonl
+    - golden.assertions.yaml
+  domain_check_inventory:
+    - hours_scope_consistency
+    - regional_rate_bounds
+    - postcode_region_plausibility
+    - access_equipment_proportionality
+    - permit_responsibility_handling
+    - warning_completeness
+  validator_rejection_or_outage_policy:
+    rejected_overlay_downstream_route: review
+    outage_downstream_route: review
+    never_silent_pass_on_missing_worker_result: true
+  calibration_targets:
+    mutated_bad_catch_rate_min_bps: 9000
+    clean_real_approval_min_bps: 9500
+    false_positive_rate_max_bps: 500
+    wilson_confidence_bps: 9500

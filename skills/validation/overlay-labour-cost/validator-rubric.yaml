@@ -1,4 +1,5 @@
 rubric_version: 2026.06.03-1
+scope: labour_cost_overlay
 overlay_skill_id: validation/overlay-labour-cost
 worker_skill_id: landed-cost/uk-installation-labour-estimate
 worker_behavior_version: landed-cost/uk-installation-labour-estimate@0.1.0
@@ -11,6 +12,34 @@ test_ids:
     - CAN-LAB-001
     - CAN-LAB-006
     - CAN-WARN-001
+
+decision_axes:
+  - hours_scope_consistency
+  - regional_rate_bounds
+  - postcode_region_plausibility
+  - access_equipment_proportionality
+  - permit_responsibility_handling
+  - warning_completeness
+
+verdict_rules:
+  approved:
+    requires:
+      - worker_result_status_estimated_or_partial
+      - all_domain_checks_complete
+      - no_major_or_critical_issue
+      - downstream_route_pass
+  rejected:
+    triggers:
+      - labour_hours_implausible_for_scope
+      - rate_or_region_outside_reference_bounds
+      - access_equipment_inconsistent_with_height_or_site_access
+      - permit_or_traffic_management_folded_into_labour
+      - required_warning_code_missing
+  flagged:
+    triggers:
+      - worker_result_unavailable
+      - worker_result_blocked
+      - partial_basis_requires_operator_review
 
 blocking_checks:
   - id: hours_scope_consistency

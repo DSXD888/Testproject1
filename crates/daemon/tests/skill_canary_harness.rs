@@ -2,6 +2,9 @@
 
 #[path = "support/db.rs"]
 mod db_support;
+#[allow(dead_code)]
+#[path = "support/skills.rs"]
+mod skills_support;
 
 use std::collections::BTreeSet;
 use std::fs;
@@ -12,6 +15,7 @@ use chrono::{TimeZone, Utc};
 use db_support::{FTS_SOURCE_ID, TestStateDb};
 use serde_json::{Value, json};
 use serde_yaml::Value as YamlValue;
+use skills_support::lint_skill_directory;
 
 const AGENT_PROTOCOL_MISMATCH: &str = "AGENT_PROTOCOL_MISMATCH";
 const SOURCE_SOFT_BLOCKED: &str = "SOURCE_SOFT_BLOCKED";
@@ -44,6 +48,19 @@ const UK_LABOUR_CANARY_CASES: [(&str, &str); 7] = [
     ("CAN-LAB-005", "region-unknown-01"),
     ("CAN-LAB-006", "scope-unresolved-01"),
     ("CAN-LAB-007", "rate-stale-01"),
+];
+const OVERLAY_LABOUR_REQUIRED_CHECKS: [&str; 6] = [
+    "hours_scope_consistency",
+    "regional_rate_bounds",
+    "postcode_region_plausibility",
+    "access_equipment_proportionality",
+    "permit_responsibility_handling",
+    "warning_completeness",
+];
+const OVERLAY_LABOUR_CANARY_CASES: [&str; 3] = [
+    "labour-overlay-clean-001",
+    "labour-overlay-mutated-bad-001",
+    "labour-overlay-worker-outage-001",
 ];
 
 fn repo_root() -> Result<PathBuf> {
@@ -532,6 +549,35 @@ fn yaml_sequence_contains_str(value: Option<&YamlValue>, expected: &str) -> bool
     })
 }
 
+fn json_string_set_field(value: &Value, key: &str) -> Result<BTreeSet<String>> {
+    let items = value
+        .get(key)
+        .and_then(Value::as_array)
+        .ok_or_else(|| anyhow::anyhow!("missing string array field `{key}`"))?;
+    items
+        .iter()
+        .map(|item| {
+            item.as_str()
+                .map(str::to_owned)
+                .ok_or_else(|| anyhow::anyhow!("field `{key}` must contain strings"))
+        })
+        .collect()
+}
+
+fn yaml_sequence_string_set(value: Option<&YamlValue>, label: &str) -> Result<BTreeSet<String>> {
+    let items = value
+        .and_then(YamlValue::as_sequence)
+        .ok_or_else(|| anyhow::anyhow!("missing YAML string sequence `{label}`"))?;
+    items
+        .iter()
+        .map(|item| {
+            item.as_str()
+                .map(str::to_owned)
+                .ok_or_else(|| anyhow::anyhow!("YAML sequence `{label}` must contain strings"))
+        })
+        .collect()
+}
+
 fn yaml_mapping_get_str_key<'a>(
     mapping: &'a serde_yaml::Mapping,
     expected_key: &str,
@@ -934,6 +980,201 @@ fn gold_l0_003_validator_rubrics_are_stable_production_promotion_gates() -> Resu
         validator_rubric_gate(&missing_rubric)? == ValidatorRubricGate::StableProductionBlocked,
         "GOLD-L0-003 missing validator-rubric.yaml must block stable production"
     );
+
+    Ok(())
+}
+
+#[test]
+fn can_overlay_001_overlay_labour_cost_lints_and_canary_contract_is_pinned() -> Result<()> {
+    let overlay_root = skill_dir("validation/overlay-labour-cost")?;
+    let linted = lint_skill_directory(&overlay_root)?;
+    let required_checks = overlay_labour_required_check_set();
+
+    assert_overlay_labour_metadata_and_files(&overlay_root, &linted)?;
+    assert_overlay_labour_schema_contract(&overlay_root, &required_checks)?;
+    assert_overlay_labour_canary_and_golden_contract(&overlay_root, &required_checks)?;
+    assert_overlay_labour_rubric_contract(&overlay_root, &required_checks)
+}
+
+fn overlay_labour_required_check_set() -> BTreeSet<String> {
+    OVERLAY_LABOUR_REQUIRED_CHECKS
+        .iter()
+        .map(|check| (*check).to_owned())
+        .collect()
+}
+
+fn assert_overlay_labour_metadata_and_files(
+    overlay_root: &Path,
+    linted: &skills_support::LintedSkill,
+) -> Result<()> {
+    ensure!(linted.metadata.skill_id == "validation/overlay-labour-cost");
+    ensure!(linted.metadata.interaction_profile == "headless_contract");
+    ensure!(linted.metadata.checkpoint_schema_version.as_deref() == Some("1.0.0"));
+    ensure!(linted.metadata.side_effect_class == "read_only");
+    ensure!(!linted.metadata.requires_cdp);
+    ensure!(
+        linted.metadata.worker_behavior_version.as_deref()
+            == Some("landed-cost/uk-installation-labour-estimate@0.1.0")
+    );
+    ensure!(
+        linted.metadata.validator_behavior_version.as_deref()
+            == Some("validation/overlay-labour-cost@0.1.0")
+    );
+
+    ensure!(overlay_root.join("SKILL.md").is_file());
+    ensure!(overlay_root.join("result.schema.json").is_file());
+    ensure!(overlay_root.join("checkpoint.schema.json").is_file());
+    ensure!(overlay_root.join("validator-rubric.yaml").is_file());
+    ensure!(overlay_root.join("canary.inputs.jsonl").is_file());
+    ensure!(overlay_root.join("golden.assertions.yaml").is_file());
+
+    for required_text in [
+        "hours versus scope",
+        "regional rate bounds",
+        "postcode/region plausibility",
+        "equipment proportionality",
+        "permit responsibility handling",
+        "warning completeness",
+        "downstream_route: review",
+    ] {
+        ensure!(
+            linted.skill_markdown.contains(required_text),
+            "overlay-labour-cost SKILL.md missing `{required_text}`"
+        );
+    }
+
+    Ok(())
+}
+
+fn assert_overlay_labour_schema_contract(
+    overlay_root: &Path,
+    required_checks: &BTreeSet<String>,
+) -> Result<()> {
+    let result_schema: Value = serde_json::from_str(&fs::read_to_string(
+        overlay_root.join("result.schema.json"),
+    )?)?;
+    let schema_checks = result_schema
+        .pointer("/$defs/domain_check/enum")
+        .and_then(Value::as_array)
+        .ok_or_else(|| anyhow::anyhow!("overlay result schema missing domain_check enum"))?
+        .iter()
+        .filter_map(Value::as_str)
+        .map(str::to_owned)
+        .collect::<BTreeSet<_>>();
+    ensure!(schema_checks == *required_checks);
+    ensure!(
+        result_schema
+            .pointer("/properties/downstream_route/enum")
+            .and_then(Value::as_array)
+            .is_some_and(|routes| routes.iter().any(|route| route.as_str() == Some("review"))),
+        "overlay result schema must expose downstream_route=review"
+    );
+
+    let checkpoint_schema: Value = serde_json::from_str(&fs::read_to_string(
+        overlay_root.join("checkpoint.schema.json"),
+    )?)?;
+    ensure!(
+        checkpoint_schema
+            .pointer("/properties/kind/const")
+            .and_then(Value::as_str)
+            == Some("labour_cost_overlay_checkpoint")
+    );
+
+    Ok(())
+}
+
+fn assert_overlay_labour_canary_and_golden_contract(
+    overlay_root: &Path,
+    required_checks: &BTreeSet<String>,
+) -> Result<()> {
+    let canaries = load_canary_inputs(&overlay_root.join("canary.inputs.jsonl"))?;
+    ensure!(canaries.len() == OVERLAY_LABOUR_CANARY_CASES.len());
+    let golden: YamlValue = serde_yaml::from_str(&fs::read_to_string(
+        overlay_root.join("golden.assertions.yaml"),
+    )?)?;
+    let cases = yaml_get(&golden, "cases")
+        .ok_or_else(|| anyhow::anyhow!("overlay-labour-cost golden missing cases"))?;
+
+    for case_id in OVERLAY_LABOUR_CANARY_CASES {
+        let canary = find_canary_case(&canaries, case_id)?;
+        ensure!(json_str_field_eq(
+            canary.get("skill_id"),
+            "validation/overlay-labour-cost"
+        ));
+        ensure!(json_str_field_eq(
+            canary.get("worker_skill_id"),
+            "landed-cost/uk-installation-labour-estimate"
+        ));
+        let golden_case = yaml_get(cases, case_id)
+            .ok_or_else(|| anyhow::anyhow!("overlay-labour-cost golden missing {case_id}"))?;
+        ensure!(
+            canary
+                .get("expected_downstream_route")
+                .and_then(Value::as_str)
+                == yaml_get(golden_case, "expected_downstream_route").and_then(YamlValue::as_str),
+            "overlay canary/golden downstream route mismatch for {case_id}"
+        );
+        let canary_checks = json_string_set_field(canary, "domain_checks")?;
+        let golden_checks = yaml_sequence_string_set(
+            yaml_get(golden_case, "required_domain_checks"),
+            "required_domain_checks",
+        )?;
+        ensure!(canary_checks == golden_checks);
+        if case_id == "labour-overlay-worker-outage-001" {
+            ensure!(canary_checks.is_empty());
+            ensure!(json_str_field_eq(
+                canary.get("expected_downstream_route"),
+                "review"
+            ));
+        } else {
+            ensure!(canary_checks == *required_checks);
+        }
+    }
+
+    let shared = yaml_get(&golden, "shared_assertions")
+        .ok_or_else(|| anyhow::anyhow!("overlay golden missing shared_assertions"))?;
+    ensure!(
+        yaml_sequence_string_set(
+            yaml_get(shared, "domain_check_inventory"),
+            "domain_check_inventory",
+        )? == *required_checks
+    );
+    ensure!(
+        yaml_get(
+            yaml_get(shared, "validator_rejection_or_outage_policy")
+                .ok_or_else(|| anyhow::anyhow!("overlay golden missing outage policy"))?,
+            "never_silent_pass_on_missing_worker_result",
+        )
+        .and_then(YamlValue::as_bool)
+            == Some(true)
+    );
+
+    Ok(())
+}
+
+fn assert_overlay_labour_rubric_contract(
+    overlay_root: &Path,
+    required_checks: &BTreeSet<String>,
+) -> Result<()> {
+    let rubric: YamlValue = serde_yaml::from_str(&fs::read_to_string(
+        overlay_root.join("validator-rubric.yaml"),
+    )?)?;
+    ensure!(
+        yaml_sequence_string_set(yaml_get(&rubric, "decision_axes"), "decision_axes")?
+            == *required_checks
+    );
+    let blocking_checks = yaml_get(&rubric, "blocking_checks")
+        .and_then(YamlValue::as_sequence)
+        .ok_or_else(|| anyhow::anyhow!("overlay rubric missing blocking_checks"))?
+        .iter()
+        .map(|check| {
+            yaml_get(check, "id")
+                .and_then(YamlValue::as_str)
+                .map(str::to_owned)
+                .ok_or_else(|| anyhow::anyhow!("overlay rubric blocking_check missing id"))
+        })
+        .collect::<Result<BTreeSet<_>>>()?;
+    ensure!(blocking_checks == *required_checks);
 
     Ok(())
 }

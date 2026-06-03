@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://testproject1.local/schemas/overlay-labour-cost-result.schema.json",
+  "title": "UK Installation Labour Overlay Result",
+  "description": "Headless validator overlay result for UK installation labour estimates. Money remains integer GBP pence in cited worker evidence; confidence is basis points.",
+  "type": "object",
+  "required": [
+    "verdict",
+    "basis_sufficiency_state",
+    "enforcement_eligible",
+    "confidence_bps",
+    "downstream_route",
+    "domain_checks",
+    "issues",
+    "worker_result_status",
+    "summary"
+  ],
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": ["approved", "rejected", "flagged"]
+    },
+    "basis_sufficiency_state": {
+      "type": "string",
+      "enum": ["sufficient", "partial", "insufficient"]
+    },
+    "enforcement_eligible": {
+      "type": "boolean"
+    },
+    "confidence_bps": {
+      "$ref": "#/$defs/bps"
+    },
+    "downstream_route": {
+      "type": "string",
+      "enum": ["pass", "review"]
+    },
+    "domain_checks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/domain_check"
+      },
+      "uniqueItems": true
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["severity", "category", "description", "evidence_refs"],
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": ["critical", "major", "minor", "observation"]
+          },
+          "category": {
+            "$ref": "#/$defs/issue_category"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence_refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "worker_result_status": {
+      "type": "string",
+      "enum": ["estimated", "partial", "blocked", "unavailable"]
+    },
+    "worker_behavior_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "validator_behavior_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "bps": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10000
+    },
+    "domain_check": {
+      "type": "string",
+      "enum": [
+        "hours_scope_consistency",
+        "regional_rate_bounds",
+        "postcode_region_plausibility",
+        "access_equipment_proportionality",
+        "permit_responsibility_handling",
+        "warning_completeness"
+      ]
+    },
+    "issue_category": {
+      "type": "string",
+      "enum": [
+        "hours_scope_consistency",
+        "regional_rate_bounds",
+        "postcode_region_plausibility",
+        "access_equipment_proportionality",
+        "permit_responsibility_handling",
+        "warning_completeness",
+        "worker_result_unavailable",
+        "basis_sufficiency"
+      ]
+    }
+  }
+}
