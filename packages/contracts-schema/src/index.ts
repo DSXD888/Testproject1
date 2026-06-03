@@ -515,6 +515,52 @@ export interface SharedVisibilityDatabase {
 export type TableRow<TableName extends keyof SharedVisibilityDatabase['public']['Tables']> =
   SharedVisibilityDatabase['public']['Tables'][TableName]['Row'];
 
+type TypeEquals<Actual, Expected> =
+  (<Value>() => Value extends Actual ? 1 : 2) extends
+  (<Value>() => Value extends Expected ? 1 : 2)
+    ? true
+    : false;
+
+type ExpectTrue<Condition extends true> = Condition;
+
+type MaintenancePeriodEstimateFirstClassFields = Pick<
+  MaintenancePeriodEstimateRow,
+  | 'product_candidate_id'
+  | 'landed_cost_estimate_id'
+  | 'visit_scope'
+  | 'visits_per_year'
+  | 'term_years'
+  | 'per_visit_labour_cost_gbp_pence'
+  | 'annualised_opex_gbp_pence'
+  | 'total_visible_term_opex_gbp_pence'
+  | 'maintenance_confidence_bps'
+  | 'margin_signal'
+  | 'warnings'
+>;
+
+type TsSchema005MaintenancePeriodEstimateShape = ExpectTrue<
+  TypeEquals<
+    MaintenancePeriodEstimateFirstClassFields,
+    {
+      product_candidate_id: string;
+      landed_cost_estimate_id: string;
+      visit_scope: string | null;
+      visits_per_year: number;
+      term_years: number;
+      per_visit_labour_cost_gbp_pence: number;
+      annualised_opex_gbp_pence: number;
+      total_visible_term_opex_gbp_pence: number;
+      maintenance_confidence_bps: number;
+      margin_signal: MaintenanceMarginSignal | null;
+      warnings: Json;
+    }
+  >
+>;
+
+type TsSchema005MaintenancePeriodEstimateReadableProjection = ExpectTrue<
+  TypeEquals<TableRow<'maintenance_period_estimates'>, MaintenancePeriodEstimateRow>
+>;
+
 export const READABLE_PROJECTION_TABLES = [
   'procurement_processes',
   'product_candidates',
