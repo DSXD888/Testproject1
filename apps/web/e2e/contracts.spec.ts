@@ -146,6 +146,14 @@ test('L4-T-contracts_spec-011 detail renders projection summaries through shared
   expect(pageSource).toContain('Candidates');
   expect(pageSource).toContain('Quotes');
   expect(pageSource).toContain('Margins');
+  expect(pageSource).toContain('Goods-led labour and permits');
+  expect(pageSource).toContain('installation_labour_coverage_bps');
+  expect(pageSource).toContain('installation_labour_value_coverage_bps');
+  expect(pageSource).toContain('permit_traffic_mgmt_coverage_bps');
+  expect(pageSource).toContain('permit_traffic_mgmt_value_coverage_bps');
+  expect(pageSource).toContain('installation_labour_cost_gbp_pence');
+  expect(pageSource).toContain('permit_traffic_mgmt_cost_gbp_pence');
+  expect(pageSource).toContain('permit_responsibility');
   expect(boundarySource).toContain("from('product_candidates')");
   expect(boundarySource).toContain("from('supplier_quotes')");
   expect(boundarySource).toContain("from('candidate_pricing_assessments')");
@@ -165,11 +173,21 @@ test('L4-T-contracts_spec-011 detail route renders read-only fallback snapshot',
 
   await expect(page.getByTestId('contract-detail-page')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Decision summary' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Goods-led labour and permits' })).toBeVisible();
+  await expect(page.getByText('Labour coverage')).toBeVisible();
+  await expect(page.getByText('Labour value coverage')).toBeVisible();
+  await expect(page.getByText('Installation labour base')).toBeVisible();
+  await expect(page.getByText('Permit/TM coverage')).toBeVisible();
+  await expect(page.getByText('Permit/TM value coverage')).toBeVisible();
+  await expect(page.getByText('Permit/TM base')).toBeVisible();
+  await expect(page.getByText('Permit responsibility')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Candidates' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Quotes' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Manifest' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Errors' })).toBeVisible();
-  await expect(page.getByText(/Rerun enrichment|Run .* ingestion/)).toHaveCount(0);
+  await expect(
+    page.getByText(/approve|reject|watch|Rerun enrichment|Run .* ingestion|daemon trigger/i),
+  ).toHaveCount(0);
 });
 
 test('L4-T-contracts_spec-012 status page renders summary projections only', async () => {
@@ -237,6 +255,11 @@ test('L4-T-contracts_spec-017 verifies desktop-seeded projections stay visible a
   expect(listSource).toContain('href={`/contracts/${row.id}`}');
   expect(detailSource).toContain('getContractDetail(processId, orgId)');
   expect(detailSource).toContain('Decision summary');
+  expect(detailSource).toContain('Goods-led labour and permits');
+  expect(detailSource).toContain('installation_labour_coverage_bps');
+  expect(detailSource).toContain('permit_traffic_mgmt_coverage_bps');
+  expect(detailSource).toContain('installation_labour_cost_gbp_pence');
+  expect(detailSource).toContain('permit_traffic_mgmt_cost_gbp_pence');
   expect(detailSource).toContain('disposition');
   expect(statusSource).toContain('getStatusPageSnapshot(orgId)');
   expect(statusSource).toContain('viewer_sync_status');

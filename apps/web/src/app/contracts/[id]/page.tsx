@@ -351,6 +351,7 @@ export default function ContractDetailPage() {
   );
   const bidWorkflowSummary = snapshot?.bidWorkflowSummary ?? null;
   const bidWorkflowState = toBidWorkflowState(bidWorkflowSummary?.bid_state);
+  const latestLandedCost = snapshot?.landedCosts[0] ?? null;
   const errorItems =
     snapshot?.errorSummaries.map((row) => toErrorSummaryItem(row, process.id)) ?? [];
 
@@ -491,6 +492,68 @@ export default function ContractDetailPage() {
               <dt>Net-qualified coverage</dt>
               <dd>{formatBps(snapshot?.pipelineAssessment?.net_qualified_coverage_bps)}</dd>
             </div>
+            <div>
+              <dt>Goods value share</dt>
+              <dd>{formatBps(snapshot?.pipelineAssessment?.goods_value_share_bps)}</dd>
+            </div>
+            <div>
+              <dt>Goods share basis</dt>
+              <dd>
+                {sanitizeUntrustedText(
+                  snapshot?.pipelineAssessment?.goods_value_share_basis ?? 'n/a',
+                )}
+              </dd>
+            </div>
+          </dl>
+        </article>
+
+        <article>
+          <h2>Goods-led labour and permits</h2>
+          <dl>
+            <div>
+              <dt>Labour coverage</dt>
+              <dd>
+                {formatBps(snapshot?.pipelineAssessment?.installation_labour_coverage_bps)}
+              </dd>
+            </div>
+            <div>
+              <dt>Labour value coverage</dt>
+              <dd>
+                {formatBps(
+                  snapshot?.pipelineAssessment?.installation_labour_value_coverage_bps,
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt>Installation labour base</dt>
+              <dd>{formatMoney(latestLandedCost?.installation_labour_cost_gbp_pence)}</dd>
+            </div>
+            <div>
+              <dt>Permit/TM coverage</dt>
+              <dd>
+                {formatBps(snapshot?.pipelineAssessment?.permit_traffic_mgmt_coverage_bps)}
+              </dd>
+            </div>
+            <div>
+              <dt>Permit/TM value coverage</dt>
+              <dd>
+                {formatBps(
+                  snapshot?.pipelineAssessment?.permit_traffic_mgmt_value_coverage_bps,
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt>Permit/TM base</dt>
+              <dd>{formatMoney(latestLandedCost?.permit_traffic_mgmt_cost_gbp_pence)}</dd>
+            </div>
+            <div>
+              <dt>Permit responsibility</dt>
+              <dd>
+                {sanitizeUntrustedText(
+                  latestLandedCost?.permit_responsibility ?? 'unknown',
+                )}
+              </dd>
+            </div>
           </dl>
         </article>
       </section>
@@ -566,6 +629,44 @@ export default function ContractDetailPage() {
                   Net margin {formatBps(estimate.net_margin_base_bps)} · Confidence{' '}
                   {formatBps(estimate.confidence_bps)}
                 </p>
+                <dl>
+                  <div>
+                    <dt>Goods landed cost</dt>
+                    <dd>{formatMoney(estimate.goods_landed_cost_gbp_pence)}</dd>
+                  </div>
+                  <div>
+                    <dt>Installation labour base</dt>
+                    <dd>{formatMoney(estimate.installation_labour_cost_gbp_pence)}</dd>
+                  </div>
+                  <div>
+                    <dt>Installation labour range</dt>
+                    <dd>
+                      {formatMoney(estimate.installation_labour_low_gbp_pence)} to{' '}
+                      {formatMoney(estimate.installation_labour_high_gbp_pence)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Installation labour confidence</dt>
+                    <dd>{formatBps(estimate.installation_labour_confidence_bps)}</dd>
+                  </div>
+                  <div>
+                    <dt>Permit/TM base</dt>
+                    <dd>{formatMoney(estimate.permit_traffic_mgmt_cost_gbp_pence)}</dd>
+                  </div>
+                  <div>
+                    <dt>Permit/TM range</dt>
+                    <dd>
+                      {formatMoney(estimate.permit_traffic_mgmt_low_gbp_pence)} to{' '}
+                      {formatMoney(estimate.permit_traffic_mgmt_high_gbp_pence)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Permit responsibility</dt>
+                    <dd>
+                      {sanitizeUntrustedText(estimate.permit_responsibility ?? 'unknown')}
+                    </dd>
+                  </div>
+                </dl>
               </li>
             ))}
           </ul>
