@@ -5266,6 +5266,67 @@ struct SeaRatesFreightResult {
     blockers: Vec<Stage11Issue>,
 }
 
+#[allow(dead_code)]
+#[derive(Debug, Clone, Deserialize)]
+struct UkInstallationLabourResult {
+    status: String,
+    labour_status: String,
+    #[serde(default)]
+    uk_region: Option<String>,
+    #[serde(default)]
+    labour_line_items: Vec<Value>,
+    #[serde(default)]
+    access_equipment_line_items: Vec<Value>,
+    #[serde(
+        default,
+        rename = "labour_base_gbp_pence",
+        deserialize_with = "deserialize_optional_i64_as_zero"
+    )]
+    installation_labour_cost_gbp_pence: i64,
+    #[serde(
+        default,
+        rename = "labour_low_gbp_pence",
+        deserialize_with = "deserialize_optional_i64_as_zero"
+    )]
+    installation_labour_low_gbp_pence: i64,
+    #[serde(
+        default,
+        rename = "labour_high_gbp_pence",
+        deserialize_with = "deserialize_optional_i64_as_zero"
+    )]
+    installation_labour_high_gbp_pence: i64,
+    #[serde(
+        default,
+        rename = "labour_confidence_bps",
+        deserialize_with = "deserialize_optional_i64_as_zero"
+    )]
+    installation_labour_confidence_bps: i64,
+    #[serde(default)]
+    permit_traffic_mgmt_line_items: Vec<Value>,
+    #[serde(
+        default,
+        rename = "permit_traffic_mgmt_base_gbp_pence",
+        deserialize_with = "deserialize_optional_i64_as_zero"
+    )]
+    permit_traffic_mgmt_cost_gbp_pence: i64,
+    #[serde(default, deserialize_with = "deserialize_optional_i64_as_zero")]
+    permit_traffic_mgmt_low_gbp_pence: i64,
+    #[serde(default, deserialize_with = "deserialize_optional_i64_as_zero")]
+    permit_traffic_mgmt_high_gbp_pence: i64,
+    #[serde(default)]
+    permit_responsibility: Option<String>,
+    #[serde(default)]
+    vat_treatment: Option<String>,
+    #[serde(default)]
+    excluded_cost_flags: Vec<String>,
+    #[serde(default, deserialize_with = "deserialize_value_array_or_single")]
+    evidence: Vec<Value>,
+    #[serde(default)]
+    warnings: Vec<Stage11Issue>,
+    #[serde(default)]
+    blockers: Vec<Stage11Issue>,
+}
+
 fn deserialize_value_array_or_single<'de, D>(
     deserializer: D,
 ) -> std::result::Result<Vec<Value>, D::Error>
@@ -5280,6 +5341,13 @@ where
             "expected evidence to be an array, object, or null",
         )),
     }
+}
+
+fn deserialize_optional_i64_as_zero<'de, D>(deserializer: D) -> std::result::Result<i64, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Ok(Option::<i64>::deserialize(deserializer)?.unwrap_or(0))
 }
 
 /// Possible values of the `SeaRates` skill's `cdp_state` field.
@@ -6880,6 +6948,75 @@ fn parse_searates_freight_result(value: &Value) -> Result<SeaRatesFreightResult>
     Ok(result)
 }
 
+#[allow(dead_code)]
+fn parse_uk_installation_labour_result(value: &Value) -> Result<UkInstallationLabourResult> {
+    let mut result: UkInstallationLabourResult =
+        serde_json::from_value(value.clone()).context("parsing UK installation labour result")?;
+    ensure!(
+        matches!(result.status.as_str(), "estimated" | "partial" | "blocked"),
+        "unsupported UK installation labour status `{}`",
+        result.status
+    );
+    ensure!(
+        matches!(
+            result.labour_status.as_str(),
+            "estimated" | "not_required" | "blocked"
+        ),
+        "unsupported UK installation labour_status `{}`",
+        result.labour_status
+    );
+    for (field_name, value) in [
+        (
+            "installation_labour_cost_gbp_pence",
+            result.installation_labour_cost_gbp_pence,
+        ),
+        (
+            "installation_labour_low_gbp_pence",
+            result.installation_labour_low_gbp_pence,
+        ),
+        (
+            "installation_labour_high_gbp_pence",
+            result.installation_labour_high_gbp_pence,
+        ),
+        (
+            "permit_traffic_mgmt_cost_gbp_pence",
+            result.permit_traffic_mgmt_cost_gbp_pence,
+        ),
+        (
+            "permit_traffic_mgmt_low_gbp_pence",
+            result.permit_traffic_mgmt_low_gbp_pence,
+        ),
+        (
+            "permit_traffic_mgmt_high_gbp_pence",
+            result.permit_traffic_mgmt_high_gbp_pence,
+        ),
+    ] {
+        non_negative_money(value, field_name)?;
+    }
+    ensure!(
+        (0..=10_000).contains(&result.installation_labour_confidence_bps),
+        "installation_labour_confidence_bps out of range"
+    );
+    if let Some(responsibility) = result.permit_responsibility.as_deref() {
+        ensure!(
+            matches!(
+                responsibility,
+                "authority_provided" | "contractor_provided" | "shared" | "unknown"
+            ),
+            "unsupported permit_responsibility `{responsibility}`"
+        );
+    }
+    if (result.status == "blocked" || result.labour_status == "blocked")
+        && result.blockers.is_empty()
+    {
+        result.blockers.push(Stage11Issue::blocked(
+            "UK_INSTALLATION_LABOUR_BLOCKED",
+            "UK installation labour skill returned blocked status without a specific blocker.",
+        ));
+    }
+    Ok(result)
+}
+
 fn searates_quote_amount_minor(result: &SeaRatesFreightResult) -> i64 {
     result
         .freight_base_amount_minor
@@ -7999,6 +8136,7 @@ fn extract_agent_message_json(line: &str) -> Option<Value> {
         && (parsed.get("classification_status").is_some()
             || parsed.get("sizing_status").is_some()
             || parsed.get("freight_status").is_some()
+            || parsed.get("labour_status").is_some()
             || parsed.get("fx_status").is_some()))
     .then_some(parsed)
 }
@@ -28317,6 +28455,27 @@ mod tests {
     }
 
     #[test]
+    fn extract_agent_message_json_accepts_well_formed_labour_result() -> Result<()> {
+        let line = json!({
+            "item": {
+                "type": "agent_message",
+                "text": json!({
+                    "product_candidate_id": "candidate",
+                    "selected_quote_id": "quote",
+                    "status": "estimated",
+                    "labour_status": "estimated"
+                }).to_string()
+            }
+        })
+        .to_string();
+
+        let parsed = super::extract_agent_message_json(&line)
+            .ok_or_else(|| anyhow::anyhow!("labour result should parse"))?;
+        assert_eq!(parsed["labour_status"], json!("estimated"));
+        Ok(())
+    }
+
+    #[test]
     fn landed_cost_recovers_result_after_timeout() -> Result<()> {
         let decision = super::decide_landed_cost_outcome("test-skill", true, None, true, 300)?;
 
@@ -29136,6 +29295,102 @@ mod tests {
         assert_eq!(parsed.evidence.len(), 1);
         assert_eq!(parsed.evidence[0]["candidate_count"], json!(58));
         Ok(())
+    }
+
+    #[test]
+    fn uk_installation_labour_parser_accepts_estimated_result() -> Result<()> {
+        let parsed = super::parse_uk_installation_labour_result(&json!({
+            "status": "estimated",
+            "labour_status": "estimated",
+            "uk_region": "NW",
+            "labour_line_items": [{
+                "labour_type": "installation",
+                "trade": "electrician",
+                "quantity_hours": 16,
+                "rate_gbp_per_hour_pence": 4500,
+                "subtotal_gbp_pence": 72_000,
+                "confidence_bps": 7500,
+                "rate_source": "uk-regional-labour-rates-2026-q2"
+            }],
+            "access_equipment_line_items": [],
+            "labour_base_gbp_pence": 120_000,
+            "labour_low_gbp_pence": 96_000,
+            "labour_high_gbp_pence": 144_000,
+            "labour_confidence_bps": 7_500,
+            "permit_traffic_mgmt_line_items": [{
+                "component": "ttro",
+                "responsibility": "unknown",
+                "low_gbp_pence": 20_000,
+                "base_gbp_pence": 30_000,
+                "high_gbp_pence": 45_000,
+                "basis": "uk-permit-tm-bands-2026-q2"
+            }],
+            "permit_traffic_mgmt_base_gbp_pence": 30_000,
+            "permit_traffic_mgmt_low_gbp_pence": 20_000,
+            "permit_traffic_mgmt_high_gbp_pence": 45_000,
+            "permit_responsibility": "unknown",
+            "vat_treatment": "ex_vat_screening_estimate",
+            "excluded_cost_flags": ["firm_pricing_excluded"],
+            "evidence": {
+                "kind": "rate_table",
+                "source": "uk-regional-labour-rates-2026-q2.json",
+                "rate_table_version": "uk-installation-labour-2026-q2"
+            },
+            "warnings": [{
+                "code": "PERMIT_RESPONSIBILITY_UNKNOWN",
+                "message": "permit responsibility unknown",
+                "severity": "warning"
+            }],
+            "blockers": []
+        }))?;
+
+        assert_eq!(parsed.status, "estimated");
+        assert_eq!(parsed.labour_status, "estimated");
+        assert_eq!(parsed.installation_labour_cost_gbp_pence, 120_000);
+        assert_eq!(parsed.installation_labour_low_gbp_pence, 96_000);
+        assert_eq!(parsed.installation_labour_high_gbp_pence, 144_000);
+        assert_eq!(parsed.installation_labour_confidence_bps, 7_500);
+        assert_eq!(parsed.permit_traffic_mgmt_cost_gbp_pence, 30_000);
+        assert_eq!(parsed.permit_traffic_mgmt_low_gbp_pence, 20_000);
+        assert_eq!(parsed.permit_traffic_mgmt_high_gbp_pence, 45_000);
+        assert_eq!(parsed.permit_responsibility.as_deref(), Some("unknown"));
+        assert_eq!(parsed.evidence.len(), 1);
+        assert_eq!(parsed.warnings[0].code, "PERMIT_RESPONSIBILITY_UNKNOWN");
+        Ok(())
+    }
+
+    #[test]
+    fn uk_installation_labour_parser_defaults_blocked_missing_money_fields() -> Result<()> {
+        let parsed = super::parse_uk_installation_labour_result(&json!({
+            "status": "blocked",
+            "labour_status": "blocked",
+            "warnings": [],
+            "blockers": []
+        }))?;
+
+        assert_eq!(parsed.installation_labour_cost_gbp_pence, 0);
+        assert_eq!(parsed.installation_labour_low_gbp_pence, 0);
+        assert_eq!(parsed.installation_labour_high_gbp_pence, 0);
+        assert_eq!(parsed.installation_labour_confidence_bps, 0);
+        assert_eq!(parsed.permit_traffic_mgmt_cost_gbp_pence, 0);
+        assert_eq!(parsed.permit_traffic_mgmt_low_gbp_pence, 0);
+        assert_eq!(parsed.permit_traffic_mgmt_high_gbp_pence, 0);
+        assert_eq!(parsed.permit_responsibility, None);
+        assert_eq!(parsed.blockers[0].code, "UK_INSTALLATION_LABOUR_BLOCKED");
+        Ok(())
+    }
+
+    #[test]
+    fn uk_installation_labour_parser_rejects_negative_money() {
+        let parsed = super::parse_uk_installation_labour_result(&json!({
+            "status": "estimated",
+            "labour_status": "estimated",
+            "labour_base_gbp_pence": -1,
+            "warnings": [],
+            "blockers": []
+        }));
+
+        assert!(parsed.is_err());
     }
 
     // ---- Stage 11 CDP captcha resilience (CDP.1..CDP.12) ----------------
