@@ -5789,31 +5789,87 @@ fn rounded_value_share_bps(numerator_pence: i64, denominator_pence: i64) -> Opti
     ))
 }
 
-fn contract_value_goods_share_bps(estimate: &LandedCostEstimateWrite) -> Option<i64> {
-    let breakdown = parse_json_or_null(Some(&estimate.confidence_breakdown));
-    let goods_addressable_value_pence = optional_i64_at(
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct GoodsDominanceShareBasis {
+    share_bps: i64,
+    basis_label: &'static str,
+    numerator_pence: i64,
+    denominator_pence: i64,
+}
+
+impl GoodsDominanceShareBasis {
+    const CONTRACT_VALUE_LABEL: &'static str = "contract_value";
+    const COST_PROXY_LABEL: &'static str = "cost_proxy";
+
+    fn is_contract_value(self) -> bool {
+        self.basis_label == Self::CONTRACT_VALUE_LABEL
+    }
+}
+
+fn contract_value_goods_share_basis_from_breakdown(
+    confidence_breakdown: Option<&str>,
+) -> Option<GoodsDominanceShareBasis> {
+    let breakdown = parse_json_or_null(confidence_breakdown);
+    let numerator_pence = optional_i64_at(
         &breakdown,
         &["goods_dominance_inputs", "goods_addressable_value_pence"],
     )?;
-    let total_value_pence =
+    let denominator_pence =
         optional_i64_at(&breakdown, &["goods_dominance_inputs", "total_value_pence"])?;
-    rounded_value_share_bps(goods_addressable_value_pence, total_value_pence)
+    let share_bps = rounded_value_share_bps(numerator_pence, denominator_pence)?;
+    Some(GoodsDominanceShareBasis {
+        share_bps,
+        basis_label: GoodsDominanceShareBasis::CONTRACT_VALUE_LABEL,
+        numerator_pence,
+        denominator_pence,
+    })
 }
 
+#[cfg(test)]
+fn contract_value_goods_share_bps(estimate: &LandedCostEstimateWrite) -> Option<i64> {
+    contract_value_goods_share_basis_from_breakdown(Some(&estimate.confidence_breakdown))
+        .map(|basis| basis.share_bps)
+}
+
+fn cost_proxy_goods_share_basis_from_parts(
+    goods_landed_cost_gbp_pence: i64,
+    installation_labour_cost_gbp_pence: i64,
+    permit_traffic_mgmt_cost_gbp_pence: i64,
+) -> Option<GoodsDominanceShareBasis> {
+    let denominator_pence = goods_landed_cost_gbp_pence
+        .saturating_add(installation_labour_cost_gbp_pence)
+        .saturating_add(permit_traffic_mgmt_cost_gbp_pence);
+    let share_bps = rounded_value_share_bps(goods_landed_cost_gbp_pence, denominator_pence)?;
+    Some(GoodsDominanceShareBasis {
+        share_bps,
+        basis_label: GoodsDominanceShareBasis::COST_PROXY_LABEL,
+        numerator_pence: goods_landed_cost_gbp_pence,
+        denominator_pence,
+    })
+}
+
+#[cfg(test)]
 fn cost_proxy_goods_share_bps(estimate: &LandedCostEstimateWrite) -> Option<i64> {
-    let denominator = estimate
-        .goods_landed_cost_gbp_pence
-        .saturating_add(estimate.installation_labour_cost_gbp_pence)
-        .saturating_add(estimate.permit_traffic_mgmt_cost_gbp_pence);
-    rounded_value_share_bps(estimate.goods_landed_cost_gbp_pence, denominator)
+    cost_proxy_goods_share_basis_from_parts(
+        estimate.goods_landed_cost_gbp_pence,
+        estimate.installation_labour_cost_gbp_pence,
+        estimate.permit_traffic_mgmt_cost_gbp_pence,
+    )
+    .map(|basis| basis.share_bps)
 }
 
-fn phase2_goods_dominance_share_bps(
+fn phase2_goods_dominance_share_basis(
     estimate: &LandedCostEstimateWrite,
-) -> Option<(i64, &'static str)> {
-    contract_value_goods_share_bps(estimate)
-        .map(|share_bps| (share_bps, "contract_value"))
-        .or_else(|| cost_proxy_goods_share_bps(estimate).map(|share_bps| (share_bps, "cost_proxy")))
+) -> Option<GoodsDominanceShareBasis> {
+    contract_value_goods_share_basis_from_breakdown(Some(&estimate.confidence_breakdown)).or_else(
+        || {
+            cost_proxy_goods_share_basis_from_parts(
+                estimate.goods_landed_cost_gbp_pence,
+                estimate.installation_labour_cost_gbp_pence,
+                estimate.permit_traffic_mgmt_cost_gbp_pence,
+            )
+        },
+    )
 }
 
 fn apply_phase2_goods_dominance_gate(
@@ -5821,9 +5877,11 @@ fn apply_phase2_goods_dominance_gate(
     warnings: &mut Vec<Stage11Issue>,
     blockers: &mut Vec<Stage11Issue>,
 ) {
-    let Some((goods_share_bps, basis_label)) = phase2_goods_dominance_share_bps(estimate) else {
+    let Some(share_basis) = phase2_goods_dominance_share_basis(estimate) else {
         return;
     };
+    let goods_share_bps = share_basis.share_bps;
+    let basis_label = share_basis.basis_label;
     let floor_bps = goods_dominance_floor_bps();
     let review_band_bps = goods_dominance_review_band_bps();
     let reject_floor_bps = floor_bps.saturating_sub(review_band_bps);
@@ -10424,6 +10482,7 @@ struct NetMarginRollupCandidate {
     gross_margin_bps: Option<i64>,
     net_margin_base_bps: Option<i64>,
     candidate_value_share_bps: Option<i64>,
+    goods_dominance_share: Option<GoodsDominanceShareBasis>,
     basis_hash: String,
 }
 
@@ -10438,6 +10497,8 @@ struct NetMarginProcessRollup {
     unresolved_mandatory_lots: i64,
     gross_margin_bps: Option<i64>,
     net_margin_bps: Option<i64>,
+    goods_value_share_bps: Option<i64>,
+    goods_value_share_basis: Option<String>,
     review_required: bool,
     review_reason: Option<String>,
     decision_basis_hash: String,
@@ -10552,8 +10613,20 @@ struct ManifestDecisionSummary {
     pipeline_state: String,
     review_required: i64,
     review_reason: Option<String>,
+    goods_dominance: ManifestGoodsDominanceDecisionBasis,
     stage12_decision_basis_hash: String,
     verdict_counts: BTreeMap<String, i64>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct ManifestGoodsDominanceDecisionBasis {
+    goods_share_basis: Option<String>,
+    goods_share_bps: Option<i64>,
+    goods_share_numerator_pence: Option<i64>,
+    goods_share_denominator_pence: Option<i64>,
+    goods_dominance_floor_bps: i64,
+    goods_dominance_review_band_bps: i64,
+    final_route: String,
 }
 
 #[allow(clippy::struct_field_names)]
@@ -10634,6 +10707,12 @@ struct ManifestCandidateDetail {
     search_attempts: Vec<ManifestSearchEvidence>,
     #[serde(skip_serializing)]
     confidence_breakdown_json: Option<String>,
+    #[serde(skip_serializing)]
+    goods_landed_cost_gbp_pence: Option<i64>,
+    #[serde(skip_serializing)]
+    installation_labour_cost_gbp_pence: Option<i64>,
+    #[serde(skip_serializing)]
+    permit_traffic_mgmt_cost_gbp_pence: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -11254,12 +11333,18 @@ fn load_net_margin_rollup_inputs(
           cpa.gross_margin_bps,
           cnma.net_margin_base_bps,
           pc.candidate_value_share_bps,
-          cnma.basis_hash
+          cnma.basis_hash,
+          lce.confidence_breakdown,
+          COALESCE(lce.goods_landed_cost_gbp_pence, 0),
+          COALESCE(lce.installation_labour_cost_gbp_pence, 0),
+          COALESCE(lce.permit_traffic_mgmt_cost_gbp_pence, 0)
         FROM candidate_net_margin_assessments cnma
         JOIN product_candidates pc
           ON pc.id = cnma.product_candidate_id
         LEFT JOIN candidate_pricing_assessments cpa
           ON cpa.id = cnma.pricing_assessment_id
+        LEFT JOIN landed_cost_estimates lce
+          ON lce.id = cnma.landed_cost_estimate_id
         WHERE cnma.process_id = ?1
         ORDER BY cnma.product_candidate_id
         ",
@@ -11271,6 +11356,19 @@ fn load_net_margin_rollup_inputs(
             .map_err(|error| rusqlite::Error::ToSqlConversionFailure(error.into()))?;
         let reasons = parse_reason_json(&reasons_json)
             .map_err(|error| rusqlite::Error::ToSqlConversionFailure(error.into()))?;
+        let confidence_breakdown = row.get::<_, Option<String>>(9)?;
+        let goods_landed_cost_gbp_pence = row.get(10)?;
+        let installation_labour_cost_gbp_pence = row.get(11)?;
+        let permit_traffic_mgmt_cost_gbp_pence = row.get(12)?;
+        let goods_dominance_share =
+            contract_value_goods_share_basis_from_breakdown(confidence_breakdown.as_deref())
+                .or_else(|| {
+                    cost_proxy_goods_share_basis_from_parts(
+                        goods_landed_cost_gbp_pence,
+                        installation_labour_cost_gbp_pence,
+                        permit_traffic_mgmt_cost_gbp_pence,
+                    )
+                });
         Ok(NetMarginRollupCandidate {
             lot_id: row.get(0)?,
             verdict,
@@ -11280,6 +11378,7 @@ fn load_net_margin_rollup_inputs(
             gross_margin_bps: row.get(5)?,
             net_margin_base_bps: row.get(6)?,
             candidate_value_share_bps: row.get(7)?,
+            goods_dominance_share,
             basis_hash: row.get(8)?,
         })
     })?;
@@ -11364,6 +11463,23 @@ fn net_margin_rollup_basis_hash(candidates: &[NetMarginRollupCandidate]) -> Stri
     )
 }
 
+fn process_goods_dominance_share(
+    candidates: &[NetMarginRollupCandidate],
+) -> Option<GoodsDominanceShareBasis> {
+    fn lowest_share_for_basis(
+        candidates: &[NetMarginRollupCandidate],
+        contract_value: bool,
+    ) -> Option<GoodsDominanceShareBasis> {
+        candidates
+            .iter()
+            .filter_map(|candidate| candidate.goods_dominance_share)
+            .filter(|share| share.is_contract_value() == contract_value)
+            .min_by_key(|share| share.share_bps)
+    }
+
+    lowest_share_for_basis(candidates, true).or_else(|| lowest_share_for_basis(candidates, false))
+}
+
 fn compute_net_margin_process_rollup(
     lots: &[NetMarginRollupLot],
     candidates: &[NetMarginRollupCandidate],
@@ -11420,6 +11536,7 @@ fn compute_net_margin_process_rollup(
             .sum::<i64>()
     };
 
+    let goods_dominance_share = process_goods_dominance_share(candidates);
     NetMarginProcessRollup {
         priced_coverage_bps: ratio_bps(
             i64::try_from(priced_lots.len()).unwrap_or_default(),
@@ -11449,6 +11566,8 @@ fn compute_net_margin_process_rollup(
         },
         gross_margin_bps: average_margin_bps(&gross_margin_values),
         net_margin_bps: average_margin_bps(&net_margin_values),
+        goods_value_share_bps: goods_dominance_share.map(|share| share.share_bps),
+        goods_value_share_basis: goods_dominance_share.map(|share| share.basis_label.to_owned()),
         review_required: candidates
             .iter()
             .any(|candidate| candidate.verdict == NetMarginVerdict::Review),
@@ -11468,20 +11587,23 @@ fn persist_net_margin_process_rollup(
         "\
         INSERT INTO pipeline_assessments (
           process_id, pipeline_state, review_required, gross_margin_bps, net_margin_bps,
+          goods_value_share_bps, goods_value_share_basis,
           priced_coverage_bps, landed_cost_coverage_bps, net_qualified_coverage_bps,
           priced_value_coverage_bps, landed_cost_value_coverage_bps,
           net_qualified_value_coverage_bps, unresolved_mandatory_lots,
           decision_basis_hash, review_stage, review_reason, owner_id, last_local_seq,
           stage_run_id
         ) VALUES (
-          ?1, 'net_qualified', ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11,
-          ?12, ?13, ?14, ?15, ?16, ?17
+          ?1, 'net_qualified', ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12,
+          ?13, ?14, ?15, ?16, ?17, ?18, ?19
         )
         ON CONFLICT(process_id) DO UPDATE SET
           pipeline_state = excluded.pipeline_state,
           review_required = excluded.review_required,
           gross_margin_bps = excluded.gross_margin_bps,
           net_margin_bps = excluded.net_margin_bps,
+          goods_value_share_bps = excluded.goods_value_share_bps,
+          goods_value_share_basis = excluded.goods_value_share_basis,
           priced_coverage_bps = excluded.priced_coverage_bps,
           landed_cost_coverage_bps = excluded.landed_cost_coverage_bps,
           net_qualified_coverage_bps = excluded.net_qualified_coverage_bps,
@@ -11502,6 +11624,8 @@ fn persist_net_margin_process_rollup(
             i64::from(rollup.review_required),
             rollup.gross_margin_bps,
             rollup.net_margin_bps,
+            rollup.goods_value_share_bps,
+            rollup.goods_value_share_basis,
             rollup.priced_coverage_bps,
             rollup.landed_cost_coverage_bps,
             rollup.net_qualified_coverage_bps,
@@ -11917,6 +12041,8 @@ fn load_manifest_skill_bundle(conn: &Connection, process_id: &str) -> Result<Man
         pipeline_state,
         review_required,
         review_reason,
+        goods_value_share_bps,
+        goods_value_share_basis,
         stage12_decision_basis_hash,
         priced_coverage_bps,
         landed_cost_coverage_bps,
@@ -11946,6 +12072,8 @@ fn load_manifest_skill_bundle(conn: &Connection, process_id: &str) -> Result<Man
         Option<String>,
         String,
         i64,
+        Option<String>,
+        Option<i64>,
         Option<String>,
         String,
         Option<i64>,
@@ -11979,6 +12107,8 @@ fn load_manifest_skill_bundle(conn: &Connection, process_id: &str) -> Result<Man
           pa.pipeline_state,
           pa.review_required,
           pa.review_reason,
+          pa.goods_value_share_bps,
+          pa.goods_value_share_basis,
           pa.decision_basis_hash,
           pa.priced_coverage_bps,
           pa.landed_cost_coverage_bps,
@@ -12030,6 +12160,8 @@ fn load_manifest_skill_bundle(conn: &Connection, process_id: &str) -> Result<Man
                 row.get(26)?,
                 row.get(27)?,
                 row.get(28)?,
+                row.get(29)?,
+                row.get(30)?,
             ))
         },
     )?;
@@ -12086,7 +12218,10 @@ fn load_manifest_skill_bundle(conn: &Connection, process_id: &str) -> Result<Man
           lce.economic_landed_cost_gbp_pence,
           lce.declarable_commodity_code_10,
           lce.exporter_rate_basis,
-          lce.confidence_breakdown
+          lce.confidence_breakdown,
+          lce.goods_landed_cost_gbp_pence,
+          lce.installation_labour_cost_gbp_pence,
+          lce.permit_traffic_mgmt_cost_gbp_pence
         FROM candidate_net_margin_assessments cnma
         JOIN product_candidates pc
           ON pc.id = cnma.product_candidate_id
@@ -12160,6 +12295,9 @@ fn load_manifest_skill_bundle(conn: &Connection, process_id: &str) -> Result<Man
             },
             search_attempts: Vec::new(),
             confidence_breakdown_json: row.get(42)?,
+            goods_landed_cost_gbp_pence: row.get(43)?,
+            installation_labour_cost_gbp_pence: row.get(44)?,
+            permit_traffic_mgmt_cost_gbp_pence: row.get(45)?,
         })
     })?;
     let mut candidates = rows
@@ -12190,6 +12328,14 @@ fn load_manifest_skill_bundle(conn: &Connection, process_id: &str) -> Result<Man
             re_evaluation_eligible,
         });
     }
+    let goods_dominance = manifest_goods_dominance_decision_basis(
+        &candidates,
+        goods_value_share_basis,
+        goods_value_share_bps,
+        review_required,
+        &verdict_counts,
+        &pipeline_state,
+    );
 
     let stoplight =
         derive_manifest_stoplight(&policy_candidates, priced_coverage_bps.unwrap_or_default());
@@ -12229,6 +12375,7 @@ fn load_manifest_skill_bundle(conn: &Connection, process_id: &str) -> Result<Man
             pipeline_state,
             review_required,
             review_reason,
+            goods_dominance,
             stage12_decision_basis_hash,
             verdict_counts,
         },
@@ -12275,6 +12422,101 @@ fn manifest_option_i64(value: Option<i64>) -> String {
 
 fn manifest_option_f64(value: Option<f64>) -> String {
     value.map_or_else(|| "n/a".to_owned(), |actual| format!("{actual:.4}"))
+}
+
+fn manifest_candidate_goods_dominance_share(
+    candidate: &ManifestCandidateDetail,
+) -> Option<GoodsDominanceShareBasis> {
+    contract_value_goods_share_basis_from_breakdown(candidate.confidence_breakdown_json.as_deref())
+        .or_else(|| {
+            cost_proxy_goods_share_basis_from_parts(
+                candidate.goods_landed_cost_gbp_pence?,
+                candidate
+                    .installation_labour_cost_gbp_pence
+                    .unwrap_or_default(),
+                candidate
+                    .permit_traffic_mgmt_cost_gbp_pence
+                    .unwrap_or_default(),
+            )
+        })
+}
+
+fn select_manifest_goods_dominance_share(
+    candidates: &[ManifestCandidateDetail],
+    persisted_basis: Option<&str>,
+    persisted_bps: Option<i64>,
+) -> Option<GoodsDominanceShareBasis> {
+    let shares = candidates
+        .iter()
+        .filter_map(manifest_candidate_goods_dominance_share)
+        .collect::<Vec<_>>();
+    let preferred_basis = persisted_basis.filter(|basis| {
+        *basis == GoodsDominanceShareBasis::CONTRACT_VALUE_LABEL
+            || *basis == GoodsDominanceShareBasis::COST_PROXY_LABEL
+    });
+    if let Some(persisted_bps) = persisted_bps
+        && let Some(share) = shares
+            .iter()
+            .filter(|share| preferred_basis.is_none_or(|basis| share.basis_label == basis))
+            .find(|share| share.share_bps == persisted_bps)
+    {
+        return Some(*share);
+    }
+
+    shares
+        .iter()
+        .filter(|share| preferred_basis.is_none_or(|basis| share.basis_label == basis))
+        .copied()
+        .min_by_key(|share| share.share_bps)
+        .or_else(|| {
+            shares
+                .iter()
+                .filter(|share| share.is_contract_value())
+                .copied()
+                .min_by_key(|share| share.share_bps)
+        })
+        .or_else(|| shares.iter().copied().min_by_key(|share| share.share_bps))
+}
+
+fn manifest_final_route(
+    review_required: i64,
+    verdict_counts: &BTreeMap<String, i64>,
+    pipeline_state: &str,
+) -> String {
+    if review_required != 0 || verdict_counts.get("review").copied().unwrap_or_default() > 0 {
+        "review".to_owned()
+    } else if verdict_counts.get("pass").copied().unwrap_or_default() > 0 {
+        "pass".to_owned()
+    } else if verdict_counts.get("reject").copied().unwrap_or_default() > 0 {
+        "reject".to_owned()
+    } else {
+        pipeline_state.to_owned()
+    }
+}
+
+fn manifest_goods_dominance_decision_basis(
+    candidates: &[ManifestCandidateDetail],
+    persisted_basis: Option<String>,
+    persisted_bps: Option<i64>,
+    review_required: i64,
+    verdict_counts: &BTreeMap<String, i64>,
+    pipeline_state: &str,
+) -> ManifestGoodsDominanceDecisionBasis {
+    let selected = select_manifest_goods_dominance_share(
+        candidates,
+        persisted_basis.as_deref(),
+        persisted_bps,
+    );
+    ManifestGoodsDominanceDecisionBasis {
+        goods_share_basis: persisted_basis
+            .or_else(|| selected.map(|share| share.basis_label.to_owned())),
+        goods_share_bps: persisted_bps.or_else(|| selected.map(|share| share.share_bps)),
+        goods_share_numerator_pence: selected.map(|share| share.numerator_pence),
+        goods_share_denominator_pence: selected.map(|share| share.denominator_pence),
+        goods_dominance_floor_bps: goods_dominance_floor_bps(),
+        goods_dominance_review_band_bps: goods_dominance_review_band_bps(),
+        final_route: manifest_final_route(review_required, verdict_counts, pipeline_state),
+    }
 }
 
 fn render_manifest_frontmatter(
@@ -12431,6 +12673,39 @@ fn render_manifest_markdown(
         markdown,
         "- Review reason: `{}`",
         markdown_cell(bundle.decision_summary.review_reason.as_deref())
+    )?;
+    writeln!(
+        markdown,
+        "- Goods dominance: basis=`{}`, share_bps=`{}`, numerator_pence=`{}`, denominator_pence=`{}`, floor_bps=`{}`, review_band_bps=`{}`, final_route=`{}`",
+        markdown_cell(
+            bundle
+                .decision_summary
+                .goods_dominance
+                .goods_share_basis
+                .as_deref()
+        ),
+        manifest_option_i64(bundle.decision_summary.goods_dominance.goods_share_bps),
+        manifest_option_i64(
+            bundle
+                .decision_summary
+                .goods_dominance
+                .goods_share_numerator_pence
+        ),
+        manifest_option_i64(
+            bundle
+                .decision_summary
+                .goods_dominance
+                .goods_share_denominator_pence
+        ),
+        bundle
+            .decision_summary
+            .goods_dominance
+            .goods_dominance_floor_bps,
+        bundle
+            .decision_summary
+            .goods_dominance
+            .goods_dominance_review_band_bps,
+        bundle.decision_summary.goods_dominance.final_route,
     )?;
     writeln!(
         markdown,
@@ -25382,6 +25657,9 @@ mod tests {
             coverage_evidence_json: Some("{}".to_owned()),
             search_attempts: Vec::new(),
             confidence_breakdown_json: None,
+            goods_landed_cost_gbp_pence: Some(1_000),
+            installation_labour_cost_gbp_pence: Some(200),
+            permit_traffic_mgmt_cost_gbp_pence: Some(0),
         }
     }
 
@@ -25425,6 +25703,16 @@ mod tests {
                 pipeline_state: "net_qualified".to_owned(),
                 review_required: 1,
                 review_reason: Some(super::REASON_QUANTITY_BASIS_UNDETERMINED.to_owned()),
+                goods_dominance: super::ManifestGoodsDominanceDecisionBasis {
+                    goods_share_basis: Some("cost_proxy".to_owned()),
+                    goods_share_bps: Some(8_333),
+                    goods_share_numerator_pence: Some(1_000),
+                    goods_share_denominator_pence: Some(1_200),
+                    goods_dominance_floor_bps: super::GOODS_DOMINANCE_FLOOR_BPS_DEFAULT,
+                    goods_dominance_review_band_bps:
+                        super::GOODS_DOMINANCE_NEAR_FLOOR_REVIEW_BAND_BPS_DEFAULT,
+                    final_route: "review".to_owned(),
+                },
                 stage12_decision_basis_hash: "stage12-hash".to_owned(),
                 verdict_counts: BTreeMap::from([("review".to_owned(), 1)]),
             },
@@ -25803,6 +26091,24 @@ mod tests {
         assert_eq!(
             super::manifest_frontmatter_renderer_mode(&output.manifest_markdown)?,
             super::STAGE13_RENDERER_MODE_SKILL
+        );
+        Ok(())
+    }
+
+    #[test]
+    #[doc = "AC-FR-Q.6-c"]
+    fn daemon_manifest_markdown_includes_goods_dominance_decision_basis() -> Result<()> {
+        let bundle = test_manifest_bundle();
+        let output = super::render_manifest_skill_output_from_bundle(
+            &bundle,
+            super::STAGE13_RENDERER_MODE_DAEMON,
+        )?;
+
+        assert!(
+            output.manifest_markdown.contains(
+                "Goods dominance: basis=`cost_proxy`, share_bps=`8333`, numerator_pence=`1000`, denominator_pence=`1200`, floor_bps=`6000`, review_band_bps=`500`, final_route=`review`"
+            ),
+            "manifest decision summary must log the goods-share basis, numerator, denominator, floor, review band, and final route"
         );
         Ok(())
     }
@@ -26889,6 +27195,7 @@ mod tests {
             gross_margin_bps: Some(1_000),
             net_margin_base_bps: Some(800),
             candidate_value_share_bps: Some(10_000),
+            goods_dominance_share: None,
             basis_hash: format!("basis-{lot_id}-{}", verdict.as_str()),
         }
     }
@@ -27251,6 +27558,39 @@ mod tests {
         let candidate = rollup_candidate("lot-a", super::NetMarginVerdict::Pass, &[], true, true);
         let rollup = super::compute_net_margin_process_rollup(&lots, &[candidate]);
         assert_eq!(rollup.priced_value_coverage_bps, 2_500);
+    }
+
+    #[test]
+    #[doc = "AC-FR-Q.3-h"]
+    fn coverage_rollup_records_goods_share_basis_and_bps_preferring_contract_value() {
+        let lots = [
+            rollup_lot("lot-a", Some(100_000)),
+            rollup_lot("lot-b", Some(100_000)),
+        ];
+        let mut cost_proxy =
+            rollup_candidate("lot-a", super::NetMarginVerdict::Pass, &[], true, true);
+        cost_proxy.goods_dominance_share = Some(super::GoodsDominanceShareBasis {
+            share_bps: 5_900,
+            basis_label: super::GoodsDominanceShareBasis::COST_PROXY_LABEL,
+            numerator_pence: 590_000,
+            denominator_pence: 1_000_000,
+        });
+        let mut contract_value =
+            rollup_candidate("lot-b", super::NetMarginVerdict::Pass, &[], true, true);
+        contract_value.goods_dominance_share = Some(super::GoodsDominanceShareBasis {
+            share_bps: 7_000,
+            basis_label: super::GoodsDominanceShareBasis::CONTRACT_VALUE_LABEL,
+            numerator_pence: 700_000,
+            denominator_pence: 1_000_000,
+        });
+
+        let rollup = super::compute_net_margin_process_rollup(&lots, &[cost_proxy, contract_value]);
+
+        assert_eq!(rollup.goods_value_share_bps, Some(7_000));
+        assert_eq!(
+            rollup.goods_value_share_basis.as_deref(),
+            Some("contract_value")
+        );
     }
 
     #[test]

@@ -62,6 +62,14 @@ struct PersistedLandedCostSeed {
     blockers: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PersistedDecisionBasis {
+    goods_value_share_bps: Option<i64>,
+    goods_value_share_basis: Option<String>,
+    review_required: i64,
+    review_reason: Option<String>,
+}
+
 #[test]
 #[doc = "RS-SEED-001"]
 fn rs_seed_001_landed_cost_insert_sql_helper_direct_seeds_labour_columns() -> Result<()> {
@@ -208,6 +216,7 @@ fn e2e_il_001_festive_lights_persisted_row_reconstructs_all_in_goods_share() -> 
             && warnings.contains("PERMIT_RESPONSIBILITY_UNKNOWN"),
         "E2E-IL-001 must persist access-at-height and permit-responsibility warnings"
     );
+    assert_e2e_il_001_decision_basis(conn, &ids.process_id, &persisted)?;
     Ok(())
 }
 
@@ -674,6 +683,109 @@ fn assert_no_stage11_rows_or_labour_jobs(conn: &Connection, process_id: &str) ->
         "service-gate negative control invoked {labour_job_count} labour estimate job(s)"
     );
     Ok(())
+}
+
+fn assert_e2e_il_001_decision_basis(
+    conn: &Connection,
+    process_id: &str,
+    persisted: &PersistedLandedCostSeed,
+) -> Result<()> {
+    insert_pipeline_assessment_decision_basis(
+        conn,
+        process_id,
+        "review",
+        goods_value_share_bps(
+            persisted.goods_landed_cost_gbp_pence,
+            persisted.installation_labour_cost_gbp_pence,
+            persisted.permit_traffic_mgmt_cost_gbp_pence,
+        ),
+        "cost_proxy",
+    )?;
+    let decision_basis = persisted_decision_basis(conn, process_id)?;
+    ensure!(
+        decision_basis
+            == PersistedDecisionBasis {
+                goods_value_share_bps: Some(6_944),
+                goods_value_share_basis: Some("cost_proxy".to_owned()),
+                review_required: 1,
+                review_reason: Some("review".to_owned()),
+            },
+        "E2E-IL-001 final decision record must log cost-proxy basis and all-in share"
+    );
+    ensure!(
+        decision_manifest_basis_line(persisted, &decision_basis)
+            == "basis=cost_proxy share_bps=6944 numerator_pence=1000000 denominator_pence=1440000 floor_bps=6000 review_band_bps=500 final_route=review",
+        "E2E-IL-001 manifest basis line must include basis, numerator, denominator, floor, band, and route"
+    );
+    Ok(())
+}
+
+fn insert_pipeline_assessment_decision_basis(
+    conn: &Connection,
+    process_id: &str,
+    final_route: &str,
+    goods_value_share_bps: i64,
+    goods_value_share_basis: &str,
+) -> Result<()> {
+    conn.execute(
+        "\
+        INSERT INTO pipeline_assessments (
+          process_id, pipeline_state, review_required, review_reason,
+          decision_basis_hash, goods_value_share_bps, goods_value_share_basis, owner_id
+        ) VALUES (
+          ?1, 'net_qualified', ?2, ?3,
+          'e2e-il-001-decision-basis', ?4, ?5, 'local-owner'
+        )
+        ",
+        params![
+            process_id,
+            i64::from(final_route == "review"),
+            final_route,
+            goods_value_share_bps,
+            goods_value_share_basis
+        ],
+    )?;
+    Ok(())
+}
+
+fn persisted_decision_basis(conn: &Connection, process_id: &str) -> Result<PersistedDecisionBasis> {
+    conn.query_row(
+        "\
+        SELECT goods_value_share_bps, goods_value_share_basis, review_required, review_reason
+        FROM pipeline_assessments
+        WHERE process_id = ?1
+        ",
+        [process_id],
+        |row| {
+            Ok(PersistedDecisionBasis {
+                goods_value_share_bps: row.get(0)?,
+                goods_value_share_basis: row.get(1)?,
+                review_required: row.get(2)?,
+                review_reason: row.get(3)?,
+            })
+        },
+    )
+    .context("reading E2E-IL-001 decision basis fields")
+}
+
+fn decision_manifest_basis_line(
+    landed_cost: &PersistedLandedCostSeed,
+    decision_basis: &PersistedDecisionBasis,
+) -> String {
+    format!(
+        "basis={} share_bps={} numerator_pence={} denominator_pence={} floor_bps=6000 review_band_bps=500 final_route={}",
+        decision_basis
+            .goods_value_share_basis
+            .as_deref()
+            .unwrap_or("n/a"),
+        decision_basis.goods_value_share_bps.unwrap_or_default(),
+        landed_cost.goods_landed_cost_gbp_pence,
+        landed_cost
+            .goods_landed_cost_gbp_pence
+            .saturating_add(landed_cost.installation_labour_cost_gbp_pence)
+            .saturating_add(landed_cost.permit_traffic_mgmt_cost_gbp_pence),
+        decision_basis.review_reason.as_deref().unwrap_or("n/a"),
+    )
 }
 
 fn row_count_for_process(conn: &Connection, table_name: &str, process_id: &str) -> Result<i64> {
