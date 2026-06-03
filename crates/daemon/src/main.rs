@@ -7841,6 +7841,359 @@ fn trimmed_string(value: Option<&Value>) -> Option<String> {
         .map(str::to_owned)
 }
 
+const UK_INSTALLATION_PROFILES_2026_Q2_JSON: &str = include_str!(
+    "../../../skills/landed-cost/uk-installation-labour-estimate/reference/uk-installation-profiles-2026-q2.json"
+);
+const UK_REGIONAL_LABOUR_RATES_2026_Q2_JSON: &str = include_str!(
+    "../../../skills/landed-cost/uk-installation-labour-estimate/reference/uk-regional-labour-rates-2026-q2.json"
+);
+const MAINTENANCE_VISIT_MOBILISATION_GBP_PENCE_PER_CREW_MEMBER: i64 = 8_000;
+const MAINTENANCE_VISIT_SCREENING_BUCKET_GBP_PENCE: i64 = 10_000;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct MaintenancePerVisitLabourEstimate {
+    cost_gbp_pence: i64,
+    basis: &'static str,
+    evidence: Value,
+}
+
+const fn money_times_bps(amount_gbp_pence: i64, multiplier_bps: i64) -> i64 {
+    if amount_gbp_pence <= 0 || multiplier_bps <= 0 {
+        return 0;
+    }
+    amount_gbp_pence
+        .saturating_mul(multiplier_bps)
+        .saturating_add(5_000)
+        / 10_000
+}
+
+const fn round_money_up_to_bucket(amount_gbp_pence: i64, bucket_gbp_pence: i64) -> i64 {
+    if amount_gbp_pence <= 0 || bucket_gbp_pence <= 0 {
+        return 0;
+    }
+    amount_gbp_pence.saturating_add(bucket_gbp_pence.saturating_sub(1)) / bucket_gbp_pence
+        * bucket_gbp_pence
+}
+
+fn normalized_catalogue_text(value: &str) -> String {
+    value
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() {
+                ch.to_ascii_lowercase()
+            } else {
+                ' '
+            }
+        })
+        .collect::<String>()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn push_installation_requirement_text(fields: &mut Vec<String>, value: Option<&Value>) {
+    match value {
+        Some(Value::String(raw)) => {
+            let trimmed = raw.trim();
+            if !trimmed.is_empty() {
+                fields.push(trimmed.to_owned());
+            }
+        }
+        Some(Value::Array(items)) => {
+            for item in items {
+                push_installation_requirement_text(fields, Some(item));
+            }
+        }
+        _ => {}
+    }
+}
+
+fn installation_requirement_profile_text(requirement: &Value) -> Vec<String> {
+    let mut fields = Vec::new();
+    for field in [
+        "profile_hint",
+        "installation_scope",
+        "scope_text",
+        "equipment_hint",
+        "requirement_type",
+    ] {
+        push_installation_requirement_text(&mut fields, requirement.get(field));
+    }
+    if let Some(schedule) = requirement.get("maintenance_schedule") {
+        push_installation_requirement_text(
+            &mut fields,
+            schedule.get("visit_scope").or(Some(schedule)),
+        );
+    }
+    fields
+}
+
+fn profile_search_terms(profile: &Map<String, Value>) -> Vec<String> {
+    let mut terms = Vec::new();
+    push_installation_requirement_text(&mut terms, profile.get("profile_id"));
+    for field in ["archetypes", "head_nouns", "keywords"] {
+        push_installation_requirement_text(&mut terms, profile.get(field));
+    }
+    terms
+        .into_iter()
+        .map(|term| normalized_catalogue_text(&term))
+        .filter(|term| {
+            term.len() >= 4
+                && !matches!(
+                    term.as_str(),
+                    "install" | "supply" | "equipment" | "external"
+                )
+        })
+        .collect()
+}
+
+fn profile_matches_normalized_text(profile: &Map<String, Value>, search_text: &str) -> bool {
+    profile_search_terms(profile).into_iter().any(|term| {
+        search_text == term || search_text.contains(&term) || term.contains(search_text)
+    })
+}
+
+fn resolve_installation_profile(requirement: &Value) -> Option<(String, Value, &'static str)> {
+    let catalogue: Value = serde_json::from_str(UK_INSTALLATION_PROFILES_2026_Q2_JSON).ok()?;
+    let profiles = catalogue.get("profiles").and_then(Value::as_array)?;
+    if let Some(profile_hint) = requirement
+        .get("profile_hint")
+        .and_then(Value::as_str)
+        .map(normalized_catalogue_text)
+        .filter(|hint| !hint.is_empty())
+    {
+        for profile in profiles {
+            let profile_object = profile.as_object()?;
+            if profile_matches_normalized_text(profile_object, &profile_hint) {
+                let profile_id =
+                    trimmed_string(profile_object.get("profile_id")).unwrap_or_default();
+                return Some((profile_id, profile.clone(), "profile_hint"));
+            }
+        }
+    }
+
+    let search_text =
+        normalized_catalogue_text(&installation_requirement_profile_text(requirement).join(" "));
+    if search_text.is_empty() {
+        return None;
+    }
+    for profile in profiles {
+        let profile_object = profile.as_object()?;
+        if profile_matches_normalized_text(profile_object, &search_text) {
+            let profile_id = trimmed_string(profile_object.get("profile_id")).unwrap_or_default();
+            return Some((profile_id, profile.clone(), "catalogue_scope"));
+        }
+    }
+    None
+}
+
+fn regional_labour_multiplier_bps(requirement: &Value, rates: &Value) -> (String, i64) {
+    let region =
+        trimmed_string(requirement.get("uk_region")).unwrap_or_else(|| "national".to_owned());
+    let regions = rates
+        .get("regions")
+        .and_then(Value::as_object)
+        .and_then(|regions| {
+            regions
+                .get(region.as_str())
+                .or_else(|| regions.get("national"))
+        });
+    let multiplier_bps = regions
+        .and_then(|region| region.get("multiplier_bps"))
+        .and_then(Value::as_i64)
+        .filter(|value| *value > 0)
+        .unwrap_or(10_000);
+    (region, multiplier_bps)
+}
+
+fn unpriced_maintenance_per_visit_labour_estimate(
+    source: &'static str,
+    profile_id: Option<&str>,
+    reason: &'static str,
+) -> MaintenancePerVisitLabourEstimate {
+    let mut evidence = Map::new();
+    evidence.insert("source".to_owned(), json!(source));
+    evidence.insert("reason".to_owned(), json!(reason));
+    if let Some(profile_id) = profile_id {
+        evidence.insert("profile_id".to_owned(), json!(profile_id));
+    }
+    MaintenancePerVisitLabourEstimate {
+        cost_gbp_pence: 0,
+        basis: "unpriced",
+        evidence: Value::Object(evidence),
+    }
+}
+
+fn explicit_maintenance_per_visit_labour_estimate(
+    schedule_object: Option<&Map<String, Value>>,
+) -> Option<MaintenancePerVisitLabourEstimate> {
+    schedule_object
+        .and_then(|schedule| {
+            [
+                "per_visit_labour_cost_gbp_pence",
+                "per_visit_cost_gbp_pence",
+                "per_visit_labour_gbp_pence",
+            ]
+            .into_iter()
+            .filter_map(|field| schedule.get(field).and_then(Value::as_i64))
+            .find(|value| *value >= 0)
+        })
+        .map(|per_visit| MaintenancePerVisitLabourEstimate {
+            cost_gbp_pence: per_visit,
+            basis: "schedule_explicit",
+            evidence: json!({"source": "maintenance_schedule"}),
+        })
+}
+
+fn profile_maintenance_per_visit_labour_estimate(
+    requirement: &Value,
+    profile_id: &str,
+    match_basis: &'static str,
+    profile_object: &Map<String, Value>,
+    default_visit_trade_hours: &Map<String, Value>,
+) -> MaintenancePerVisitLabourEstimate {
+    let Ok(rates) = serde_json::from_str::<Value>(UK_REGIONAL_LABOUR_RATES_2026_Q2_JSON) else {
+        return unpriced_maintenance_per_visit_labour_estimate(
+            "uk-regional-labour-rates-2026-q2",
+            Some(profile_id),
+            "rates_parse_failed",
+        );
+    };
+    let Some(national_trade_rates) = rates.get("national_trade_rates").and_then(Value::as_object)
+    else {
+        return unpriced_maintenance_per_visit_labour_estimate(
+            "uk-regional-labour-rates-2026-q2",
+            Some(profile_id),
+            "rates_missing",
+        );
+    };
+
+    let (region, regional_multiplier_bps) = regional_labour_multiplier_bps(requirement, &rates);
+    let complexity_multiplier_bps = profile_object
+        .get("complexity_multiplier_bps")
+        .and_then(Value::as_i64)
+        .filter(|value| *value > 0)
+        .unwrap_or(10_000);
+    let crew_size = profile_object
+        .get("crew_size")
+        .and_then(Value::as_i64)
+        .filter(|value| *value > 0)
+        .unwrap_or(1);
+    let mut trade_subtotal_gbp_pence = 0_i64;
+    let mut trade_evidence = Vec::new();
+    for (trade, hours) in default_visit_trade_hours {
+        let hours = hours.as_i64().filter(|value| *value >= 0).unwrap_or(0);
+        let hourly_rate_gbp_pence = national_trade_rates
+            .get(trade.as_str())
+            .and_then(|rate| rate.get("hourly_rate_gbp_pence"))
+            .and_then(Value::as_i64)
+            .filter(|value| *value >= 0)
+            .unwrap_or(0);
+        let trade_base = hours.saturating_mul(hourly_rate_gbp_pence);
+        trade_subtotal_gbp_pence = trade_subtotal_gbp_pence.saturating_add(trade_base);
+        trade_evidence.push(json!({
+            "trade": trade,
+            "hours": hours,
+            "hourly_rate_gbp_pence": hourly_rate_gbp_pence,
+            "base_gbp_pence": trade_base,
+        }));
+    }
+    let regional_subtotal_gbp_pence =
+        money_times_bps(trade_subtotal_gbp_pence, regional_multiplier_bps);
+    let complexity_adjusted_gbp_pence =
+        money_times_bps(regional_subtotal_gbp_pence, complexity_multiplier_bps);
+    let mobilisation_gbp_pence =
+        crew_size.saturating_mul(MAINTENANCE_VISIT_MOBILISATION_GBP_PENCE_PER_CREW_MEMBER);
+    let unrounded_gbp_pence = complexity_adjusted_gbp_pence.saturating_add(mobilisation_gbp_pence);
+    let cost_gbp_pence = round_money_up_to_bucket(
+        unrounded_gbp_pence,
+        MAINTENANCE_VISIT_SCREENING_BUCKET_GBP_PENCE,
+    );
+
+    MaintenancePerVisitLabourEstimate {
+        cost_gbp_pence,
+        basis: "profile_maintenance_model",
+        evidence: json!({
+            "source": "profile_catalogue",
+            "profile_id": profile_id,
+            "match_basis": match_basis,
+            "region": region,
+            "regional_multiplier_bps": regional_multiplier_bps,
+            "complexity_multiplier_bps": complexity_multiplier_bps,
+            "crew_size": crew_size,
+            "trade_subtotal_gbp_pence": trade_subtotal_gbp_pence,
+            "regional_subtotal_gbp_pence": regional_subtotal_gbp_pence,
+            "complexity_adjusted_gbp_pence": complexity_adjusted_gbp_pence,
+            "mobilisation_gbp_pence": mobilisation_gbp_pence,
+            "unrounded_gbp_pence": unrounded_gbp_pence,
+            "screening_bucket_gbp_pence": MAINTENANCE_VISIT_SCREENING_BUCKET_GBP_PENCE,
+            "trades": trade_evidence,
+        }),
+    }
+}
+
+fn maintenance_per_visit_labour_estimate(
+    requirement: &Value,
+    schedule_object: Option<&Map<String, Value>>,
+) -> MaintenancePerVisitLabourEstimate {
+    if let Some(explicit) = explicit_maintenance_per_visit_labour_estimate(schedule_object) {
+        return explicit;
+    }
+
+    let Some((profile_id, profile, match_basis)) = resolve_installation_profile(requirement) else {
+        return unpriced_maintenance_per_visit_labour_estimate(
+            "profile_catalogue",
+            None,
+            "profile_unresolved",
+        );
+    };
+    let Some(profile_object) = profile.as_object() else {
+        return unpriced_maintenance_per_visit_labour_estimate(
+            "profile_catalogue",
+            Some(&profile_id),
+            "profile_invalid",
+        );
+    };
+    let Some(maintenance_model) = profile_object
+        .get("maintenance_model")
+        .and_then(Value::as_object)
+    else {
+        return unpriced_maintenance_per_visit_labour_estimate(
+            "profile_catalogue",
+            Some(&profile_id),
+            "maintenance_model_missing",
+        );
+    };
+    if !maintenance_model
+        .get("supported")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+    {
+        return unpriced_maintenance_per_visit_labour_estimate(
+            "profile_catalogue",
+            Some(&profile_id),
+            "maintenance_unsupported",
+        );
+    }
+    let Some(default_visit_trade_hours) = maintenance_model
+        .get("default_visit_trade_hours")
+        .and_then(Value::as_object)
+    else {
+        return unpriced_maintenance_per_visit_labour_estimate(
+            "profile_catalogue",
+            Some(&profile_id),
+            "maintenance_visit_hours_missing",
+        );
+    };
+    profile_maintenance_per_visit_labour_estimate(
+        requirement,
+        &profile_id,
+        match_basis,
+        profile_object,
+        default_visit_trade_hours,
+    )
+}
+
 fn maintenance_period_estimate_for_row(
     row: &LandedCostAssessmentRow,
     landed_cost: &LandedCostEstimateWrite,
@@ -7873,6 +8226,7 @@ fn maintenance_period_estimate_for_row(
     let term_years = schedule_object
         .map(|schedule| typed_non_negative_i64(schedule.get("term_years")))
         .unwrap_or_default();
+    let per_visit_labour = maintenance_per_visit_labour_estimate(&requirement, schedule_object);
 
     Some(MaintenancePeriodEstimateWrite {
         id: format!(
@@ -7887,7 +8241,7 @@ fn maintenance_period_estimate_for_row(
         visit_scope,
         visits_per_year,
         term_years,
-        per_visit_labour_cost_gbp_pence: 0,
+        per_visit_labour_cost_gbp_pence: per_visit_labour.cost_gbp_pence,
         annualised_opex_gbp_pence: 0,
         total_visible_term_opex_gbp_pence: 0,
         maintenance_confidence_bps: 0,
@@ -7896,6 +8250,9 @@ fn maintenance_period_estimate_for_row(
         evidence_json: json!({
             "source": "installation_requirement",
             "maintenance_schedule": schedule.cloned().unwrap_or(Value::Null),
+            "per_visit_labour_cost_gbp_pence": per_visit_labour.cost_gbp_pence,
+            "per_visit_labour_basis": per_visit_labour.basis,
+            "per_visit_labour_evidence": per_visit_labour.evidence,
         })
         .to_string(),
         stage_run_id: landed_cost.stage_run_id.clone(),
@@ -31320,10 +31677,17 @@ mod tests {
         );
         assert_eq!(maintenance.visits_per_year, 4);
         assert_eq!(maintenance.term_years, 3);
-        assert_eq!(maintenance.per_visit_labour_cost_gbp_pence, 0);
+        assert_eq!(maintenance.per_visit_labour_cost_gbp_pence, 60_000);
         assert_eq!(maintenance.annualised_opex_gbp_pence, 0);
         assert_eq!(maintenance.total_visible_term_opex_gbp_pence, 0);
-        assert!(maintenance.evidence_json.contains("maintenance_schedule"));
+        for expected in [
+            "maintenance_schedule",
+            "per_visit_labour_cost_gbp_pence",
+            "profile_maintenance_model",
+            "playground_outdoor_equipment",
+        ] {
+            assert!(maintenance.evidence_json.contains(expected));
+        }
 
         row.critical_attributes_json = Some(
             json!({

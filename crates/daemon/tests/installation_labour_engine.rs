@@ -320,7 +320,7 @@ fn e2e_il_004_playground_maintenance_persists_first_class_period_estimate() -> R
         visit_scope: "quarterly inspection and minor service",
         visits_per_year: 4,
         term_years: 3,
-        per_visit_labour_cost_gbp_pence: 0,
+        per_visit_labour_cost_gbp_pence: 60_000,
         annualised_opex_gbp_pence: 0,
         total_visible_term_opex_gbp_pence: 0,
         maintenance_confidence_bps: 0,
@@ -346,11 +346,11 @@ fn e2e_il_004_playground_maintenance_persists_first_class_period_estimate() -> R
         "E2E-IL-004 maintenance schedule must persist as typed cadence/scope fields"
     );
     ensure!(
-        persisted_maintenance.per_visit_labour_cost_gbp_pence == 0
+        persisted_maintenance.per_visit_labour_cost_gbp_pence == 60_000
             && persisted_maintenance.annualised_opex_gbp_pence == 0
             && persisted_maintenance.total_visible_term_opex_gbp_pence == 0
             && persisted_maintenance.maintenance_confidence_bps == 0,
-        "E2E-IL-004 qoa5.5.2 only establishes the row route; qoa5.5.3 fills maintenance economics"
+        "E2E-IL-004 qoa5.5.3 must persist per-visit maintenance labour while qoa5.5.4 owns annual and visible-term opex"
     );
     ensure!(
         persisted_maintenance.margin_signal == "pending_maintenance_cost_model"
