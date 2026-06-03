@@ -4,6 +4,26 @@
   "title": "UK Installation Labour Estimate Result",
   "description": "Raw JSON result envelope written to result.json by the UK installation labour estimate skill. Money fields are integer GBP pence and confidence fields are basis points.",
   "type": "object",
+  "x-input_contract": {
+    "description": "Worker input contract frozen for Phase 5 maintenance consumers.",
+    "type": "object",
+    "required": [
+      "process_id",
+      "notice_id",
+      "product_candidate_id",
+      "selected_quote_id",
+      "destination_country",
+      "destination_postcode",
+      "installation_requirement",
+      "goods_landed_cost_gbp_pence",
+      "rate_table_version"
+    ],
+    "properties": {
+      "installation_requirement": {
+        "$ref": "#/$defs/installation_requirement_input"
+      }
+    }
+  },
   "required": [
     "status",
     "labour_status",
@@ -105,6 +125,107 @@
     "money_or_null": {
       "type": ["integer", "null"],
       "minimum": 0
+    },
+    "installation_requirement_input": {
+      "type": "object",
+      "description": "Input shape carried on ProductCandidate critical_attributes_json when installation, de-installation, or maintenance is in scope.",
+      "required": [
+        "requires_installation",
+        "requires_maintenance",
+        "installation_scope",
+        "maintenance_schedule",
+        "site_access",
+        "at_height_m",
+        "uk_region",
+        "estimated_units",
+        "equipment_hint",
+        "permit_responsibility",
+        "public_realm",
+        "lane_rental_zone"
+      ],
+      "properties": {
+        "requires_installation": { "type": "boolean" },
+        "requires_maintenance": { "type": "boolean" },
+        "installation_scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "maintenance_schedule": {
+          "description": "When requires_maintenance is true and term_years is omitted or null, the worker assumes 1 visible year and emits MAINTENANCE_TERM_ASSUMED.",
+          "anyOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/maintenance_schedule_input" }
+          ]
+        },
+        "site_access": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 1
+            }
+          ]
+        },
+        "at_height_m": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "uk_region": {
+          "type": ["string", "null"],
+          "minLength": 1
+        },
+        "estimated_units": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "equipment_hint": {
+          "oneOf": [
+            {
+              "type": ["string", "null"],
+              "minLength": 1
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          ]
+        },
+        "permit_responsibility": {
+          "enum": ["authority_provided", "contractor_provided", "shared", "unknown", null]
+        },
+        "public_realm": { "type": ["boolean", "null"] },
+        "lane_rental_zone": { "type": ["boolean", "null"] }
+      }
+    },
+    "maintenance_schedule_input": {
+      "type": "object",
+      "description": "Recurring maintenance hook. Phase 2 freezes the input fields and warning default; Phase 5 owns persisted maintenance economics.",
+      "required": ["visits_per_year", "visit_scope"],
+      "properties": {
+        "visits_per_year": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "term_years": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "default": 1
+        },
+        "visit_scope": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
     },
     "bps": {
       "type": "integer",

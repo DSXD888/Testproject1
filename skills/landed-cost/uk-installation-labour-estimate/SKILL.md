@@ -48,6 +48,8 @@ The `installation_requirement` object is derived from the product candidate when
 - `public_realm`
 - `lane_rental_zone`
 
+`requires_maintenance` is the committed hook for recurring maintenance scope. When it is `true`, `maintenance_schedule` must carry the visit cadence that is visible from the tender, including `visits_per_year` and `visit_scope`; `term_years` may be omitted or `null` only when the tender does not state a visible term. In that missing-term case, assume 1 visible year for the maintenance hook and emit `MAINTENANCE_TERM_ASSUMED` in `warnings`.
+
 When there is no installation, de-installation, or maintenance signal, do not fabricate an `InstallationRequirement`. The daemon skips this worker for pure-goods candidates and leaves labour and permit/traffic-management pence at zero or null.
 
 ## Outputs
@@ -77,6 +79,7 @@ All money values are integer pence. Confidence and share ratios are basis points
 
 ## Rules
 - Resolve `uk_region` from `destination_country` and `destination_postcode` before pricing. Unknown or unmapped UK regions fall back to the `national` baseline multiplier (`10000` bps), emit `LABOUR_REGION_UNKNOWN`, and keep `labour_status` as `estimated`.
+- Treat `maintenance_schedule` as a frozen recurring-maintenance input hook. If `requires_maintenance` is true and `maintenance_schedule.term_years` is omitted or null, assume `term_years = 1` visible year, emit `MAINTENANCE_TERM_ASSUMED`, and include evidence naming the default. Do not capitalise recurring-maintenance visits into `labour_base_gbp_pence`, access-equipment totals, permit/TM totals, or the goods-dominance denominator; Phase 5 owns the separate `MaintenancePeriodEstimate` economics.
 - Resolve the installation profile catalogue-first from `reference/uk-installation-profiles-2026-q2.json` using, in order, an explicit `installation_requirement.profile_hint`, profile archetypes/head nouns/keywords, and the combined `installation_scope`/`scope_text`. A catalogue match supplies the required trade-hour map, crew size, access-equipment preference, complexity multiplier, maintenance model, permit hint, warnings, and confidence.
 - The catalogue must keep first-class rows for flat-pack furniture, wall-fixed shelving/racking, standard glazing/windows, festive or LED lighting, signage, fencing, playground/outdoor equipment, CCTV/security equipment, traffic signals as the labour-heavy boundary archetype, and made-to-measure windows as the bespoke/no-list review archetype.
 - If no catalogue profile matches, use the constrained fallback profile. The fallback may only choose trade keys present in `reference/uk-regional-labour-rates-2026-q2.json` under `national_trade_rates`; never invent a trade name. Cap fallback confidence below catalogue-match confidence, emit `LABOUR_SCOPE_UNRESOLVED`, and include evidence naming the inferred archetype.
@@ -109,7 +112,7 @@ All money values are integer pence. Confidence and share ratios are basis points
 - `LABOUR_REGION_UNKNOWN`: Region is missing or not mapped; use the national baseline and add review evidence.
 - `LABOUR_SCOPE_UNRESOLVED`: Installation or maintenance scope cannot be resolved with enough specificity for a confident estimate.
 - `ACCESS_AT_HEIGHT_ASSUMED_MEWP`: At-height work lacks enough access detail; assume a conservative MEWP band.
-- `MAINTENANCE_TERM_ASSUMED`: Maintenance frequency or visible term is incomplete; use the documented default term assumption.
+- `MAINTENANCE_TERM_ASSUMED`: A required maintenance schedule omits the visible term; assume 1 visible year, record evidence, and keep recurring maintenance out of capital-event labour totals.
 - `RATE_TABLE_STALE`: Requested or active rate table is stale; continue with the best available three-point estimate.
 - `PERMIT_RESPONSIBILITY_UNKNOWN`: The buyer/supplier permit responsibility is unclear; estimate separately and route uncertainty downstream.
 - `LANE_RENTAL_ZONE`: Site location appears to fall in a lane-rental-sensitive zone.

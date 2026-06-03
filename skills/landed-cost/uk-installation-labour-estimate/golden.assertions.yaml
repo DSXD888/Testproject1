@@ -135,6 +135,13 @@ cases:
     result_schema_valid: true
     expected_warning_codes:
       - LABOUR_SCOPE_UNRESOLVED
+      - MAINTENANCE_TERM_ASSUMED
+    maintenance_schedule:
+      requires_maintenance: true
+      visits_per_year: 4
+      missing_term_defaults_years: 1
+      default_warning_code: MAINTENANCE_TERM_ASSUMED
+      recurring_maintenance_not_capitalised: true
     confidence_below_bps: 5500
     expected_route: review
     fail_soft: true
@@ -174,6 +181,25 @@ shared_assertions:
     permit_traffic_mgmt_gbp_pence: 0
   warnings_and_blockers_are_objects:
     required_fields: [code, message, severity]
+  warning_code_coverage:
+    required_codes:
+      - LABOUR_REGION_UNKNOWN
+      - LABOUR_SCOPE_UNRESOLVED
+      - ACCESS_AT_HEIGHT_ASSUMED_MEWP
+      - MAINTENANCE_TERM_ASSUMED
+      - RATE_TABLE_STALE
+      - PERMIT_RESPONSIBILITY_UNKNOWN
+      - LANE_RENTAL_ZONE
+      - TTRO_LEAD_TIME_RISK
+    pinned_by:
+      LABOUR_REGION_UNKNOWN: region-unknown-01
+      LABOUR_SCOPE_UNRESOLVED: scope-unresolved-01
+      ACCESS_AT_HEIGHT_ASSUMED_MEWP: [lights-nw-2day-01, cctv-yh-install-01]
+      MAINTENANCE_TERM_ASSUMED: scope-unresolved-01
+      RATE_TABLE_STALE: rate-stale-01
+      PERMIT_RESPONSIBILITY_UNKNOWN: lights-nw-2day-01
+      LANE_RENTAL_ZONE: lights-lon-2day-01
+      TTRO_LEAD_TIME_RISK: lights-lon-2day-01
   profile_resolver:
     catalogue_first: true
     fallback_trade_source: national_trade_rates
