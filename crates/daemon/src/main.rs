@@ -7849,6 +7849,8 @@ const UK_REGIONAL_LABOUR_RATES_2026_Q2_JSON: &str = include_str!(
 );
 const MAINTENANCE_VISIT_MOBILISATION_GBP_PENCE_PER_CREW_MEMBER: i64 = 8_000;
 const MAINTENANCE_VISIT_SCREENING_BUCKET_GBP_PENCE: i64 = 10_000;
+const MAINTENANCE_TERM_ASSUMED_DEFAULT_YEARS: i64 = 1;
+const MAINTENANCE_TERM_ASSUMED_WARNING_CODE: &str = "MAINTENANCE_TERM_ASSUMED";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct MaintenancePerVisitLabourEstimate {
@@ -8232,9 +8234,24 @@ fn maintenance_period_estimate_for_row(
     let visits_per_year = schedule_object
         .map(|schedule| typed_non_negative_i64(schedule.get("visits_per_year")))
         .unwrap_or_default();
-    let term_years = schedule_object
-        .map(|schedule| typed_non_negative_i64(schedule.get("term_years")))
-        .unwrap_or_default();
+    let explicit_term_years = schedule_object
+        .and_then(|schedule| schedule.get("term_years"))
+        .and_then(Value::as_i64)
+        .filter(|value| *value >= 0);
+    let missing_maintenance_term = requires_maintenance && explicit_term_years.is_none();
+    let term_years = explicit_term_years.unwrap_or(if missing_maintenance_term {
+        MAINTENANCE_TERM_ASSUMED_DEFAULT_YEARS
+    } else {
+        0
+    });
+    let maintenance_warnings = if missing_maintenance_term {
+        vec![Stage11Issue::warning(
+            MAINTENANCE_TERM_ASSUMED_WARNING_CODE,
+            "Required maintenance scope omitted a visible term; assumed 1 visible year for screening.",
+        )]
+    } else {
+        Vec::new()
+    };
     let per_visit_labour = maintenance_per_visit_labour_estimate(&requirement, schedule_object);
     let annualised_opex_gbp_pence = per_visit_labour
         .cost_gbp_pence
@@ -8259,10 +8276,20 @@ fn maintenance_period_estimate_for_row(
         total_visible_term_opex_gbp_pence,
         maintenance_confidence_bps: 0,
         margin_signal: Some(maintenance_margin_signal(&per_visit_labour)),
-        warnings: "[]".to_owned(),
+        warnings: stage11_issues_to_json(&maintenance_warnings),
         evidence_json: json!({
             "source": "installation_requirement",
             "maintenance_schedule": schedule.cloned().unwrap_or(Value::Null),
+            "missing_term_defaults_years": if missing_maintenance_term {
+                Some(MAINTENANCE_TERM_ASSUMED_DEFAULT_YEARS)
+            } else {
+                None
+            },
+            "default_warning_code": if missing_maintenance_term {
+                Some(MAINTENANCE_TERM_ASSUMED_WARNING_CODE)
+            } else {
+                None
+            },
             "per_visit_labour_cost_gbp_pence": per_visit_labour.cost_gbp_pence,
             "annualised_opex_gbp_pence": annualised_opex_gbp_pence,
             "total_visible_term_opex_gbp_pence": total_visible_term_opex_gbp_pence,
@@ -31630,6 +31657,39 @@ mod tests {
         assert_eq!(maintenance.supplier_quote_id, landed_cost.supplier_quote_id);
     }
 
+    fn maintenance_test_landed_cost(
+        row: &super::LandedCostAssessmentRow,
+    ) -> Result<super::LandedCostEstimateWrite> {
+        let supplier_cost = super::SupplierCostBasis {
+            supplier_cost_gbp_pence: 1_800_000,
+            basis: "test_supplier_total".to_owned(),
+            quantity: 1.0,
+            quantity_unit: Some("lot".to_owned()),
+            warnings: Vec::new(),
+        };
+        let order_quantity_basis = super::OrderQuantityBasis::FromContractValue {
+            qty: 1.0,
+            contract_value_gbp_pence: row.expected_addressable_revenue_ex_vat_pence,
+            basis_unit: Some("lot".to_owned()),
+        };
+        super::build_domestic_landed_cost_estimate(
+            row,
+            &supplier_cost,
+            None,
+            "estimated",
+            "stage-run-maintenance-route-test",
+            &order_quantity_basis,
+            &json!({
+                "hmrc_customs": "1.0.0",
+                "shipment_sizing": "1.0.0",
+                "searates_freight": "1.0.0",
+                "simple_fx": "1.0.0",
+                "uk_installation_labour": "1.0.0",
+            }),
+            &super::domestic_landed_cost_skill_session_ids(None),
+        )
+    }
+
     #[test]
     fn maintenance_requirement_creates_first_class_period_estimate() -> Result<()> {
         let mut row = stage11_undetermined_row_fixture();
@@ -31728,6 +31788,56 @@ mod tests {
             .to_string(),
         );
         assert!(super::maintenance_period_estimate_for_row(&row, &landed_cost).is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn maintenance_requirement_missing_term_defaults_one_year_and_warns() -> Result<()> {
+        let mut row = stage11_undetermined_row_fixture();
+        row.critical_attributes_json = Some(
+            json!({
+                "installation_requirement": {
+                    "requires_installation": true,
+                    "requires_maintenance": true,
+                    "installation_scope": "playground_install",
+                    "maintenance_schedule": {
+                        "visits_per_year": 4,
+                        "visit_scope": "quarterly inspection and minor service"
+                    }
+                }
+            })
+            .to_string(),
+        );
+        row.expected_addressable_revenue_ex_vat_pence = 3_000_000;
+        row.revenue_basis_type = "expected_value".to_owned();
+        row.revenue_confidence_bps = 9_000;
+        let landed_cost = maintenance_test_landed_cost(&row)?;
+        let maintenance = super::maintenance_period_estimate_for_row(&row, &landed_cost)
+            .ok_or_else(|| anyhow::anyhow!("expected maintenance estimate"))?;
+        let warnings = super::stage11_issues_from_json(&maintenance.warnings);
+        let warning_codes = super::stage11_issue_codes(&warnings);
+
+        assert_eq!(maintenance.visits_per_year, 4);
+        assert_eq!(maintenance.term_years, 1);
+        assert_eq!(maintenance.per_visit_labour_cost_gbp_pence, 60_000);
+        assert_eq!(maintenance.annualised_opex_gbp_pence, 240_000);
+        assert_eq!(maintenance.total_visible_term_opex_gbp_pence, 240_000);
+        assert!(warning_codes.contains("MAINTENANCE_TERM_ASSUMED"));
+        assert!(
+            warnings
+                .iter()
+                .all(|warning| warning.severity == "warning" && !warning.message.is_empty())
+        );
+        assert!(
+            maintenance
+                .evidence_json
+                .contains("missing_term_defaults_years")
+        );
+        assert!(
+            maintenance
+                .evidence_json
+                .contains("MAINTENANCE_TERM_ASSUMED")
+        );
         Ok(())
     }
 

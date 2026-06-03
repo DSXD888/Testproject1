@@ -3,6 +3,7 @@
 #[path = "support/db.rs"]
 mod db_support;
 
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -10,6 +11,7 @@ use anyhow::{Result, ensure};
 use chrono::{TimeZone, Utc};
 use db_support::{FTS_SOURCE_ID, TestStateDb};
 use serde_json::{Value, json};
+use serde_yaml::Value as YamlValue;
 
 const AGENT_PROTOCOL_MISMATCH: &str = "AGENT_PROTOCOL_MISMATCH";
 const SOURCE_SOFT_BLOCKED: &str = "SOURCE_SOFT_BLOCKED";
@@ -24,6 +26,16 @@ const BID_SIDE_EFFECT_CAP_EXCEEDED: &str = "BID_SIDE_EFFECT_CAP_EXCEEDED";
 const BID_READINESS_GATE_FAILED: &str = "BID_READINESS_GATE_FAILED";
 const BID_PORTAL_CHANGED: &str = "BID_PORTAL_CHANGED";
 const BID_PORTAL_AUTH_EXPIRED: &str = "BID_PORTAL_AUTH_EXPIRED";
+const UK_LABOUR_WARNING_CODES: [&str; 8] = [
+    "LABOUR_REGION_UNKNOWN",
+    "LABOUR_SCOPE_UNRESOLVED",
+    "ACCESS_AT_HEIGHT_ASSUMED_MEWP",
+    "MAINTENANCE_TERM_ASSUMED",
+    "RATE_TABLE_STALE",
+    "PERMIT_RESPONSIBILITY_UNKNOWN",
+    "LANE_RENTAL_ZONE",
+    "TTRO_LEAD_TIME_RISK",
+];
 
 fn repo_root() -> Result<PathBuf> {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -393,6 +405,137 @@ fn json_bool_field_eq(value: Option<&Value>, expected: bool) -> bool {
     value
         .and_then(Value::as_bool)
         .is_some_and(|observed| observed == expected)
+}
+
+fn yaml_get<'a>(value: &'a YamlValue, key: &str) -> Option<&'a YamlValue> {
+    value.as_mapping()?.get(YamlValue::String(key.to_owned()))
+}
+
+fn yaml_i64_field_eq(value: Option<&YamlValue>, expected: i64) -> bool {
+    value
+        .and_then(YamlValue::as_i64)
+        .is_some_and(|observed| observed == expected)
+}
+
+fn yaml_bool_field_eq(value: Option<&YamlValue>, expected: bool) -> bool {
+    value
+        .and_then(YamlValue::as_bool)
+        .is_some_and(|observed| observed == expected)
+}
+
+fn yaml_value_mentions_case(value: &YamlValue, expected_case_id: &str) -> bool {
+    value
+        .as_str()
+        .is_some_and(|case_id| case_id == expected_case_id)
+        || value.as_sequence().is_some_and(|items| {
+            items
+                .iter()
+                .any(|item| yaml_value_mentions_case(item, expected_case_id))
+        })
+}
+
+#[test]
+fn can_warn_001_uk_installation_labour_warning_codes_are_pinned() -> Result<()> {
+    let skill_root = skill_dir("landed-cost/uk-installation-labour-estimate")?;
+    let inputs = load_canary_inputs(&skill_root.join("canary.inputs.jsonl"))?;
+    let scope_unresolved = find_canary_case(&inputs, "scope-unresolved-01")?;
+    let missing_input_term = match scope_unresolved
+        .pointer("/installation_requirement/maintenance_schedule/term_years")
+    {
+        None | Some(Value::Null) => true,
+        Some(_) => false,
+    };
+    ensure!(
+        json_bool_field_eq(
+            scope_unresolved.pointer("/installation_requirement/requires_maintenance"),
+            true,
+        ) && json_i64_field_eq(
+            scope_unresolved
+                .pointer("/installation_requirement/maintenance_schedule/visits_per_year"),
+            4,
+        ) && missing_input_term,
+        "scope-unresolved-01 must be the missing-term recurring-maintenance canary"
+    );
+
+    let skill_markdown = fs::read_to_string(skill_root.join("SKILL.md"))?;
+    ensure!(
+        UK_LABOUR_WARNING_CODES
+            .iter()
+            .all(|code| skill_markdown.contains(code)),
+        "UK labour skill Failure Codes must enumerate every warning code"
+    );
+
+    let golden: YamlValue = serde_yaml::from_str(&fs::read_to_string(
+        skill_root.join("golden.assertions.yaml"),
+    )?)?;
+    let coverage = yaml_get(
+        yaml_get(&golden, "shared_assertions")
+            .ok_or_else(|| anyhow::anyhow!("golden missing shared_assertions"))?,
+        "warning_code_coverage",
+    )
+    .ok_or_else(|| anyhow::anyhow!("golden missing warning_code_coverage"))?;
+    let required_codes = yaml_get(coverage, "required_codes")
+        .and_then(YamlValue::as_sequence)
+        .ok_or_else(|| anyhow::anyhow!("warning_code_coverage missing required_codes"))?
+        .iter()
+        .filter_map(YamlValue::as_str)
+        .map(str::to_owned)
+        .collect::<BTreeSet<_>>();
+    let expected_codes = UK_LABOUR_WARNING_CODES
+        .into_iter()
+        .map(str::to_owned)
+        .collect::<BTreeSet<_>>();
+    ensure!(
+        required_codes == expected_codes,
+        "CAN-WARN-001 requires all eight warning codes with no unpinned code"
+    );
+
+    let pinned_by = yaml_get(coverage, "pinned_by")
+        .and_then(YamlValue::as_mapping)
+        .ok_or_else(|| anyhow::anyhow!("warning_code_coverage missing pinned_by"))?;
+    for code in UK_LABOUR_WARNING_CODES {
+        ensure!(
+            pinned_by.contains_key(YamlValue::String(code.to_owned())),
+            "warning code {code} must have a pinned canary case"
+        );
+    }
+    let maintenance_pin = pinned_by
+        .get(YamlValue::String("MAINTENANCE_TERM_ASSUMED".to_owned()))
+        .ok_or_else(|| anyhow::anyhow!("MAINTENANCE_TERM_ASSUMED pin missing"))?;
+    ensure!(
+        yaml_value_mentions_case(maintenance_pin, "scope-unresolved-01"),
+        "MAINTENANCE_TERM_ASSUMED must be pinned by the missing-term canary"
+    );
+
+    let scope_case = yaml_get(
+        yaml_get(&golden, "cases").ok_or_else(|| anyhow::anyhow!("golden missing cases"))?,
+        "scope-unresolved-01",
+    )
+    .ok_or_else(|| anyhow::anyhow!("golden missing scope-unresolved-01"))?;
+    let expected_warning_codes = yaml_get(scope_case, "expected_warning_codes")
+        .and_then(YamlValue::as_sequence)
+        .ok_or_else(|| anyhow::anyhow!("scope-unresolved-01 missing expected warnings"))?;
+    ensure!(
+        expected_warning_codes
+            .iter()
+            .any(|code| code.as_str() == Some("MAINTENANCE_TERM_ASSUMED")),
+        "scope-unresolved-01 must expect MAINTENANCE_TERM_ASSUMED"
+    );
+    let schedule_assertions = yaml_get(scope_case, "maintenance_schedule")
+        .ok_or_else(|| anyhow::anyhow!("scope-unresolved-01 missing maintenance_schedule"))?;
+    ensure!(
+        yaml_bool_field_eq(yaml_get(schedule_assertions, "requires_maintenance"), true)
+            && yaml_i64_field_eq(yaml_get(schedule_assertions, "visits_per_year"), 4)
+            && yaml_i64_field_eq(
+                yaml_get(schedule_assertions, "missing_term_defaults_years"),
+                1,
+            )
+            && yaml_get(schedule_assertions, "default_warning_code").and_then(YamlValue::as_str)
+                == Some("MAINTENANCE_TERM_ASSUMED"),
+        "scope-unresolved-01 golden assertions must pin the 1-year missing-term default"
+    );
+
+    Ok(())
 }
 
 #[test]
