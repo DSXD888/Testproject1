@@ -33,6 +33,12 @@ export type DescriptionQualityVerdict =
       reason: string;
       markAs: "mixed_manual" | "gir_3_candidate";
     }
+  | {
+      kind: "goods_led_mixed";
+      installationTerms: string[];
+      goodsHeadNoun: string;
+      supplySignal: string;
+    }
   | { kind: "split_safe"; subDescriptions: RawDescription[] };
 
 export interface QueryWave {
@@ -76,12 +82,17 @@ const KNOWN_HEAD_NOUNS = [
   "masks",
   "batteries",
   "cables",
+  "kits",
+  "lighting",
+  "shelving",
   "equipment",
   "goods",
   "items",
   "products",
   "supplies",
 ] as const;
+
+const KNOWN_HEAD_NOUN_SET = new Set<string>(KNOWN_HEAD_NOUNS);
 
 const MATERIAL_PATTERNS: Array<[RegExp, string]> = [
   [/\bstainless\s+steel\b/, "stainless steel"],
@@ -103,6 +114,11 @@ export function gateDescriptionQuality(
   const normalizedText = normalize(input.text);
   if (normalizedText.length === 0) {
     return rejectGeneric("goods", ["goods.head_noun"]);
+  }
+
+  const goodsLedMixed = detectGoodsLedMixedDescription(normalizedText);
+  if (goodsLedMixed !== undefined) {
+    return goodsLedMixed;
   }
 
   if (isServiceDescription(normalizedText)) {
@@ -336,6 +352,9 @@ function requiredFactsFor(headNoun: string): string[] {
   if (headNoun === "fasteners" || headNoun === "bolts" || headNoun === "screws") {
     return ["material", "principal_function"];
   }
+  if (headNoun === "kits") {
+    return ["principal_function"];
+  }
   if (GENERIC_HEAD_NOUNS.has(headNoun)) {
     return ["material", "principal_function", "sector"];
   }
@@ -358,9 +377,87 @@ function splitBundleSegments(text: string): string[] {
 }
 
 function isServiceDescription(text: string): boolean {
-  return /\b(consulting|installation|maintenance|managed|repair|services?|support|training)\b/.test(
+  if (
+    detectGoodsLedMixedDescription(text) !== undefined ||
+    isMaintenanceKitGoodsDescription(text)
+  ) {
+    return false;
+  }
+
+  return /\b(consultancy|consulting|installation|maintenance|managed|repair|services?|support|training)\b/.test(
     text,
   );
+}
+
+function detectGoodsLedMixedDescription(
+  text: string,
+): Extract<DescriptionQualityVerdict, { kind: "goods_led_mixed" }> | undefined {
+  const supplySignal = extractSupplySignal(text);
+  if (supplySignal === undefined) {
+    return undefined;
+  }
+
+  const installationTerms = extractInstallationTerms(text);
+  if (installationTerms.length === 0) {
+    return undefined;
+  }
+
+  const goodsHeadNoun = extractGoodsLedHeadNoun(text);
+  if (goodsHeadNoun === undefined) {
+    return undefined;
+  }
+
+  return {
+    kind: "goods_led_mixed",
+    installationTerms,
+    goodsHeadNoun,
+    supplySignal,
+  };
+}
+
+function extractSupplySignal(text: string): string | undefined {
+  const signal = text.match(
+    /\b(supply|supplies|supplying|provision|provide|provides|providing)\b/,
+  )?.[1];
+  if (signal === undefined) {
+    return undefined;
+  }
+  return signal.startsWith("provi") ? "provision" : "supply";
+}
+
+function extractInstallationTerms(text: string): string[] {
+  const terms: string[] = [];
+  const patterns: Array<[RegExp, string]> = [
+    [/\binstallation\b/, "installation"],
+    [/\binstall(?:ed|ing)?\b/, "install"],
+    [/\bmaintain(?:ed|ing)?\b/, "maintain"],
+    [/\bmaintenance\b/, "maintenance"],
+    [/\brepair(?:s|ed|ing)?\b/, "repair"],
+  ];
+
+  for (const [pattern, term] of patterns) {
+    if (pattern.test(text) && !isGoodsQualifierServiceTerm(text, term)) {
+      terms.push(term);
+    }
+  }
+
+  return terms;
+}
+
+function isGoodsQualifierServiceTerm(text: string, term: string): boolean {
+  return term === "maintenance" && isMaintenanceKitGoodsDescription(text);
+}
+
+function isMaintenanceKitGoodsDescription(text: string): boolean {
+  return /\bmaintenance\s+kits?\b/.test(text);
+}
+
+function extractGoodsLedHeadNoun(text: string): string | undefined {
+  const headNoun = extractHeadNoun(text);
+  if (GENERIC_HEAD_NOUNS.has(headNoun) || !KNOWN_HEAD_NOUN_SET.has(headNoun)) {
+    return undefined;
+  }
+  return headNoun;
 }
 
 function isRetailSet(text: string): boolean {
@@ -399,6 +496,9 @@ function extractPrincipalFunction(
   }
   if (/\bcleaning|wipe|wiping\b/.test(text)) {
     return "cleaning";
+  }
+  if (/\bmaintenance\b/.test(text) && headNoun === "kits") {
+    return "maintenance";
   }
   return undefined;
 }
