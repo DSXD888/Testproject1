@@ -340,6 +340,10 @@ fn e2e_il_004_playground_maintenance_persists_first_class_period_estimate() -> R
         "E2E-IL-004 maintenance estimate must be keyed by product candidate, landed-cost estimate, and quote"
     );
     ensure!(
+        row_count_for_process(conn, "maintenance_period_estimates", &ids.process_id)? == 1,
+        "E2E-IL-004 must create exactly one separate maintenance-period estimate"
+    );
+    ensure!(
         persisted_maintenance.visit_scope == maintenance.visit_scope
             && persisted_maintenance.visits_per_year == 4
             && persisted_maintenance.term_years == 3,
@@ -383,6 +387,11 @@ fn e2e_il_004_playground_maintenance_persists_first_class_period_estimate() -> R
         capitalized_maintenance_share == 5_960 && capitalized_maintenance_share != 7_826,
         "E2E-IL-004 would resolve to {capitalized_maintenance_share} bps if maintenance opex were capitalised"
     );
+    ensure!(
+        persisted_landed_cost.decision_grade == "review",
+        "E2E-IL-004 must route to review so recurring maintenance remains operator-visible"
+    );
+    assert_e2e_il_004_decision_basis(conn, &ids.process_id, &persisted_landed_cost)?;
     Ok(())
 }
 
@@ -859,6 +868,7 @@ fn assert_e2e_il_001_decision_basis(
     insert_pipeline_assessment_decision_basis(
         conn,
         process_id,
+        "e2e-il-001-decision-basis",
         "review",
         goods_value_share_bps(
             persisted.goods_landed_cost_gbp_pence,
@@ -886,9 +896,46 @@ fn assert_e2e_il_001_decision_basis(
     Ok(())
 }
 
+fn assert_e2e_il_004_decision_basis(
+    conn: &Connection,
+    process_id: &str,
+    persisted: &PersistedLandedCostSeed,
+) -> Result<()> {
+    insert_pipeline_assessment_decision_basis(
+        conn,
+        process_id,
+        "e2e-il-004-decision-basis",
+        "review",
+        goods_value_share_bps(
+            persisted.goods_landed_cost_gbp_pence,
+            persisted.installation_labour_cost_gbp_pence,
+            persisted.permit_traffic_mgmt_cost_gbp_pence,
+        ),
+        "cost_proxy",
+    )?;
+    let decision_basis = persisted_decision_basis(conn, process_id)?;
+    ensure!(
+        decision_basis
+            == PersistedDecisionBasis {
+                goods_value_share_bps: Some(7_826),
+                goods_value_share_basis: Some("cost_proxy".to_owned()),
+                review_required: 1,
+                review_reason: Some("review".to_owned()),
+            },
+        "E2E-IL-004 final decision record must log the review route and capital-event goods share"
+    );
+    ensure!(
+        decision_manifest_basis_line(persisted, &decision_basis)
+            == "basis=cost_proxy share_bps=7826 numerator_pence=1800000 denominator_pence=2300000 floor_bps=6000 review_band_bps=500 final_route=review",
+        "E2E-IL-004 manifest basis line must expose the capital-event denominator and review route"
+    );
+    Ok(())
+}
+
 fn insert_pipeline_assessment_decision_basis(
     conn: &Connection,
     process_id: &str,
+    decision_basis_hash: &str,
     final_route: &str,
     goods_value_share_bps: i64,
     goods_value_share_basis: &str,
@@ -899,14 +946,14 @@ fn insert_pipeline_assessment_decision_basis(
           process_id, pipeline_state, review_required, review_reason,
           decision_basis_hash, goods_value_share_bps, goods_value_share_basis, owner_id
         ) VALUES (
-          ?1, 'net_qualified', ?2, ?3,
-          'e2e-il-001-decision-basis', ?4, ?5, 'local-owner'
+          ?1, 'net_qualified', ?2, ?3, ?4, ?5, ?6, 'local-owner'
         )
         ",
         params![
             process_id,
             i64::from(final_route == "review"),
             final_route,
+            decision_basis_hash,
             goods_value_share_bps,
             goods_value_share_basis
         ],
