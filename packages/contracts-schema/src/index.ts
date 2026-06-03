@@ -24,7 +24,10 @@ export type GoodsValueShareBasis = 'contract_value' | 'cost_proxy';
 
 export type SupplierQuoteClass = 'installer_quote' | (string & {});
 
-export type MaintenanceMarginSignal = string & {};
+export type MaintenanceMarginSignal =
+  | 'pending_maintenance_cost_model'
+  | 'profile_maintenance_model'
+  | 'schedule_explicit';
 
 export type MaintenanceSchedule = {
   visits_per_year: number | null;
@@ -189,6 +192,21 @@ export interface MaintenancePeriodEstimateRow {
   stage_run_id: string | null;
   updated_at: string;
   created_at: string;
+}
+
+export interface MaintenanceReviewContextPayload {
+  product_candidate_id: string;
+  landed_cost_estimate_id: string;
+  supplier_quote_id: string | null;
+  visit_scope: string | null;
+  visits_per_year: number;
+  term_years: number;
+  per_visit_labour_cost_gbp_pence: number;
+  annualised_opex_gbp_pence: number;
+  total_visible_term_opex_gbp_pence: number;
+  maintenance_confidence_bps: number;
+  margin_signal: MaintenanceMarginSignal;
+  warnings: Json;
 }
 
 export interface CandidatePricingAssessmentRow {
@@ -559,6 +577,26 @@ type TsSchema005MaintenancePeriodEstimateShape = ExpectTrue<
 
 type TsSchema005MaintenancePeriodEstimateReadableProjection = ExpectTrue<
   TypeEquals<TableRow<'maintenance_period_estimates'>, MaintenancePeriodEstimateRow>
+>;
+
+type TsSchema005MaintenanceReviewContextShape = ExpectTrue<
+  TypeEquals<
+    MaintenanceReviewContextPayload,
+    {
+      product_candidate_id: string;
+      landed_cost_estimate_id: string;
+      supplier_quote_id: string | null;
+      visit_scope: string | null;
+      visits_per_year: number;
+      term_years: number;
+      per_visit_labour_cost_gbp_pence: number;
+      annualised_opex_gbp_pence: number;
+      total_visible_term_opex_gbp_pence: number;
+      maintenance_confidence_bps: number;
+      margin_signal: MaintenanceMarginSignal;
+      warnings: Json;
+    }
+  >
 >;
 
 export const READABLE_PROJECTION_TABLES = [

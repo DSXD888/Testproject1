@@ -107,6 +107,22 @@ struct PersistedDecisionBasis {
     review_reason: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct MaintenanceReviewContextPayload {
+    product_candidate_id: String,
+    landed_cost_estimate_id: String,
+    supplier_quote_id: String,
+    visit_scope: String,
+    visits_per_year: i64,
+    term_years: i64,
+    per_visit_labour_cost_gbp_pence: i64,
+    annualised_opex_gbp_pence: i64,
+    total_visible_term_opex_gbp_pence: i64,
+    maintenance_confidence_bps: i64,
+    margin_signal: String,
+    warnings: String,
+}
+
 #[test]
 #[doc = "RS-SEED-001"]
 fn rs_seed_001_landed_cost_insert_sql_helper_direct_seeds_labour_columns() -> Result<()> {
@@ -324,7 +340,7 @@ fn e2e_il_004_playground_maintenance_persists_first_class_period_estimate() -> R
         annualised_opex_gbp_pence: 240_000,
         total_visible_term_opex_gbp_pence: 720_000,
         maintenance_confidence_bps: 0,
-        margin_signal: "pending_maintenance_cost_model",
+        margin_signal: "profile_maintenance_model",
         warnings: "[]",
         evidence_json: r#"{"source":"installation_requirement","maintenance_schedule":{"visits_per_year":4,"term_years":3,"visit_scope":"quarterly inspection and minor service"}}"#,
     };
@@ -357,7 +373,7 @@ fn e2e_il_004_playground_maintenance_persists_first_class_period_estimate() -> R
         "E2E-IL-004 qoa5.5.4 must persist annualised and visible-term maintenance opex"
     );
     ensure!(
-        persisted_maintenance.margin_signal == "pending_maintenance_cost_model"
+        persisted_maintenance.margin_signal == "profile_maintenance_model"
             && persisted_maintenance.warnings == "[]"
             && persisted_maintenance
                 .evidence_json
@@ -391,6 +407,7 @@ fn e2e_il_004_playground_maintenance_persists_first_class_period_estimate() -> R
         persisted_landed_cost.decision_grade == "review",
         "E2E-IL-004 must route to review so recurring maintenance remains operator-visible"
     );
+    assert_e2e_il_004_maintenance_review_context(&persisted_maintenance)?;
     assert_e2e_il_004_decision_basis(conn, &ids.process_id, &persisted_landed_cost)?;
     Ok(())
 }
@@ -928,6 +945,44 @@ fn assert_e2e_il_004_decision_basis(
         decision_manifest_basis_line(persisted, &decision_basis)
             == "basis=cost_proxy share_bps=7826 numerator_pence=1800000 denominator_pence=2300000 floor_bps=6000 review_band_bps=500 final_route=review",
         "E2E-IL-004 manifest basis line must expose the capital-event denominator and review route"
+    );
+    Ok(())
+}
+
+fn assert_e2e_il_004_maintenance_review_context(
+    persisted: &PersistedMaintenancePeriodSeed,
+) -> Result<()> {
+    let payload = MaintenanceReviewContextPayload {
+        product_candidate_id: persisted.product_candidate_id.clone(),
+        landed_cost_estimate_id: persisted.landed_cost_estimate_id.clone(),
+        supplier_quote_id: persisted.supplier_quote_id.clone(),
+        visit_scope: persisted.visit_scope.clone(),
+        visits_per_year: persisted.visits_per_year,
+        term_years: persisted.term_years,
+        per_visit_labour_cost_gbp_pence: persisted.per_visit_labour_cost_gbp_pence,
+        annualised_opex_gbp_pence: persisted.annualised_opex_gbp_pence,
+        total_visible_term_opex_gbp_pence: persisted.total_visible_term_opex_gbp_pence,
+        maintenance_confidence_bps: persisted.maintenance_confidence_bps,
+        margin_signal: persisted.margin_signal.clone(),
+        warnings: persisted.warnings.clone(),
+    };
+    ensure!(
+        payload
+            == MaintenanceReviewContextPayload {
+                product_candidate_id: "il-seed-candidate".to_owned(),
+                landed_cost_estimate_id: "e2e-il-004-playground-maintenance".to_owned(),
+                supplier_quote_id: "il-seed-quote".to_owned(),
+                visit_scope: "quarterly inspection and minor service".to_owned(),
+                visits_per_year: 4,
+                term_years: 3,
+                per_visit_labour_cost_gbp_pence: 60_000,
+                annualised_opex_gbp_pence: 240_000,
+                total_visible_term_opex_gbp_pence: 720_000,
+                maintenance_confidence_bps: 0,
+                margin_signal: "profile_maintenance_model".to_owned(),
+                warnings: "[]".to_owned(),
+            },
+        "E2E-IL-004 maintenance review context must expose the typed breakdown and margin signal for Phase 6"
     );
     Ok(())
 }

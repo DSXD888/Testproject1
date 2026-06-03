@@ -8194,6 +8194,15 @@ fn maintenance_per_visit_labour_estimate(
     )
 }
 
+fn maintenance_margin_signal(per_visit_labour: &MaintenancePerVisitLabourEstimate) -> String {
+    match per_visit_labour.basis {
+        "schedule_explicit" => "schedule_explicit",
+        "profile_maintenance_model" => "profile_maintenance_model",
+        _ => "pending_maintenance_cost_model",
+    }
+    .to_owned()
+}
+
 fn maintenance_period_estimate_for_row(
     row: &LandedCostAssessmentRow,
     landed_cost: &LandedCostEstimateWrite,
@@ -8249,7 +8258,7 @@ fn maintenance_period_estimate_for_row(
         annualised_opex_gbp_pence,
         total_visible_term_opex_gbp_pence,
         maintenance_confidence_bps: 0,
-        margin_signal: None,
+        margin_signal: Some(maintenance_margin_signal(&per_visit_labour)),
         warnings: "[]".to_owned(),
         evidence_json: json!({
             "source": "installation_requirement",
@@ -31607,6 +31616,20 @@ mod tests {
         );
     }
 
+    fn assert_maintenance_estimate_identity(
+        maintenance: &super::MaintenancePeriodEstimateWrite,
+        landed_cost: &super::LandedCostEstimateWrite,
+    ) {
+        assert_eq!(maintenance.process_id, landed_cost.process_id);
+        assert_eq!(maintenance.notice_id, landed_cost.notice_id);
+        assert_eq!(
+            maintenance.product_candidate_id,
+            landed_cost.product_candidate_id
+        );
+        assert_eq!(maintenance.landed_cost_estimate_id, landed_cost.id);
+        assert_eq!(maintenance.supplier_quote_id, landed_cost.supplier_quote_id);
+    }
+
     #[test]
     fn maintenance_requirement_creates_first_class_period_estimate() -> Result<()> {
         let mut row = stage11_undetermined_row_fixture();
@@ -31669,14 +31692,7 @@ mod tests {
         let maintenance = super::maintenance_period_estimate_for_row(&row, &landed_cost)
             .ok_or_else(|| anyhow::anyhow!("expected maintenance estimate"))?;
 
-        assert_eq!(maintenance.process_id, landed_cost.process_id);
-        assert_eq!(maintenance.notice_id, landed_cost.notice_id);
-        assert_eq!(
-            maintenance.product_candidate_id,
-            landed_cost.product_candidate_id
-        );
-        assert_eq!(maintenance.landed_cost_estimate_id, landed_cost.id);
-        assert_eq!(maintenance.supplier_quote_id, landed_cost.supplier_quote_id);
+        assert_maintenance_estimate_identity(&maintenance, &landed_cost);
         assert_eq!(
             maintenance.visit_scope.as_deref(),
             Some("quarterly inspection and minor service")
@@ -31686,6 +31702,10 @@ mod tests {
         assert_eq!(maintenance.per_visit_labour_cost_gbp_pence, 60_000);
         assert_eq!(maintenance.annualised_opex_gbp_pence, 240_000);
         assert_eq!(maintenance.total_visible_term_opex_gbp_pence, 720_000);
+        assert_eq!(
+            maintenance.margin_signal.as_deref(),
+            Some("profile_maintenance_model")
+        );
         for expected in [
             "maintenance_schedule",
             "per_visit_labour_cost_gbp_pence",
