@@ -8503,6 +8503,7 @@ fn build_import_landed_cost_estimate(
     customs: Option<&HmrcCustomsClassificationResult>,
     sizing: Option<&ShipmentSizingResult>,
     freight: &FreightScenarioGbp,
+    installation_labour: Option<&InstallationLabourCostBasis>,
     order_quantity_basis: &OrderQuantityBasis,
     skill_versions: &Value,
     skill_session_ids: &Value,
@@ -8715,21 +8716,31 @@ fn build_import_landed_cost_estimate(
             .saturating_add(freight.high_gbp_pence)
             .saturating_add(duty_total),
     );
-    let low_landed_cost = supplier_cost
+    let installation_labour = installation_labour.cloned().unwrap_or_default();
+    let low_goods_landed_cost = supplier_cost
         .supplier_cost_gbp_pence
         .saturating_add(freight.low_gbp_pence)
         .saturating_add(duty_total)
         .saturating_add(low_import_vat);
-    let base_landed_cost = supplier_cost
+    let base_goods_landed_cost = supplier_cost
         .supplier_cost_gbp_pence
         .saturating_add(freight.base_gbp_pence)
         .saturating_add(duty_total)
         .saturating_add(base_import_vat);
-    let high_landed_cost = supplier_cost
+    let high_goods_landed_cost = supplier_cost
         .supplier_cost_gbp_pence
         .saturating_add(freight.high_gbp_pence)
         .saturating_add(duty_total)
         .saturating_add(high_import_vat);
+    let low_landed_cost = low_goods_landed_cost
+        .saturating_add(installation_labour.installation_labour_low_gbp_pence)
+        .saturating_add(installation_labour.permit_traffic_mgmt_low_gbp_pence);
+    let base_landed_cost = base_goods_landed_cost
+        .saturating_add(installation_labour.installation_labour_cost_gbp_pence)
+        .saturating_add(installation_labour.permit_traffic_mgmt_cost_gbp_pence);
+    let high_landed_cost = high_goods_landed_cost
+        .saturating_add(installation_labour.installation_labour_high_gbp_pence)
+        .saturating_add(installation_labour.permit_traffic_mgmt_high_gbp_pence);
     let confidence_bps = if blockers.is_empty() {
         [
             row.pricing_input_confidence_bps,
@@ -8783,22 +8794,26 @@ fn build_import_landed_cost_estimate(
         fx_basis_delta_bps: 0,
         fx_rate_checked_at: freight.fx_checked_at.clone(),
         supplier_cost_gbp_pence: supplier_cost.supplier_cost_gbp_pence,
-        goods_landed_cost_gbp_pence: base_landed_cost,
-        installation_labour_cost_gbp_pence: 0,
-        installation_labour_low_gbp_pence: 0,
-        installation_labour_high_gbp_pence: 0,
-        installation_labour_confidence_bps: 0,
-        permit_traffic_mgmt_cost_gbp_pence: 0,
-        permit_traffic_mgmt_low_gbp_pence: 0,
-        permit_traffic_mgmt_high_gbp_pence: 0,
-        permit_responsibility: None,
+        goods_landed_cost_gbp_pence: base_goods_landed_cost,
+        installation_labour_cost_gbp_pence: installation_labour.installation_labour_cost_gbp_pence,
+        installation_labour_low_gbp_pence: installation_labour.installation_labour_low_gbp_pence,
+        installation_labour_high_gbp_pence: installation_labour.installation_labour_high_gbp_pence,
+        installation_labour_confidence_bps: clamp_bps(
+            installation_labour.installation_labour_confidence_bps,
+        ),
+        permit_traffic_mgmt_cost_gbp_pence: installation_labour.permit_traffic_mgmt_cost_gbp_pence,
+        permit_traffic_mgmt_low_gbp_pence: installation_labour.permit_traffic_mgmt_low_gbp_pence,
+        permit_traffic_mgmt_high_gbp_pence: installation_labour.permit_traffic_mgmt_high_gbp_pence,
+        permit_responsibility: installation_labour.permit_responsibility,
         freight_low_gbp_pence: freight.low_gbp_pence,
         freight_base_gbp_pence: freight.base_gbp_pence,
         freight_high_gbp_pence: freight.high_gbp_pence,
         customs_duty_gbp_pence,
         trade_remedy_duty_gbp_pence: Some(trade_remedy_duty_gbp_pence),
         duty_outcome_min_gbp_pence: Some(customs_duty_gbp_pence),
-        duty_outcome_max_gbp_pence: Some(customs_duty_gbp_pence + trade_remedy_duty_gbp_pence),
+        duty_outcome_max_gbp_pence: Some(
+            customs_duty_gbp_pence.saturating_add(trade_remedy_duty_gbp_pence),
+        ),
         customs_cost_spread_bps: Some(0),
         trade_remedy_state,
         trade_remedy_cases_json,
@@ -9692,6 +9707,7 @@ async fn run_landed_cost_live_loop(
             customs.as_ref(),
             sizing.as_ref(),
             &freight,
+            None,
             &order_quantity_basis,
             &skill_versions,
             &skill_session_ids,
@@ -28686,6 +28702,7 @@ mod tests {
             Some(&classified_customs_for(&row)),
             Some(&sizing),
             &freight_not_required(),
+            None,
             &order_quantity_basis,
             &json!({}),
             &json!({}),
@@ -28734,6 +28751,7 @@ mod tests {
             Some(&classified_customs_for(&row)),
             Some(&sizing),
             &freight_not_required(),
+            None,
             &order_quantity_basis,
             &json!({}),
             &json!({}),
@@ -28877,6 +28895,7 @@ mod tests {
             Some(&customs),
             Some(&sized_shipment_for(&row)),
             &freight,
+            None,
             &super::infer_order_quantity_basis(&row),
             &json!({
                 "hmrc_customs": "1.0.0",
@@ -29180,6 +29199,7 @@ mod tests {
             None,
             Some(&sizing),
             &freight,
+            None,
             &super::infer_order_quantity_basis(&rows[0]),
             &json!({
                 "hmrc_customs": "1.0.0",
@@ -29264,6 +29284,7 @@ mod tests {
             Some(&customs),
             Some(&sizing),
             &freight,
+            None,
             &order_quantity_basis,
             &json!({
                 "hmrc_customs": "1.0.0",
@@ -29371,6 +29392,7 @@ mod tests {
             Some(&customs),
             Some(&sizing),
             &freight,
+            None,
             &super::infer_order_quantity_basis(&row),
             &json!({}),
             &json!({}),
@@ -29379,6 +29401,92 @@ mod tests {
         assert_eq!(estimate.economic_landed_cost_gbp_pence, 18_600);
         assert_eq!(estimate.cash_to_clear_gbp_pence, 6600);
         assert_eq!(estimate.net_margin_base_bps, 6280);
+        assert_eq!(estimate.decision_grade, "review");
+        Ok(())
+    }
+
+    #[test]
+    fn import_landed_cost_rollup_adds_labour_permit_and_threads_bands() -> Result<()> {
+        let mut row = stage11_row_fixture();
+        row.expected_addressable_revenue_ex_vat_pence = 2_000_000;
+        row.revenue_basis_type = "expected_value".to_owned();
+        row.revenue_confidence_bps = 9_000;
+        row.pricing_input_confidence_bps = 8_000;
+        row.gross_estimate_confidence_bps = 8_000;
+        let supplier_cost = super::SupplierCostBasis {
+            supplier_cost_gbp_pence: 700_000,
+            basis: "test_supplier_total".to_owned(),
+            quantity: 1.0,
+            quantity_unit: Some("lot".to_owned()),
+            warnings: Vec::new(),
+        };
+        let mut customs = classified_customs_for(&row);
+        customs.customs_duty_gbp_pence = Some(50_000);
+        customs.trade_remedy_duty_gbp_pence = Some(0);
+        customs.vat_rate_bps = Some(2_000);
+        let freight = super::FreightScenarioGbp {
+            low_gbp_pence: 80_000,
+            base_gbp_pence: 100_000,
+            high_gbp_pence: 120_000,
+            fx_rate: 1.0,
+            fx_checked_at: Some("2026-04-28T00:00:00Z".to_owned()),
+            fx_status: "not_required".to_owned(),
+            fx_session_id: None,
+            fx_job_id: None,
+            warnings: Vec::new(),
+            blockers: Vec::new(),
+        };
+        let installation_labour = super::InstallationLabourCostBasis {
+            installation_labour_cost_gbp_pence: 240_000,
+            installation_labour_low_gbp_pence: 210_000,
+            installation_labour_high_gbp_pence: 265_000,
+            installation_labour_confidence_bps: 7_600,
+            permit_traffic_mgmt_cost_gbp_pence: 200_000,
+            permit_traffic_mgmt_low_gbp_pence: 120_000,
+            permit_traffic_mgmt_high_gbp_pence: 340_000,
+            permit_responsibility: Some("unknown".to_owned()),
+        };
+        let order_quantity_basis = super::OrderQuantityBasis::FromContractValue {
+            qty: 1.0,
+            contract_value_gbp_pence: row.expected_addressable_revenue_ex_vat_pence,
+            basis_unit: Some("lot".to_owned()),
+        };
+
+        let estimate = super::build_import_landed_cost_estimate(
+            &row,
+            &supplier_cost,
+            "stage-run-import-labour",
+            Some(&customs),
+            Some(&sized_shipment_for(&row)),
+            &freight,
+            Some(&installation_labour),
+            &order_quantity_basis,
+            &json!({
+                "hmrc_customs": "1.0.0",
+                "shipment_sizing": "1.0.0",
+                "searates_freight": "1.0.0",
+                "simple_fx": "1.0.0",
+                "uk_installation_labour": "1.0.0",
+            }),
+            &json!({}),
+        )?;
+
+        assert_eq!(estimate.import_vat_gbp_pence, 170_000);
+        assert_eq!(estimate.goods_landed_cost_gbp_pence, 1_020_000);
+        assert_eq!(estimate.installation_labour_cost_gbp_pence, 240_000);
+        assert_eq!(estimate.installation_labour_low_gbp_pence, 210_000);
+        assert_eq!(estimate.installation_labour_high_gbp_pence, 265_000);
+        assert_eq!(estimate.installation_labour_confidence_bps, 7_600);
+        assert_eq!(estimate.permit_traffic_mgmt_cost_gbp_pence, 200_000);
+        assert_eq!(estimate.permit_traffic_mgmt_low_gbp_pence, 120_000);
+        assert_eq!(estimate.permit_traffic_mgmt_high_gbp_pence, 340_000);
+        assert_eq!(estimate.permit_responsibility.as_deref(), Some("unknown"));
+        assert_eq!(estimate.economic_landed_cost_gbp_pence, 1_460_000);
+        assert_eq!(estimate.cash_outlay_gbp_pence, 1_460_000);
+        assert_eq!(estimate.cash_to_clear_gbp_pence, 220_000);
+        assert_eq!(estimate.net_margin_low_bps, 1_755);
+        assert_eq!(estimate.net_margin_base_bps, 2_700);
+        assert_eq!(estimate.net_margin_high_bps, 3_370);
         assert_eq!(estimate.decision_grade, "review");
         Ok(())
     }
