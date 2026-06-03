@@ -41,7 +41,28 @@ describe("goods qualification", () => {
     expect(dps.accessRoute).toBe("dynamic_market");
   });
 
-  it("TS-QUAL-003: uses goods-addressable value for separable mixed contracts", () => {
+  it("TS-QUAL-003a: passes separable mixed at or above the goods value-share floor", () => {
+    const result = qualifyGoodsOpportunity({
+      cpvCodes: ["33100000-1", "50750000-7"],
+      tenderDeadline: "2026-06-30T00:00:00.000Z",
+      now: "2026-03-28T00:00:00.000Z",
+      accessRoute: "open_tender",
+      qualificationBasis: "lot_level",
+      totalValuePence: 900_000,
+      goodsAddressableValuePence: 540_000,
+      goodsSeparability: true,
+      goodsDensitySignals: {
+        physicalGoodsMentions: 3,
+        quantityMentions: 2,
+      },
+    });
+
+    expect(result.legalCategory).toBe("mixed");
+    expect(result.addressableValuePence).toBe(540_000);
+    expect(result.qualificationResult).toBe("pass");
+  });
+
+  it("TS-QUAL-003b: reviews separable mixed below the goods value-share floor", () => {
     const result = qualifyGoodsOpportunity({
       cpvCodes: ["33100000-1", "50750000-7"],
       tenderDeadline: "2026-06-30T00:00:00.000Z",
@@ -59,7 +80,7 @@ describe("goods qualification", () => {
 
     expect(result.legalCategory).toBe("mixed");
     expect(result.addressableValuePence).toBe(360_000);
-    expect(result.qualificationResult).toBe("pass");
+    expect(result.qualificationResult).toBe("review");
   });
 
   it("TS-QUAL-004: preserves reviewability and rationale for low-confidence cases", () => {
@@ -145,5 +166,41 @@ describe("goods qualification", () => {
     expect(works.qualificationResult).toBe("review");
     expect(serviceOnly.legalCategory).toBe("services");
     expect(serviceOnly.qualificationResult).toBe("reject");
+  });
+
+  it("TS-QUAL-008: prefers contract-value share and never passes separable mixed on density alone", () => {
+    const valueSharePass = qualifyGoodsOpportunity({
+      cpvCodes: ["33100000-1", "50750000-7"],
+      tenderDeadline: "2026-06-30T00:00:00.000Z",
+      now: "2026-03-28T00:00:00.000Z",
+      accessRoute: "open_tender",
+      qualificationBasis: "lot_level",
+      totalValuePence: 900_000,
+      goodsAddressableValuePence: 540_000,
+      goodsSeparability: true,
+      goodsDensitySignals: {
+        serviceMentions: 1,
+      },
+      goodsConfidenceBps: 6500,
+    });
+    const missingNumerator = qualifyGoodsOpportunity({
+      cpvCodes: ["33100000-1", "50750000-7"],
+      tenderDeadline: "2026-06-30T00:00:00.000Z",
+      now: "2026-03-28T00:00:00.000Z",
+      accessRoute: "open_tender",
+      qualificationBasis: "lot_level",
+      totalValuePence: 900_000,
+      goodsSeparability: true,
+      goodsDensitySignals: {
+        physicalGoodsMentions: 6,
+        quantityMentions: 4,
+      },
+      goodsConfidenceBps: 9000,
+    });
+
+    expect(valueSharePass.addressableValuePence).toBe(540_000);
+    expect(valueSharePass.qualificationResult).toBe("pass");
+    expect(missingNumerator.addressableValuePence).toBeNull();
+    expect(missingNumerator.qualificationResult).toBe("review");
   });
 });

@@ -58,6 +58,7 @@ const REJECTED_ACCESS_ROUTES = new Set<AccessRoute>([
   "not_bidable",
 ]);
 
+const GOODS_DOMINANCE_FLOOR_BPS = 6000;
 const GOODS_PRESENCE_FLOOR_BPS = 3500;
 
 export function qualifyGoodsOpportunity(
@@ -114,6 +115,8 @@ export function qualifyGoodsOpportunity(
     goodsDensityScore,
     goodsConfidenceBps,
     goodsSeparability,
+    addressableValuePence,
+    totalValuePence: input.totalValuePence,
   });
 
   return {
@@ -323,6 +326,8 @@ function determineQualificationDecision(input: {
   goodsDensityScore: number;
   goodsConfidenceBps: number;
   goodsSeparability: GoodsSeparability;
+  addressableValuePence: number | null;
+  totalValuePence?: number | null;
   accessRoute: AccessRoute;
   expiryVerdict: QualificationDecision;
 }): QualificationDecision {
@@ -348,10 +353,17 @@ function determineQualificationDecision(input: {
 
   if (
     input.legalCategory === "mixed" &&
-    input.goodsSeparability === true &&
-    input.goodsDensityScore >= 0.55
+    input.goodsSeparability === true
   ) {
-    return REVIEWABLE_ACCESS_ROUTES.has(input.accessRoute) ? "review" : "pass";
+    const goodsValueShareBps = computeValueShareBps(
+      input.addressableValuePence,
+      input.totalValuePence,
+    );
+    if (goodsValueShareBps !== null && goodsValueShareBps >= GOODS_DOMINANCE_FLOOR_BPS) {
+      return REVIEWABLE_ACCESS_ROUTES.has(input.accessRoute) ? "review" : "pass";
+    }
+
+    return "review";
   }
 
   if (
@@ -379,6 +391,23 @@ function determineQualificationDecision(input: {
   }
 
   return "reject";
+}
+
+function computeValueShareBps(
+  addressableValuePence: number | null,
+  totalValuePence?: number | null,
+): number | null {
+  if (
+    addressableValuePence === null ||
+    totalValuePence === null ||
+    totalValuePence === undefined ||
+    addressableValuePence < 0 ||
+    totalValuePence <= 0
+  ) {
+    return null;
+  }
+
+  return Math.round((addressableValuePence * 10_000) / totalValuePence);
 }
 
 function clamp(value: number, min: number, max: number): number {
