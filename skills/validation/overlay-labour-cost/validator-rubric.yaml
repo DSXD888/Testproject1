@@ -1,0 +1,78 @@
+rubric_version: 2026.06.03-1
+overlay_skill_id: validation/overlay-labour-cost
+worker_skill_id: landed-cost/uk-installation-labour-estimate
+worker_behavior_version: landed-cost/uk-installation-labour-estimate@0.1.0
+validator_behavior_version: validation/overlay-labour-cost@0.1.0
+test_ids:
+  primary:
+    - CAN-OVERLAY-001
+    - GOLD-L0-003
+  supporting:
+    - CAN-LAB-001
+    - CAN-LAB-006
+    - CAN-WARN-001
+
+blocking_checks:
+  - id: hours_scope_consistency
+    severity: blocker
+    rule: "Estimated labour hours must be plausible for the resolved installation profile, duration_days, estimated_units, and required trades."
+    evidence_fields:
+      - labour_line_items.*.hours
+      - installation_requirement.installation_scope
+      - installation_requirement.duration_days
+      - evidence.installation_profile_id
+
+  - id: regional_rate_bounds
+    severity: blocker
+    rule: "Applied hourly/day rates must stay within the selected regional rate table bounds and expose the rate_table_version used."
+    evidence_fields:
+      - labour_line_items.*.rate_gbp_pence
+      - evidence.rate_table_version
+      - evidence.uk_region
+
+  - id: postcode_region_plausibility
+    severity: blocker
+    rule: "Destination postcode, declared uk_region, and fallback behaviour must be mutually plausible; unknown regions must emit LABOUR_REGION_UNKNOWN."
+    evidence_fields:
+      - destination_postcode
+      - installation_requirement.uk_region
+      - warnings
+
+  - id: access_equipment_proportionality
+    severity: blocker
+    rule: "Access-equipment selection and pence must be proportional to at-height scope and absent for ground-level assembly."
+    evidence_fields:
+      - installation_requirement.at_height_m
+      - access_equipment_line_items
+      - warnings
+
+  - id: permit_responsibility_handling
+    severity: blocker
+    rule: "Permit and traffic-management pence must stay separate from labour, and unknown/public-realm responsibility must emit operator-visible review warnings."
+    evidence_fields:
+      - permit_traffic_mgmt_line_items
+      - permit_responsibility
+      - warnings
+
+  - id: warning_completeness
+    severity: blocker
+    rule: "All unresolved region, scope, access, stale-rate, permit, lane-rental, TTRO, and maintenance-term assumptions must be represented as explicit warning codes."
+    evidence_fields:
+      - warnings
+      - blockers
+      - labour_confidence_bps
+
+promotion_controls:
+  promotion_stage: stable_blocked_until_rubric_present
+  stable_production_blocker: true
+  required_standard_files:
+    - SKILL.md
+    - result.schema.json
+    - checkpoint.schema.json
+    - canary.inputs.jsonl
+    - golden.assertions.yaml
+    - validator-rubric.yaml
+  compatible_pairs:
+    - worker: landed-cost/uk-installation-labour-estimate@0.1.0
+      validator: validation/overlay-labour-cost@0.1.0
+      state: promotion_blocked_without_runtime_rubric

@@ -554,6 +554,46 @@ fn yaml_value_mentions_case(value: &YamlValue, expected_case_id: &str) -> bool {
         })
 }
 
+#[derive(Debug, Eq, PartialEq)]
+enum ValidatorRubricGate {
+    Present,
+    StableProductionBlocked,
+}
+
+fn validator_rubric_gate(path: &Path) -> Result<ValidatorRubricGate> {
+    if !path.is_file() {
+        return Ok(ValidatorRubricGate::StableProductionBlocked);
+    }
+
+    let content = fs::read_to_string(path)?;
+    let rubric: YamlValue = serde_yaml::from_str(&content)?;
+    ensure!(
+        yaml_get(&rubric, "rubric_version")
+            .and_then(YamlValue::as_str)
+            .is_some_and(|version| !version.trim().is_empty()),
+        "{} must carry rubric_version",
+        path.display()
+    );
+    ensure!(
+        yaml_get(&rubric, "promotion_controls")
+            .and_then(|controls| yaml_get(controls, "stable_production_blocker"))
+            .and_then(YamlValue::as_bool)
+            == Some(true),
+        "{} must mark missing runtime rubric as a stable-production blocker",
+        path.display()
+    );
+    ensure!(
+        yaml_get(&rubric, "promotion_controls")
+            .and_then(|controls| yaml_get(controls, "promotion_stage"))
+            .and_then(YamlValue::as_str)
+            == Some("stable_blocked_until_rubric_present"),
+        "{} must expose stable_blocked_until_rubric_present promotion stage",
+        path.display()
+    );
+
+    Ok(ValidatorRubricGate::Present)
+}
+
 #[test]
 fn can_lab_001_lights_nw_fixture_pins_hard_band_trades_access_and_permit_warning() -> Result<()> {
     let (inputs, golden) = load_uk_installation_labour_fixture()?;
@@ -870,6 +910,29 @@ fn can_warn_001_uk_installation_labour_warning_codes_are_pinned() -> Result<()> 
             && yaml_get(schedule_assertions, "default_warning_code").and_then(YamlValue::as_str)
                 == Some("MAINTENANCE_TERM_ASSUMED"),
         "scope-unresolved-01 golden assertions must pin the 1-year missing-term default"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn gold_l0_003_validator_rubrics_are_stable_production_promotion_gates() -> Result<()> {
+    let labour_fixture_rubric =
+        uk_installation_labour_fixture_root()?.join("validator-rubric.yaml");
+    let overlay_rubric = skill_dir("validation/overlay-labour-cost")?.join("validator-rubric.yaml");
+    let missing_rubric = repo_root()?.join("target/test-fixtures/missing-validator-rubric.yaml");
+
+    ensure!(
+        validator_rubric_gate(&labour_fixture_rubric)? == ValidatorRubricGate::Present,
+        "GOLD-L0-003 labour fixture validator-rubric.yaml must be present and promotion-gated"
+    );
+    ensure!(
+        validator_rubric_gate(&overlay_rubric)? == ValidatorRubricGate::Present,
+        "GOLD-L0-003 overlay validator-rubric.yaml must be present and promotion-gated"
+    );
+    ensure!(
+        validator_rubric_gate(&missing_rubric)? == ValidatorRubricGate::StableProductionBlocked,
+        "GOLD-L0-003 missing validator-rubric.yaml must block stable production"
     );
 
     Ok(())
