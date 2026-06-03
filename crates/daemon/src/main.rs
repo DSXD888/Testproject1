@@ -5425,6 +5425,18 @@ struct FreightScenarioGbp {
     blockers: Vec<Stage11Issue>,
 }
 
+#[derive(Debug, Clone, Default)]
+struct InstallationLabourCostBasis {
+    installation_labour_cost_gbp_pence: i64,
+    installation_labour_low_gbp_pence: i64,
+    installation_labour_high_gbp_pence: i64,
+    installation_labour_confidence_bps: i64,
+    permit_traffic_mgmt_cost_gbp_pence: i64,
+    permit_traffic_mgmt_low_gbp_pence: i64,
+    permit_traffic_mgmt_high_gbp_pence: i64,
+    permit_responsibility: Option<String>,
+}
+
 #[derive(Debug, Clone)]
 struct LandedCostEstimateWrite {
     id: String,
@@ -5449,6 +5461,15 @@ struct LandedCostEstimateWrite {
     fx_basis_delta_bps: i64,
     fx_rate_checked_at: Option<String>,
     supplier_cost_gbp_pence: i64,
+    goods_landed_cost_gbp_pence: i64,
+    installation_labour_cost_gbp_pence: i64,
+    installation_labour_low_gbp_pence: i64,
+    installation_labour_high_gbp_pence: i64,
+    installation_labour_confidence_bps: i64,
+    permit_traffic_mgmt_cost_gbp_pence: i64,
+    permit_traffic_mgmt_low_gbp_pence: i64,
+    permit_traffic_mgmt_high_gbp_pence: i64,
+    permit_responsibility: Option<String>,
     freight_low_gbp_pence: i64,
     freight_base_gbp_pence: i64,
     freight_high_gbp_pence: i64,
@@ -8224,6 +8245,7 @@ fn confidence_breakdown(
 fn build_domestic_landed_cost_estimate(
     row: &LandedCostAssessmentRow,
     supplier_cost: &SupplierCostBasis,
+    installation_labour: Option<&InstallationLabourCostBasis>,
     stage_run_id: &str,
     order_quantity_basis: &OrderQuantityBasis,
     skill_versions: &Value,
@@ -8249,7 +8271,11 @@ fn build_domestic_landed_cost_estimate(
         warnings.push(warning);
     }
 
-    let economic_landed_cost_gbp_pence = supplier_cost.supplier_cost_gbp_pence;
+    let installation_labour = installation_labour.cloned().unwrap_or_default();
+    let goods_landed_cost_gbp_pence = supplier_cost.supplier_cost_gbp_pence;
+    let economic_landed_cost_gbp_pence = goods_landed_cost_gbp_pence
+        .saturating_add(installation_labour.installation_labour_cost_gbp_pence)
+        .saturating_add(installation_labour.permit_traffic_mgmt_cost_gbp_pence);
     let calibrate_zero_margin = order_quantity_basis.requires_zero_margin_calibration();
     let commercial_estimate_confidence_bps = if calibrate_zero_margin {
         Some(1000)
@@ -8329,6 +8355,17 @@ fn build_domestic_landed_cost_estimate(
         fx_basis_delta_bps: 0,
         fx_rate_checked_at: Some(Utc::now().to_rfc3339()),
         supplier_cost_gbp_pence: supplier_cost.supplier_cost_gbp_pence,
+        goods_landed_cost_gbp_pence,
+        installation_labour_cost_gbp_pence: installation_labour.installation_labour_cost_gbp_pence,
+        installation_labour_low_gbp_pence: installation_labour.installation_labour_low_gbp_pence,
+        installation_labour_high_gbp_pence: installation_labour.installation_labour_high_gbp_pence,
+        installation_labour_confidence_bps: clamp_bps(
+            installation_labour.installation_labour_confidence_bps,
+        ),
+        permit_traffic_mgmt_cost_gbp_pence: installation_labour.permit_traffic_mgmt_cost_gbp_pence,
+        permit_traffic_mgmt_low_gbp_pence: installation_labour.permit_traffic_mgmt_low_gbp_pence,
+        permit_traffic_mgmt_high_gbp_pence: installation_labour.permit_traffic_mgmt_high_gbp_pence,
+        permit_responsibility: installation_labour.permit_responsibility,
         freight_low_gbp_pence: 0,
         freight_base_gbp_pence: 0,
         freight_high_gbp_pence: 0,
@@ -8746,6 +8783,15 @@ fn build_import_landed_cost_estimate(
         fx_basis_delta_bps: 0,
         fx_rate_checked_at: freight.fx_checked_at.clone(),
         supplier_cost_gbp_pence: supplier_cost.supplier_cost_gbp_pence,
+        goods_landed_cost_gbp_pence: base_landed_cost,
+        installation_labour_cost_gbp_pence: 0,
+        installation_labour_low_gbp_pence: 0,
+        installation_labour_high_gbp_pence: 0,
+        installation_labour_confidence_bps: 0,
+        permit_traffic_mgmt_cost_gbp_pence: 0,
+        permit_traffic_mgmt_low_gbp_pence: 0,
+        permit_traffic_mgmt_high_gbp_pence: 0,
+        permit_responsibility: None,
         freight_low_gbp_pence: freight.low_gbp_pence,
         freight_base_gbp_pence: freight.base_gbp_pence,
         freight_high_gbp_pence: freight.high_gbp_pence,
@@ -9077,14 +9123,19 @@ fn persist_landed_cost_estimate(
               decision_grade, confidence_bps, confidence_breakdown, warnings, blockers,
               tariff_checked_at, measures_fresh_until, classification_fresh_until,
               trade_remedy_watch_state, cbam_exposure_flag, cbam_estimate_gbp_pence,
-              owner_id, last_local_seq, stage_run_id
+              owner_id, last_local_seq, stage_run_id,
+              goods_landed_cost_gbp_pence, installation_labour_cost_gbp_pence,
+              installation_labour_low_gbp_pence, installation_labour_high_gbp_pence,
+              installation_labour_confidence_bps, permit_traffic_mgmt_cost_gbp_pence,
+              permit_traffic_mgmt_low_gbp_pence, permit_traffic_mgmt_high_gbp_pence,
+              permit_responsibility
             ) VALUES (
               ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15,
               ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28,
               ?29, ?30, ?31, ?32, ?33, ?34, ?35, ?36, ?37, ?38, ?39, ?40, ?41,
               ?42, ?43, ?44, ?45, ?46, ?47, ?48, ?49, ?50, ?51, ?52, ?53, ?54,
               ?55, ?56, ?57, ?58, ?59, ?60, ?61, ?62, ?63, ?64, ?65, ?66, ?67,
-              ?68
+              ?68, ?69, ?70, ?71, ?72, ?73, ?74, ?75, ?76, ?77
             )
             ON CONFLICT(id) DO UPDATE SET
               process_id = excluded.process_id,
@@ -9151,6 +9202,15 @@ fn persist_landed_cost_estimate(
               trade_remedy_watch_state = excluded.trade_remedy_watch_state,
               cbam_exposure_flag = excluded.cbam_exposure_flag,
               cbam_estimate_gbp_pence = excluded.cbam_estimate_gbp_pence,
+              goods_landed_cost_gbp_pence = excluded.goods_landed_cost_gbp_pence,
+              installation_labour_cost_gbp_pence = excluded.installation_labour_cost_gbp_pence,
+              installation_labour_low_gbp_pence = excluded.installation_labour_low_gbp_pence,
+              installation_labour_high_gbp_pence = excluded.installation_labour_high_gbp_pence,
+              installation_labour_confidence_bps = excluded.installation_labour_confidence_bps,
+              permit_traffic_mgmt_cost_gbp_pence = excluded.permit_traffic_mgmt_cost_gbp_pence,
+              permit_traffic_mgmt_low_gbp_pence = excluded.permit_traffic_mgmt_low_gbp_pence,
+              permit_traffic_mgmt_high_gbp_pence = excluded.permit_traffic_mgmt_high_gbp_pence,
+              permit_responsibility = excluded.permit_responsibility,
               owner_id = excluded.owner_id,
               row_version = landed_cost_estimates.row_version + 1,
               last_local_seq = excluded.last_local_seq,
@@ -9226,6 +9286,15 @@ fn persist_landed_cost_estimate(
                 LOCAL_EXECUTOR_ID,
                 visible_after_seq,
                 estimate.stage_run_id,
+                estimate.goods_landed_cost_gbp_pence,
+                estimate.installation_labour_cost_gbp_pence,
+                estimate.installation_labour_low_gbp_pence,
+                estimate.installation_labour_high_gbp_pence,
+                estimate.installation_labour_confidence_bps,
+                estimate.permit_traffic_mgmt_cost_gbp_pence,
+                estimate.permit_traffic_mgmt_low_gbp_pence,
+                estimate.permit_traffic_mgmt_high_gbp_pence,
+                estimate.permit_responsibility,
             ],
         )?;
 
@@ -9339,6 +9408,7 @@ async fn run_landed_cost_live_loop(
             let screening_estimate = build_domestic_landed_cost_estimate(
                 row,
                 &supplier_cost,
+                None,
                 &stage_run_id,
                 &order_quantity_basis,
                 &skill_versions,
@@ -28209,6 +28279,7 @@ mod tests {
         let estimate = super::build_domestic_landed_cost_estimate(
             &row,
             &supplier_cost,
+            None,
             "stage-run-oq6",
             &basis,
             &json!({
@@ -28246,6 +28317,7 @@ mod tests {
         let estimate = super::build_domestic_landed_cost_estimate(
             &row,
             &supplier_cost,
+            None,
             "stage-run-oq7",
             &basis,
             &json!({
@@ -28272,6 +28344,7 @@ mod tests {
         let estimate = super::build_domestic_landed_cost_estimate(
             &row,
             &supplier_cost,
+            None,
             "stage-run-oq8",
             &basis,
             &json!({
@@ -28294,6 +28367,65 @@ mod tests {
                 .any(|c| c == "QUANTITY_BASIS_UNDETERMINED_NO_OPERATOR_OVERRIDE"),
             "expected QUANTITY_BASIS_UNDETERMINED_NO_OPERATOR_OVERRIDE in warnings, got {codes:?}"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn domestic_landed_cost_rollup_adds_installation_labour_and_permits() -> Result<()> {
+        let mut row = stage11_undetermined_row_fixture();
+        row.expected_addressable_revenue_ex_vat_pence = 1_500_000;
+        let supplier_cost = super::SupplierCostBasis {
+            supplier_cost_gbp_pence: 800_000,
+            basis: "test_supplier_total".to_owned(),
+            quantity: 1.0,
+            quantity_unit: Some("lot".to_owned()),
+            warnings: Vec::new(),
+        };
+        let order_quantity_basis = super::OrderQuantityBasis::FromContractValue {
+            qty: 1.0,
+            contract_value_gbp_pence: row.expected_addressable_revenue_ex_vat_pence,
+            basis_unit: Some("lot".to_owned()),
+        };
+        let installation_labour = super::InstallationLabourCostBasis {
+            installation_labour_cost_gbp_pence: 120_000,
+            installation_labour_low_gbp_pence: 96_000,
+            installation_labour_high_gbp_pence: 144_000,
+            installation_labour_confidence_bps: 7_500,
+            permit_traffic_mgmt_cost_gbp_pence: 30_000,
+            permit_traffic_mgmt_low_gbp_pence: 20_000,
+            permit_traffic_mgmt_high_gbp_pence: 45_000,
+            permit_responsibility: Some("contractor_provided".to_owned()),
+        };
+
+        let estimate = super::build_domestic_landed_cost_estimate(
+            &row,
+            &supplier_cost,
+            Some(&installation_labour),
+            "stage-run-domestic-labour",
+            &order_quantity_basis,
+            &json!({
+                "hmrc_customs": "1.0.0",
+                "shipment_sizing": "1.0.0",
+                "searates_freight": "1.0.0",
+                "simple_fx": "1.0.0",
+                "uk_installation_labour": "1.0.0",
+            }),
+        )?;
+
+        assert_eq!(estimate.goods_landed_cost_gbp_pence, 800_000);
+        assert_eq!(estimate.installation_labour_cost_gbp_pence, 120_000);
+        assert_eq!(estimate.installation_labour_low_gbp_pence, 96_000);
+        assert_eq!(estimate.installation_labour_high_gbp_pence, 144_000);
+        assert_eq!(estimate.installation_labour_confidence_bps, 7_500);
+        assert_eq!(estimate.permit_traffic_mgmt_cost_gbp_pence, 30_000);
+        assert_eq!(estimate.permit_traffic_mgmt_low_gbp_pence, 20_000);
+        assert_eq!(estimate.permit_traffic_mgmt_high_gbp_pence, 45_000);
+        assert_eq!(
+            estimate.permit_responsibility.as_deref(),
+            Some("contractor_provided")
+        );
+        assert_eq!(estimate.economic_landed_cost_gbp_pence, 950_000);
+        assert_eq!(estimate.cash_outlay_gbp_pence, 950_000);
         Ok(())
     }
 
@@ -28627,6 +28759,7 @@ mod tests {
         let estimate = super::build_domestic_landed_cost_estimate(
             &rows[0],
             &supplier_cost,
+            None,
             "stage-run-domestic-test",
             &order_quantity_basis,
             &json!({
@@ -28823,6 +28956,15 @@ mod tests {
             fx_basis_delta_bps: 0,
             fx_rate_checked_at: Some("2026-05-19T12:00:00Z".to_owned()),
             supplier_cost_gbp_pence: 100_000,
+            goods_landed_cost_gbp_pence: 202_700,
+            installation_labour_cost_gbp_pence: 0,
+            installation_labour_low_gbp_pence: 0,
+            installation_labour_high_gbp_pence: 0,
+            installation_labour_confidence_bps: 0,
+            permit_traffic_mgmt_cost_gbp_pence: 0,
+            permit_traffic_mgmt_low_gbp_pence: 0,
+            permit_traffic_mgmt_high_gbp_pence: 0,
+            permit_responsibility: None,
             freight_low_gbp_pence: 18_000,
             freight_base_gbp_pence: 22_000,
             freight_high_gbp_pence: 30_000,
@@ -28917,6 +29059,7 @@ mod tests {
         let base_estimate = super::build_domestic_landed_cost_estimate(
             &rows[0],
             &supplier_cost,
+            None,
             "stage-run-shadow-base",
             &order_quantity_basis,
             &json!({
