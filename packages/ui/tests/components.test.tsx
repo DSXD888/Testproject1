@@ -156,6 +156,17 @@ describe('packages/ui components', () => {
     expect(markup).toContain('75% (7,500 bps)');
   });
 
+  it('UI-AGB-002 renders the separate permit and traffic-management row', () => {
+    const markup = renderToStaticMarkup(<ManifestViewer {...manifestViewerFixture} />);
+
+    expect(markup).toContain('data-testid="manifest-cost-row-permit-traffic-management"');
+    expect(markup).toContain('Permits &amp; traffic management');
+    expect(markup).toContain('£0.00');
+    expect(markup).toContain('£250.00');
+    expect(markup).toContain('£500.00');
+    expect(markup).toContain('unknown');
+  });
+
   it('keeps hostile unicode controls visible and bounds oversized payloads', () => {
     const longManifest = `${'A'.repeat(21_000)}\u202Espoofed`;
     const markup = renderToStaticMarkup(

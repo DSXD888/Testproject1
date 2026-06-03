@@ -231,6 +231,7 @@ function renderGoodsLedCostTable(
             <th scope="col">Base</th>
             <th scope="col">High</th>
             <th scope="col">Confidence</th>
+            <th scope="col">Responsibility</th>
           </tr>
         </thead>
         <tbody>
@@ -240,6 +241,15 @@ function renderGoodsLedCostTable(
             <td>{formatPence(context.labourBase)}</td>
             <td>{formatPence(context.labourHigh)}</td>
             <td>{formatBps(context.labourConfidenceBps)}</td>
+            <td>N/A</td>
+          </tr>
+          <tr data-testid="manifest-cost-row-permit-traffic-management">
+            <th scope="row">Permits &amp; traffic management</th>
+            <td>{formatPence(context.permitLow)}</td>
+            <td>{formatPence(context.permitBase)}</td>
+            <td>{formatPence(context.permitHigh)}</td>
+            <td>N/A</td>
+            <td>{context.permitResponsibility ?? 'Unknown'}</td>
           </tr>
         </tbody>
       </table>
