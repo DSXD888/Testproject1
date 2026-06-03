@@ -66,12 +66,18 @@ describe('packages/ui components', () => {
     expect(markup).toContain('(stale)');
   });
 
-  it('UI-AGB-003 renders labourCoverageBps for review cards', () => {
+  it('UI-AGB-003 renders labourCoverageBps and review reasons for review cards', () => {
     const props: ContractCardFrameProps = {
       ...contractCardFrameFixture,
       metrics: {
         ...contractCardFrameFixture.metrics,
         pipelineState: 'review',
+        reviewReasons: [
+          'near_floor_cost_proxy',
+          'unresolved_permit_responsibility',
+          'no_list_bespoke_flag',
+          'labour_uncertainty',
+        ],
       },
     };
 
@@ -80,6 +86,11 @@ describe('packages/ui components', () => {
     expect(markup).toContain('Review');
     expect(markup).toContain('Labour coverage');
     expect(markup).toContain('0%');
+    expect(markup).toContain('Review reasons');
+    expect(markup).toContain('Near-floor cost proxy');
+    expect(markup).toContain('Unresolved permit responsibility');
+    expect(markup).toContain('No-list/bespoke flag');
+    expect(markup).toContain('Labour uncertainty');
   });
 
   it('TS-UI-004 renders pipeline state with text, icon, and validation visibility rules', () => {

@@ -1,6 +1,9 @@
 import type { ReactElement, ReactNode } from 'react';
 
-import type { GoodsLedReviewContextPayload } from '@project/contracts-schema';
+import type {
+  GoodsLedReviewContextPayload,
+  GoodsLedReviewReason,
+} from '@project/contracts-schema';
 import { PipelineBadge, type PipelineState } from './pipeline-badge';
 
 export interface ContractCardFrameProps {
@@ -68,13 +71,25 @@ function renderMetric(label: string, value: string): ReactElement {
   );
 }
 
+const REVIEW_REASON_LABELS: Record<GoodsLedReviewReason, string> = {
+  near_floor_cost_proxy: 'Near-floor cost proxy',
+  unresolved_permit_responsibility: 'Unresolved permit responsibility',
+  no_list_bespoke_flag: 'No-list/bespoke flag',
+  labour_uncertainty: 'Labour uncertainty',
+};
+
 export function ContractCardFrame({
   summary,
   metrics,
+  goodsLedReviewContext,
   decision,
   rightRail,
   actions,
 }: ContractCardFrameProps): ReactElement {
+  const reviewReasons = metrics.reviewReasons ?? goodsLedReviewContext?.reviewReasons ?? [];
+  const shouldRenderReviewReasons =
+    metrics.pipelineState === 'review' && reviewReasons.length > 0;
+
   return (
     <article
       className="contract-card-frame"
@@ -116,6 +131,20 @@ export function ContractCardFrame({
         {renderMetric('Candidates', String(metrics.candidateCount))}
         {renderMetric('Quoted', String(metrics.quotedCandidateCount))}
       </ul>
+
+      {shouldRenderReviewReasons ? (
+        <section
+          aria-label="Review reasons"
+          className="contract-card-frame__review-reasons"
+        >
+          <p className="contract-card-frame__review-reasons-title">Review reasons</p>
+          <ul>
+            {reviewReasons.map((reason) => (
+              <li key={reason}>{REVIEW_REASON_LABELS[reason]}</li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       {decision ? (
         <section className="contract-card-frame__decision">
