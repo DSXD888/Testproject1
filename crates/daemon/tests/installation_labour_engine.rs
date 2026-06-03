@@ -41,6 +41,7 @@ struct LandedCostSeed<'a> {
     economic_landed_cost_gbp_pence: i64,
     decision_grade: &'a str,
     warnings: &'a str,
+    blockers: &'a str,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -57,6 +58,7 @@ struct PersistedLandedCostSeed {
     economic_landed_cost_gbp_pence: i64,
     decision_grade: String,
     warnings: String,
+    blockers: String,
 }
 
 #[test]
@@ -86,6 +88,7 @@ fn rs_seed_001_landed_cost_insert_sql_helper_direct_seeds_labour_columns() -> Re
         economic_landed_cost_gbp_pence: 850_000,
         decision_grade: "review",
         warnings: "[]",
+        blockers: "[]",
     };
 
     insert_landed_cost_seed(conn, &seed)?;
@@ -106,6 +109,7 @@ fn rs_seed_001_landed_cost_insert_sql_helper_direct_seeds_labour_columns() -> Re
                 economic_landed_cost_gbp_pence: seed.economic_landed_cost_gbp_pence,
                 decision_grade: seed.decision_grade.to_owned(),
                 warnings: seed.warnings.to_owned(),
+                blockers: seed.blockers.to_owned(),
             },
         "landed_cost_insert_sql() did not persist the labour/permit/goods-only seed columns"
     );
@@ -147,6 +151,7 @@ fn e2e_il_001_festive_lights_persisted_row_reconstructs_all_in_goods_share() -> 
         economic_landed_cost_gbp_pence: 1_440_000,
         decision_grade: "review",
         warnings: "[\"ACCESS_AT_HEIGHT_ASSUMED_MEWP\",\"PERMIT_RESPONSIBILITY_UNKNOWN\"]",
+        blockers: "[]",
     };
 
     insert_landed_cost_seed(conn, &seed)?;
@@ -232,6 +237,7 @@ fn e2e_il_008_pure_a4_copier_paper_preserves_goods_only_economics() -> Result<()
         economic_landed_cost_gbp_pence: 120_000,
         decision_grade: "ready_for_bid",
         warnings: "[]",
+        blockers: "[]",
     };
 
     insert_landed_cost_seed(conn, &seed)?;
@@ -282,6 +288,125 @@ fn e2e_il_008_pure_a4_copier_paper_preserves_goods_only_economics() -> Result<()
     Ok(())
 }
 
+#[test]
+#[doc = "NEG-CTRL-001"]
+#[doc = "E2E-IL-005"]
+fn neg_ctrl_001_e2e_il_005_grounds_maintenance_stops_before_stage11() -> Result<()> {
+    let db = L4TestStateDb::new()?;
+    let conn = db.connection();
+    apply_installation_labour_migration_if_needed(conn)?;
+    let ids = db.seed_push_owned_rows()?;
+
+    seed_rejected_service_qualification(
+        conn,
+        &ids.process_id,
+        &ids.notice_id,
+        &ids.lot_id,
+        "neg-ctrl-001-grounds-maintenance",
+        "reject_service: no_goods_head_noun; Provision of grounds maintenance and grass cutting",
+    )?;
+
+    assert_rejected_service_qualification(
+        conn,
+        &ids.process_id,
+        "neg-ctrl-001-grounds-maintenance",
+    )?;
+    assert_no_stage11_rows_or_labour_jobs(conn, &ids.process_id)?;
+    Ok(())
+}
+
+#[test]
+#[doc = "NEG-CTRL-002"]
+#[doc = "E2E-IL-006"]
+fn neg_ctrl_002_e2e_il_006_managed_cleaning_rejects_on_dominance_floor_if_phase2_reached()
+-> Result<()> {
+    let db = L4TestStateDb::new()?;
+    let conn = db.connection();
+    apply_installation_labour_migration_if_needed(conn)?;
+    let ids = db.seed_push_owned_rows()?;
+    seed_candidate_and_quote(conn, &ids.process_id, &ids.notice_id, &ids.lot_id)?;
+
+    let seed = LandedCostSeed {
+        id: "e2e-il-006-managed-cleaning-dominance-floor",
+        process_id: &ids.process_id,
+        notice_id: &ids.notice_id,
+        product_candidate_id: "il-seed-candidate",
+        supplier_quote_id: "il-seed-quote",
+        goods_landed_cost_gbp_pence: 50_000,
+        installation_labour_cost_gbp_pence: 950_000,
+        installation_labour_low_gbp_pence: 900_000,
+        installation_labour_high_gbp_pence: 1_000_000,
+        installation_labour_confidence_bps: 8_000,
+        permit_traffic_mgmt_cost_gbp_pence: 0,
+        permit_traffic_mgmt_low_gbp_pence: 0,
+        permit_traffic_mgmt_high_gbp_pence: 0,
+        permit_responsibility: None,
+        economic_landed_cost_gbp_pence: 1_000_000,
+        decision_grade: "reject",
+        warnings: "[]",
+        blockers: "[\"GOODS_DOMINANCE_FLOOR\"]",
+    };
+
+    insert_landed_cost_seed(conn, &seed)?;
+    let persisted = persisted_landed_cost_seed(conn, seed.id)?;
+    let blockers = serde_json::from_str::<BTreeSet<String>>(&persisted.blockers)
+        .context("parsing E2E-IL-006 blocker codes")?;
+    let warnings = serde_json::from_str::<BTreeSet<String>>(&persisted.warnings)
+        .context("parsing E2E-IL-006 warning codes")?;
+
+    ensure!(
+        persisted.goods_landed_cost_gbp_pence == 50_000
+            && persisted.installation_labour_cost_gbp_pence == 950_000
+            && persisted.permit_traffic_mgmt_cost_gbp_pence == 0
+            && persisted.economic_landed_cost_gbp_pence == 1_000_000,
+        "E2E-IL-006 dominance-floor fixture values changed"
+    );
+    ensure!(
+        goods_value_share_bps(
+            persisted.goods_landed_cost_gbp_pence,
+            persisted.installation_labour_cost_gbp_pence,
+            persisted.permit_traffic_mgmt_cost_gbp_pence,
+        ) == 500,
+        "E2E-IL-006 goods share must be 500 bps"
+    );
+    ensure!(
+        persisted.decision_grade == "reject",
+        "E2E-IL-006 controlled Phase-2 twin must reject as economically service-only"
+    );
+    ensure!(
+        blockers.contains("GOODS_DOMINANCE_FLOOR") && warnings.is_empty(),
+        "E2E-IL-006 reject reason must be dominance floor, not missing-data warnings"
+    );
+    Ok(())
+}
+
+#[test]
+#[doc = "NEG-CTRL-003"]
+#[doc = "E2E-IL-007"]
+fn neg_ctrl_003_e2e_il_007_electrical_maintenance_stops_before_labour_invocation() -> Result<()> {
+    let db = L4TestStateDb::new()?;
+    let conn = db.connection();
+    apply_installation_labour_migration_if_needed(conn)?;
+    let ids = db.seed_push_owned_rows()?;
+
+    seed_rejected_service_qualification(
+        conn,
+        &ids.process_id,
+        &ids.notice_id,
+        &ids.lot_id,
+        "neg-ctrl-003-electrical-maintenance",
+        "reject_service: no_goods_head_noun; Reactive and planned electrical maintenance across estate",
+    )?;
+
+    assert_rejected_service_qualification(
+        conn,
+        &ids.process_id,
+        "neg-ctrl-003-electrical-maintenance",
+    )?;
+    assert_no_stage11_rows_or_labour_jobs(conn, &ids.process_id)?;
+    Ok(())
+}
+
 fn apply_installation_labour_migration_if_needed(conn: &Connection) -> Result<()> {
     let columns = table_columns(conn, "landed_cost_estimates")?;
     let missing_columns = REQUIRED_LANDED_COST_COLUMNS
@@ -314,6 +439,98 @@ fn record_installation_labour_migration(conn: &Connection) -> Result<()> {
         [INSTALLATION_LABOUR_MIGRATION_ID],
     )?;
     Ok(())
+}
+
+fn seed_rejected_service_qualification(
+    conn: &Connection,
+    process_id: &str,
+    notice_id: &str,
+    lot_id: &str,
+    id: &str,
+    rationale: &str,
+) -> Result<()> {
+    conn.execute(
+        "\
+        INSERT INTO qualification_runs (
+          id, process_id, notice_id, lot_id, expiry_qualified, goods_qualified,
+          goods_confidence_bps, legal_category, goods_density_score_bps,
+          goods_separability, qualification_basis, addressable_value_pence,
+          access_route, rationale, owner_id, stage_run_id
+        ) VALUES (
+          ?1, ?2, ?3, ?4, 1, 0, 0, 'services', 0, 'none',
+          'notice_level', NULL, 'open_tender', ?5, 'local-owner',
+          'negative-control-service-gate'
+        )
+        ",
+        params![id, process_id, notice_id, lot_id, rationale],
+    )?;
+    Ok(())
+}
+
+fn assert_rejected_service_qualification(
+    conn: &Connection,
+    process_id: &str,
+    qualification_id: &str,
+) -> Result<()> {
+    let (goods_qualified, legal_category, rationale): (i64, String, String) = conn
+        .query_row(
+            "\
+            SELECT goods_qualified, legal_category, rationale
+            FROM qualification_runs
+            WHERE process_id = ?1 AND id = ?2
+            ",
+            params![process_id, qualification_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .context("reading rejected service qualification run")?;
+
+    ensure!(
+        goods_qualified == 0
+            && legal_category == "services"
+            && rationale.contains("reject_service")
+            && rationale.contains("no_goods_head_noun"),
+        "negative-control qualification must persist the reject_service/no-goods-head-noun gate"
+    );
+    Ok(())
+}
+
+fn assert_no_stage11_rows_or_labour_jobs(conn: &Connection, process_id: &str) -> Result<()> {
+    for table_name in [
+        "product_candidates",
+        "landed_cost_estimates",
+        "candidate_net_margin_assessments",
+    ] {
+        let count = row_count_for_process(conn, table_name, process_id)?;
+        ensure!(
+            count == 0,
+            "service-gate negative control leaked {count} row(s) into {table_name}"
+        );
+    }
+
+    let labour_job_count: i64 = conn.query_row(
+        "\
+        SELECT COUNT(*)
+        FROM workflow_jobs
+        WHERE process_id = ?1
+          AND kind = 'landed_cost_uk_installation_labour'
+        ",
+        [process_id],
+        |row| row.get(0),
+    )?;
+    ensure!(
+        labour_job_count == 0,
+        "service-gate negative control invoked {labour_job_count} labour estimate job(s)"
+    );
+    Ok(())
+}
+
+fn row_count_for_process(conn: &Connection, table_name: &str, process_id: &str) -> Result<i64> {
+    conn.query_row(
+        &format!("SELECT COUNT(*) FROM {table_name} WHERE process_id = ?1"),
+        [process_id],
+        |row| row.get(0),
+    )
+    .with_context(|| format!("counting rows in {table_name} for process {process_id}"))
 }
 
 fn table_columns(conn: &Connection, table_name: &str) -> Result<BTreeSet<String>> {
@@ -393,6 +610,7 @@ fn insert_landed_cost_seed(conn: &Connection, seed: &LandedCostSeed<'_>) -> Resu
             seed.economic_landed_cost_gbp_pence,
             seed.decision_grade,
             seed.warnings,
+            seed.blockers,
         ],
     )?;
     Ok(())
@@ -420,7 +638,7 @@ const fn landed_cost_insert_sql() -> &'static str {
       0, '2026-06-02T00:00:00Z', 650000, 0, 0, 0, 0, 0, 'not_applicable',
       10000, 0, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?15, ?15,
       'expected_value', 9000, 2000, 3000, 4000, ?16, 7600,
-      ?17, '[]', 'local-owner', 1, 'installation-labour-seed'
+      ?17, ?18, 'local-owner', 1, 'installation-labour-seed'
     )
     "
 }
@@ -435,7 +653,8 @@ fn persisted_landed_cost_seed(
                installation_labour_low_gbp_pence, installation_labour_high_gbp_pence,
                installation_labour_confidence_bps, permit_traffic_mgmt_cost_gbp_pence,
                permit_traffic_mgmt_low_gbp_pence, permit_traffic_mgmt_high_gbp_pence,
-               permit_responsibility, economic_landed_cost_gbp_pence, decision_grade, warnings
+               permit_responsibility, economic_landed_cost_gbp_pence, decision_grade, warnings,
+               blockers
         FROM landed_cost_estimates
         WHERE id = ?1
         ",
@@ -454,6 +673,7 @@ fn persisted_landed_cost_seed(
                 economic_landed_cost_gbp_pence: row.get(9)?,
                 decision_grade: row.get(10)?,
                 warnings: row.get(11)?,
+                blockers: row.get(12)?,
             })
         },
     )
