@@ -321,8 +321,8 @@ fn e2e_il_004_playground_maintenance_persists_first_class_period_estimate() -> R
         visits_per_year: 4,
         term_years: 3,
         per_visit_labour_cost_gbp_pence: 60_000,
-        annualised_opex_gbp_pence: 0,
-        total_visible_term_opex_gbp_pence: 0,
+        annualised_opex_gbp_pence: 240_000,
+        total_visible_term_opex_gbp_pence: 720_000,
         maintenance_confidence_bps: 0,
         margin_signal: "pending_maintenance_cost_model",
         warnings: "[]",
@@ -347,10 +347,10 @@ fn e2e_il_004_playground_maintenance_persists_first_class_period_estimate() -> R
     );
     ensure!(
         persisted_maintenance.per_visit_labour_cost_gbp_pence == 60_000
-            && persisted_maintenance.annualised_opex_gbp_pence == 0
-            && persisted_maintenance.total_visible_term_opex_gbp_pence == 0
+            && persisted_maintenance.annualised_opex_gbp_pence == 240_000
+            && persisted_maintenance.total_visible_term_opex_gbp_pence == 720_000
             && persisted_maintenance.maintenance_confidence_bps == 0,
-        "E2E-IL-004 qoa5.5.3 must persist per-visit maintenance labour while qoa5.5.4 owns annual and visible-term opex"
+        "E2E-IL-004 qoa5.5.4 must persist annualised and visible-term maintenance opex"
     );
     ensure!(
         persisted_maintenance.margin_signal == "pending_maintenance_cost_model"

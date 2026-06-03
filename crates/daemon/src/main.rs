@@ -8227,6 +8227,10 @@ fn maintenance_period_estimate_for_row(
         .map(|schedule| typed_non_negative_i64(schedule.get("term_years")))
         .unwrap_or_default();
     let per_visit_labour = maintenance_per_visit_labour_estimate(&requirement, schedule_object);
+    let annualised_opex_gbp_pence = per_visit_labour
+        .cost_gbp_pence
+        .saturating_mul(visits_per_year);
+    let total_visible_term_opex_gbp_pence = annualised_opex_gbp_pence.saturating_mul(term_years);
 
     Some(MaintenancePeriodEstimateWrite {
         id: format!(
@@ -8242,8 +8246,8 @@ fn maintenance_period_estimate_for_row(
         visits_per_year,
         term_years,
         per_visit_labour_cost_gbp_pence: per_visit_labour.cost_gbp_pence,
-        annualised_opex_gbp_pence: 0,
-        total_visible_term_opex_gbp_pence: 0,
+        annualised_opex_gbp_pence,
+        total_visible_term_opex_gbp_pence,
         maintenance_confidence_bps: 0,
         margin_signal: None,
         warnings: "[]".to_owned(),
@@ -8251,6 +8255,8 @@ fn maintenance_period_estimate_for_row(
             "source": "installation_requirement",
             "maintenance_schedule": schedule.cloned().unwrap_or(Value::Null),
             "per_visit_labour_cost_gbp_pence": per_visit_labour.cost_gbp_pence,
+            "annualised_opex_gbp_pence": annualised_opex_gbp_pence,
+            "total_visible_term_opex_gbp_pence": total_visible_term_opex_gbp_pence,
             "per_visit_labour_basis": per_visit_labour.basis,
             "per_visit_labour_evidence": per_visit_labour.evidence,
         })
@@ -30463,7 +30469,7 @@ mod tests {
                 "quarterly inspection and minor service".to_owned(),
                 4,
                 3,
-                0
+                720_000
             )
         );
         Ok(())
@@ -31678,11 +31684,13 @@ mod tests {
         assert_eq!(maintenance.visits_per_year, 4);
         assert_eq!(maintenance.term_years, 3);
         assert_eq!(maintenance.per_visit_labour_cost_gbp_pence, 60_000);
-        assert_eq!(maintenance.annualised_opex_gbp_pence, 0);
-        assert_eq!(maintenance.total_visible_term_opex_gbp_pence, 0);
+        assert_eq!(maintenance.annualised_opex_gbp_pence, 240_000);
+        assert_eq!(maintenance.total_visible_term_opex_gbp_pence, 720_000);
         for expected in [
             "maintenance_schedule",
             "per_visit_labour_cost_gbp_pence",
+            "annualised_opex_gbp_pence",
+            "total_visible_term_opex_gbp_pence",
             "profile_maintenance_model",
             "playground_outdoor_equipment",
         ] {
