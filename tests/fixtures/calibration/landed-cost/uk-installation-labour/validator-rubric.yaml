@@ -1,0 +1,94 @@
+rubric_version: 2026.06.03-1
+worker_skill_id: landed-cost/uk-installation-labour-estimate
+validator_overlay: validation/overlay-labour-cost
+worker_behavior_version: landed-cost/uk-installation-labour-estimate@0.1.0
+validator_behavior_version: validation/overlay-labour-cost@planned
+test_ids:
+  primary:
+    - CAN-LAB-005
+    - CAN-LAB-006
+    - CAN-LAB-007
+    - CAN-WARN-001
+    - GOLD-L0-003
+  supporting:
+    - SKL-LINT-001
+    - SKL-LINT-002
+    - SKL-LINT-003
+    - SKL-LINT-004
+    - SKL-LINT-005
+
+blocking_checks:
+  - id: fail_soft_blocked_routes_review
+    severity: blocker
+    rule: "A blocked labour result must emit a valid JSON envelope, lower labour_confidence_bps, include an explicit blocker or warning, and route downstream commercial review rather than crash or silently pass."
+    evidence_fields:
+      - labour_status
+      - labour_confidence_bps
+      - warnings
+      - blockers
+
+  - id: warning_code_coverage_complete
+    severity: blocker
+    rule: "The canary and golden corpus must pin all eight warning codes: LABOUR_REGION_UNKNOWN, LABOUR_SCOPE_UNRESOLVED, ACCESS_AT_HEIGHT_ASSUMED_MEWP, MAINTENANCE_TERM_ASSUMED, RATE_TABLE_STALE, PERMIT_RESPONSIBILITY_UNKNOWN, LANE_RENTAL_ZONE, and TTRO_LEAD_TIME_RISK."
+    evidence_fields:
+      - golden.assertions.yaml#shared_assertions.warning_code_coverage
+
+  - id: region_unknown_still_estimates
+    severity: blocker
+    rule: "region-unknown-01 must fall back to the national 10000 bps multiplier, emit LABOUR_REGION_UNKNOWN, and keep labour_status=estimated."
+    evidence_fields:
+      - canary.inputs.jsonl#region-unknown-01
+      - golden.assertions.yaml#cases.region-unknown-01
+
+  - id: scope_unresolved_review
+    severity: blocker
+    rule: "scope-unresolved-01 must emit LABOUR_SCOPE_UNRESOLVED, lower confidence below the configured fallback cap, preserve a valid result envelope, and route to review."
+    evidence_fields:
+      - canary.inputs.jsonl#scope-unresolved-01
+      - golden.assertions.yaml#cases.scope-unresolved-01
+
+  - id: stale_rates_three_point
+    severity: blocker
+    rule: "rate-stale-01 must emit RATE_TABLE_STALE while still producing low/base/high integer-pence labour estimates."
+    evidence_fields:
+      - canary.inputs.jsonl#rate-stale-01
+      - golden.assertions.yaml#cases.rate-stale-01
+
+  - id: confidence_component_aggregation
+    severity: blocker
+    rule: "labour_confidence_bps must remain available for downstream commercial_estimate_confidence_bps min/component aggregation, so labour uncertainty degrades commercial confidence."
+    evidence_fields:
+      - labour_confidence_bps
+      - SKILL.md#Rules
+
+  - id: rate_provenance_evidence
+    severity: blocker
+    rule: "Output evidence must carry rate_table_version and provenance for every rate table or model table used in the estimate."
+    evidence_fields:
+      - evidence.*.rate_table_version
+      - evidence.*.provenance
+
+warning_checks:
+  - id: maintenance_term_default_visible
+    severity: warning
+    rule: "When maintenance is required and term_years is absent or null, the worker must assume 1 visible year, emit MAINTENANCE_TERM_ASSUMED, and keep recurring maintenance outside capital-event labour totals."
+
+  - id: permit_tm_separation
+    severity: warning
+    rule: "Permit and traffic-management pence must stay in permit_traffic_mgmt_line_items and never be folded into labour_line_items."
+
+promotion_controls:
+  promotion_stage: stable_blocked_until_rubric_present
+  stable_production_blocker: true
+  required_standard_files:
+    - SKILL.md
+    - result.schema.json
+    - canary.inputs.jsonl
+    - golden.assertions.yaml
+    - validator-rubric.yaml
+  forbidden_standard_files:
+    - checkpoint.schema.json
+  compatible_pairs:
+    - worker: landed-cost/uk-installation-labour-estimate@0.1.0
+      validator: validation/overlay-labour-cost@planned
+      state: pending_overlay

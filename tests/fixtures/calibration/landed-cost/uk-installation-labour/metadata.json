@@ -1,0 +1,39 @@
+{
+  "corpus_id": "uk-installation-labour",
+  "skill_id": "landed-cost/uk-installation-labour-estimate",
+  "fixture_version": "2026.06.03-1",
+  "rate_table_version": "uk-installation-labour-2026-q2",
+  "row_count": 7,
+  "currency": "GBP",
+  "money_unit": "integer_pence",
+  "ratio_unit": "bps",
+  "test_ids": [
+    "CAN-LAB-001",
+    "CAN-LAB-002",
+    "CAN-LAB-003",
+    "CAN-LAB-004",
+    "CAN-LAB-005",
+    "CAN-LAB-006",
+    "CAN-LAB-007",
+    "CAN-WARN-001"
+  ],
+  "case_ids": [
+    "lights-nw-2day-01",
+    "lights-lon-2day-01",
+    "cctv-yh-install-01",
+    "furniture-lon-assembly-01",
+    "region-unknown-01",
+    "scope-unresolved-01",
+    "rate-stale-01"
+  ],
+  "warning_codes": [
+    "LABOUR_REGION_UNKNOWN",
+    "LABOUR_SCOPE_UNRESOLVED",
+    "ACCESS_AT_HEIGHT_ASSUMED_MEWP",
+    "MAINTENANCE_TERM_ASSUMED",
+    "RATE_TABLE_STALE",
+    "PERMIT_RESPONSIBILITY_UNKNOWN",
+    "LANE_RENTAL_ZONE",
+    "TTRO_LEAD_TIME_RISK"
+  ]
+}

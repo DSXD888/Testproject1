@@ -1,0 +1,262 @@
+cases:
+  lights-nw-2day-01:
+    result_schema_valid: true
+    input_fields:
+      - process_id
+      - notice_id
+      - product_candidate_id
+      - selected_quote_id
+      - destination_country
+      - destination_postcode
+      - installation_requirement
+      - goods_landed_cost_gbp_pence
+      - rate_table_version
+    expected_labour_status: estimated
+    labour_base_gbp_pence_between: [210000, 265000]
+    labour_band_default: plus_minus_20_percent
+    required_trades: [electrician, labourer]
+    labour_event_model:
+      distinct_visits: true
+      no_weekly_hire_amortisation: true
+      required_labour_types: [installation, deinstallation]
+      event_trade_hours:
+        installation:
+          electrician: 32
+          labourer: 24
+        deinstallation:
+          electrician: 12
+          labourer: 12
+      regional_multiplier_bps: 9300
+      expected_base_from_q2_seed_rates_gbp_pence: 255564
+    labour_line_item_required_fields:
+      - labour_type
+      - trade
+      - quantity_hours
+      - rate_gbp_per_hour_pence
+      - subtotal_gbp_pence
+      - confidence_bps
+      - rate_source
+    required_access_equipment_class: boom_mewp
+    access_equipment_selector:
+      selected_from: [at_height_m, site_access, equipment_hint, access_equipment_bands]
+      hire_default: operated
+      min_days_source: profile_duration_or_band_minimum
+    expected_permit_responsibility: unknown
+    permit_traffic_mgmt:
+      separate_from_labour: true
+      expected_responsibility: unknown
+      required_line_item_components:
+        - ttro
+        - parking_suspension
+        - physical_traffic_management
+      low_may_be_zero: true
+      requires_positive_base: true
+      requires_high_gte_base: true
+    required_warning_codes:
+      - ACCESS_AT_HEIGHT_ASSUMED_MEWP
+      - PERMIT_RESPONSIBILITY_UNKNOWN
+    output_fields:
+      - status
+      - labour_status
+      - uk_region
+      - labour_line_items
+      - access_equipment_line_items
+      - labour_base_gbp_pence
+      - labour_low_gbp_pence
+      - labour_high_gbp_pence
+      - labour_confidence_bps
+      - permit_traffic_mgmt_line_items
+      - permit_traffic_mgmt_base_gbp_pence
+      - permit_traffic_mgmt_low_gbp_pence
+      - permit_traffic_mgmt_high_gbp_pence
+      - permit_responsibility
+      - vat_treatment
+      - excluded_cost_flags
+      - evidence
+      - warnings
+      - blockers
+  lights-lon-2day-01:
+    result_schema_valid: true
+    expected_labour_status: estimated
+    compare_to_case: lights-nw-2day-01
+    labour_base_ratio_bps: 15054
+    ratio_tolerance_bps: 100
+    required_warning_codes:
+      - ACCESS_AT_HEIGHT_ASSUMED_MEWP
+      - PERMIT_RESPONSIBILITY_UNKNOWN
+      - LANE_RENTAL_ZONE
+      - TTRO_LEAD_TIME_RISK
+    permit_traffic_mgmt:
+      separate_from_labour: true
+      expected_responsibility: unknown
+      required_line_item_components:
+        - ttro
+        - lane_rental
+        - parking_suspension
+        - physical_traffic_management
+      required_warning_codes:
+        - LANE_RENTAL_ZONE
+        - TTRO_LEAD_TIME_RISK
+  cctv-yh-install-01:
+    result_schema_valid: true
+    expected_labour_status: estimated
+    required_profile_id: cctv_security_install
+    required_trades: [security_installer, electrician]
+    region_multiplier_bps: 8800
+    required_access_equipment_class: scissor_lift
+    required_access_equipment_when_at_height: true
+    access_equipment_selector:
+      selected_from: [at_height_m, site_access, equipment_hint, access_equipment_bands]
+      hire_default: operated
+      only_when_at_height: true
+    required_warning_codes:
+      - ACCESS_AT_HEIGHT_ASSUMED_MEWP
+    forbidden_trade_set_match_case: lights-nw-2day-01
+    required_profile_resolution_evidence:
+      match_basis: catalogue
+      inferred_archetype: cctv
+      forbidden_match_basis: constrained_fallback
+  furniture-lon-assembly-01:
+    result_schema_valid: true
+    expected_labour_status: estimated
+    required_trades: [handyperson]
+    forbidden_access_equipment_line_items: true
+    forbidden_warning_codes:
+      - ACCESS_AT_HEIGHT_ASSUMED_MEWP
+  region-unknown-01:
+    result_schema_valid: true
+    expected_labour_status: estimated
+    input_uk_region: null
+    resolved_uk_region: national
+    fallback_region_multiplier_bps: 10000
+    required_warning_codes:
+      - LABOUR_REGION_UNKNOWN
+  scope-unresolved-01:
+    result_schema_valid: true
+    expected_warning_codes:
+      - LABOUR_SCOPE_UNRESOLVED
+      - MAINTENANCE_TERM_ASSUMED
+    maintenance_schedule:
+      requires_maintenance: true
+      visits_per_year: 4
+      missing_term_defaults_years: 1
+      default_warning_code: MAINTENANCE_TERM_ASSUMED
+      recurring_maintenance_not_capitalised: true
+    confidence_below_bps: 5500
+    expected_route: review
+    fail_soft: true
+  rate-stale-01:
+    result_schema_valid: true
+    required_warning_codes:
+      - RATE_TABLE_STALE
+    requires_three_point_estimate: true
+    fail_soft: true
+shared_assertions:
+  input_fields_include:
+    - process_id
+    - notice_id
+    - product_candidate_id
+    - selected_quote_id
+    - destination_country
+    - destination_postcode
+    - installation_requirement
+    - goods_landed_cost_gbp_pence
+    - rate_table_version
+  installation_requirement_fields_include:
+    - requires_installation
+    - requires_maintenance
+    - installation_scope
+    - maintenance_schedule
+    - site_access
+    - at_height_m
+    - uk_region
+    - estimated_units
+    - equipment_hint
+    - permit_responsibility
+    - public_realm
+    - lane_rental_zone
+  pure_goods_policy:
+    no_installation_requirement_when_no_install_or_maintenance_signal: true
+    labour_gbp_pence: 0
+    permit_traffic_mgmt_gbp_pence: 0
+  warnings_and_blockers_are_objects:
+    required_fields: [code, message, severity]
+  warning_code_coverage:
+    required_codes:
+      - LABOUR_REGION_UNKNOWN
+      - LABOUR_SCOPE_UNRESOLVED
+      - ACCESS_AT_HEIGHT_ASSUMED_MEWP
+      - MAINTENANCE_TERM_ASSUMED
+      - RATE_TABLE_STALE
+      - PERMIT_RESPONSIBILITY_UNKNOWN
+      - LANE_RENTAL_ZONE
+      - TTRO_LEAD_TIME_RISK
+    pinned_by:
+      LABOUR_REGION_UNKNOWN: region-unknown-01
+      LABOUR_SCOPE_UNRESOLVED: scope-unresolved-01
+      ACCESS_AT_HEIGHT_ASSUMED_MEWP: [lights-nw-2day-01, cctv-yh-install-01]
+      MAINTENANCE_TERM_ASSUMED: scope-unresolved-01
+      RATE_TABLE_STALE: rate-stale-01
+      PERMIT_RESPONSIBILITY_UNKNOWN: lights-nw-2day-01
+      LANE_RENTAL_ZONE: lights-lon-2day-01
+      TTRO_LEAD_TIME_RISK: lights-lon-2day-01
+  profile_resolver:
+    catalogue_first: true
+    fallback_trade_source: national_trade_rates
+    fallback_confidence_cap_bps: 5000
+    fallback_warning_code: LABOUR_SCOPE_UNRESOLVED
+    fallback_requires_inferred_archetype_evidence: true
+    overlay_evidence_fields:
+      - profile_id
+      - match_basis
+      - inferred_archetype
+      - selected_trades
+      - access_equipment_class
+      - duration_days
+      - complexity_multiplier_bps
+      - route_reason
+  access_equipment_selector:
+    reference_table: uk-access-equipment-bands-2026-q2.json
+    inputs: [at_height_m, site_access, equipment_hint]
+    selectable_classes: [none, tower_scaffold, scissor_lift, boom_mewp, truck_mount]
+    operated_hire_default: true
+    auto_selected_mewp_warning: ACCESS_AT_HEIGHT_ASSUMED_MEWP
+    furniture_assembly_forbids_equipment_line: true
+  permit_traffic_mgmt_resolver:
+    reference_table: uk-permit-tm-bands-2026-q2.json
+    component_contract: PermitTrafficMgmtLineItem
+    output_fields:
+      - permit_traffic_mgmt_line_items
+      - permit_traffic_mgmt_base_gbp_pence
+      - permit_traffic_mgmt_low_gbp_pence
+      - permit_traffic_mgmt_high_gbp_pence
+      - permit_responsibility
+    distinct_from_labour: true
+    permit_responsibility_values:
+      - authority_provided
+      - contractor_provided
+      - shared
+      - unknown
+    authority_provided_prices_zero: true
+    unknown_policy:
+      low_may_be_zero: true
+      base_and_high_are_modelled: true
+      warning_code: PERMIT_RESPONSIBILITY_UNKNOWN
+    public_realm_components:
+      - ttro
+      - street_works_notice
+      - lane_rental
+      - parking_suspension
+      - highway_scaffold_licence
+      - physical_traffic_management
+    lane_rental_zone_warning: LANE_RENTAL_ZONE
+    ttro_warning: TTRO_LEAD_TIME_RISK
+  excluded_cost_flags_include:
+    - firm_pricing_excluded
+    - subcontractor_compliance_excluded
+    - delivery_responsibility_excluded
+    - authority_resolved_permit_uncertainty
+    - vat_treatment_assumption
+    - non_modelled_plant_or_materials
+  money_unit: integer_pence
+  ratio_unit: bps

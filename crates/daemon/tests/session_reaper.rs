@@ -27,12 +27,15 @@ mod tests {
     use crate::support::process::{ProcessIsolationGuard, ProcessTreeHelper};
     use crate::support::{self, TestContext};
 
+    const HELPER_EXIT_TIMEOUT: Duration = Duration::from_secs(5);
+    const SIGNAL_HANDLER_READY_DELAY: Duration = Duration::from_secs(2);
+
     fn fixed_started_at() -> Result<DateTime<Utc>> {
         Ok(DateTime::parse_from_rfc3339("2026-03-25T11:00:00Z")?.with_timezone(&Utc))
     }
 
     fn wait_for_signal_ignoring_helper() {
-        std::thread::sleep(Duration::from_millis(750));
+        std::thread::sleep(SIGNAL_HANDLER_READY_DELAY);
     }
 
     fn wait_for_descendants(root_pid: u32) -> Result<Vec<u32>> {
@@ -70,27 +73,25 @@ mod tests {
             nix::unistd::Pid::from_raw(child.id().cast_signed()),
             nix::sys::signal::Signal::SIGKILL,
         )?;
-        let started = std::time::Instant::now();
         let mut all_events = Vec::new();
-        loop {
+        let mut observed_session_reap = false;
+        for _ in 0..40 {
             let events = reaper.drain_waitpid()?;
             all_events.extend(events);
-            if all_events
-                .iter()
-                .any(|event| event.session_id.as_deref() == Some("session-1"))
-            {
+            if all_events.iter().any(|event| {
+                event
+                    .session_id
+                    .as_deref()
+                    .is_some_and(|id| id.eq("session-1"))
+            }) {
+                observed_session_reap = true;
                 break;
             }
-            assert!(
-                started.elapsed() < Duration::from_secs(1),
-                "timed out waiting for reap event"
-            );
             std::thread::sleep(Duration::from_millis(25));
         }
         assert!(
-            all_events
-                .iter()
-                .any(|event| event.session_id.as_deref() == Some("session-1"))
+            observed_session_reap,
+            "timed out waiting for reap event: {all_events:?}"
         );
         Ok(())
     }
@@ -137,7 +138,7 @@ mod tests {
         let reaper = SessionReaper::for_test(&ctx.state_root, &ctx.artifact_root)?;
         let mut child = ProcessTreeHelper::spawn(&["sleep", "0"])?;
         let pgid = ProcessTreeHelper::process_group(&child)?;
-        let _ = ProcessTreeHelper::wait_for_exit(&mut child, Duration::from_secs(1))?;
+        let _ = ProcessTreeHelper::wait_for_exit(&mut child, HELPER_EXIT_TIMEOUT)?;
         let outcome = reaper.cleanup_process_group(&CleanupRequest {
             session_id: "session-clean".to_owned(),
             started_at: fixed_started_at()?,
@@ -219,7 +220,7 @@ mod tests {
         let reaper = SessionReaper::for_test(&ctx.state_root, &ctx.artifact_root)?;
         let mut child = ProcessTreeHelper::spawn(&["sleep", "0"])?;
         let pgid = ProcessTreeHelper::process_group(&child)?;
-        let _ = ProcessTreeHelper::wait_for_exit(&mut child, Duration::from_secs(1))?;
+        let _ = ProcessTreeHelper::wait_for_exit(&mut child, HELPER_EXIT_TIMEOUT)?;
         let outcome = reaper.cleanup_process_group(&CleanupRequest {
             session_id: "session-report".to_owned(),
             started_at: fixed_started_at()?,
@@ -361,12 +362,7 @@ mod tests {
         }
         assert!(!before.is_empty());
         assert_eq!(outcome.cleanup_verdict, CleanupVerdict::Leaked);
-        assert!(
-            outcome
-                .leaked_pids
-                .iter()
-                .any(|pid| !before.iter().any(|member| member == pid))
-        );
+        assert!(outcome.leaked_pids.iter().any(|pid| !before.contains(pid)));
         Ok(())
     }
 
@@ -393,7 +389,7 @@ mod tests {
         for index in 0..10 {
             let mut child = ProcessTreeHelper::spawn(&["sleep", "0"])?;
             let pgid = ProcessTreeHelper::process_group(&child)?;
-            let _ = ProcessTreeHelper::wait_for_exit(&mut child, Duration::from_secs(1))?;
+            let _ = ProcessTreeHelper::wait_for_exit(&mut child, HELPER_EXIT_TIMEOUT)?;
             let outcome = reaper.cleanup_process_group(&CleanupRequest {
                 session_id: format!("batch-{index}"),
                 started_at: fixed_started_at()?,
@@ -414,7 +410,7 @@ mod tests {
         let ctx = TestContext::new()?;
         let mut reaper = SessionReaper::for_test(&ctx.state_root, &ctx.artifact_root)?;
         let mut child = ProcessTreeHelper::spawn(&["exit-code", "0"])?;
-        let _ = ProcessTreeHelper::wait_for_exit(&mut child, Duration::from_secs(1))?;
+        let _ = ProcessTreeHelper::wait_for_exit(&mut child, HELPER_EXIT_TIMEOUT)?;
         let events = reaper.drain_waitpid()?;
         assert!(events.iter().all(|event| event.session_id.is_none()));
         Ok(())

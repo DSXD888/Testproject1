@@ -36,6 +36,15 @@ const UK_LABOUR_WARNING_CODES: [&str; 8] = [
     "LANE_RENTAL_ZONE",
     "TTRO_LEAD_TIME_RISK",
 ];
+const UK_LABOUR_CANARY_CASES: [(&str, &str); 7] = [
+    ("CAN-LAB-001", "lights-nw-2day-01"),
+    ("CAN-LAB-002", "lights-lon-2day-01"),
+    ("CAN-LAB-003", "cctv-yh-install-01"),
+    ("CAN-LAB-004", "furniture-lon-assembly-01"),
+    ("CAN-LAB-005", "region-unknown-01"),
+    ("CAN-LAB-006", "scope-unresolved-01"),
+    ("CAN-LAB-007", "rate-stale-01"),
+];
 
 fn repo_root() -> Result<PathBuf> {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -47,6 +56,10 @@ fn repo_root() -> Result<PathBuf> {
 
 fn skill_dir(relative: &str) -> Result<PathBuf> {
     Ok(repo_root()?.join("skills").join(relative))
+}
+
+fn uk_installation_labour_fixture_root() -> Result<PathBuf> {
+    Ok(repo_root()?.join("tests/fixtures/calibration/landed-cost/uk-installation-labour"))
 }
 
 fn fixed_started_at() -> Result<chrono::DateTime<Utc>> {
@@ -344,6 +357,88 @@ fn assert_bid_portal_corpus_replays_all_cases(category: &str, minimum_rows: usiz
     Ok(())
 }
 
+fn load_uk_installation_labour_fixture() -> Result<(Vec<Value>, YamlValue)> {
+    let fixture_root = uk_installation_labour_fixture_root()?;
+    for (required_file, required_path) in [
+        (
+            "canary.inputs.jsonl",
+            fixture_root.join("canary.inputs.jsonl"),
+        ),
+        (
+            "golden.assertions.yaml",
+            fixture_root.join("golden.assertions.yaml"),
+        ),
+        (
+            "validator-rubric.yaml",
+            fixture_root.join("validator-rubric.yaml"),
+        ),
+        ("metadata.json", fixture_root.join("metadata.json")),
+        ("manifest.md", fixture_root.join("manifest.md")),
+    ] {
+        ensure!(
+            required_path.is_file(),
+            "uk-installation-labour corpus missing {required_file}"
+        );
+    }
+
+    let inputs = load_canary_inputs(&fixture_root.join("canary.inputs.jsonl"))?;
+    let metadata: Value =
+        serde_json::from_str(&fs::read_to_string(fixture_root.join("metadata.json"))?)?;
+    let actual_rows = u64::try_from(inputs.len())?;
+    ensure!(
+        actual_rows == 7
+            && metadata
+                .get("row_count")
+                .and_then(Value::as_u64)
+                .is_some_and(|expected| expected == actual_rows),
+        "uk-installation-labour metadata row_count must match seven JSONL rows"
+    );
+
+    let manifest = fs::read_to_string(fixture_root.join("manifest.md"))?;
+    let rubric = fs::read_to_string(fixture_root.join("validator-rubric.yaml"))?;
+    ensure!(
+        rubric.contains("rubric_version"),
+        "uk-installation-labour corpus must carry rubric_version"
+    );
+
+    for (test_id, case_id) in UK_LABOUR_CANARY_CASES {
+        find_canary_case(&inputs, case_id)?;
+        ensure!(
+            manifest.contains("Scenario")
+                && manifest.contains(test_id)
+                && manifest.contains(case_id),
+            "uk-installation-labour manifest must mention Scenario {test_id} / {case_id}"
+        );
+    }
+
+    let golden: YamlValue = serde_yaml::from_str(&fs::read_to_string(
+        fixture_root.join("golden.assertions.yaml"),
+    )?)?;
+    let cases = yaml_get(&golden, "cases")
+        .ok_or_else(|| anyhow::anyhow!("uk-installation-labour golden missing cases"))?;
+    for (_, case_id) in UK_LABOUR_CANARY_CASES {
+        ensure!(
+            yaml_get(cases, case_id).is_some(),
+            "uk-installation-labour golden missing {case_id}"
+        );
+    }
+
+    Ok((inputs, golden))
+}
+
+fn uk_installation_labour_fixture_case<'a>(
+    inputs: &'a [Value],
+    golden: &'a YamlValue,
+    case_id: &str,
+) -> Result<(&'a Value, &'a YamlValue)> {
+    let input = find_canary_case(inputs, case_id)?;
+    let cases = yaml_get(golden, "cases")
+        .ok_or_else(|| anyhow::anyhow!("uk-installation-labour golden missing cases"))?;
+    let golden_case = yaml_get(cases, case_id)
+        .ok_or_else(|| anyhow::anyhow!("uk-installation-labour golden missing {case_id}"))?;
+    Ok((input, golden_case))
+}
+
 fn fingerprint_matches(expected: &str, actual: &str) -> bool {
     expected == actual
 }
@@ -417,10 +512,35 @@ fn yaml_i64_field_eq(value: Option<&YamlValue>, expected: i64) -> bool {
         .is_some_and(|observed| observed == expected)
 }
 
+fn yaml_str_field_eq(value: Option<&YamlValue>, expected: &str) -> bool {
+    value
+        .and_then(YamlValue::as_str)
+        .is_some_and(|observed| observed == expected)
+}
+
 fn yaml_bool_field_eq(value: Option<&YamlValue>, expected: bool) -> bool {
     value
         .and_then(YamlValue::as_bool)
         .is_some_and(|observed| observed == expected)
+}
+
+fn yaml_sequence_contains_str(value: Option<&YamlValue>, expected: &str) -> bool {
+    value.and_then(YamlValue::as_sequence).is_some_and(|items| {
+        items
+            .iter()
+            .any(|item| item.as_str().is_some_and(|observed| observed == expected))
+    })
+}
+
+fn yaml_mapping_get_str_key<'a>(
+    mapping: &'a serde_yaml::Mapping,
+    expected_key: &str,
+) -> Option<&'a YamlValue> {
+    mapping.iter().find_map(|(key, value)| {
+        key.as_str()
+            .is_some_and(|observed| observed == expected_key)
+            .then_some(value)
+    })
 }
 
 fn yaml_value_mentions_case(value: &YamlValue, expected_case_id: &str) -> bool {
@@ -435,9 +555,227 @@ fn yaml_value_mentions_case(value: &YamlValue, expected_case_id: &str) -> bool {
 }
 
 #[test]
+fn can_lab_001_lights_nw_fixture_pins_hard_band_trades_access_and_permit_warning() -> Result<()> {
+    let (inputs, golden) = load_uk_installation_labour_fixture()?;
+    let (input, case) = uk_installation_labour_fixture_case(&inputs, &golden, "lights-nw-2day-01")?;
+    let band = yaml_get(case, "labour_base_gbp_pence_between")
+        .and_then(YamlValue::as_sequence)
+        .ok_or_else(|| anyhow::anyhow!("CAN-LAB-001 missing labour band"))?;
+
+    ensure!(
+        json_str_field_eq(input.pointer("/installation_requirement/uk_region"), "NW",)
+            && json_bool_field_eq(
+                input.pointer("/installation_requirement/requires_installation"),
+                true,
+            )
+            && json_str_field_eq(
+                input.pointer("/installation_requirement/permit_responsibility"),
+                "unknown",
+            ),
+        "CAN-LAB-001 must pin the North West unknown-permit installation input"
+    );
+    ensure!(
+        band.len() == 2
+            && band[0].as_i64() == Some(210_000)
+            && band[1].as_i64() == Some(265_000)
+            && yaml_sequence_contains_str(yaml_get(case, "required_trades"), "electrician")
+            && yaml_sequence_contains_str(yaml_get(case, "required_trades"), "labourer")
+            && yaml_str_field_eq(
+                yaml_get(case, "required_access_equipment_class"),
+                "boom_mewp",
+            )
+            && yaml_sequence_contains_str(
+                yaml_get(case, "required_warning_codes"),
+                "PERMIT_RESPONSIBILITY_UNKNOWN",
+            ),
+        "CAN-LAB-001 must assert labour band, trades, operated boom MEWP, and permit warning"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn can_lab_002_lights_london_fixture_pins_multiplier_and_public_realm_warnings() -> Result<()> {
+    let (inputs, golden) = load_uk_installation_labour_fixture()?;
+    let (input, case) =
+        uk_installation_labour_fixture_case(&inputs, &golden, "lights-lon-2day-01")?;
+
+    ensure!(
+        json_str_field_eq(
+            input.pointer("/installation_requirement/uk_region"),
+            "London",
+        ) && json_bool_field_eq(
+            input.pointer("/installation_requirement/lane_rental_zone"),
+            true,
+        ) && yaml_str_field_eq(yaml_get(case, "compare_to_case"), "lights-nw-2day-01")
+            && yaml_i64_field_eq(yaml_get(case, "labour_base_ratio_bps"), 15_054)
+            && yaml_i64_field_eq(yaml_get(case, "ratio_tolerance_bps"), 100)
+            && yaml_sequence_contains_str(
+                yaml_get(case, "required_warning_codes"),
+                "LANE_RENTAL_ZONE",
+            )
+            && yaml_sequence_contains_str(
+                yaml_get(case, "required_warning_codes"),
+                "TTRO_LEAD_TIME_RISK",
+            ),
+        "CAN-LAB-002 must pin London multiplier and Regent Street public-realm warnings"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn can_lab_003_cctv_yh_fixture_pins_security_resolver_multiplier_and_at_height_equipment()
+-> Result<()> {
+    let (inputs, golden) = load_uk_installation_labour_fixture()?;
+    let (input, case) =
+        uk_installation_labour_fixture_case(&inputs, &golden, "cctv-yh-install-01")?;
+
+    ensure!(
+        json_str_field_eq(input.pointer("/installation_requirement/uk_region"), "YH",)
+            && yaml_str_field_eq(
+                yaml_get(case, "required_profile_id"),
+                "cctv_security_install"
+            )
+            && yaml_i64_field_eq(yaml_get(case, "region_multiplier_bps"), 8_800)
+            && yaml_sequence_contains_str(yaml_get(case, "required_trades"), "security_installer")
+            && yaml_sequence_contains_str(yaml_get(case, "required_trades"), "electrician")
+            && yaml_str_field_eq(
+                yaml_get(case, "required_access_equipment_class"),
+                "scissor_lift",
+            )
+            && yaml_bool_field_eq(
+                yaml_get(case, "required_access_equipment_when_at_height"),
+                true,
+            )
+            && yaml_str_field_eq(
+                yaml_get(case, "forbidden_trade_set_match_case"),
+                "lights-nw-2day-01",
+            ),
+        "CAN-LAB-003 must pin the YH CCTV resolver, multiplier, and at-height equipment path"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn can_lab_004_furniture_london_fixture_pins_no_access_equipment_route() -> Result<()> {
+    let (inputs, golden) = load_uk_installation_labour_fixture()?;
+    let (input, case) =
+        uk_installation_labour_fixture_case(&inputs, &golden, "furniture-lon-assembly-01")?;
+
+    ensure!(
+        json_str_field_eq(
+            input.pointer("/installation_requirement/uk_region"),
+            "London",
+        ) && json_str_field_eq(
+            input.pointer("/installation_requirement/equipment_hint"),
+            "none",
+        ) && yaml_sequence_contains_str(yaml_get(case, "required_trades"), "handyperson")
+            && yaml_bool_field_eq(
+                yaml_get(case, "forbidden_access_equipment_line_items"),
+                true,
+            )
+            && yaml_sequence_contains_str(
+                yaml_get(case, "forbidden_warning_codes"),
+                "ACCESS_AT_HEIGHT_ASSUMED_MEWP",
+            ),
+        "CAN-LAB-004 must pin flat-pack furniture as a no-access-equipment route"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn can_lab_005_region_unknown_fixture_pins_national_fallback_with_estimated_status() -> Result<()> {
+    let (inputs, golden) = load_uk_installation_labour_fixture()?;
+    let (input, case) = uk_installation_labour_fixture_case(&inputs, &golden, "region-unknown-01")?;
+
+    ensure!(
+        matches!(
+            input.pointer("/installation_requirement/uk_region"),
+            Some(Value::Null)
+        ) && yaml_str_field_eq(yaml_get(case, "expected_labour_status"), "estimated")
+            && yaml_str_field_eq(yaml_get(case, "resolved_uk_region"), "national")
+            && yaml_i64_field_eq(yaml_get(case, "fallback_region_multiplier_bps"), 10_000)
+            && yaml_sequence_contains_str(
+                yaml_get(case, "required_warning_codes"),
+                "LABOUR_REGION_UNKNOWN",
+            ),
+        "CAN-LAB-005 must pin national fallback, LABOUR_REGION_UNKNOWN, and estimated status"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn can_lab_006_scope_unresolved_fixture_pins_fail_soft_review_and_missing_term_default()
+-> Result<()> {
+    let (inputs, golden) = load_uk_installation_labour_fixture()?;
+    let (input, case) =
+        uk_installation_labour_fixture_case(&inputs, &golden, "scope-unresolved-01")?;
+    let missing_input_term =
+        match input.pointer("/installation_requirement/maintenance_schedule/term_years") {
+            None | Some(Value::Null) => true,
+            Some(_) => false,
+        };
+    let schedule_assertions = yaml_get(case, "maintenance_schedule")
+        .ok_or_else(|| anyhow::anyhow!("CAN-LAB-006 missing maintenance schedule assertions"))?;
+
+    ensure!(
+        json_bool_field_eq(
+            input.pointer("/installation_requirement/requires_maintenance"),
+            true,
+        ) && json_i64_field_eq(
+            input.pointer("/installation_requirement/maintenance_schedule/visits_per_year"),
+            4,
+        ) && missing_input_term
+            && yaml_sequence_contains_str(
+                yaml_get(case, "expected_warning_codes"),
+                "LABOUR_SCOPE_UNRESOLVED",
+            )
+            && yaml_sequence_contains_str(
+                yaml_get(case, "expected_warning_codes"),
+                "MAINTENANCE_TERM_ASSUMED",
+            )
+            && yaml_i64_field_eq(yaml_get(case, "confidence_below_bps"), 5_500)
+            && yaml_str_field_eq(yaml_get(case, "expected_route"), "review")
+            && yaml_bool_field_eq(yaml_get(case, "fail_soft"), true)
+            && yaml_i64_field_eq(
+                yaml_get(schedule_assertions, "missing_term_defaults_years"),
+                1,
+            ),
+        "CAN-LAB-006 must pin fail-soft review routing and the 1-year missing-term default"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn can_lab_007_rate_stale_fixture_pins_stale_warning_with_three_point_estimate() -> Result<()> {
+    let (inputs, golden) = load_uk_installation_labour_fixture()?;
+    let (input, case) = uk_installation_labour_fixture_case(&inputs, &golden, "rate-stale-01")?;
+
+    ensure!(
+        json_str_field_eq(
+            input.get("rate_table_version"),
+            "uk-installation-labour-2025-q4",
+        ) && yaml_sequence_contains_str(
+            yaml_get(case, "required_warning_codes"),
+            "RATE_TABLE_STALE",
+        ) && yaml_bool_field_eq(yaml_get(case, "requires_three_point_estimate"), true)
+            && yaml_bool_field_eq(yaml_get(case, "fail_soft"), true),
+        "CAN-LAB-007 must pin stale-rate warning while retaining a three-point estimate"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn can_warn_001_uk_installation_labour_warning_codes_are_pinned() -> Result<()> {
     let skill_root = skill_dir("landed-cost/uk-installation-labour-estimate")?;
-    let inputs = load_canary_inputs(&skill_root.join("canary.inputs.jsonl"))?;
+    let fixture_root = uk_installation_labour_fixture_root()?;
+    let inputs = load_canary_inputs(&fixture_root.join("canary.inputs.jsonl"))?;
     let scope_unresolved = find_canary_case(&inputs, "scope-unresolved-01")?;
     let missing_input_term = match scope_unresolved
         .pointer("/installation_requirement/maintenance_schedule/term_years")
@@ -466,7 +804,7 @@ fn can_warn_001_uk_installation_labour_warning_codes_are_pinned() -> Result<()> 
     );
 
     let golden: YamlValue = serde_yaml::from_str(&fs::read_to_string(
-        skill_root.join("golden.assertions.yaml"),
+        fixture_root.join("golden.assertions.yaml"),
     )?)?;
     let coverage = yaml_get(
         yaml_get(&golden, "shared_assertions")
@@ -495,12 +833,11 @@ fn can_warn_001_uk_installation_labour_warning_codes_are_pinned() -> Result<()> 
         .ok_or_else(|| anyhow::anyhow!("warning_code_coverage missing pinned_by"))?;
     for code in UK_LABOUR_WARNING_CODES {
         ensure!(
-            pinned_by.contains_key(YamlValue::String(code.to_owned())),
+            yaml_mapping_get_str_key(pinned_by, code).is_some(),
             "warning code {code} must have a pinned canary case"
         );
     }
-    let maintenance_pin = pinned_by
-        .get(YamlValue::String("MAINTENANCE_TERM_ASSUMED".to_owned()))
+    let maintenance_pin = yaml_mapping_get_str_key(pinned_by, "MAINTENANCE_TERM_ASSUMED")
         .ok_or_else(|| anyhow::anyhow!("MAINTENANCE_TERM_ASSUMED pin missing"))?;
     ensure!(
         yaml_value_mentions_case(maintenance_pin, "scope-unresolved-01"),
