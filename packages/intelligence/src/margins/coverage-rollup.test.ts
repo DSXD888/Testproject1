@@ -331,4 +331,15 @@ describe("computeCoverageRollup", () => {
     expect(changedOutput).not.toEqual(canonicalOutput);
     expect("decisionBasisHash" in canonicalOutput).toBe(false);
   });
+
+  it("TS-COV-007: computes goods_value_share_bps cost-proxy arithmetic", () => {
+    const output = computeCoverageRollup({
+      lots: [],
+      goodsLandedCostGbpPence: 1_000_000,
+      installationLabourCostGbpPence: 240_000,
+      permitTrafficMgmtCostGbpPence: 200_000,
+    });
+
+    expect(output.goodsValueShareBps).toBe(6944);
+  });
 });

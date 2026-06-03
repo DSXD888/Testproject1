@@ -18,6 +18,9 @@ export interface CoverageLotInput {
 
 export interface CoverageInput {
   lots: CoverageLotInput[];
+  goodsLandedCostGbpPence?: number | null;
+  installationLabourCostGbpPence?: number | null;
+  permitTrafficMgmtCostGbpPence?: number | null;
 }
 
 export interface CoverageMetrics {
@@ -27,6 +30,7 @@ export interface CoverageMetrics {
   pricedValueCoverageBps: number;
   landedCostValueCoverageBps: number;
   netQualifiedValueCoverageBps: number;
+  goodsValueShareBps?: number | null;
   unresolvedMandatoryLots: number;
 }
 
@@ -92,6 +96,7 @@ export function getCoverageDecisionSupport(
 export function computeCoverageRollup(input: CoverageInput): CoverageOutput {
   const qualifyingLots = input.lots.filter((lot) => lot.qualificationResult !== "reject");
   const qualifyingLotCount = qualifyingLots.length;
+  const goodsValueShareBps = computeGoodsValueShareBps(input);
 
   const pricedLotCount = qualifyingLots.filter((lot) =>
     lot.candidates.some((candidate) => candidate.hasPricing),
@@ -147,8 +152,34 @@ export function computeCoverageRollup(input: CoverageInput): CoverageOutput {
       netQualifiedValuePence,
       totalQualifyingValuePence,
     ),
+    goodsValueShareBps,
     unresolvedMandatoryLots,
   };
+}
+
+function computeGoodsValueShareBps(input: CoverageInput): number | null {
+  const goodsLandedCostGbpPence = input.goodsLandedCostGbpPence;
+  const installationLabourCostGbpPence = input.installationLabourCostGbpPence;
+  const permitTrafficMgmtCostGbpPence = input.permitTrafficMgmtCostGbpPence;
+
+  if (
+    !isKnownPence(goodsLandedCostGbpPence) ||
+    !isKnownPence(installationLabourCostGbpPence) ||
+    !isKnownPence(permitTrafficMgmtCostGbpPence)
+  ) {
+    return null;
+  }
+
+  const allInCostGbpPence =
+    goodsLandedCostGbpPence +
+    installationLabourCostGbpPence +
+    permitTrafficMgmtCostGbpPence;
+
+  return toBasisPoints(goodsLandedCostGbpPence, allInCostGbpPence);
+}
+
+function isKnownPence(value: number | null | undefined): value is number {
+  return Number.isInteger(value) && value >= 0;
 }
 
 type CoverageLane = "pricing" | "landed_cost" | "net_gate";
