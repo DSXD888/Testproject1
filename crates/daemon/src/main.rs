@@ -293,6 +293,7 @@ const LANDED_COST_SKILL_TIMEOUT_SECONDS: u64 = 300;
 const LANDED_COST_STAGE_NAME: &str = "landed cost";
 const LANDED_COST_SCOPE_KIND: &str = "candidate_quote";
 const LANDED_COST_UK_INSTALLATION_LABOUR_JOB_KIND: &str = "landed_cost_uk_installation_labour";
+const UK_INSTALLATION_LABOUR_RATE_TABLE_VERSION: &str = "uk-installation-labour-2026-q2";
 // Stage 11 CDP / captcha resilience knobs (handoff stage-11-hardening-cdp-resilience).
 // `STAGE11_SKILL_RETRY_PER_ATTEMPT_SECONDS` bounds each SeaRates attempt only —
 // the outer 300s bound still gates total time. Live CDP validation showed the
@@ -5438,6 +5439,21 @@ struct InstallationLabourCostBasis {
     permit_responsibility: Option<String>,
 }
 
+impl From<UkInstallationLabourResult> for InstallationLabourCostBasis {
+    fn from(result: UkInstallationLabourResult) -> Self {
+        Self {
+            installation_labour_cost_gbp_pence: result.installation_labour_cost_gbp_pence,
+            installation_labour_low_gbp_pence: result.installation_labour_low_gbp_pence,
+            installation_labour_high_gbp_pence: result.installation_labour_high_gbp_pence,
+            installation_labour_confidence_bps: result.installation_labour_confidence_bps,
+            permit_traffic_mgmt_cost_gbp_pence: result.permit_traffic_mgmt_cost_gbp_pence,
+            permit_traffic_mgmt_low_gbp_pence: result.permit_traffic_mgmt_low_gbp_pence,
+            permit_traffic_mgmt_high_gbp_pence: result.permit_traffic_mgmt_high_gbp_pence,
+            permit_responsibility: result.permit_responsibility,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum InstallationLabourInvocation {
     Invoke,
@@ -7547,6 +7563,128 @@ const fn installation_labour_job_kind_for_invocation(
     }
 }
 
+fn destination_postcode_for_installation_labour(requirement: &Value) -> String {
+    ["destination_postcode", "site_postcode", "postcode"]
+        .into_iter()
+        .filter_map(|field| requirement.get(field).and_then(Value::as_str))
+        .chain(
+            requirement
+                .get("site")
+                .and_then(|site| site.get("postcode"))
+                .and_then(Value::as_str),
+        )
+        .map(str::trim)
+        .find(|value| !value.is_empty())
+        .unwrap_or("UNKNOWN")
+        .to_owned()
+}
+
+fn uk_installation_labour_job_parameters(
+    base_parameters: &Value,
+    installation_requirement: &Value,
+    goods_landed_cost_gbp_pence: i64,
+) -> Value {
+    let mut object = base_parameters
+        .as_object()
+        .cloned()
+        .unwrap_or_else(Map::new);
+    object.insert(
+        "destination_postcode".to_owned(),
+        json!(destination_postcode_for_installation_labour(
+            installation_requirement
+        )),
+    );
+    object.insert(
+        "installation_requirement".to_owned(),
+        installation_requirement.clone(),
+    );
+    object.insert(
+        "goods_landed_cost_gbp_pence".to_owned(),
+        json!(goods_landed_cost_gbp_pence),
+    );
+    object.insert(
+        "rate_table_version".to_owned(),
+        json!(UK_INSTALLATION_LABOUR_RATE_TABLE_VERSION),
+    );
+    Value::Object(object)
+}
+
+fn import_goods_landed_cost_for_installation_labour(
+    supplier_cost: &SupplierCostBasis,
+    customs: Option<&HmrcCustomsClassificationResult>,
+    freight: &FreightScenarioGbp,
+) -> i64 {
+    let customs_duty_gbp_pence = customs
+        .and_then(|result| result.customs_duty_gbp_pence)
+        .unwrap_or(0);
+    let trade_remedy_duty_gbp_pence = customs
+        .and_then(|result| result.trade_remedy_duty_gbp_pence)
+        .unwrap_or(0);
+    let vat_rate_bps = customs
+        .and_then(|result| result.vat_rate_bps)
+        .unwrap_or(2000);
+    let duty_total = customs_duty_gbp_pence.saturating_add(trade_remedy_duty_gbp_pence);
+    let pre_vat_base = supplier_cost
+        .supplier_cost_gbp_pence
+        .saturating_add(freight.base_gbp_pence)
+        .saturating_add(duty_total);
+    pre_vat_base.saturating_add(import_vat_for_base(vat_rate_bps, pre_vat_base))
+}
+
+#[allow(clippy::future_not_send)]
+async fn run_uk_installation_labour_skill(
+    runtime: &mut RuntimeBootstrap,
+    cli: &Cli,
+    labour_skill: &LoadedSkill,
+    row: &LandedCostAssessmentRow,
+    base_parameters: &Value,
+    goods_landed_cost_gbp_pence: i64,
+) -> Result<Option<InstallationLabourCostBasis>> {
+    let Some(installation_requirement) = installation_requirement_from_critical_attributes(row)
+    else {
+        return Ok(None);
+    };
+    let parameters = uk_installation_labour_job_parameters(
+        base_parameters,
+        &installation_requirement,
+        goods_landed_cost_gbp_pence,
+    );
+    let outcome = run_landed_cost_skill(
+        runtime,
+        cli,
+        labour_skill,
+        LANDED_COST_UK_INSTALLATION_LABOUR_JOB_KIND,
+        row,
+        &parameters,
+        None,
+    )
+    .await?;
+    let Some(result_json) = outcome.result_json.as_ref() else {
+        ::tracing::warn!(
+            candidate_id = %row.product_candidate_id,
+            job_id = %outcome.job_id,
+            session_id = %outcome.session_id,
+            failure_message = outcome.failure_message.as_deref().unwrap_or("missing result contract"),
+            "UK installation labour skill did not return a result contract"
+        );
+        return Ok(Some(InstallationLabourCostBasis::default()));
+    };
+    let result = match parse_uk_installation_labour_result(result_json) {
+        Ok(parsed) => parsed,
+        Err(error) => {
+            ::tracing::warn!(
+                candidate_id = %row.product_candidate_id,
+                job_id = %outcome.job_id,
+                session_id = %outcome.session_id,
+                error = %error,
+                "UK installation labour result failed Stage 11 domain validation"
+            );
+            return Ok(Some(InstallationLabourCostBasis::default()));
+        }
+    };
+    Ok(Some(result.into()))
+}
+
 #[allow(clippy::too_many_lines)]
 fn load_landed_cost_assessments(
     conn: &Connection,
@@ -9421,6 +9559,10 @@ async fn run_landed_cost_live_loop(
         &repo_root.join("skills/landed-cost/simple-fx-lookup"),
         "skills/landed-cost/simple-fx-lookup/SKILL.md",
     )?;
+    let installation_labour_skill = load_skill(
+        &repo_root.join("skills/landed-cost/uk-installation-labour-estimate"),
+        "skills/landed-cost/uk-installation-labour-estimate/SKILL.md",
+    )?;
     let job_parameters = parse_job_parameters(cli.job_parameters_json.as_deref())?;
     let landed_cost_path_mode = read_landed_cost_mode_from_env();
 
@@ -9462,6 +9604,8 @@ async fn run_landed_cost_live_loop(
         let supplier_cost = compute_supplier_cost_basis(row);
         let order_quantity_basis = infer_order_quantity_basis(row);
         let installation_labour_invocation = installation_labour_invocation_for_row(row);
+        let base_parameters =
+            base_landed_cost_job_parameters(row, &supplier_cost, &order_quantity_basis);
         let skill_versions = json!({
             "hmrc_customs": hmrc_skill.metadata.skill_version,
             "shipment_sizing": sizing_skill.metadata.skill_version,
@@ -9471,7 +9615,6 @@ async fn run_landed_cost_live_loop(
 
         if is_domestic_uk_quote(row) {
             domestic += 1;
-            let installation_labour = None::<InstallationLabourCostBasis>;
             if let Some(job_kind) =
                 installation_labour_job_kind_for_invocation(installation_labour_invocation)
             {
@@ -9482,6 +9625,15 @@ async fn run_landed_cost_live_loop(
                     "stage11.uk_installation_labour.sequence_slot"
                 );
             }
+            let installation_labour = run_uk_installation_labour_skill(
+                runtime,
+                cli,
+                &installation_labour_skill,
+                row,
+                &base_parameters,
+                supplier_cost.supplier_cost_gbp_pence,
+            )
+            .await?;
             let screening_estimate = build_domestic_landed_cost_estimate(
                 row,
                 &supplier_cost,
@@ -9509,8 +9661,6 @@ async fn run_landed_cost_live_loop(
         }
 
         import += 1;
-        let base_parameters =
-            base_landed_cost_job_parameters(row, &supplier_cost, &order_quantity_basis);
 
         customs_skill_runs += 1;
         let customs_outcome = run_landed_cost_skill(
@@ -9743,7 +9893,6 @@ async fn run_landed_cost_live_loop(
             }
         }
 
-        let installation_labour = None::<InstallationLabourCostBasis>;
         if let Some(job_kind) =
             installation_labour_job_kind_for_invocation(installation_labour_invocation)
         {
@@ -9754,6 +9903,19 @@ async fn run_landed_cost_live_loop(
                 "stage11.uk_installation_labour.sequence_slot"
             );
         }
+        let installation_labour = run_uk_installation_labour_skill(
+            runtime,
+            cli,
+            &installation_labour_skill,
+            row,
+            &base_parameters,
+            import_goods_landed_cost_for_installation_labour(
+                &supplier_cost,
+                customs.as_ref(),
+                &freight,
+            ),
+        )
+        .await?;
 
         let skill_session_ids = landed_cost_skill_session_ids(
             &customs_outcome,
@@ -29790,6 +29952,67 @@ mod tests {
         }));
 
         assert!(parsed.is_err());
+    }
+
+    #[test]
+    fn uk_installation_labour_job_parameters_include_required_skill_inputs() {
+        let base_parameters = json!({
+            "process_id": "process-1",
+            "notice_id": "notice-1",
+            "product_candidate_id": "candidate-1",
+            "selected_quote_id": "quote-1",
+            "destination_country": "GB"
+        });
+        let installation_requirement = json!({
+            "requires_installation": true,
+            "requires_maintenance": false,
+            "site": {
+                "postcode": "M2 4WQ"
+            }
+        });
+
+        let parameters = super::uk_installation_labour_job_parameters(
+            &base_parameters,
+            &installation_requirement,
+            1_800_000,
+        );
+
+        assert_eq!(parameters["process_id"], json!("process-1"));
+        assert_eq!(parameters["notice_id"], json!("notice-1"));
+        assert_eq!(parameters["product_candidate_id"], json!("candidate-1"));
+        assert_eq!(parameters["selected_quote_id"], json!("quote-1"));
+        assert_eq!(parameters["destination_country"], json!("GB"));
+        assert_eq!(parameters["destination_postcode"], json!("M2 4WQ"));
+        assert_eq!(
+            parameters["installation_requirement"],
+            installation_requirement
+        );
+        assert_eq!(parameters["goods_landed_cost_gbp_pence"], json!(1_800_000));
+        assert_eq!(
+            parameters["rate_table_version"],
+            json!(super::UK_INSTALLATION_LABOUR_RATE_TABLE_VERSION)
+        );
+    }
+
+    #[test]
+    fn uk_installation_labour_skill_transient_loads_http_public_without_cdp() -> Result<()> {
+        let repo_root = super::repo_root()?;
+        let skill = super::load_skill(
+            &repo_root.join("skills/landed-cost/uk-installation-labour-estimate"),
+            "skills/landed-cost/uk-installation-labour-estimate/SKILL.md",
+        )?;
+
+        assert_eq!(
+            skill.skill_path.to_string_lossy(),
+            "skills/landed-cost/uk-installation-labour-estimate/SKILL.md"
+        );
+        assert_eq!(
+            skill.metadata.skill_id,
+            "landed-cost/uk-installation-labour-estimate"
+        );
+        assert_eq!(skill.metadata.interaction_profile, "http_public");
+        assert!(!skill.metadata.requires_cdp);
+        Ok(())
     }
 
     // ---- Stage 11 CDP captcha resilience (CDP.1..CDP.12) ----------------
