@@ -110,6 +110,7 @@ export function ContractCardFrame({
           'Value-weighted gate',
           formatBps(metrics.netQualifiedValueCoverageBps),
         )}
+        {renderMetric('Labour coverage', formatBps(metrics.labourCoverageBps ?? 0))}
         {renderMetric('Gross margin', formatBps(metrics.grossMarginBps))}
         {renderMetric('Net margin', formatBps(metrics.netMarginBaseBps))}
         {renderMetric('Candidates', String(metrics.candidateCount))}

@@ -66,6 +66,22 @@ describe('packages/ui components', () => {
     expect(markup).toContain('(stale)');
   });
 
+  it('UI-AGB-003 renders labourCoverageBps for review cards', () => {
+    const props: ContractCardFrameProps = {
+      ...contractCardFrameFixture,
+      metrics: {
+        ...contractCardFrameFixture.metrics,
+        pipelineState: 'review',
+      },
+    };
+
+    const markup = renderToStaticMarkup(<ContractCardFrame {...props} />);
+
+    expect(markup).toContain('Review');
+    expect(markup).toContain('Labour coverage');
+    expect(markup).toContain('0%');
+  });
+
   it('TS-UI-004 renders pipeline state with text, icon, and validation visibility rules', () => {
     const defaultMarkup = renderToStaticMarkup(<PipelineBadge {...pipelineBadgeFixture} />);
     const flaggedMarkup = renderToStaticMarkup(
