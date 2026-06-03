@@ -30,6 +30,7 @@ struct LandedCostSeed<'a> {
     notice_id: &'a str,
     product_candidate_id: &'a str,
     supplier_quote_id: &'a str,
+    customs_duty_gbp_pence: i64,
     goods_landed_cost_gbp_pence: i64,
     installation_labour_cost_gbp_pence: i64,
     installation_labour_low_gbp_pence: i64,
@@ -47,6 +48,7 @@ struct LandedCostSeed<'a> {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct PersistedLandedCostSeed {
+    customs_duty_gbp_pence: i64,
     goods_landed_cost_gbp_pence: i64,
     installation_labour_cost_gbp_pence: i64,
     installation_labour_low_gbp_pence: i64,
@@ -138,6 +140,7 @@ fn rs_seed_001_landed_cost_insert_sql_helper_direct_seeds_labour_columns() -> Re
         notice_id: &ids.notice_id,
         product_candidate_id: "il-seed-candidate",
         supplier_quote_id: "il-seed-quote",
+        customs_duty_gbp_pence: 0,
         goods_landed_cost_gbp_pence: 700_000,
         installation_labour_cost_gbp_pence: 120_000,
         installation_labour_low_gbp_pence: 96_000,
@@ -168,6 +171,7 @@ fn rs_seed_001_landed_cost_insert_sql_helper_direct_seeds_labour_columns() -> Re
                 permit_traffic_mgmt_low_gbp_pence: seed.permit_traffic_mgmt_low_gbp_pence,
                 permit_traffic_mgmt_high_gbp_pence: seed.permit_traffic_mgmt_high_gbp_pence,
                 permit_responsibility: seed.permit_responsibility.map(str::to_owned),
+                customs_duty_gbp_pence: seed.customs_duty_gbp_pence,
                 economic_landed_cost_gbp_pence: seed.economic_landed_cost_gbp_pence,
                 decision_grade: seed.decision_grade.to_owned(),
                 warnings: seed.warnings.to_owned(),
@@ -201,6 +205,7 @@ fn e2e_il_001_festive_lights_persisted_row_reconstructs_all_in_goods_share() -> 
         notice_id: &ids.notice_id,
         product_candidate_id: "il-seed-candidate",
         supplier_quote_id: "il-seed-quote",
+        customs_duty_gbp_pence: 0,
         goods_landed_cost_gbp_pence: 1_000_000,
         installation_labour_cost_gbp_pence: 240_000,
         installation_labour_low_gbp_pence: 210_000,
@@ -274,6 +279,302 @@ fn e2e_il_001_festive_lights_persisted_row_reconstructs_all_in_goods_share() -> 
 }
 
 #[test]
+#[doc = "E2E-IL-002"]
+#[allow(clippy::too_many_lines)]
+fn e2e_il_002_office_classroom_furniture_london_passes_without_access_equipment() -> Result<()> {
+    let db = L4TestStateDb::new()?;
+    let conn = db.connection();
+    apply_installation_labour_migration_if_needed(conn)?;
+    let ids = db.seed_push_owned_rows()?;
+    seed_candidate_and_quote(conn, &ids.process_id, &ids.notice_id, &ids.lot_id)?;
+
+    set_installation_requirement(
+        conn,
+        &serde_json::json!({
+            "requires_installation": true,
+            "requires_maintenance": false,
+            "installation_scope": "office_classroom_furniture",
+            "uk_region": "LON",
+            "trades": ["fitter", "handyperson"],
+            "rate_cell": {
+                "region": "LON",
+                "trades": ["fitter", "handyperson"],
+                "multiplier_bps": 13_000
+            },
+            "access_equipment_line_items": []
+        }),
+    )?;
+
+    let seed = LandedCostSeed {
+        id: "e2e-il-002-office-classroom-furniture-lon",
+        process_id: &ids.process_id,
+        notice_id: &ids.notice_id,
+        product_candidate_id: "il-seed-candidate",
+        supplier_quote_id: "il-seed-quote",
+        customs_duty_gbp_pence: 0,
+        goods_landed_cost_gbp_pence: 2_400_000,
+        installation_labour_cost_gbp_pence: 180_000,
+        installation_labour_low_gbp_pence: 160_000,
+        installation_labour_high_gbp_pence: 210_000,
+        installation_labour_confidence_bps: 8_500,
+        permit_traffic_mgmt_cost_gbp_pence: 0,
+        permit_traffic_mgmt_low_gbp_pence: 0,
+        permit_traffic_mgmt_high_gbp_pence: 0,
+        permit_responsibility: None,
+        economic_landed_cost_gbp_pence: 2_580_000,
+        decision_grade: "auto_pass",
+        warnings: "[]",
+        blockers: "[]",
+    };
+
+    insert_landed_cost_seed(conn, &seed)?;
+    let persisted = persisted_landed_cost_seed(conn, seed.id)?;
+    let requirement = installation_requirement_payload(conn)?;
+    let trades = json_string_set(&requirement, "trades");
+    let rate_cell = requirement
+        .get("rate_cell")
+        .context("E2E-IL-002 missing rate cell")?;
+    let rate_cell_trades = json_string_set(rate_cell, "trades");
+    let access_equipment_rows = requirement
+        .get("access_equipment_line_items")
+        .and_then(Value::as_array)
+        .context("E2E-IL-002 missing access equipment line items")?;
+
+    ensure!(
+        persisted.goods_landed_cost_gbp_pence == 2_400_000
+            && persisted.installation_labour_cost_gbp_pence == 180_000
+            && persisted.permit_traffic_mgmt_cost_gbp_pence == 0
+            && persisted.economic_landed_cost_gbp_pence == 2_580_000,
+        "E2E-IL-002 furniture fixture values changed"
+    );
+    ensure!(
+        goods_value_share_bps(
+            persisted.goods_landed_cost_gbp_pence,
+            persisted.installation_labour_cost_gbp_pence,
+            persisted.permit_traffic_mgmt_cost_gbp_pence,
+        ) == 9_302,
+        "E2E-IL-002 goods share must be 9302 bps"
+    );
+    ensure!(
+        requirement.get("uk_region").and_then(Value::as_str) == Some("LON")
+            && trades.contains("fitter")
+            && trades.contains("handyperson")
+            && rate_cell.get("region").and_then(Value::as_str) == Some("LON")
+            && rate_cell_trades.contains("fitter")
+            && rate_cell_trades.contains("handyperson"),
+        "E2E-IL-002 must assert the LON fitter/handyperson rate cell"
+    );
+    ensure!(
+        access_equipment_rows.is_empty(),
+        "E2E-IL-002 must not create access-equipment rows"
+    );
+    ensure!(
+        persisted.decision_grade == "auto_pass"
+            && stage11_issue_codes_from_json(&persisted.warnings)?.is_empty()
+            && stage11_issue_codes_from_json(&persisted.blockers)?.is_empty(),
+        "E2E-IL-002 must pass without unresolved access-equipment or permit assumptions"
+    );
+    Ok(())
+}
+
+#[test]
+#[doc = "E2E-IL-003"]
+#[allow(clippy::too_many_lines)]
+fn e2e_il_003_wooden_shelving_reviews_and_metal_twin_preserves_customs_duty() -> Result<()> {
+    let db = L4TestStateDb::new()?;
+    let conn = db.connection();
+    apply_installation_labour_migration_if_needed(conn)?;
+    let ids = db.seed_push_owned_rows()?;
+    seed_candidate_and_quote(conn, &ids.process_id, &ids.notice_id, &ids.lot_id)?;
+
+    set_installation_requirement(
+        conn,
+        &serde_json::json!({
+            "requires_installation": true,
+            "requires_maintenance": false,
+            "installation_scope": "wooden_shelving_racking_fit",
+            "uk_region": "LON",
+            "trades": ["joiner"],
+            "rate_cell": {
+                "region": "LON",
+                "trades": ["joiner"],
+                "multiplier_bps": 13_000
+            },
+            "access_equipment_line_items": []
+        }),
+    )?;
+
+    let wooden_seed = LandedCostSeed {
+        id: "e2e-il-003-wooden-shelving-fit",
+        process_id: &ids.process_id,
+        notice_id: &ids.notice_id,
+        product_candidate_id: "il-seed-candidate",
+        supplier_quote_id: "il-seed-quote",
+        customs_duty_gbp_pence: 0,
+        goods_landed_cost_gbp_pence: 900_000,
+        installation_labour_cost_gbp_pence: 220_000,
+        installation_labour_low_gbp_pence: 190_000,
+        installation_labour_high_gbp_pence: 260_000,
+        installation_labour_confidence_bps: 7_500,
+        permit_traffic_mgmt_cost_gbp_pence: 0,
+        permit_traffic_mgmt_low_gbp_pence: 0,
+        permit_traffic_mgmt_high_gbp_pence: 0,
+        permit_responsibility: None,
+        economic_landed_cost_gbp_pence: 1_120_000,
+        decision_grade: "review",
+        warnings: r#"[{"code":"WORKS_DIVISION_45_CONSERVATIVE","message":"Shelving/racking fit is conservatively reviewed as works-adjacent.","severity":"warning"}]"#,
+        blockers: "[]",
+    };
+    let metal_twin_seed = LandedCostSeed {
+        id: "e2e-il-003-metal-shelving-customs-twin",
+        customs_duty_gbp_pence: 75_000,
+        ..wooden_seed.clone()
+    };
+
+    insert_landed_cost_seed(conn, &wooden_seed)?;
+    insert_landed_cost_seed(conn, &metal_twin_seed)?;
+    let wooden = persisted_landed_cost_seed(conn, wooden_seed.id)?;
+    let metal_twin = persisted_landed_cost_seed(conn, metal_twin_seed.id)?;
+    let requirement = installation_requirement_payload(conn)?;
+    let trades = json_string_set(&requirement, "trades");
+    let warnings = stage11_issue_codes_from_json(&wooden.warnings)
+        .context("parsing E2E-IL-003 warning codes")?;
+
+    ensure!(
+        wooden.goods_landed_cost_gbp_pence == 900_000
+            && wooden.installation_labour_cost_gbp_pence == 220_000
+            && wooden.permit_traffic_mgmt_cost_gbp_pence == 0
+            && wooden.economic_landed_cost_gbp_pence == 1_120_000,
+        "E2E-IL-003 wooden shelving fixture values changed"
+    );
+    ensure!(
+        goods_value_share_bps(
+            wooden.goods_landed_cost_gbp_pence,
+            wooden.installation_labour_cost_gbp_pence,
+            wooden.permit_traffic_mgmt_cost_gbp_pence,
+        ) == 8_036,
+        "E2E-IL-003 goods share must be 8036 bps"
+    );
+    ensure!(
+        trades.contains("joiner")
+            && requirement
+                .get("installation_scope")
+                .and_then(Value::as_str)
+                == Some("wooden_shelving_racking_fit"),
+        "E2E-IL-003 must assert the joiner shelving/racking resolver output"
+    );
+    ensure!(
+        wooden.decision_grade == "review" && warnings.contains("WORKS_DIVISION_45_CONSERVATIVE"),
+        "E2E-IL-003 must review due works/division-45 conservatism"
+    );
+    ensure!(
+        metal_twin.customs_duty_gbp_pence == 75_000,
+        "E2E-IL-003 metal twin must persist non-zero customs_duty_gbp_pence"
+    );
+    Ok(())
+}
+
+#[test]
+#[doc = "E2E-IL-009"]
+#[allow(clippy::too_many_lines)]
+fn e2e_il_009_cctv_supply_install_yh_reviews_with_distinct_resolver_output() -> Result<()> {
+    let db = L4TestStateDb::new()?;
+    let conn = db.connection();
+    apply_installation_labour_migration_if_needed(conn)?;
+    let ids = db.seed_push_owned_rows()?;
+    seed_candidate_and_quote(conn, &ids.process_id, &ids.notice_id, &ids.lot_id)?;
+
+    set_installation_requirement(
+        conn,
+        &serde_json::json!({
+            "requires_installation": true,
+            "requires_maintenance": false,
+            "installation_scope": "cctv_camera_supply_install",
+            "uk_region": "YH",
+            "trades": ["security_installer", "electrician"],
+            "rate_cell": {
+                "region": "YH",
+                "trades": ["security_installer", "electrician"],
+                "multiplier_bps": 8_800
+            },
+            "access_equipment_line_items": [
+                {
+                    "equipment_type": "ladder_or_small_platform",
+                    "basis": "at_height_camera_mounting"
+                }
+            ]
+        }),
+    )?;
+
+    let seed = LandedCostSeed {
+        id: "e2e-il-009-cctv-yh-install",
+        process_id: &ids.process_id,
+        notice_id: &ids.notice_id,
+        product_candidate_id: "il-seed-candidate",
+        supplier_quote_id: "il-seed-quote",
+        customs_duty_gbp_pence: 0,
+        goods_landed_cost_gbp_pence: 1_500_000,
+        installation_labour_cost_gbp_pence: 420_000,
+        installation_labour_low_gbp_pence: 360_000,
+        installation_labour_high_gbp_pence: 500_000,
+        installation_labour_confidence_bps: 6_500,
+        permit_traffic_mgmt_cost_gbp_pence: 0,
+        permit_traffic_mgmt_low_gbp_pence: 0,
+        permit_traffic_mgmt_high_gbp_pence: 0,
+        permit_responsibility: None,
+        economic_landed_cost_gbp_pence: 1_920_000,
+        decision_grade: "review",
+        warnings: r#"[{"code":"ACCESS_AT_HEIGHT_ASSUMED","message":"CCTV camera mounting may require access equipment.","severity":"warning"},{"code":"CABLING_ROUTE_ASSUMED","message":"Cabling route was inferred from scope text.","severity":"warning"}]"#,
+        blockers: "[]",
+    };
+
+    insert_landed_cost_seed(conn, &seed)?;
+    let persisted = persisted_landed_cost_seed(conn, seed.id)?;
+    let requirement = installation_requirement_payload(conn)?;
+    let trades = json_string_set(&requirement, "trades");
+    let scenario_1_trades = BTreeSet::from(["electrician".to_owned(), "labourer".to_owned()]);
+    let rate_cell = requirement
+        .get("rate_cell")
+        .context("E2E-IL-009 missing rate cell")?;
+    let warnings = stage11_issue_codes_from_json(&persisted.warnings)
+        .context("parsing E2E-IL-009 warning codes")?;
+
+    ensure!(
+        persisted.goods_landed_cost_gbp_pence == 1_500_000
+            && persisted.installation_labour_cost_gbp_pence == 420_000
+            && persisted.permit_traffic_mgmt_cost_gbp_pence == 0
+            && persisted.economic_landed_cost_gbp_pence == 1_920_000,
+        "E2E-IL-009 CCTV fixture values changed"
+    );
+    ensure!(
+        goods_value_share_bps(
+            persisted.goods_landed_cost_gbp_pence,
+            persisted.installation_labour_cost_gbp_pence,
+            persisted.permit_traffic_mgmt_cost_gbp_pence,
+        ) == 7_813,
+        "E2E-IL-009 goods share must be 7813 bps"
+    );
+    ensure!(
+        requirement.get("uk_region").and_then(Value::as_str) == Some("YH")
+            && rate_cell.get("multiplier_bps").and_then(Value::as_i64) == Some(8_800),
+        "E2E-IL-009 must assert the YH 8800 bps multiplier"
+    );
+    ensure!(
+        trades != scenario_1_trades
+            && trades.contains("security_installer")
+            && trades.contains("electrician"),
+        "E2E-IL-009 resolver trade set must differ from Scenario 1"
+    );
+    ensure!(
+        persisted.decision_grade == "review"
+            && warnings.contains("ACCESS_AT_HEIGHT_ASSUMED")
+            && warnings.contains("CABLING_ROUTE_ASSUMED"),
+        "E2E-IL-009 must review because at-height mounting and cabling are assumptions"
+    );
+    Ok(())
+}
+
+#[test]
 #[doc = "E2E-IL-004"]
 #[allow(clippy::too_many_lines)]
 fn e2e_il_004_playground_maintenance_persists_first_class_period_estimate() -> Result<()> {
@@ -310,6 +611,7 @@ fn e2e_il_004_playground_maintenance_persists_first_class_period_estimate() -> R
         notice_id: &ids.notice_id,
         product_candidate_id: "il-seed-candidate",
         supplier_quote_id: "il-seed-quote",
+        customs_duty_gbp_pence: 0,
         goods_landed_cost_gbp_pence: 1_800_000,
         installation_labour_cost_gbp_pence: 450_000,
         installation_labour_low_gbp_pence: 400_000,
@@ -427,6 +729,7 @@ fn e2e_il_008_pure_a4_copier_paper_preserves_goods_only_economics() -> Result<()
         notice_id: &ids.notice_id,
         product_candidate_id: "il-seed-candidate",
         supplier_quote_id: "il-seed-quote",
+        customs_duty_gbp_pence: 0,
         goods_landed_cost_gbp_pence: 120_000,
         installation_labour_cost_gbp_pence: 0,
         installation_labour_low_gbp_pence: 0,
@@ -534,6 +837,7 @@ fn neg_ctrl_002_e2e_il_006_managed_cleaning_rejects_on_dominance_floor_if_phase2
         notice_id: &ids.notice_id,
         product_candidate_id: "il-seed-candidate",
         supplier_quote_id: "il-seed-quote",
+        customs_duty_gbp_pence: 0,
         goods_landed_cost_gbp_pence: 50_000,
         installation_labour_cost_gbp_pence: 950_000,
         installation_labour_low_gbp_pence: 900_000,
@@ -597,6 +901,7 @@ fn e2e_il_010_traffic_signal_supply_installation_rejects_on_phase2_dominance_flo
         notice_id: &ids.notice_id,
         product_candidate_id: "il-seed-candidate",
         supplier_quote_id: "il-seed-quote",
+        customs_duty_gbp_pence: 0,
         goods_landed_cost_gbp_pence: 600_000,
         installation_labour_cost_gbp_pence: 900_000,
         installation_labour_low_gbp_pence: 860_000,
@@ -660,6 +965,7 @@ fn e2e_il_011_bespoke_made_to_measure_windows_reviews_with_control_twin() -> Res
         notice_id: &ids.notice_id,
         product_candidate_id: "il-seed-candidate",
         supplier_quote_id: "il-seed-quote",
+        customs_duty_gbp_pence: 0,
         goods_landed_cost_gbp_pence: 3_000_000,
         installation_labour_cost_gbp_pence: 400_000,
         installation_labour_low_gbp_pence: 360_000,
@@ -1135,6 +1441,49 @@ fn seed_candidate_and_quote(
     Ok(())
 }
 
+fn set_installation_requirement(conn: &Connection, requirement: &Value) -> Result<()> {
+    conn.execute(
+        "\
+        UPDATE product_candidates
+        SET critical_attributes_json = ?1
+        WHERE id = 'il-seed-candidate'
+        ",
+        [serde_json::json!({
+            "installation_requirement": requirement
+        })
+        .to_string()],
+    )?;
+    Ok(())
+}
+
+fn installation_requirement_payload(conn: &Connection) -> Result<Value> {
+    let raw: Option<String> = conn.query_row(
+        "SELECT critical_attributes_json FROM product_candidates WHERE id = 'il-seed-candidate'",
+        [],
+        |row| row.get(0),
+    )?;
+    let value = serde_json::from_str::<Value>(
+        raw.as_deref()
+            .context("missing critical_attributes_json for installation requirement fixture")?,
+    )
+    .context("parsing installation requirement fixture JSON")?;
+    value
+        .get("installation_requirement")
+        .cloned()
+        .context("missing installation_requirement fixture payload")
+}
+
+fn json_string_set(value: &Value, key: &str) -> BTreeSet<String> {
+    value
+        .get(key)
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .map(str::to_owned)
+        .collect()
+}
+
 fn insert_landed_cost_seed(conn: &Connection, seed: &LandedCostSeed<'_>) -> Result<()> {
     // MVP does not force-backfill historical landed-cost rows; nullable/default-0
     // migration columns keep old explicit INSERTs valid until assessments rerun.
@@ -1146,6 +1495,7 @@ fn insert_landed_cost_seed(conn: &Connection, seed: &LandedCostSeed<'_>) -> Resu
             seed.notice_id,
             seed.product_candidate_id,
             seed.supplier_quote_id,
+            seed.customs_duty_gbp_pence,
             seed.goods_landed_cost_gbp_pence,
             seed.installation_labour_cost_gbp_pence,
             seed.installation_labour_low_gbp_pence,
@@ -1223,10 +1573,10 @@ const fn landed_cost_insert_sql() -> &'static str {
       confidence_bps, warnings, blockers, owner_id, row_version, stage_run_id
     ) VALUES (
       ?1, ?2, ?3, ?4, ?5, 'domestic_install', 9000, 9000, 9000, 1.0, 1.0,
-      0, '2026-06-02T00:00:00Z', 650000, 0, 0, 0, 0, 0, 'not_applicable',
-      10000, 0, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?15, ?15,
-      'expected_value', 9000, 2000, 3000, 4000, ?16, 7600,
-      ?17, ?18, 'local-owner', 1, 'installation-labour-seed'
+      0, '2026-06-02T00:00:00Z', 650000, 0, 0, 0, ?6, 0, 'not_applicable',
+      10000, 0, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?16, ?16,
+      'expected_value', 9000, 2000, 3000, 4000, ?17, 7600,
+      ?18, ?19, 'local-owner', 1, 'installation-labour-seed'
     )
     "
 }
@@ -1237,7 +1587,7 @@ fn persisted_landed_cost_seed(
 ) -> Result<PersistedLandedCostSeed> {
     conn.query_row(
         "\
-        SELECT goods_landed_cost_gbp_pence, installation_labour_cost_gbp_pence,
+        SELECT customs_duty_gbp_pence, goods_landed_cost_gbp_pence, installation_labour_cost_gbp_pence,
                installation_labour_low_gbp_pence, installation_labour_high_gbp_pence,
                installation_labour_confidence_bps, permit_traffic_mgmt_cost_gbp_pence,
                permit_traffic_mgmt_low_gbp_pence, permit_traffic_mgmt_high_gbp_pence,
@@ -1249,19 +1599,20 @@ fn persisted_landed_cost_seed(
         [landed_cost_id],
         |row| {
             Ok(PersistedLandedCostSeed {
-                goods_landed_cost_gbp_pence: row.get(0)?,
-                installation_labour_cost_gbp_pence: row.get(1)?,
-                installation_labour_low_gbp_pence: row.get(2)?,
-                installation_labour_high_gbp_pence: row.get(3)?,
-                installation_labour_confidence_bps: row.get(4)?,
-                permit_traffic_mgmt_cost_gbp_pence: row.get(5)?,
-                permit_traffic_mgmt_low_gbp_pence: row.get(6)?,
-                permit_traffic_mgmt_high_gbp_pence: row.get(7)?,
-                permit_responsibility: row.get(8)?,
-                economic_landed_cost_gbp_pence: row.get(9)?,
-                decision_grade: row.get(10)?,
-                warnings: row.get(11)?,
-                blockers: row.get(12)?,
+                customs_duty_gbp_pence: row.get(0)?,
+                goods_landed_cost_gbp_pence: row.get(1)?,
+                installation_labour_cost_gbp_pence: row.get(2)?,
+                installation_labour_low_gbp_pence: row.get(3)?,
+                installation_labour_high_gbp_pence: row.get(4)?,
+                installation_labour_confidence_bps: row.get(5)?,
+                permit_traffic_mgmt_cost_gbp_pence: row.get(6)?,
+                permit_traffic_mgmt_low_gbp_pence: row.get(7)?,
+                permit_traffic_mgmt_high_gbp_pence: row.get(8)?,
+                permit_responsibility: row.get(9)?,
+                economic_landed_cost_gbp_pence: row.get(10)?,
+                decision_grade: row.get(11)?,
+                warnings: row.get(12)?,
+                blockers: row.get(13)?,
             })
         },
     )

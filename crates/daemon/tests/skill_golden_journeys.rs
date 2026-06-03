@@ -555,6 +555,7 @@ mod tests {
                     "alibaba".to_owned(),
                     "fts".to_owned(),
                     "l5-marketplace-commercial-intelligence".to_owned(),
+                    "uk-installation-labour-rate-refresh".to_owned(),
                 ])
         );
 
