@@ -6,6 +6,7 @@ use std::collections::BTreeSet;
 
 use anyhow::{Context, Result, ensure};
 use rusqlite::{Connection, params};
+use serde_json::Value;
 
 use support::db::L4TestStateDb;
 
@@ -200,7 +201,7 @@ fn e2e_il_001_festive_lights_persisted_row_reconstructs_all_in_goods_share() -> 
         persisted.decision_grade == "review",
         "E2E-IL-001 must route to review for unresolved public-realm assumptions"
     );
-    let warnings = serde_json::from_str::<BTreeSet<String>>(&persisted.warnings)
+    let warnings = stage11_issue_codes_from_json(&persisted.warnings)
         .context("parsing E2E-IL-001 warning codes")?;
     ensure!(
         warnings.contains("ACCESS_AT_HEIGHT_ASSUMED_MEWP")
@@ -349,9 +350,9 @@ fn neg_ctrl_002_e2e_il_006_managed_cleaning_rejects_on_dominance_floor_if_phase2
 
     insert_landed_cost_seed(conn, &seed)?;
     let persisted = persisted_landed_cost_seed(conn, seed.id)?;
-    let blockers = serde_json::from_str::<BTreeSet<String>>(&persisted.blockers)
+    let blockers = stage11_issue_codes_from_json(&persisted.blockers)
         .context("parsing E2E-IL-006 blocker codes")?;
-    let warnings = serde_json::from_str::<BTreeSet<String>>(&persisted.warnings)
+    let warnings = stage11_issue_codes_from_json(&persisted.warnings)
         .context("parsing E2E-IL-006 warning codes")?;
 
     ensure!(
@@ -376,6 +377,69 @@ fn neg_ctrl_002_e2e_il_006_managed_cleaning_rejects_on_dominance_floor_if_phase2
     ensure!(
         blockers.contains("GOODS_DOMINANCE_FLOOR") && warnings.is_empty(),
         "E2E-IL-006 reject reason must be dominance floor, not missing-data warnings"
+    );
+    Ok(())
+}
+
+#[test]
+#[doc = "E2E-IL-010"]
+fn e2e_il_010_traffic_signal_supply_installation_rejects_on_phase2_dominance_floor() -> Result<()> {
+    let db = L4TestStateDb::new()?;
+    let conn = db.connection();
+    apply_installation_labour_migration_if_needed(conn)?;
+    let ids = db.seed_push_owned_rows()?;
+    seed_candidate_and_quote(conn, &ids.process_id, &ids.notice_id, &ids.lot_id)?;
+
+    let seed = LandedCostSeed {
+        id: "e2e-il-010-traffic-signal-dominance-floor",
+        process_id: &ids.process_id,
+        notice_id: &ids.notice_id,
+        product_candidate_id: "il-seed-candidate",
+        supplier_quote_id: "il-seed-quote",
+        goods_landed_cost_gbp_pence: 600_000,
+        installation_labour_cost_gbp_pence: 900_000,
+        installation_labour_low_gbp_pence: 860_000,
+        installation_labour_high_gbp_pence: 960_000,
+        installation_labour_confidence_bps: 6_500,
+        permit_traffic_mgmt_cost_gbp_pence: 400_000,
+        permit_traffic_mgmt_low_gbp_pence: 320_000,
+        permit_traffic_mgmt_high_gbp_pence: 500_000,
+        permit_responsibility: Some("contractor_provided"),
+        economic_landed_cost_gbp_pence: 1_900_000,
+        decision_grade: "reject",
+        warnings: "[]",
+        blockers: r#"[{"code":"GOODS_DOMINANCE_FLOOR","message":"Goods value share 3158 bps is below the dominance floor.","severity":"blocked"}]"#,
+    };
+
+    insert_landed_cost_seed(conn, &seed)?;
+    let persisted = persisted_landed_cost_seed(conn, seed.id)?;
+    let blockers = stage11_issue_codes_from_json(&persisted.blockers)
+        .context("parsing E2E-IL-010 blocker codes")?;
+    let warnings = stage11_issue_codes_from_json(&persisted.warnings)
+        .context("parsing E2E-IL-010 warning codes")?;
+
+    ensure!(
+        persisted.goods_landed_cost_gbp_pence == 600_000
+            && persisted.installation_labour_cost_gbp_pence == 900_000
+            && persisted.permit_traffic_mgmt_cost_gbp_pence == 400_000
+            && persisted.economic_landed_cost_gbp_pence == 1_900_000,
+        "E2E-IL-010 traffic-signal fixture values changed"
+    );
+    ensure!(
+        goods_value_share_bps(
+            persisted.goods_landed_cost_gbp_pence,
+            persisted.installation_labour_cost_gbp_pence,
+            persisted.permit_traffic_mgmt_cost_gbp_pence,
+        ) == 3_158,
+        "E2E-IL-010 goods share must be 3158 bps"
+    );
+    ensure!(
+        persisted.decision_grade == "reject",
+        "E2E-IL-010 must reject via Phase-2 dominance, not category gate"
+    );
+    ensure!(
+        blockers.contains("GOODS_DOMINANCE_FLOOR") && warnings.is_empty(),
+        "E2E-IL-010 reject reason must be dominance floor, not service-gate or missing-data warnings"
     );
     Ok(())
 }
@@ -531,6 +595,22 @@ fn row_count_for_process(conn: &Connection, table_name: &str, process_id: &str) 
         |row| row.get(0),
     )
     .with_context(|| format!("counting rows in {table_name} for process {process_id}"))
+}
+
+fn stage11_issue_codes_from_json(raw: &str) -> Result<BTreeSet<String>> {
+    let value = serde_json::from_str::<Value>(raw)
+        .with_context(|| format!("parsing Stage 11 issue JSON `{raw}`"))?;
+    let Some(items) = value.as_array() else {
+        return Ok(BTreeSet::new());
+    };
+    Ok(items
+        .iter()
+        .filter_map(|item| match item {
+            Value::String(code) => Some(code.clone()),
+            Value::Object(map) => map.get("code").and_then(Value::as_str).map(str::to_owned),
+            _ => None,
+        })
+        .collect())
 }
 
 fn table_columns(conn: &Connection, table_name: &str) -> Result<BTreeSet<String>> {

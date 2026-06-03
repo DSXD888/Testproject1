@@ -318,6 +318,11 @@ const STAGE11_TARIFF_FRESHNESS_DAYS_ENV: &str = "STAGE11_TARIFF_FRESHNESS_DAYS";
 const STAGE11_FX_FRESHNESS_DAYS_DEFAULT: u64 = 1;
 const STAGE11_FX_FRESHNESS_DAYS_ENV: &str = "STAGE11_FX_FRESHNESS_DAYS";
 const STAGE11_SIMULATE_CAPTCHA_ENV: &str = "STAGE11_SIMULATE_CAPTCHA";
+const GOODS_DOMINANCE_FLOOR_BPS_ENV: &str = "GOODS_DOMINANCE_FLOOR_BPS";
+const GOODS_DOMINANCE_FLOOR_BPS_DEFAULT: i64 = 6_000;
+const GOODS_DOMINANCE_NEAR_FLOOR_REVIEW_BAND_BPS: i64 = 500;
+const GOODS_DOMINANCE_FLOOR_BLOCKER: &str = "GOODS_DOMINANCE_FLOOR";
+const GOODS_DOMINANCE_NEAR_FLOOR_REVIEW: &str = "GOODS_DOMINANCE_NEAR_FLOOR_REVIEW";
 const NET_MARGIN_STAGE_NAME: &str = "net margin gate";
 const NET_MARGIN_PASS_THRESHOLD_BPS: i64 = 2_000;
 const NET_MARGIN_REJECT_THRESHOLD_BPS: i64 = 500;
@@ -4909,6 +4914,14 @@ struct LandedCostAssessmentRow {
     /// candidate-level quantity is missing — `lot_value / unit_price` can
     /// approximate an order qty if the cost basis looks plausible.
     lot_estimated_value_pence: Option<i64>,
+    /// Latest qualification-run goods-addressable value for this lot/process.
+    /// Used only by the Phase-2 goods-dominance gate after landed-cost rows have
+    /// labour and permit/TM values available.
+    qualification_addressable_value_pence: Option<i64>,
+    /// Lot-level total value when available, otherwise notice-level estimated
+    /// value. Paired with `qualification_addressable_value_pence` for the
+    /// preferred contract-value dominance basis.
+    contract_total_value_pence: Option<i64>,
     notice_title: String,
     notice_summary: Option<String>,
     buyer_name: Option<String>,
@@ -5702,6 +5715,8 @@ fn build_decision_grade_landed_cost_candidate(
         );
     }
 
+    apply_phase2_goods_dominance_gate(&mut estimate, &mut warnings, &mut blockers);
+
     let blocker_codes = stage11_issue_codes(&blockers);
     estimate.decision_grade = decision_grade_for_l5_projection(&estimate, &blocker_codes);
     estimate.confidence_bps = decision_grade_confidence_bps(&estimate, &blocker_codes);
@@ -5732,6 +5747,95 @@ fn push_unique_stage11_issue(issues: &mut Vec<Stage11Issue>, issue: Stage11Issue
         return;
     }
     issues.push(issue);
+}
+
+fn goods_dominance_floor_bps_from_env_value(raw: Option<&str>) -> i64 {
+    raw.and_then(|value| value.trim().parse::<i64>().ok())
+        .filter(|value| (0..=10_000).contains(value))
+        .unwrap_or(GOODS_DOMINANCE_FLOOR_BPS_DEFAULT)
+}
+
+fn goods_dominance_floor_bps() -> i64 {
+    goods_dominance_floor_bps_from_env_value(
+        std::env::var(GOODS_DOMINANCE_FLOOR_BPS_ENV).ok().as_deref(),
+    )
+}
+
+fn rounded_value_share_bps(numerator_pence: i64, denominator_pence: i64) -> Option<i64> {
+    if numerator_pence < 0 || denominator_pence <= 0 {
+        return None;
+    }
+    Some(clamp_bps(
+        numerator_pence
+            .saturating_mul(10_000)
+            .saturating_add(denominator_pence / 2)
+            / denominator_pence,
+    ))
+}
+
+fn contract_value_goods_share_bps(estimate: &LandedCostEstimateWrite) -> Option<i64> {
+    let breakdown = parse_json_or_null(Some(&estimate.confidence_breakdown));
+    let goods_addressable_value_pence = optional_i64_at(
+        &breakdown,
+        &["goods_dominance_inputs", "goods_addressable_value_pence"],
+    )?;
+    let total_value_pence =
+        optional_i64_at(&breakdown, &["goods_dominance_inputs", "total_value_pence"])?;
+    rounded_value_share_bps(goods_addressable_value_pence, total_value_pence)
+}
+
+fn cost_proxy_goods_share_bps(estimate: &LandedCostEstimateWrite) -> Option<i64> {
+    let denominator = estimate
+        .goods_landed_cost_gbp_pence
+        .saturating_add(estimate.installation_labour_cost_gbp_pence)
+        .saturating_add(estimate.permit_traffic_mgmt_cost_gbp_pence);
+    rounded_value_share_bps(estimate.goods_landed_cost_gbp_pence, denominator)
+}
+
+fn phase2_goods_dominance_share_bps(
+    estimate: &LandedCostEstimateWrite,
+) -> Option<(i64, &'static str)> {
+    contract_value_goods_share_bps(estimate)
+        .map(|share_bps| (share_bps, "contract-value"))
+        .or_else(|| cost_proxy_goods_share_bps(estimate).map(|share_bps| (share_bps, "cost-proxy")))
+}
+
+fn apply_phase2_goods_dominance_gate(
+    estimate: &mut LandedCostEstimateWrite,
+    warnings: &mut Vec<Stage11Issue>,
+    blockers: &mut Vec<Stage11Issue>,
+) {
+    let Some((goods_share_bps, basis_label)) = phase2_goods_dominance_share_bps(estimate) else {
+        return;
+    };
+    let floor_bps = goods_dominance_floor_bps();
+    let reject_floor_bps = floor_bps.saturating_sub(GOODS_DOMINANCE_NEAR_FLOOR_REVIEW_BAND_BPS);
+    if goods_share_bps >= floor_bps {
+        return;
+    }
+    if goods_share_bps >= reject_floor_bps {
+        "review_required".clone_into(&mut estimate.decision_grade);
+        let band_bps = GOODS_DOMINANCE_NEAR_FLOOR_REVIEW_BAND_BPS;
+        push_unique_stage11_issue(
+            warnings,
+            Stage11Issue::warning(
+                GOODS_DOMINANCE_NEAR_FLOOR_REVIEW,
+                format!(
+                    "Goods value share is {goods_share_bps} bps on the {basis_label} basis, within {band_bps} bps of the configured {floor_bps} bps dominance floor; keep the opportunity in review because near-floor dominance cases are screening-grade.",
+                ),
+            ),
+        );
+        return;
+    }
+    push_unique_stage11_issue(
+        blockers,
+        Stage11Issue::blocked(
+            GOODS_DOMINANCE_FLOOR_BLOCKER,
+            format!(
+                "Goods value share is {goods_share_bps} bps on the {basis_label} basis, clearly below the configured {floor_bps} bps goods-dominance floor; treat as economically service-only.",
+            ),
+        ),
+    );
 }
 
 fn decision_grade_import_estimate(estimate: &LandedCostEstimateWrite) -> bool {
@@ -5876,6 +5980,10 @@ fn decision_grade_blocker_for_code(code: &str) -> Stage11Issue {
             SUPPLEMENTARY_UNIT_MISSING,
             "Required supplementary-unit evidence is unavailable; abstain on the affected duty component.",
         ),
+        GOODS_DOMINANCE_FLOOR_BLOCKER => Stage11Issue::blocked(
+            GOODS_DOMINANCE_FLOOR_BLOCKER,
+            "Goods value share is clearly below the configured dominance floor; the opportunity is economically service-only.",
+        ),
         other => Stage11Issue::blocked(
             other,
             "Decision-grade readiness blocker carried from L5 evidence.",
@@ -5949,6 +6057,11 @@ fn decision_grade_for_l5_projection(
     estimate: &LandedCostEstimateWrite,
     blocker_codes: &BTreeSet<String>,
 ) -> String {
+    if blocker_codes.contains(GOODS_DOMINANCE_FLOOR_BLOCKER)
+        || estimate.decision_grade.as_str() == "reject"
+    {
+        return "reject".to_owned();
+    }
     if !blocker_codes.is_empty()
         || matches!(
             estimate.decision_grade.as_str(),
@@ -5956,6 +6069,9 @@ fn decision_grade_for_l5_projection(
         )
     {
         return "broker_required".to_owned();
+    }
+    if estimate.decision_grade.as_str() == "review_required" {
+        return "review_required".to_owned();
     }
     if estimate.net_margin_low_bps >= NET_MARGIN_PASS_THRESHOLD_BPS
         && estimate.confidence_bps >= NET_MARGIN_PRICING_INPUT_CONFIDENCE_FLOOR_BPS
@@ -6127,13 +6243,15 @@ fn l5_to_l6_readiness_projection(
     blockers: &[Stage11Issue],
 ) -> Value {
     json!({
-        "blocks_ready_to_bid": estimate.decision_grade == "broker_required",
+        "blocks_ready_to_bid": landed_cost_bid_readiness_blocked(estimate),
         "blocker_codes": stage11_issue_codes(blockers).into_iter().collect::<Vec<_>>(),
         "gate_conditions": [
             CLASSIFICATION_AMBIGUOUS,
             TARIFF_BRANCH_DIVERGENCE,
             SUPPLEMENTARY_UNIT_MISSING,
+            GOODS_DOMINANCE_FLOOR_BLOCKER,
             "decision_grade=broker_required",
+            "decision_grade=reject",
             CLASSIFICATION_FRESH_UNTIL_EXPIRED
         ]
     })
@@ -6224,7 +6342,7 @@ fn evidence_leverage_item(
 fn landed_cost_bid_readiness_blocked(estimate: &LandedCostEstimateWrite) -> bool {
     matches!(
         estimate.decision_grade.as_str(),
-        "blocked" | "broker_required"
+        "blocked" | "broker_required" | "reject"
     )
 }
 
@@ -7826,6 +7944,19 @@ fn load_landed_cost_assessments(
           nl.title AS lot_title,
           nl.description AS lot_description,
           nl.estimated_value_pence AS lot_estimated_value_pence,
+          (
+            SELECT qr.addressable_value_pence
+            FROM qualification_runs qr
+            WHERE qr.process_id = cpa.process_id
+              AND qr.lot_id = pc.lot_id
+              AND qr.addressable_value_pence IS NOT NULL
+            ORDER BY qr.qualified_at DESC, qr.created_at DESC
+            LIMIT 1
+          ) AS qualification_addressable_value_pence,
+          COALESCE(
+            nl.estimated_value_pence,
+            cn.estimated_value_gbp_ex_vat_pence
+          ) AS contract_total_value_pence,
           cn.title AS notice_title,
           cn.summary AS notice_summary,
           cn.buyer_name,
@@ -7920,10 +8051,12 @@ fn load_landed_cost_assessments(
             lot_title: row.get(48)?,
             lot_description: row.get(49)?,
             lot_estimated_value_pence: row.get(50)?,
-            notice_title: row.get(51)?,
-            notice_summary: row.get(52)?,
-            buyer_name: row.get(53)?,
-            main_category: row.get(54)?,
+            qualification_addressable_value_pence: row.get(51)?,
+            contract_total_value_pence: row.get(52)?,
+            notice_title: row.get(53)?,
+            notice_summary: row.get(54)?,
+            buyer_name: row.get(55)?,
+            main_category: row.get(56)?,
             operator_override: None,
         })
     })?;
@@ -8502,6 +8635,10 @@ fn confidence_breakdown(
             "coverage_evidence": parse_json_or_null(Some(&row.coverage_evidence_json)),
         },
         "order_quantity_basis": order_quantity_basis.map(OrderQuantityBasis::to_json),
+        "goods_dominance_inputs": {
+            "goods_addressable_value_pence": row.qualification_addressable_value_pence,
+            "total_value_pence": row.contract_total_value_pence,
+        },
         "skill_versions": skill_versions,
         "skill_session_ids": skill_session_ids,
         "statuses": statuses,
@@ -26422,12 +26559,82 @@ mod tests {
             lot_title: Some("DGU supply".to_owned()),
             lot_description: Some("Supply double glazed units".to_owned()),
             lot_estimated_value_pence: None,
+            qualification_addressable_value_pence: None,
+            contract_total_value_pence: None,
             notice_title: "DGU notice".to_owned(),
             notice_summary: Some("DGU supply".to_owned()),
             buyer_name: Some("Buyer".to_owned()),
             main_category: Some("Glass".to_owned()),
             operator_override: None,
         }
+    }
+
+    fn phase2_dominance_decision(
+        goods_landed_cost_gbp_pence: i64,
+        installation_labour_cost_gbp_pence: i64,
+        permit_traffic_mgmt_cost_gbp_pence: i64,
+        qualification_addressable_value_pence: Option<i64>,
+        contract_total_value_pence: Option<i64>,
+    ) -> Result<super::LandedCostEstimateWrite> {
+        let mut row = stage11_undetermined_row_fixture();
+        row.critical_attributes_json = Some(
+            json!({
+                "installation_requirement": {
+                    "requires_installation": true,
+                    "requires_maintenance": false,
+                    "installation_scope": "install_only"
+                }
+            })
+            .to_string(),
+        );
+        row.expected_addressable_revenue_ex_vat_pence = 3_000_000;
+        row.revenue_basis_type = "expected_value".to_owned();
+        row.revenue_confidence_bps = 9_000;
+        row.gross_estimate_confidence_bps = 9_000;
+        row.pricing_input_confidence_bps = 9_000;
+        row.qualification_addressable_value_pence = qualification_addressable_value_pence;
+        row.contract_total_value_pence = contract_total_value_pence;
+        let supplier_cost = super::SupplierCostBasis {
+            supplier_cost_gbp_pence: goods_landed_cost_gbp_pence,
+            basis: "test_supplier_total".to_owned(),
+            quantity: 1.0,
+            quantity_unit: Some("lot".to_owned()),
+            warnings: Vec::new(),
+        };
+        let order_quantity_basis = super::OrderQuantityBasis::FromContractValue {
+            qty: 1.0,
+            contract_value_gbp_pence: row.expected_addressable_revenue_ex_vat_pence,
+            basis_unit: Some("lot".to_owned()),
+        };
+        let installation_labour = super::InstallationLabourCostBasis {
+            installation_labour_cost_gbp_pence,
+            installation_labour_low_gbp_pence: installation_labour_cost_gbp_pence,
+            installation_labour_high_gbp_pence: installation_labour_cost_gbp_pence,
+            installation_labour_confidence_bps: 8_000,
+            permit_traffic_mgmt_cost_gbp_pence,
+            permit_traffic_mgmt_low_gbp_pence: permit_traffic_mgmt_cost_gbp_pence,
+            permit_traffic_mgmt_high_gbp_pence: permit_traffic_mgmt_cost_gbp_pence,
+            permit_responsibility: Some("contractor_provided".to_owned()),
+        };
+        let screening = super::build_domestic_landed_cost_estimate(
+            &row,
+            &supplier_cost,
+            Some(&installation_labour),
+            "estimated",
+            "stage-run-phase2-dominance-test",
+            &order_quantity_basis,
+            &json!({
+                "hmrc_customs": "1.0.0",
+                "shipment_sizing": "1.0.0",
+                "searates_freight": "1.0.0",
+                "simple_fx": "1.0.0",
+                "uk_installation_labour": "1.0.0",
+            }),
+            &super::domestic_landed_cost_skill_session_ids(None),
+        )?;
+        Ok(super::build_decision_grade_landed_cost_candidate(
+            &screening,
+        ))
     }
 
     fn classified_customs_for(
@@ -29330,6 +29537,94 @@ mod tests {
             super::LandedCostPathMode::from_env_value(Some("unexpected")),
             super::LandedCostPathMode::DecisionGrade
         ));
+    }
+
+    #[test]
+    fn goods_dominance_floor_config_parser_defaults_to_6000_bps() {
+        assert_eq!(super::goods_dominance_floor_bps_from_env_value(None), 6_000);
+        assert_eq!(
+            super::goods_dominance_floor_bps_from_env_value(Some("7000")),
+            7_000
+        );
+        assert_eq!(
+            super::goods_dominance_floor_bps_from_env_value(Some("10001")),
+            6_000
+        );
+        assert_eq!(
+            super::goods_dominance_floor_bps_from_env_value(Some("not-a-number")),
+            6_000
+        );
+    }
+
+    #[test]
+    #[doc = "E2E-IL-006"]
+    fn e2e_il_006_phase2_dominance_gate_rejects_managed_cleaning_twin() -> Result<()> {
+        let decision_grade = phase2_dominance_decision(50_000, 950_000, 0, None, None)?;
+        let blockers = super::stage11_issues_from_json(&decision_grade.blockers);
+        let blocker_codes = super::stage11_issue_codes(&blockers);
+
+        assert_eq!(
+            super::cost_proxy_goods_share_bps(&decision_grade),
+            Some(500)
+        );
+        assert_eq!(decision_grade.decision_grade, "reject");
+        assert!(blocker_codes.contains(super::GOODS_DOMINANCE_FLOOR_BLOCKER));
+        assert!(super::landed_cost_bid_readiness_blocked(&decision_grade));
+        Ok(())
+    }
+
+    #[test]
+    #[doc = "E2E-IL-010"]
+    fn e2e_il_010_phase2_dominance_gate_rejects_traffic_signal_supply_installation() -> Result<()> {
+        let decision_grade = phase2_dominance_decision(600_000, 900_000, 400_000, None, None)?;
+        let blockers = super::stage11_issues_from_json(&decision_grade.blockers);
+        let blocker_codes = super::stage11_issue_codes(&blockers);
+
+        assert_eq!(
+            super::cost_proxy_goods_share_bps(&decision_grade),
+            Some(3_158)
+        );
+        assert_eq!(decision_grade.decision_grade, "reject");
+        assert!(blocker_codes.contains(super::GOODS_DOMINANCE_FLOOR_BLOCKER));
+        Ok(())
+    }
+
+    #[test]
+    fn phase2_dominance_gate_prefers_contract_value_share_when_available() -> Result<()> {
+        let decision_grade =
+            phase2_dominance_decision(50_000, 950_000, 0, Some(600_000), Some(1_000_000))?;
+        let blockers = super::stage11_issues_from_json(&decision_grade.blockers);
+        let blocker_codes = super::stage11_issue_codes(&blockers);
+
+        assert_eq!(
+            super::cost_proxy_goods_share_bps(&decision_grade),
+            Some(500)
+        );
+        assert_eq!(
+            super::contract_value_goods_share_bps(&decision_grade),
+            Some(6_000)
+        );
+        assert_ne!(decision_grade.decision_grade, "reject");
+        assert!(!blocker_codes.contains(super::GOODS_DOMINANCE_FLOOR_BLOCKER));
+        Ok(())
+    }
+
+    #[test]
+    fn phase2_dominance_gate_routes_near_floor_cost_proxy_to_review() -> Result<()> {
+        let decision_grade = phase2_dominance_decision(5_800, 4_200, 0, None, None)?;
+        let warnings = super::stage11_issues_from_json(&decision_grade.warnings);
+        let warning_codes = super::stage11_issue_codes(&warnings);
+        let blockers = super::stage11_issues_from_json(&decision_grade.blockers);
+        let blocker_codes = super::stage11_issue_codes(&blockers);
+
+        assert_eq!(
+            super::cost_proxy_goods_share_bps(&decision_grade),
+            Some(5_800)
+        );
+        assert_eq!(decision_grade.decision_grade, "review_required");
+        assert!(warning_codes.contains(super::GOODS_DOMINANCE_NEAR_FLOOR_REVIEW));
+        assert!(!blocker_codes.contains(super::GOODS_DOMINANCE_FLOOR_BLOCKER));
+        Ok(())
     }
 
     #[test]
