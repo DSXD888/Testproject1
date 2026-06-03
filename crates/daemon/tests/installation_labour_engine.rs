@@ -158,6 +158,7 @@ fn rs_seed_001_landed_cost_insert_sql_helper_direct_seeds_labour_columns() -> Re
 
     insert_landed_cost_seed(conn, &seed)?;
     let persisted = persisted_landed_cost_seed(conn, seed.id)?;
+    assert_landed_cost_money_and_bps_conventions("RS-SEED-001", &persisted)?;
 
     ensure!(
         persisted
@@ -223,6 +224,7 @@ fn e2e_il_001_festive_lights_persisted_row_reconstructs_all_in_goods_share() -> 
 
     insert_landed_cost_seed(conn, &seed)?;
     let persisted = persisted_landed_cost_seed(conn, seed.id)?;
+    assert_landed_cost_money_and_bps_conventions("E2E-IL-001", &persisted)?;
 
     ensure!(
         persisted.goods_landed_cost_gbp_pence == 1_000_000,
@@ -329,6 +331,7 @@ fn e2e_il_002_office_classroom_furniture_london_passes_without_access_equipment(
 
     insert_landed_cost_seed(conn, &seed)?;
     let persisted = persisted_landed_cost_seed(conn, seed.id)?;
+    assert_landed_cost_money_and_bps_conventions("E2E-IL-002", &persisted)?;
     let requirement = installation_requirement_payload(conn)?;
     let trades = json_string_set(&requirement, "trades");
     let rate_cell = requirement
@@ -435,6 +438,8 @@ fn e2e_il_003_wooden_shelving_reviews_and_metal_twin_preserves_customs_duty() ->
     insert_landed_cost_seed(conn, &metal_twin_seed)?;
     let wooden = persisted_landed_cost_seed(conn, wooden_seed.id)?;
     let metal_twin = persisted_landed_cost_seed(conn, metal_twin_seed.id)?;
+    assert_landed_cost_money_and_bps_conventions("E2E-IL-003 wooden", &wooden)?;
+    assert_landed_cost_money_and_bps_conventions("E2E-IL-003 metal twin", &metal_twin)?;
     let requirement = installation_requirement_payload(conn)?;
     let trades = json_string_set(&requirement, "trades");
     let warnings = stage11_issue_codes_from_json(&wooden.warnings)
@@ -530,6 +535,7 @@ fn e2e_il_009_cctv_supply_install_yh_reviews_with_distinct_resolver_output() -> 
 
     insert_landed_cost_seed(conn, &seed)?;
     let persisted = persisted_landed_cost_seed(conn, seed.id)?;
+    assert_landed_cost_money_and_bps_conventions("E2E-IL-009", &persisted)?;
     let requirement = installation_requirement_payload(conn)?;
     let trades = json_string_set(&requirement, "trades");
     let scenario_1_trades = BTreeSet::from(["electrician".to_owned(), "labourer".to_owned()]);
@@ -650,6 +656,8 @@ fn e2e_il_004_playground_maintenance_persists_first_class_period_estimate() -> R
 
     let persisted_landed_cost = persisted_landed_cost_seed(conn, landed_cost.id)?;
     let persisted_maintenance = persisted_maintenance_period_seed(conn, maintenance.id)?;
+    assert_landed_cost_money_and_bps_conventions("E2E-IL-004", &persisted_landed_cost)?;
+    assert_maintenance_money_and_bps_conventions("E2E-IL-004", &persisted_maintenance)?;
 
     ensure!(
         persisted_maintenance.product_candidate_id == maintenance.product_candidate_id
@@ -747,6 +755,7 @@ fn e2e_il_008_pure_a4_copier_paper_preserves_goods_only_economics() -> Result<()
 
     insert_landed_cost_seed(conn, &seed)?;
     let persisted = persisted_landed_cost_seed(conn, seed.id)?;
+    assert_landed_cost_money_and_bps_conventions("E2E-IL-008", &persisted)?;
     let critical_attributes_json: Option<String> = conn.query_row(
         "SELECT critical_attributes_json FROM product_candidates WHERE id = 'il-seed-candidate'",
         [],
@@ -855,6 +864,7 @@ fn neg_ctrl_002_e2e_il_006_managed_cleaning_rejects_on_dominance_floor_if_phase2
 
     insert_landed_cost_seed(conn, &seed)?;
     let persisted = persisted_landed_cost_seed(conn, seed.id)?;
+    assert_landed_cost_money_and_bps_conventions("E2E-IL-006", &persisted)?;
     let blockers = stage11_issue_codes_from_json(&persisted.blockers)
         .context("parsing E2E-IL-006 blocker codes")?;
     let warnings = stage11_issue_codes_from_json(&persisted.warnings)
@@ -919,6 +929,7 @@ fn e2e_il_010_traffic_signal_supply_installation_rejects_on_phase2_dominance_flo
 
     insert_landed_cost_seed(conn, &seed)?;
     let persisted = persisted_landed_cost_seed(conn, seed.id)?;
+    assert_landed_cost_money_and_bps_conventions("E2E-IL-010", &persisted)?;
     let blockers = stage11_issue_codes_from_json(&persisted.blockers)
         .context("parsing E2E-IL-010 blocker codes")?;
     let warnings = stage11_issue_codes_from_json(&persisted.warnings)
@@ -991,6 +1002,8 @@ fn e2e_il_011_bespoke_made_to_measure_windows_reviews_with_control_twin() -> Res
     insert_landed_cost_seed(conn, &bespoke_seed)?;
     let control = persisted_landed_cost_seed(conn, control_seed.id)?;
     let bespoke = persisted_landed_cost_seed(conn, bespoke_seed.id)?;
+    assert_landed_cost_money_and_bps_conventions("E2E-IL-011 control", &control)?;
+    assert_landed_cost_money_and_bps_conventions("E2E-IL-011 bespoke", &bespoke)?;
     let control_warnings = stage11_issue_codes_from_json(&control.warnings)
         .context("parsing E2E-IL-011 control warning codes")?;
     let control_blockers = stage11_issue_codes_from_json(&control.blockers)
@@ -1131,15 +1144,30 @@ fn assert_rejected_service_qualification(
     process_id: &str,
     qualification_id: &str,
 ) -> Result<()> {
-    let (goods_qualified, legal_category, rationale): (i64, String, String) = conn
+    let (
+        goods_qualified,
+        legal_category,
+        goods_confidence_bps,
+        goods_density_score_bps,
+        rationale,
+    ): (i64, String, i64, i64, String) = conn
         .query_row(
             "\
-            SELECT goods_qualified, legal_category, rationale
+            SELECT goods_qualified, legal_category, goods_confidence_bps,
+                   goods_density_score_bps, rationale
             FROM qualification_runs
             WHERE process_id = ?1 AND id = ?2
             ",
             params![process_id, qualification_id],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                ))
+            },
         )
         .context("reading rejected service qualification run")?;
 
@@ -1149,6 +1177,11 @@ fn assert_rejected_service_qualification(
             && rationale.contains("reject_service")
             && rationale.contains("no_goods_head_noun"),
         "negative-control qualification must persist the reject_service/no-goods-head-noun gate"
+    );
+    ensure!(
+        (0..=10_000).contains(&goods_confidence_bps)
+            && (0..=10_000).contains(&goods_density_score_bps),
+        "negative-control qualification bps fields must stay within 0..=10000"
     );
     Ok(())
 }
@@ -1360,6 +1393,105 @@ fn decision_manifest_basis_line(
             .saturating_add(landed_cost.permit_traffic_mgmt_cost_gbp_pence),
         decision_basis.review_reason.as_deref().unwrap_or("n/a"),
     )
+}
+
+fn assert_landed_cost_money_and_bps_conventions(
+    test_id: &str,
+    persisted: &PersistedLandedCostSeed,
+) -> Result<()> {
+    for (field_name, value) in [
+        ("customs_duty_gbp_pence", persisted.customs_duty_gbp_pence),
+        (
+            "goods_landed_cost_gbp_pence",
+            persisted.goods_landed_cost_gbp_pence,
+        ),
+        (
+            "installation_labour_cost_gbp_pence",
+            persisted.installation_labour_cost_gbp_pence,
+        ),
+        (
+            "installation_labour_low_gbp_pence",
+            persisted.installation_labour_low_gbp_pence,
+        ),
+        (
+            "installation_labour_high_gbp_pence",
+            persisted.installation_labour_high_gbp_pence,
+        ),
+        (
+            "permit_traffic_mgmt_cost_gbp_pence",
+            persisted.permit_traffic_mgmt_cost_gbp_pence,
+        ),
+        (
+            "permit_traffic_mgmt_low_gbp_pence",
+            persisted.permit_traffic_mgmt_low_gbp_pence,
+        ),
+        (
+            "permit_traffic_mgmt_high_gbp_pence",
+            persisted.permit_traffic_mgmt_high_gbp_pence,
+        ),
+        (
+            "economic_landed_cost_gbp_pence",
+            persisted.economic_landed_cost_gbp_pence,
+        ),
+    ] {
+        ensure!(
+            value >= 0,
+            "{test_id} {field_name} must be non-negative integer pence"
+        );
+    }
+
+    ensure!(
+        (0..=10_000).contains(&persisted.installation_labour_confidence_bps),
+        "{test_id} installation_labour_confidence_bps must stay within 0..=10000"
+    );
+    let expected_economic = persisted
+        .goods_landed_cost_gbp_pence
+        .saturating_add(persisted.installation_labour_cost_gbp_pence)
+        .saturating_add(persisted.permit_traffic_mgmt_cost_gbp_pence);
+    ensure!(
+        persisted.economic_landed_cost_gbp_pence == expected_economic,
+        "{test_id} economic landed cost must reconstruct from goods + labour + permit/TM pence"
+    );
+    let share = goods_value_share_bps(
+        persisted.goods_landed_cost_gbp_pence,
+        persisted.installation_labour_cost_gbp_pence,
+        persisted.permit_traffic_mgmt_cost_gbp_pence,
+    );
+    ensure!(
+        (0..=10_000).contains(&share),
+        "{test_id} reconstructed goods_value_share_bps must stay within 0..=10000"
+    );
+    Ok(())
+}
+
+fn assert_maintenance_money_and_bps_conventions(
+    test_id: &str,
+    persisted: &PersistedMaintenancePeriodSeed,
+) -> Result<()> {
+    for (field_name, value) in [
+        (
+            "per_visit_labour_cost_gbp_pence",
+            persisted.per_visit_labour_cost_gbp_pence,
+        ),
+        (
+            "annualised_opex_gbp_pence",
+            persisted.annualised_opex_gbp_pence,
+        ),
+        (
+            "total_visible_term_opex_gbp_pence",
+            persisted.total_visible_term_opex_gbp_pence,
+        ),
+    ] {
+        ensure!(
+            value >= 0,
+            "{test_id} {field_name} must be non-negative integer pence"
+        );
+    }
+    ensure!(
+        (0..=10_000).contains(&persisted.maintenance_confidence_bps),
+        "{test_id} maintenance_confidence_bps must stay within 0..=10000"
+    );
+    Ok(())
 }
 
 fn row_count_for_process(conn: &Connection, table_name: &str, process_id: &str) -> Result<i64> {
