@@ -292,6 +292,7 @@ const LANDED_COST_BATCH_SIZE: i64 = 20;
 const LANDED_COST_SKILL_TIMEOUT_SECONDS: u64 = 300;
 const LANDED_COST_STAGE_NAME: &str = "landed cost";
 const LANDED_COST_SCOPE_KIND: &str = "candidate_quote";
+const LANDED_COST_UK_INSTALLATION_LABOUR_JOB_KIND: &str = "landed_cost_uk_installation_labour";
 // Stage 11 CDP / captcha resilience knobs (handoff stage-11-hardening-cdp-resilience).
 // `STAGE11_SKILL_RETRY_PER_ATTEMPT_SECONDS` bounds each SeaRates attempt only —
 // the outer 300s bound still gates total time. Live CDP validation showed the
@@ -5437,6 +5438,12 @@ struct InstallationLabourCostBasis {
     permit_responsibility: Option<String>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum InstallationLabourInvocation {
+    Invoke,
+    SkipNoInstallationRequirement,
+}
+
 #[derive(Debug, Clone)]
 struct LandedCostEstimateWrite {
     id: String,
@@ -7497,6 +7504,49 @@ fn landed_cost_skill_session_ids(
     })
 }
 
+fn installation_requirement_from_critical_attributes(
+    row: &LandedCostAssessmentRow,
+) -> Option<Value> {
+    let critical_attributes = row.critical_attributes_json.as_deref()?;
+    let parsed: Value = serde_json::from_str(critical_attributes).ok()?;
+    let requirement = parsed.get("installation_requirement")?.clone();
+    if requirement.is_null() {
+        return None;
+    }
+    let requires_installation = requirement
+        .get("requires_installation")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let requires_maintenance = requirement
+        .get("requires_maintenance")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    if requires_installation || requires_maintenance {
+        Some(requirement)
+    } else {
+        None
+    }
+}
+
+fn installation_labour_invocation_for_row(
+    row: &LandedCostAssessmentRow,
+) -> InstallationLabourInvocation {
+    if installation_requirement_from_critical_attributes(row).is_some() {
+        InstallationLabourInvocation::Invoke
+    } else {
+        InstallationLabourInvocation::SkipNoInstallationRequirement
+    }
+}
+
+const fn installation_labour_job_kind_for_invocation(
+    invocation: InstallationLabourInvocation,
+) -> Option<&'static str> {
+    match invocation {
+        InstallationLabourInvocation::Invoke => Some(LANDED_COST_UK_INSTALLATION_LABOUR_JOB_KIND),
+        InstallationLabourInvocation::SkipNoInstallationRequirement => None,
+    }
+}
+
 #[allow(clippy::too_many_lines)]
 fn load_landed_cost_assessments(
     conn: &Connection,
@@ -9411,6 +9461,7 @@ async fn run_landed_cost_live_loop(
         let stage_run_id = allocate_stage_run_id();
         let supplier_cost = compute_supplier_cost_basis(row);
         let order_quantity_basis = infer_order_quantity_basis(row);
+        let installation_labour_invocation = installation_labour_invocation_for_row(row);
         let skill_versions = json!({
             "hmrc_customs": hmrc_skill.metadata.skill_version,
             "shipment_sizing": sizing_skill.metadata.skill_version,
@@ -9420,10 +9471,21 @@ async fn run_landed_cost_live_loop(
 
         if is_domestic_uk_quote(row) {
             domestic += 1;
+            let installation_labour = None::<InstallationLabourCostBasis>;
+            if let Some(job_kind) =
+                installation_labour_job_kind_for_invocation(installation_labour_invocation)
+            {
+                ::tracing::debug!(
+                    candidate_id = %row.product_candidate_id,
+                    job_kind = job_kind,
+                    flow = "domestic",
+                    "stage11.uk_installation_labour.sequence_slot"
+                );
+            }
             let screening_estimate = build_domestic_landed_cost_estimate(
                 row,
                 &supplier_cost,
-                None,
+                installation_labour.as_ref(),
                 &stage_run_id,
                 &order_quantity_basis,
                 &skill_versions,
@@ -9681,6 +9743,18 @@ async fn run_landed_cost_live_loop(
             }
         }
 
+        let installation_labour = None::<InstallationLabourCostBasis>;
+        if let Some(job_kind) =
+            installation_labour_job_kind_for_invocation(installation_labour_invocation)
+        {
+            ::tracing::debug!(
+                candidate_id = %row.product_candidate_id,
+                job_kind = job_kind,
+                flow = "import",
+                "stage11.uk_installation_labour.sequence_slot"
+            );
+        }
+
         let skill_session_ids = landed_cost_skill_session_ids(
             &customs_outcome,
             sizing_outcome.as_ref(),
@@ -9707,7 +9781,7 @@ async fn run_landed_cost_live_loop(
             customs.as_ref(),
             sizing.as_ref(),
             &freight,
-            None,
+            installation_labour.as_ref(),
             &order_quantity_basis,
             &skill_versions,
             &skill_session_ids,
@@ -29489,6 +29563,80 @@ mod tests {
         assert_eq!(estimate.net_margin_high_bps, 3_370);
         assert_eq!(estimate.decision_grade, "review");
         Ok(())
+    }
+
+    #[test]
+    fn installation_labour_job_kind_is_landed_cost_scoped() {
+        assert_eq!(
+            super::LANDED_COST_UK_INSTALLATION_LABOUR_JOB_KIND,
+            "landed_cost_uk_installation_labour"
+        );
+        assert!(super::LANDED_COST_UK_INSTALLATION_LABOUR_JOB_KIND.starts_with("landed_cost_"));
+    }
+
+    #[test]
+    fn installation_labour_invocation_detects_install_or_maintenance_requirement() {
+        let mut row = stage11_row_fixture();
+        row.critical_attributes_json = Some(
+            json!({
+                "installation_requirement": {
+                    "requires_installation": true,
+                    "requires_maintenance": false,
+                    "installation_scope": "install_only"
+                }
+            })
+            .to_string(),
+        );
+        let invocation = super::installation_labour_invocation_for_row(&row);
+        assert_eq!(invocation, super::InstallationLabourInvocation::Invoke);
+        assert_eq!(
+            super::installation_labour_job_kind_for_invocation(invocation),
+            Some(super::LANDED_COST_UK_INSTALLATION_LABOUR_JOB_KIND)
+        );
+
+        row.critical_attributes_json = Some(
+            json!({
+                "installation_requirement": {
+                    "requires_installation": false,
+                    "requires_maintenance": true,
+                    "maintenance_schedule": {"visits_per_year": 2}
+                }
+            })
+            .to_string(),
+        );
+        assert_eq!(
+            super::installation_labour_invocation_for_row(&row),
+            super::InstallationLabourInvocation::Invoke
+        );
+    }
+
+    #[test]
+    fn installation_labour_invocation_skips_without_requirement() {
+        let mut row = stage11_row_fixture();
+        assert_eq!(
+            super::installation_labour_invocation_for_row(&row),
+            super::InstallationLabourInvocation::SkipNoInstallationRequirement
+        );
+        assert_eq!(
+            super::installation_labour_job_kind_for_invocation(
+                super::installation_labour_invocation_for_row(&row)
+            ),
+            None
+        );
+
+        row.critical_attributes_json = Some(
+            json!({
+                "installation_requirement": {
+                    "requires_installation": false,
+                    "requires_maintenance": false
+                }
+            })
+            .to_string(),
+        );
+        assert_eq!(
+            super::installation_labour_invocation_for_row(&row),
+            super::InstallationLabourInvocation::SkipNoInstallationRequirement
+        );
     }
 
     #[test]
