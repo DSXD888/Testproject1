@@ -108,8 +108,24 @@ Start with a narrow goods-category whitelist: commodity-like products with low r
 | **Basic furniture** | **Hard.** Material and construction method matter too much. Wood-only simple items are workable. Metal shelving, office screens, partition systems, modular frames — remedy adjacency jumps sharply. | **High for metal subfamilies.** Organic coated steel: AD rates 0%–26.1%, CVD rates 13.7%–44.7% residual. Aluminium extrusions: 0%–35.1% residual. | Metal shelving/frames have live UK trade remedy measures. |
 | **Packaging materials** | **Split: easy subfamilies / dangerous subfamilies.** Corrugated cartons and simple poly mailers are easy. Foil, glass containers, metal can/tin mill families are high-risk. | **Very high for dangerous subfamilies.** Aluminium foil: 14.2%–35.6% residual (to June 2029). Glass containers from China: active investigation AD0087 (opened 5 March 2026). Tin mill products: 27.85% cooperating / 49.98% residual (imposed 12 March 2026). | Cached "no remedy risk" assumptions go stale fast; packaging should be treated as two sub-categories. |
 
+**Goods-led install/maintenance expansion (low-reg, gated):**
+
+These categories may enter production only through labelled gold-set slices. Each slice must satisfy the category-specific gate before live use; until then the category is evaluation-only.
+
+| Slice Label | Category | Admission Notes |
+|-------------|----------|-----------------|
+| `gold-slice: install_lighting_festive_led` | Festive/LED lighting supply-install and seasonal de-install | Low-reg public-realm goods-led mixed work; permit and access-at-height assumptions route to review when unresolved. |
+| `gold-slice: install_signage_low_reg` | Signage supply-install | Low-reg physical goods with fitting labour; excludes wayfinding consultancy-only services. |
+| `gold-slice: install_fencing_low_reg` | Fencing supply-install | Low-reg outdoor goods plus installation; excludes civil-engineering-only works packages. |
+| `gold-slice: install_playground_outdoor` | Playground/outdoor equipment supply-install-maintain | Goods-led capital event with recurring maintenance kept as visible opex. |
+| `gold-slice: install_blinds_low_reg` | Blinds supply-install | Low-reg made-to-size commodity installation; bespoke/custom-manufactured flags still route to review. |
+| `gold-slice: install_shelving_wood_plastic` | Shelving/racking (wood/plastic) supply-fit | Admitted as a low-reg furniture-adjacent slice when material evidence is wood or plastic. |
+| `gold-slice: install_existing_furniture_ppe` | Install on existing furniture/PPE | Labour can price fitting/assembly for existing goods, but the underlying goods must remain in the L0 whitelist. |
+| `gold-slice: metal_shelving_racking_trade_remedy_watchlist` | Metal shelving/racking split-out | Trade-remedy-heavy; not part of the wood/plastic slice and requires separate customs remedy evidence before production. |
+
 **Explicit no-list (defer until system proves reliable on whitelist):**
 
+- Biocidal products and treated biocidal articles
 - Medical devices
 - Pharmaceuticals
 - IT hardware (complex specifications)

@@ -192,6 +192,50 @@ fn rs_seed_001_landed_cost_insert_sql_helper_direct_seeds_labour_columns() -> Re
 }
 
 #[test]
+#[doc = "GOLD-L0-002"]
+fn gold_l0_002_l0_whitelist_doc_contains_goods_led_install_expansion() -> Result<()> {
+    let doc = include_str!("../../../docs/strategy/layers/layer-0-gold-set-evaluation.md");
+    let (_, after_heading) = doc
+        .split_once("### 1.6 Category Whitelist")
+        .context("GOLD-L0-002 missing L0 category whitelist section")?;
+    let (section, _) = after_heading
+        .split_once("### 1.7 Project Shape")
+        .context("GOLD-L0-002 category whitelist section has no terminator")?;
+
+    for required_text in [
+        "Goods-led install/maintenance expansion (low-reg, gated)",
+        "gold-slice: install_lighting_festive_led",
+        "Festive/LED lighting",
+        "gold-slice: install_signage_low_reg",
+        "Signage",
+        "gold-slice: install_fencing_low_reg",
+        "Fencing",
+        "gold-slice: install_playground_outdoor",
+        "Playground/outdoor equipment",
+        "gold-slice: install_blinds_low_reg",
+        "Blinds",
+        "gold-slice: install_shelving_wood_plastic",
+        "Shelving/racking (wood/plastic)",
+        "gold-slice: install_existing_furniture_ppe",
+        "Install on existing furniture/PPE",
+        "gold-slice: metal_shelving_racking_trade_remedy_watchlist",
+        "Metal shelving/racking split-out",
+        "Trade-remedy-heavy",
+        "Biocidal products",
+        "Medical devices",
+        "Chemicals",
+        "Bespoke/custom-manufactured goods",
+    ] {
+        ensure!(
+            section.contains(required_text),
+            "GOLD-L0-002 whitelist section missing required text: {required_text}"
+        );
+    }
+
+    Ok(())
+}
+
+#[test]
 #[doc = "E2E-IL-001"]
 fn e2e_il_001_festive_lights_persisted_row_reconstructs_all_in_goods_share() -> Result<()> {
     let db = L4TestStateDb::new()?;
