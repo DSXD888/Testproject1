@@ -9,10 +9,10 @@ import {
 
 describe("goods qualification", () => {
   it("TS-QUAL-001: classifies CPV families into goods, services, works, mixed, and unknown deterministically", () => {
-    expect(classifyLegalCategory(["33100000-1"])).toBe("goods");
+    expect(classifyLegalCategory(["39100000-3"])).toBe("goods");
     expect(classifyLegalCategory(["50750000-7"])).toBe("services");
     expect(classifyLegalCategory(["45233120-6"])).toBe("works");
-    expect(classifyLegalCategory(["33100000-1", "50750000-7"])).toBe("mixed");
+    expect(classifyLegalCategory(["39100000-3", "50750000-7"])).toBe("mixed");
     expect(classifyLegalCategory(["invalid"])).toBe("unknown");
   });
 
@@ -20,7 +20,7 @@ describe("goods qualification", () => {
     const now = "2026-03-28T00:00:00.000Z";
 
     const ordinary = qualifyGoodsOpportunity({
-      cpvCodes: ["33100000-1"],
+      cpvCodes: ["39100000-3"],
       tenderDeadline: "2026-04-05T00:00:00.000Z",
       now,
       procedureType: "open procedure",
@@ -28,7 +28,7 @@ describe("goods qualification", () => {
       totalValuePence: 100_000,
     });
     const dps = qualifyGoodsOpportunity({
-      cpvCodes: ["33100000-1"],
+      cpvCodes: ["39100000-3"],
       tenderDeadline: "2026-04-05T00:00:00.000Z",
       now,
       procedureType: "dynamic market",
@@ -43,7 +43,7 @@ describe("goods qualification", () => {
 
   it("TS-QUAL-003a: passes separable mixed at or above the goods value-share floor", () => {
     const result = qualifyGoodsOpportunity({
-      cpvCodes: ["33100000-1", "50750000-7"],
+      cpvCodes: ["39100000-3", "50750000-7"],
       tenderDeadline: "2026-06-30T00:00:00.000Z",
       now: "2026-03-28T00:00:00.000Z",
       accessRoute: "open_tender",
@@ -64,7 +64,7 @@ describe("goods qualification", () => {
 
   it("TS-QUAL-003b: reviews separable mixed below the goods value-share floor", () => {
     const result = qualifyGoodsOpportunity({
-      cpvCodes: ["33100000-1", "50750000-7"],
+      cpvCodes: ["39100000-3", "50750000-7"],
       tenderDeadline: "2026-06-30T00:00:00.000Z",
       now: "2026-03-28T00:00:00.000Z",
       accessRoute: "open_tender",
@@ -85,20 +85,20 @@ describe("goods qualification", () => {
 
   it("TS-QUAL-004: preserves reviewability and rationale for low-confidence cases", () => {
     const result = qualifyGoodsOpportunity({
-      cpvCodes: ["33100000-1"],
+      cpvCodes: ["39100000-3"],
       tenderDeadline: "2026-06-30T00:00:00.000Z",
       now: "2026-03-28T00:00:00.000Z",
       accessRoute: "open_tender",
       qualificationBasis: "notice_only",
       totalValuePence: 200_000,
       goodsConfidenceBps: 4500,
-      rationale: ["Initial deterministic CPV match indicates a medical-goods family."],
+      rationale: ["Initial deterministic CPV match indicates a physical-goods family."],
     });
 
     expect(result.qualificationResult).toBe("review");
     expect(result.goodsQualified).toBe(true);
     expect(result.rationale).toContain(
-      "Initial deterministic CPV match indicates a medical-goods family.",
+      "Initial deterministic CPV match indicates a physical-goods family.",
     );
     expect(result.rationale.some((entry) => entry.includes("autonomous threshold"))).toBe(
       true,
@@ -124,7 +124,7 @@ describe("goods qualification", () => {
 
   it("TS-QUAL-006: provisionally admits credible goods-bearing mixed and works notices", () => {
     const mixed = qualifyGoodsOpportunity({
-      cpvCodes: ["33100000-1", "50750000-7"],
+      cpvCodes: ["39100000-3", "50750000-7"],
       tenderDeadline: "2026-06-30T00:00:00.000Z",
       now: "2026-03-28T00:00:00.000Z",
       accessRoute: "open_tender",
@@ -170,7 +170,7 @@ describe("goods qualification", () => {
 
   it("TS-QUAL-008: prefers contract-value share and never passes separable mixed on density alone", () => {
     const valueSharePass = qualifyGoodsOpportunity({
-      cpvCodes: ["33100000-1", "50750000-7"],
+      cpvCodes: ["39100000-3", "50750000-7"],
       tenderDeadline: "2026-06-30T00:00:00.000Z",
       now: "2026-03-28T00:00:00.000Z",
       accessRoute: "open_tender",
@@ -184,7 +184,7 @@ describe("goods qualification", () => {
       goodsConfidenceBps: 6500,
     });
     const missingNumerator = qualifyGoodsOpportunity({
-      cpvCodes: ["33100000-1", "50750000-7"],
+      cpvCodes: ["39100000-3", "50750000-7"],
       tenderDeadline: "2026-06-30T00:00:00.000Z",
       now: "2026-03-28T00:00:00.000Z",
       accessRoute: "open_tender",
@@ -202,5 +202,54 @@ describe("goods qualification", () => {
     expect(valueSharePass.qualificationResult).toBe("pass");
     expect(missingNumerator.addressableValuePence).toBeNull();
     expect(missingNumerator.qualificationResult).toBe("review");
+  });
+
+  it("TS-QUAL-007: bespoke and high-confidence no-list flags force exclusion routing", () => {
+    const control = qualifyGoodsOpportunity({
+      cpvCodes: ["44221000-5", "45421132-8"],
+      tenderDeadline: "2026-06-30T00:00:00.000Z",
+      now: "2026-03-28T00:00:00.000Z",
+      accessRoute: "open_tender",
+      qualificationBasis: "lot_level",
+      totalValuePence: 3_400_000,
+      goodsAddressableValuePence: 3_000_000,
+      goodsSeparability: true,
+      goodsConfidenceBps: 9000,
+    });
+    const bespoke = qualifyGoodsOpportunity({
+      cpvCodes: ["44221000-5", "45421132-8"],
+      title: "Supply and installation of made-to-measure windows",
+      tenderDeadline: "2026-06-30T00:00:00.000Z",
+      now: "2026-03-28T00:00:00.000Z",
+      accessRoute: "open_tender",
+      qualificationBasis: "lot_level",
+      totalValuePence: 3_400_000,
+      goodsAddressableValuePence: 3_000_000,
+      goodsSeparability: true,
+      goodsConfidenceBps: 9000,
+    });
+    const noList = qualifyGoodsOpportunity({
+      cpvCodes: ["33100000-1"],
+      description: "Supply of medical devices",
+      tenderDeadline: "2026-06-30T00:00:00.000Z",
+      now: "2026-03-28T00:00:00.000Z",
+      accessRoute: "open_tender",
+      qualificationBasis: "notice_only",
+      totalValuePence: 900_000,
+      goodsConfidenceBps: 9500,
+    });
+
+    expect(control.qualificationResult).toBe("pass");
+    expect(control.exclusionReasons).toEqual([]);
+    expect(bespoke.qualificationResult).toBe("review");
+    expect(bespoke.exclusionReasons).toContain("out_of_scope_bespoke");
+    expect(
+      bespoke.rationale.some((entry) => entry.includes("out_of_scope_bespoke")),
+    ).toBe(true);
+    expect(noList.qualificationResult).toBe("reject");
+    expect(noList.exclusionReasons).toContain("out_of_scope_no_list");
+    expect(noList.rationale.some((entry) => entry.includes("medical no-list"))).toBe(
+      true,
+    );
   });
 });

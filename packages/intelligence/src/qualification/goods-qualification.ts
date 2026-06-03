@@ -20,6 +20,9 @@ export interface GoodsDensitySignals {
 
 export interface GoodsQualificationInput {
   cpvCodes: string[];
+  title?: string | null;
+  description?: string | null;
+  descriptionText?: string | null;
   tenderDeadline?: string | null;
   now?: string | Date;
   procedureType?: string | null;
@@ -44,6 +47,7 @@ export interface GoodsQualificationOutput {
   addressableValuePence: number | null;
   accessRoute: AccessRoute;
   qualificationResult: QualificationDecision;
+  exclusionReasons: string[];
   rationale: string[];
 }
 
@@ -60,6 +64,15 @@ const REJECTED_ACCESS_ROUTES = new Set<AccessRoute>([
 
 const GOODS_DOMINANCE_FLOOR_BPS = 6000;
 const GOODS_PRESENCE_FLOOR_BPS = 3500;
+const NO_LIST_HIGH_CONFIDENCE_BPS = 8000;
+const OUT_OF_SCOPE_BESPOKE = "out_of_scope_bespoke";
+const OUT_OF_SCOPE_NO_LIST = "out_of_scope_no_list";
+
+interface ScopeExclusionFlag {
+  reason: typeof OUT_OF_SCOPE_BESPOKE | typeof OUT_OF_SCOPE_NO_LIST;
+  disposition: QualificationDecision;
+  evidence: string;
+}
 
 export function qualifyGoodsOpportunity(
   input: GoodsQualificationInput,
@@ -107,6 +120,17 @@ export function qualifyGoodsOpportunity(
     goodsSeparability,
     totalValuePence: input.totalValuePence,
   });
+  const exclusionFlags = detectScopeExclusionFlags({
+    cpvCodes: input.cpvCodes,
+    description: input.description,
+    descriptionText: input.descriptionText,
+    goodsConfidenceBps,
+    title: input.title,
+  });
+
+  for (const flag of exclusionFlags) {
+    rationale.push(`${flag.reason}: ${flag.evidence}`);
+  }
 
   const qualificationResult = determineQualificationDecision({
     legalCategory,
@@ -117,6 +141,7 @@ export function qualifyGoodsOpportunity(
     goodsSeparability,
     addressableValuePence,
     totalValuePence: input.totalValuePence,
+    exclusionFlags,
   });
 
   return {
@@ -130,6 +155,7 @@ export function qualifyGoodsOpportunity(
     addressableValuePence,
     accessRoute,
     qualificationResult,
+    exclusionReasons: exclusionFlags.map((flag) => flag.reason),
     rationale,
   };
 }
@@ -328,6 +354,7 @@ function determineQualificationDecision(input: {
   goodsSeparability: GoodsSeparability;
   addressableValuePence: number | null;
   totalValuePence?: number | null;
+  exclusionFlags: ScopeExclusionFlag[];
   accessRoute: AccessRoute;
   expiryVerdict: QualificationDecision;
 }): QualificationDecision {
@@ -340,6 +367,14 @@ function determineQualificationDecision(input: {
   }
 
   if (input.expiryVerdict === "review") {
+    return "review";
+  }
+
+  if (input.exclusionFlags.some((flag) => flag.disposition === "reject")) {
+    return "reject";
+  }
+
+  if (input.exclusionFlags.some((flag) => flag.disposition === "review")) {
     return "review";
   }
 
@@ -408,6 +443,80 @@ function computeValueShareBps(
   }
 
   return Math.round((addressableValuePence * 10_000) / totalValuePence);
+}
+
+function detectScopeExclusionFlags(input: {
+  cpvCodes: string[];
+  title?: string | null;
+  description?: string | null;
+  descriptionText?: string | null;
+  goodsConfidenceBps: number;
+}): ScopeExclusionFlag[] {
+  const flags: ScopeExclusionFlag[] = [];
+  const noListFamily = detectNoListCpvFamily(input.cpvCodes);
+  if (noListFamily !== null) {
+    flags.push({
+      reason: OUT_OF_SCOPE_NO_LIST,
+      disposition:
+        input.goodsConfidenceBps >= NO_LIST_HIGH_CONFIDENCE_BPS ? "reject" : "review",
+      evidence: `CPV ${noListFamily.code} matches ${noListFamily.family} no-list family`,
+    });
+  }
+
+  const bespokeIndicator = detectBespokeIndicator([
+    input.title,
+    input.description,
+    input.descriptionText,
+  ]);
+  if (bespokeIndicator !== null) {
+    flags.push({
+      reason: OUT_OF_SCOPE_BESPOKE,
+      disposition: "review",
+      evidence: `notice text contains ${bespokeIndicator}`,
+    });
+  }
+
+  return flags;
+}
+
+function detectNoListCpvFamily(
+  cpvCodes: readonly string[],
+): { family: string; code: string } | null {
+  const families: Array<{ family: string; prefixes: readonly string[] }> = [
+    { family: "pharma", prefixes: ["336"] },
+    { family: "medical", prefixes: ["331", "33"] },
+    { family: "chemical", prefixes: ["24"] },
+    { family: "vehicles", prefixes: ["34"] },
+  ];
+
+  for (const rawCode of cpvCodes) {
+    const code = rawCode.replaceAll(/[^0-9]/g, "");
+    for (const family of families) {
+      if (family.prefixes.some((prefix) => code.startsWith(prefix))) {
+        return {
+          family: family.family,
+          code: rawCode,
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
+function detectBespokeIndicator(textParts: readonly Array<string | null | undefined>) {
+  const normalizedText = textParts
+    .filter((part): part is string => part !== null && part !== undefined)
+    .join(" ")
+    .toLowerCase();
+
+  const indicators: Array<[RegExp, string]> = [
+    [/\bbespoke\b/, "bespoke"],
+    [/\bmade\s*[- ]\s*to\s*[- ]\s*measure\b/, "made-to-measure"],
+    [/\bcustom\s*[- ]\s*manufactur(?:ed|e|ing)\b/, "custom-manufactured"],
+  ];
+
+  return indicators.find(([pattern]) => pattern.test(normalizedText))?.[1] ?? null;
 }
 
 function clamp(value: number, min: number, max: number): number {
