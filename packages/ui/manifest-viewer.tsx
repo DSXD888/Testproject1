@@ -210,6 +210,28 @@ function formatBps(value: number | null): string {
   return `${sign}${percent}% (${value.toLocaleString('en-GB')} bps)`;
 }
 
+function formatContextText(value: string | null): string {
+  if (value === null || value.trim() === '') {
+    return 'Unknown';
+  }
+
+  return sanitizeUntrustedText(value);
+}
+
+function renderContextList(values: string[]): ReactElement {
+  if (values.length === 0) {
+    return <span>None</span>;
+  }
+
+  return (
+    <ul>
+      {values.map((value) => (
+        <li key={value}>{sanitizeUntrustedText(value)}</li>
+      ))}
+    </ul>
+  );
+}
+
 function renderGoodsLedCostTable(
   context: GoodsLedReviewContextPayload | null | undefined,
 ): ReactElement | null {
@@ -253,6 +275,59 @@ function renderGoodsLedCostTable(
           </tr>
         </tbody>
       </table>
+      <dl
+        className="manifest-viewer__cost-context"
+        data-testid="manifest-goods-led-context"
+      >
+        <div data-testid="manifest-context-region">
+          <dt>Region</dt>
+          <dd>{formatContextText(context.region)}</dd>
+        </div>
+        <div data-testid="manifest-context-installation-scope">
+          <dt>Installation scope</dt>
+          <dd>{formatContextText(context.installationScope)}</dd>
+        </div>
+        <div data-testid="manifest-context-equipment-assumptions">
+          <dt>Equipment assumptions</dt>
+          <dd>{renderContextList(context.equipmentAssumptions)}</dd>
+        </div>
+        <div data-testid="manifest-context-warning-codes">
+          <dt>Warning codes</dt>
+          <dd>{renderContextList(context.warningCodes)}</dd>
+        </div>
+        <div data-testid="manifest-context-goods-share-basis">
+          <dt>Goods-share basis</dt>
+          <dd>{formatContextText(context.goodsShareBasis)}</dd>
+        </div>
+        <div data-testid="manifest-context-goods-share-floor">
+          <dt>Goods-share floor</dt>
+          <dd>{formatBps(context.goodsShareFloorBps)}</dd>
+        </div>
+        <div data-testid="manifest-context-decision-route">
+          <dt>Decision route</dt>
+          <dd>{sanitizeUntrustedText(context.decisionRoute)}</dd>
+        </div>
+      </dl>
+      <section
+        aria-label="Goods-led estimate disclosure"
+        className="manifest-viewer__cost-disclosure"
+        data-testid="manifest-cost-disclosure"
+      >
+        <h4>Estimate disclosure</h4>
+        <ul>
+          <li data-testid="manifest-screening-grade-disclosure">
+            Screening-grade estimate (+/-20%).
+          </li>
+          <li data-testid="manifest-vat-treatment-disclosure">
+            VAT treatment: labour and permit/TM screening values are ex-VAT.
+          </li>
+          <li data-testid="manifest-exclusions-disclosure">
+            What is excluded: this is not a firm quote and does not price Sorellon's
+            direct delivery of installation work; the platform estimates subcontracted
+            installation and maintenance cost only.
+          </li>
+        </ul>
+      </section>
     </section>
   );
 }

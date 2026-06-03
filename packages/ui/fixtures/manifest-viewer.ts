@@ -26,7 +26,7 @@ export const manifestViewerFixture: ManifestViewerProps = {
     region: 'london',
     installationScope: 'supply_install',
     equipmentAssumptions: ['operated_mewp'],
-    warningCodes: [],
+    warningCodes: ['PERMIT_RESPONSIBILITY_UNKNOWN', 'ACCESS_AT_HEIGHT_ASSUMED_MEWP'],
     goodsShareBasis: 'cost_proxy',
     goodsShareFloorBps: 6_000,
     decisionRoute: 'review',

@@ -172,7 +172,7 @@ describe('packages/ui components', () => {
     expect(markup).toContain('75% (7,500 bps)');
   });
 
-  it('UI-AGB-002 renders the separate permit and traffic-management row', () => {
+  it('UI-AGB-002 renders permit context, warnings, route, and screening disclosure', () => {
     const markup = renderToStaticMarkup(<ManifestViewer {...manifestViewerFixture} />);
 
     expect(markup).toContain('data-testid="manifest-cost-row-permit-traffic-management"');
@@ -181,6 +181,29 @@ describe('packages/ui components', () => {
     expect(markup).toContain('£250.00');
     expect(markup).toContain('£500.00');
     expect(markup).toContain('unknown');
+    expect(markup).toContain('data-testid="manifest-goods-led-context"');
+    expect(markup).toContain('Region');
+    expect(markup).toContain('london');
+    expect(markup).toContain('Installation scope');
+    expect(markup).toContain('supply_install');
+    expect(markup).toContain('Equipment assumptions');
+    expect(markup).toContain('operated_mewp');
+    expect(markup).toContain('Warning codes');
+    expect(markup).toContain('PERMIT_RESPONSIBILITY_UNKNOWN');
+    expect(markup).toContain('ACCESS_AT_HEIGHT_ASSUMED_MEWP');
+    expect(markup).toContain('Goods-share basis');
+    expect(markup).toContain('cost_proxy');
+    expect(markup).toContain('Goods-share floor');
+    expect(markup).toContain('60% (6,000 bps)');
+    expect(markup).toContain('Decision route');
+    expect(markup).toContain('review');
+    expect(markup).toContain('Screening-grade estimate (+/-20%).');
+    expect(markup).toContain('VAT treatment');
+    expect(markup).toContain('ex-VAT');
+    expect(markup).toContain('What is excluded');
+    expect(markup).toContain('not a firm quote');
+    expect(markup).toContain('does not price Sorellon');
+    expect(markup).toContain('direct delivery of installation work');
   });
 
   it('keeps hostile unicode controls visible and bounds oversized payloads', () => {
