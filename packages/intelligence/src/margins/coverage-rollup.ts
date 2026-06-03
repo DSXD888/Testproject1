@@ -18,6 +18,8 @@ export interface CoverageLotInput {
 
 export interface CoverageInput {
   lots: CoverageLotInput[];
+  installationRequirementPresent?: boolean | null;
+  permitTrafficMgmtRequirementPresent?: boolean | null;
   goodsLandedCostGbpPence?: number | null;
   installationLabourCostGbpPence?: number | null;
   permitTrafficMgmtCostGbpPence?: number | null;
@@ -31,6 +33,11 @@ export interface CoverageMetrics {
   landedCostValueCoverageBps: number;
   netQualifiedValueCoverageBps: number;
   goodsValueShareBps?: number | null;
+  installationLabourCoverageBps?: number | null;
+  installationLabourValueCoverageBps?: number | null;
+  permitTrafficMgmtCoverageBps?: number | null;
+  permitTrafficMgmtValueCoverageBps?: number | null;
+  labourPermitCoverageReviewRequired?: boolean;
   unresolvedMandatoryLots: number;
 }
 
@@ -45,6 +52,8 @@ export interface CoverageDecisionSupport {
   thresholdBand: CoverageThresholdBand;
   valueWeightedGateReady: boolean;
   autoQualificationFloorBps: number;
+  labourPermitCoverageReady: boolean;
+  reviewRequired: boolean;
 }
 
 export const AUTO_QUALIFICATION_VALUE_FLOOR_BPS = 5000;
@@ -82,14 +91,20 @@ export function getCoverageDecisionSupport(
   metrics: Pick<
     CoverageMetrics,
     "netQualifiedCoverageBps" | "netQualifiedValueCoverageBps"
-  >,
+  > &
+    Partial<Pick<CoverageMetrics, "labourPermitCoverageReviewRequired">>,
 ): CoverageDecisionSupport {
+  const labourPermitCoverageReady = !metrics.labourPermitCoverageReviewRequired;
+  const valueWeightedGateReady =
+    isAutoQualificationReady(metrics.netQualifiedValueCoverageBps) &&
+    labourPermitCoverageReady;
+
   return {
     thresholdBand: describeCoverageThreshold(metrics.netQualifiedCoverageBps),
-    valueWeightedGateReady: isAutoQualificationReady(
-      metrics.netQualifiedValueCoverageBps,
-    ),
+    valueWeightedGateReady,
     autoQualificationFloorBps: AUTO_QUALIFICATION_VALUE_FLOOR_BPS,
+    labourPermitCoverageReady,
+    reviewRequired: !valueWeightedGateReady,
   };
 }
 
@@ -97,6 +112,16 @@ export function computeCoverageRollup(input: CoverageInput): CoverageOutput {
   const qualifyingLots = input.lots.filter((lot) => lot.qualificationResult !== "reject");
   const qualifyingLotCount = qualifyingLots.length;
   const goodsValueShareBps = computeGoodsValueShareBps(input);
+  const labourCoverage = computeRequiredCostCoverage(
+    input.installationRequirementPresent === true,
+    input.installationLabourCostGbpPence,
+  );
+  const permitTrafficMgmtCoverage = computeRequiredCostCoverage(
+    input.permitTrafficMgmtRequirementPresent === true,
+    input.permitTrafficMgmtCostGbpPence,
+  );
+  const labourPermitCoverageReviewRequired =
+    labourCoverage.reviewRequired || permitTrafficMgmtCoverage.reviewRequired;
 
   const pricedLotCount = qualifyingLots.filter((lot) =>
     lot.candidates.some((candidate) => candidate.hasPricing),
@@ -153,7 +178,38 @@ export function computeCoverageRollup(input: CoverageInput): CoverageOutput {
       totalQualifyingValuePence,
     ),
     goodsValueShareBps,
+    installationLabourCoverageBps: labourCoverage.coverageBps,
+    installationLabourValueCoverageBps: labourCoverage.valueCoverageBps,
+    permitTrafficMgmtCoverageBps: permitTrafficMgmtCoverage.coverageBps,
+    permitTrafficMgmtValueCoverageBps: permitTrafficMgmtCoverage.valueCoverageBps,
+    labourPermitCoverageReviewRequired,
     unresolvedMandatoryLots,
+  };
+}
+
+interface RequiredCostCoverage {
+  coverageBps: number | null;
+  valueCoverageBps: number | null;
+  reviewRequired: boolean;
+}
+
+function computeRequiredCostCoverage(
+  requirementPresent: boolean,
+  costGbpPence: number | null | undefined,
+): RequiredCostCoverage {
+  if (!requirementPresent) {
+    return {
+      coverageBps: null,
+      valueCoverageBps: null,
+      reviewRequired: false,
+    };
+  }
+
+  const coverageBps = isKnownPence(costGbpPence) ? 10000 : 0;
+  return {
+    coverageBps,
+    valueCoverageBps: coverageBps,
+    reviewRequired: coverageBps === 0,
   };
 }
 

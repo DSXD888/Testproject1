@@ -144,6 +144,8 @@ describe("computeCoverageRollup", () => {
       },
       valueWeightedGateReady: false,
       autoQualificationFloorBps: AUTO_QUALIFICATION_VALUE_FLOOR_BPS,
+      labourPermitCoverageReady: true,
+      reviewRequired: true,
     });
   });
 
@@ -341,5 +343,109 @@ describe("computeCoverageRollup", () => {
     });
 
     expect(output.goodsValueShareBps).toBe(6944);
+  });
+
+  it("TS-COV-008: permits/TM push goods share down through the all-in denominator", () => {
+    const prePermitOutput = computeCoverageRollup({
+      lots: [],
+      goodsLandedCostGbpPence: 1_000_000,
+      installationLabourCostGbpPence: 240_000,
+      permitTrafficMgmtCostGbpPence: 0,
+    });
+    const allInOutput = computeCoverageRollup({
+      lots: [],
+      goodsLandedCostGbpPence: 1_000_000,
+      installationLabourCostGbpPence: 240_000,
+      permitTrafficMgmtCostGbpPence: 200_000,
+    });
+    const permitHeavyOutput = computeCoverageRollup({
+      lots: [],
+      goodsLandedCostGbpPence: 1_000_000,
+      installationLabourCostGbpPence: 240_000,
+      permitTrafficMgmtCostGbpPence: 540_000,
+    });
+
+    expect(prePermitOutput.goodsValueShareBps).toBe(8065);
+    expect(allInOutput.goodsValueShareBps).toBe(6944);
+    expect(permitHeavyOutput.goodsValueShareBps).toBeLessThan(6000);
+  });
+
+  it("TS-COV-009: adds labour/permit coverage metrics with conservative null handling", () => {
+    const completeOutput = computeCoverageRollup({
+      lots: [
+        {
+          lotId: "lot-a",
+          qualificationResult: "pass",
+          isMandatory: true,
+          lotAddressableValuePence: 100_000,
+          candidates: [
+            {
+              candidateId: "cand-a1",
+              hasPricing: true,
+              hasLandedCost: true,
+              passesNetGate: true,
+              candidateValueShareBps: 10_000,
+            },
+          ],
+        },
+      ],
+      installationRequirementPresent: true,
+      permitTrafficMgmtRequirementPresent: true,
+      installationLabourCostGbpPence: 240_000,
+      permitTrafficMgmtCostGbpPence: 200_000,
+    });
+    const missingLabourOutput = computeCoverageRollup({
+      lots: [
+        {
+          lotId: "lot-a",
+          qualificationResult: "pass",
+          isMandatory: true,
+          lotAddressableValuePence: 100_000,
+          candidates: [
+            {
+              candidateId: "cand-a1",
+              hasPricing: true,
+              hasLandedCost: true,
+              passesNetGate: true,
+              candidateValueShareBps: 10_000,
+            },
+          ],
+        },
+      ],
+      installationRequirementPresent: true,
+      permitTrafficMgmtRequirementPresent: true,
+      installationLabourCostGbpPence: null,
+      permitTrafficMgmtCostGbpPence: 200_000,
+    });
+    const notApplicableOutput = computeCoverageRollup({
+      lots: [],
+      installationRequirementPresent: false,
+      permitTrafficMgmtRequirementPresent: false,
+    });
+
+    expect(completeOutput.installationLabourCoverageBps).toBe(10000);
+    expect(completeOutput.installationLabourValueCoverageBps).toBe(10000);
+    expect(completeOutput.permitTrafficMgmtCoverageBps).toBe(10000);
+    expect(completeOutput.permitTrafficMgmtValueCoverageBps).toBe(10000);
+    expect(completeOutput.labourPermitCoverageReviewRequired).toBe(false);
+    expect(getCoverageDecisionSupport(completeOutput).valueWeightedGateReady).toBe(
+      true,
+    );
+
+    expect(missingLabourOutput.installationLabourCoverageBps).toBe(0);
+    expect(missingLabourOutput.installationLabourValueCoverageBps).toBe(0);
+    expect(missingLabourOutput.permitTrafficMgmtCoverageBps).toBe(10000);
+    expect(missingLabourOutput.labourPermitCoverageReviewRequired).toBe(true);
+    expect(getCoverageDecisionSupport(missingLabourOutput)).toMatchObject({
+      labourPermitCoverageReady: false,
+      valueWeightedGateReady: false,
+      reviewRequired: true,
+    });
+
+    expect(notApplicableOutput.installationLabourCoverageBps).toBeNull();
+    expect(notApplicableOutput.installationLabourValueCoverageBps).toBeNull();
+    expect(notApplicableOutput.permitTrafficMgmtCoverageBps).toBeNull();
+    expect(notApplicableOutput.permitTrafficMgmtValueCoverageBps).toBeNull();
+    expect(notApplicableOutput.labourPermitCoverageReviewRequired).toBe(false);
   });
 });
