@@ -320,7 +320,9 @@ const STAGE11_FX_FRESHNESS_DAYS_ENV: &str = "STAGE11_FX_FRESHNESS_DAYS";
 const STAGE11_SIMULATE_CAPTCHA_ENV: &str = "STAGE11_SIMULATE_CAPTCHA";
 const GOODS_DOMINANCE_FLOOR_BPS_ENV: &str = "GOODS_DOMINANCE_FLOOR_BPS";
 const GOODS_DOMINANCE_FLOOR_BPS_DEFAULT: i64 = 6_000;
-const GOODS_DOMINANCE_NEAR_FLOOR_REVIEW_BAND_BPS: i64 = 500;
+const GOODS_DOMINANCE_NEAR_FLOOR_REVIEW_BAND_BPS_ENV: &str =
+    "GOODS_DOMINANCE_NEAR_FLOOR_REVIEW_BAND_BPS";
+const GOODS_DOMINANCE_NEAR_FLOOR_REVIEW_BAND_BPS_DEFAULT: i64 = 500;
 const GOODS_DOMINANCE_FLOOR_BLOCKER: &str = "GOODS_DOMINANCE_FLOOR";
 const GOODS_DOMINANCE_NEAR_FLOOR_REVIEW: &str = "GOODS_DOMINANCE_NEAR_FLOOR_REVIEW";
 const NET_MARGIN_STAGE_NAME: &str = "net margin gate";
@@ -5761,6 +5763,20 @@ fn goods_dominance_floor_bps() -> i64 {
     )
 }
 
+fn goods_dominance_review_band_bps_from_env_value(raw: Option<&str>) -> i64 {
+    raw.and_then(|value| value.trim().parse::<i64>().ok())
+        .filter(|value| (0..=10_000).contains(value))
+        .unwrap_or(GOODS_DOMINANCE_NEAR_FLOOR_REVIEW_BAND_BPS_DEFAULT)
+}
+
+fn goods_dominance_review_band_bps() -> i64 {
+    goods_dominance_review_band_bps_from_env_value(
+        std::env::var(GOODS_DOMINANCE_NEAR_FLOOR_REVIEW_BAND_BPS_ENV)
+            .ok()
+            .as_deref(),
+    )
+}
+
 fn rounded_value_share_bps(numerator_pence: i64, denominator_pence: i64) -> Option<i64> {
     if numerator_pence < 0 || denominator_pence <= 0 {
         return None;
@@ -5796,8 +5812,8 @@ fn phase2_goods_dominance_share_bps(
     estimate: &LandedCostEstimateWrite,
 ) -> Option<(i64, &'static str)> {
     contract_value_goods_share_bps(estimate)
-        .map(|share_bps| (share_bps, "contract-value"))
-        .or_else(|| cost_proxy_goods_share_bps(estimate).map(|share_bps| (share_bps, "cost-proxy")))
+        .map(|share_bps| (share_bps, "contract_value"))
+        .or_else(|| cost_proxy_goods_share_bps(estimate).map(|share_bps| (share_bps, "cost_proxy")))
 }
 
 fn apply_phase2_goods_dominance_gate(
@@ -5809,19 +5825,19 @@ fn apply_phase2_goods_dominance_gate(
         return;
     };
     let floor_bps = goods_dominance_floor_bps();
-    let reject_floor_bps = floor_bps.saturating_sub(GOODS_DOMINANCE_NEAR_FLOOR_REVIEW_BAND_BPS);
+    let review_band_bps = goods_dominance_review_band_bps();
+    let reject_floor_bps = floor_bps.saturating_sub(review_band_bps);
     if goods_share_bps >= floor_bps {
         return;
     }
     if goods_share_bps >= reject_floor_bps {
         "review_required".clone_into(&mut estimate.decision_grade);
-        let band_bps = GOODS_DOMINANCE_NEAR_FLOOR_REVIEW_BAND_BPS;
         push_unique_stage11_issue(
             warnings,
             Stage11Issue::warning(
                 GOODS_DOMINANCE_NEAR_FLOOR_REVIEW,
                 format!(
-                    "Goods value share is {goods_share_bps} bps on the {basis_label} basis, within {band_bps} bps of the configured {floor_bps} bps dominance floor; keep the opportunity in review because near-floor dominance cases are screening-grade.",
+                    "Goods value share is {goods_share_bps} bps on the {basis_label} basis, within {review_band_bps} bps of the configured {floor_bps} bps dominance floor; keep the opportunity in review because near-floor dominance cases are screening-grade.",
                 ),
             ),
         );
@@ -29557,6 +29573,30 @@ mod tests {
     }
 
     #[test]
+    fn goods_dominance_review_band_config_parser_defaults_to_500_bps() {
+        assert_eq!(
+            super::goods_dominance_review_band_bps_from_env_value(None),
+            500
+        );
+        assert_eq!(
+            super::goods_dominance_review_band_bps_from_env_value(Some("750")),
+            750
+        );
+        assert_eq!(
+            super::goods_dominance_review_band_bps_from_env_value(Some("10001")),
+            500
+        );
+        assert_eq!(
+            super::goods_dominance_review_band_bps_from_env_value(Some("-1")),
+            500
+        );
+        assert_eq!(
+            super::goods_dominance_review_band_bps_from_env_value(Some("not-a-number")),
+            500
+        );
+    }
+
+    #[test]
     #[doc = "E2E-IL-006"]
     fn e2e_il_006_phase2_dominance_gate_rejects_managed_cleaning_twin() -> Result<()> {
         let decision_grade = phase2_dominance_decision(50_000, 950_000, 0, None, None)?;
@@ -29623,6 +29663,60 @@ mod tests {
         );
         assert_eq!(decision_grade.decision_grade, "review_required");
         assert!(warning_codes.contains(super::GOODS_DOMINANCE_NEAR_FLOOR_REVIEW));
+        assert!(!blocker_codes.contains(super::GOODS_DOMINANCE_FLOOR_BLOCKER));
+        Ok(())
+    }
+
+    #[test]
+    fn phase2_dominance_gate_routes_cost_proxy_at_review_band_floor_to_review() -> Result<()> {
+        let decision_grade = phase2_dominance_decision(5_500, 4_500, 0, None, None)?;
+        let warnings = super::stage11_issues_from_json(&decision_grade.warnings);
+        let warning_codes = super::stage11_issue_codes(&warnings);
+        let blockers = super::stage11_issues_from_json(&decision_grade.blockers);
+        let blocker_codes = super::stage11_issue_codes(&blockers);
+
+        assert_eq!(
+            super::cost_proxy_goods_share_bps(&decision_grade),
+            Some(5_500)
+        );
+        assert_eq!(decision_grade.decision_grade, "review_required");
+        assert!(warning_codes.contains(super::GOODS_DOMINANCE_NEAR_FLOOR_REVIEW));
+        assert!(!blocker_codes.contains(super::GOODS_DOMINANCE_FLOOR_BLOCKER));
+        Ok(())
+    }
+
+    #[test]
+    fn phase2_dominance_gate_rejects_cost_proxy_below_review_band() -> Result<()> {
+        let decision_grade = phase2_dominance_decision(5_499, 4_501, 0, None, None)?;
+        let warnings = super::stage11_issues_from_json(&decision_grade.warnings);
+        let warning_codes = super::stage11_issue_codes(&warnings);
+        let blockers = super::stage11_issues_from_json(&decision_grade.blockers);
+        let blocker_codes = super::stage11_issue_codes(&blockers);
+
+        assert_eq!(
+            super::cost_proxy_goods_share_bps(&decision_grade),
+            Some(5_499)
+        );
+        assert_eq!(decision_grade.decision_grade, "reject");
+        assert!(!warning_codes.contains(super::GOODS_DOMINANCE_NEAR_FLOOR_REVIEW));
+        assert!(blocker_codes.contains(super::GOODS_DOMINANCE_FLOOR_BLOCKER));
+        Ok(())
+    }
+
+    #[test]
+    #[doc = "E2E-IL-011"]
+    fn e2e_il_011_bespoke_window_control_clears_phase2_dominance() -> Result<()> {
+        let decision_grade = phase2_dominance_decision(3_000_000, 400_000, 0, None, None)?;
+        let warnings = super::stage11_issues_from_json(&decision_grade.warnings);
+        let warning_codes = super::stage11_issue_codes(&warnings);
+        let blockers = super::stage11_issues_from_json(&decision_grade.blockers);
+        let blocker_codes = super::stage11_issue_codes(&blockers);
+
+        assert_eq!(
+            super::cost_proxy_goods_share_bps(&decision_grade),
+            Some(8_824)
+        );
+        assert!(!warning_codes.contains(super::GOODS_DOMINANCE_NEAR_FLOOR_REVIEW));
         assert!(!blocker_codes.contains(super::GOODS_DOMINANCE_FLOOR_BLOCKER));
         Ok(())
     }

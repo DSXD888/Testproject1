@@ -445,6 +445,94 @@ fn e2e_il_010_traffic_signal_supply_installation_rejects_on_phase2_dominance_flo
 }
 
 #[test]
+#[doc = "E2E-IL-011"]
+fn e2e_il_011_bespoke_made_to_measure_windows_reviews_with_control_twin() -> Result<()> {
+    let db = L4TestStateDb::new()?;
+    let conn = db.connection();
+    apply_installation_labour_migration_if_needed(conn)?;
+    let ids = db.seed_push_owned_rows()?;
+    seed_candidate_and_quote(conn, &ids.process_id, &ids.notice_id, &ids.lot_id)?;
+
+    let control_seed = LandedCostSeed {
+        id: "e2e-il-011-windows-control",
+        process_id: &ids.process_id,
+        notice_id: &ids.notice_id,
+        product_candidate_id: "il-seed-candidate",
+        supplier_quote_id: "il-seed-quote",
+        goods_landed_cost_gbp_pence: 3_000_000,
+        installation_labour_cost_gbp_pence: 400_000,
+        installation_labour_low_gbp_pence: 360_000,
+        installation_labour_high_gbp_pence: 480_000,
+        installation_labour_confidence_bps: 8_000,
+        permit_traffic_mgmt_cost_gbp_pence: 0,
+        permit_traffic_mgmt_low_gbp_pence: 0,
+        permit_traffic_mgmt_high_gbp_pence: 0,
+        permit_responsibility: None,
+        economic_landed_cost_gbp_pence: 3_400_000,
+        decision_grade: "auto_pass",
+        warnings: "[]",
+        blockers: "[]",
+    };
+    let bespoke_seed = LandedCostSeed {
+        id: "e2e-il-011-windows-bespoke",
+        decision_grade: "review",
+        warnings: r#"[{"code":"out_of_scope_bespoke","message":"Made-to-measure windows require scope review.","severity":"warning"}]"#,
+        ..control_seed.clone()
+    };
+
+    insert_landed_cost_seed(conn, &control_seed)?;
+    insert_landed_cost_seed(conn, &bespoke_seed)?;
+    let control = persisted_landed_cost_seed(conn, control_seed.id)?;
+    let bespoke = persisted_landed_cost_seed(conn, bespoke_seed.id)?;
+    let control_warnings = stage11_issue_codes_from_json(&control.warnings)
+        .context("parsing E2E-IL-011 control warning codes")?;
+    let control_blockers = stage11_issue_codes_from_json(&control.blockers)
+        .context("parsing E2E-IL-011 control blocker codes")?;
+    let bespoke_warnings = stage11_issue_codes_from_json(&bespoke.warnings)
+        .context("parsing E2E-IL-011 bespoke warning codes")?;
+    let bespoke_blockers = stage11_issue_codes_from_json(&bespoke.blockers)
+        .context("parsing E2E-IL-011 bespoke blocker codes")?;
+
+    ensure!(
+        control.goods_landed_cost_gbp_pence == 3_000_000
+            && control.installation_labour_cost_gbp_pence == 400_000
+            && control.permit_traffic_mgmt_cost_gbp_pence == 0
+            && control.economic_landed_cost_gbp_pence == 3_400_000,
+        "E2E-IL-011 control fixture values changed"
+    );
+    ensure!(
+        goods_value_share_bps(
+            control.goods_landed_cost_gbp_pence,
+            control.installation_labour_cost_gbp_pence,
+            control.permit_traffic_mgmt_cost_gbp_pence,
+        ) == 8_824,
+        "E2E-IL-011 goods share must be 8824 bps"
+    );
+    ensure!(
+        control.decision_grade == "auto_pass"
+            && control_warnings.is_empty()
+            && control_blockers.is_empty(),
+        "E2E-IL-011 control twin without bespoke flag must pass Stage 11"
+    );
+    ensure!(
+        bespoke.goods_landed_cost_gbp_pence == control.goods_landed_cost_gbp_pence
+            && bespoke.installation_labour_cost_gbp_pence
+                == control.installation_labour_cost_gbp_pence
+            && bespoke.permit_traffic_mgmt_cost_gbp_pence
+                == control.permit_traffic_mgmt_cost_gbp_pence
+            && bespoke.economic_landed_cost_gbp_pence == control.economic_landed_cost_gbp_pence,
+        "E2E-IL-011 bespoke arm must keep the same economics as the control twin"
+    );
+    ensure!(
+        bespoke.decision_grade == "review"
+            && bespoke_warnings.contains("out_of_scope_bespoke")
+            && !bespoke_blockers.contains("GOODS_DOMINANCE_FLOOR"),
+        "E2E-IL-011 real case must review for out_of_scope_bespoke, not dominance floor"
+    );
+    Ok(())
+}
+
+#[test]
 #[doc = "NEG-CTRL-003"]
 #[doc = "E2E-IL-007"]
 fn neg_ctrl_003_e2e_il_007_electrical_maintenance_stops_before_labour_invocation() -> Result<()> {
