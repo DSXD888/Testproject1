@@ -231,10 +231,17 @@ fn e2e_il_001_festive_lights_persisted_row_reconstructs_all_in_goods_share() -> 
         "E2E-IL-001 goods-only landed subtotal must be persisted"
     );
     ensure!(
-        persisted.installation_labour_cost_gbp_pence == 240_000
-            && persisted.installation_labour_low_gbp_pence == 210_000
+        (210_000..=265_000).contains(&persisted.installation_labour_cost_gbp_pence),
+        "E2E-IL-001 persisted NW labour base must stay inside the hard acceptance band"
+    );
+    ensure!(
+        persisted.installation_labour_cost_gbp_pence == 240_000,
+        "E2E-IL-001 labour base fixture changed"
+    );
+    ensure!(
+        persisted.installation_labour_low_gbp_pence == 210_000
             && persisted.installation_labour_high_gbp_pence == 265_000,
-        "E2E-IL-001 labour 3-point band changed"
+        "E2E-IL-001 labour low/high band changed"
     );
     ensure!(
         persisted.permit_traffic_mgmt_cost_gbp_pence == 200_000
