@@ -29,6 +29,32 @@ export type MaintenanceMarginSignal =
   | 'profile_maintenance_model'
   | 'schedule_explicit';
 
+export const INSTALLATION_LABOUR_WARNING_CODES = [
+  'LABOUR_REGION_UNKNOWN',
+  'LABOUR_SCOPE_UNRESOLVED',
+  'ACCESS_AT_HEIGHT_ASSUMED_MEWP',
+  'MAINTENANCE_TERM_ASSUMED',
+  'RATE_TABLE_STALE',
+  'PERMIT_RESPONSIBILITY_UNKNOWN',
+  'LANE_RENTAL_ZONE',
+  'TTRO_LEAD_TIME_RISK',
+] as const;
+
+export type InstallationLabourWarningCode =
+  (typeof INSTALLATION_LABOUR_WARNING_CODES)[number];
+
+export const GOODS_LED_REVIEW_REASON_CODES = [
+  'near_floor_cost_proxy',
+  'unresolved_permit_responsibility',
+  'no_list_bespoke_flag',
+  'labour_uncertainty',
+] as const;
+
+export type GoodsLedReviewReason =
+  (typeof GOODS_LED_REVIEW_REASON_CODES)[number];
+
+export type GoodsLedDecisionRoute = 'pass' | 'review' | 'reject';
+
 export type MaintenanceSchedule = {
   visits_per_year: number | null;
   term_years: number | null;
@@ -335,6 +361,26 @@ export interface PipelineAssessmentRow {
   created_at: string;
 }
 
+export interface GoodsLedReviewContextPayload {
+  labourLow: LandedCostEstimateRow['installation_labour_low_gbp_pence'];
+  labourBase: LandedCostEstimateRow['installation_labour_cost_gbp_pence'];
+  labourHigh: LandedCostEstimateRow['installation_labour_high_gbp_pence'];
+  labourConfidenceBps: LandedCostEstimateRow['installation_labour_confidence_bps'];
+  permitLow: LandedCostEstimateRow['permit_traffic_mgmt_low_gbp_pence'];
+  permitBase: LandedCostEstimateRow['permit_traffic_mgmt_cost_gbp_pence'];
+  permitHigh: LandedCostEstimateRow['permit_traffic_mgmt_high_gbp_pence'];
+  permitResponsibility: LandedCostEstimateRow['permit_responsibility'];
+  region: InstallationRequirement['uk_region'];
+  installationScope: InstallationRequirement['installation_scope'];
+  equipmentAssumptions: string[];
+  warningCodes: InstallationLabourWarningCode[];
+  goodsShareBasis: PipelineAssessmentRow['goods_value_share_basis'];
+  goodsShareFloorBps: number;
+  decisionRoute: GoodsLedDecisionRoute;
+  labourCoverageBps: PipelineAssessmentRow['installation_labour_coverage_bps'];
+  reviewReasons: GoodsLedReviewReason[];
+}
+
 export interface WorkflowJobSummaryRow {
   job_id: string;
   org_id: string;
@@ -595,6 +641,31 @@ type TsSchema005MaintenanceReviewContextShape = ExpectTrue<
       maintenance_confidence_bps: number;
       margin_signal: MaintenanceMarginSignal;
       warnings: Json;
+    }
+  >
+>;
+
+type TsSchema006GoodsLedReviewContextShape = ExpectTrue<
+  TypeEquals<
+    GoodsLedReviewContextPayload,
+    {
+      labourLow: number | null;
+      labourBase: number | null;
+      labourHigh: number | null;
+      labourConfidenceBps: number | null;
+      permitLow: number | null;
+      permitBase: number | null;
+      permitHigh: number | null;
+      permitResponsibility: PermitResponsibility | null;
+      region: string | null;
+      installationScope: string | null;
+      equipmentAssumptions: string[];
+      warningCodes: InstallationLabourWarningCode[];
+      goodsShareBasis: GoodsValueShareBasis | null;
+      goodsShareFloorBps: number;
+      decisionRoute: GoodsLedDecisionRoute;
+      labourCoverageBps: number | null;
+      reviewReasons: GoodsLedReviewReason[];
     }
   >
 >;

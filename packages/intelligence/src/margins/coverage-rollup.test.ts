@@ -1,6 +1,11 @@
 import { describe, expect, it } from "bun:test";
 
 import {
+  GOODS_LED_REVIEW_REASON_CODES,
+  INSTALLATION_LABOUR_WARNING_CODES,
+  type GoodsLedReviewContextPayload,
+} from "../../../contracts-schema/src/index";
+import {
   AUTO_QUALIFICATION_VALUE_FLOOR_BPS,
   computeCoverageRollup,
   describeCoverageThreshold,
@@ -455,6 +460,50 @@ describe("computeCoverageRollup", () => {
       labourPermitCoverageReady: false,
       valueWeightedGateReady: false,
       reviewRequired: true,
+    });
+    expect(GOODS_LED_REVIEW_REASON_CODES).toEqual([
+      "near_floor_cost_proxy",
+      "unresolved_permit_responsibility",
+      "no_list_bespoke_flag",
+      "labour_uncertainty",
+    ]);
+    expect(INSTALLATION_LABOUR_WARNING_CODES).toContain(
+      "PERMIT_RESPONSIBILITY_UNKNOWN",
+    );
+
+    const reviewContext = {
+      labourLow: null,
+      labourBase: null,
+      labourHigh: null,
+      labourConfidenceBps: null,
+      permitLow: 80_000,
+      permitBase: 120_000,
+      permitHigh: 200_000,
+      permitResponsibility: "unknown",
+      region: "north_west",
+      installationScope: "festive-lighting-install-and-remove",
+      equipmentAssumptions: ["operated_boom_mewp"],
+      warningCodes: [
+        "ACCESS_AT_HEIGHT_ASSUMED_MEWP",
+        "PERMIT_RESPONSIBILITY_UNKNOWN",
+      ],
+      goodsShareBasis: "cost_proxy",
+      goodsShareFloorBps: AUTO_QUALIFICATION_VALUE_FLOOR_BPS,
+      decisionRoute: "review",
+      labourCoverageBps: missingLabourOutput.installationLabourCoverageBps,
+      reviewReasons: [
+        "near_floor_cost_proxy",
+        "unresolved_permit_responsibility",
+        "no_list_bespoke_flag",
+        "labour_uncertainty",
+      ],
+    } satisfies GoodsLedReviewContextPayload;
+
+    expect(reviewContext).toMatchObject({
+      labourCoverageBps: 0,
+      decisionRoute: "review",
+      goodsShareBasis: "cost_proxy",
+      goodsShareFloorBps: AUTO_QUALIFICATION_VALUE_FLOOR_BPS,
     });
 
     expect(notApplicableOutput.installationLabourCoverageBps).toBeNull();

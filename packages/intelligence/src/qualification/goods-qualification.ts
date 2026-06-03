@@ -504,7 +504,7 @@ function detectNoListCpvFamily(
   return null;
 }
 
-function detectBespokeIndicator(textParts: readonly Array<string | null | undefined>) {
+function detectBespokeIndicator(textParts: ReadonlyArray<string | null | undefined>) {
   const normalizedText = textParts
     .filter((part): part is string => part !== null && part !== undefined)
     .join(" ")

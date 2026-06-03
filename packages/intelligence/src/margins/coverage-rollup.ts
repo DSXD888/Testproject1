@@ -237,7 +237,7 @@ function computeGoodsValueShareBps(input: CoverageInput): number | null {
 }
 
 function isKnownPence(value: number | null | undefined): value is number {
-  return Number.isInteger(value) && value >= 0;
+  return typeof value === "number" && Number.isInteger(value) && value >= 0;
 }
 
 type CoverageLane = "pricing" | "landed_cost" | "net_gate";

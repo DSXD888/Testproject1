@@ -13,6 +13,7 @@
     "../../packages/ui/**/*.ts",
     "../../packages/ui/**/*.tsx",
     "../../packages/bidding/**/*.ts",
+    "../../packages/contracts-schema/src/**/*.ts",
     "../../packages/intelligence/src/**/*.ts",
     "vite-plugin-tauri-dev-bridge.ts",
     "vite.config.ts",

@@ -1,5 +1,6 @@
 import type { ReactElement, ReactNode } from 'react';
 
+import type { GoodsLedReviewContextPayload } from '@project/contracts-schema';
 import { PipelineBadge, type PipelineState } from './pipeline-badge';
 
 export interface ContractCardFrameProps {
@@ -21,9 +22,12 @@ export interface ContractCardFrameProps {
     netQualifiedValueCoverageBps: number | null;
     grossMarginBps: number | null;
     netMarginBaseBps: number | null;
+    labourCoverageBps?: GoodsLedReviewContextPayload['labourCoverageBps'];
+    reviewReasons?: GoodsLedReviewContextPayload['reviewReasons'];
     candidateCount: number;
     quotedCandidateCount: number;
   };
+  goodsLedReviewContext?: GoodsLedReviewContextPayload;
   decision?: {
     disposition: 'approve' | 'reject' | 'watch' | null;
     isStale: boolean;
