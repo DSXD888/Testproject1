@@ -5142,6 +5142,51 @@ struct LandedCostSkillRunOutcome {
     failure_message: Option<String>,
 }
 
+#[derive(Debug, Clone)]
+struct UkInstallationLabourSkillOutcome {
+    basis: Option<InstallationLabourCostBasis>,
+    status: String,
+    skill_run: Option<LandedCostSkillRunOutcome>,
+}
+
+impl UkInstallationLabourSkillOutcome {
+    fn skipped_no_requirement() -> Self {
+        Self {
+            basis: None,
+            status: "not_required".to_owned(),
+            skill_run: None,
+        }
+    }
+
+    fn blocked(skill_run: LandedCostSkillRunOutcome) -> Self {
+        Self {
+            basis: Some(InstallationLabourCostBasis::default()),
+            status: "blocked".to_owned(),
+            skill_run: Some(skill_run),
+        }
+    }
+
+    fn from_result(
+        result: UkInstallationLabourResult,
+        skill_run: LandedCostSkillRunOutcome,
+    ) -> Self {
+        let status = result.status.clone();
+        Self {
+            basis: Some(result.into()),
+            status,
+            skill_run: Some(skill_run),
+        }
+    }
+
+    const fn basis(&self) -> Option<&InstallationLabourCostBasis> {
+        self.basis.as_ref()
+    }
+
+    const fn skill_run(&self) -> Option<&LandedCostSkillRunOutcome> {
+        self.skill_run.as_ref()
+    }
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 struct HmrcCustomsClassificationResult {
@@ -7507,16 +7552,40 @@ fn landed_cost_skill_session_ids(
     sizing_outcome: Option<&LandedCostSkillRunOutcome>,
     searates_outcome: Option<&LandedCostSkillRunOutcome>,
     freight: &FreightScenarioGbp,
+    uk_installation_labour_outcome: Option<&LandedCostSkillRunOutcome>,
 ) -> Value {
     json!({
         "hmrc_customs": customs_outcome.session_id.clone(),
         "shipment_sizing": sizing_outcome.map(|outcome| outcome.session_id.clone()),
         "searates_freight": searates_outcome.map(|outcome| outcome.session_id.clone()),
         "simple_fx": freight.fx_session_id.clone(),
+        "uk_installation_labour": uk_installation_labour_outcome
+            .map(|outcome| outcome.session_id.clone()),
         "hmrc_job_id": customs_outcome.job_id.clone(),
         "shipment_sizing_job_id": sizing_outcome.map(|outcome| outcome.job_id.clone()),
         "searates_job_id": searates_outcome.map(|outcome| outcome.job_id.clone()),
         "simple_fx_job_id": freight.fx_job_id.clone(),
+        "uk_installation_labour_job_id": uk_installation_labour_outcome
+            .map(|outcome| outcome.job_id.clone()),
+    })
+}
+
+fn domestic_landed_cost_skill_session_ids(
+    uk_installation_labour_outcome: Option<&LandedCostSkillRunOutcome>,
+) -> Value {
+    json!({
+        "hmrc_customs": null,
+        "shipment_sizing": null,
+        "searates_freight": null,
+        "simple_fx": null,
+        "uk_installation_labour": uk_installation_labour_outcome
+            .map(|outcome| outcome.session_id.clone()),
+        "hmrc_job_id": null,
+        "shipment_sizing_job_id": null,
+        "searates_job_id": null,
+        "simple_fx_job_id": null,
+        "uk_installation_labour_job_id": uk_installation_labour_outcome
+            .map(|outcome| outcome.job_id.clone()),
     })
 }
 
@@ -7650,10 +7719,10 @@ async fn run_uk_installation_labour_skill(
     row: &LandedCostAssessmentRow,
     base_parameters: &Value,
     goods_landed_cost_gbp_pence: i64,
-) -> Result<Option<InstallationLabourCostBasis>> {
+) -> Result<UkInstallationLabourSkillOutcome> {
     let Some(installation_requirement) = installation_requirement_from_critical_attributes(row)
     else {
-        return Ok(None);
+        return Ok(UkInstallationLabourSkillOutcome::skipped_no_requirement());
     };
     let parameters = uk_installation_labour_job_parameters(
         base_parameters,
@@ -7678,7 +7747,7 @@ async fn run_uk_installation_labour_skill(
             failure_message = outcome.failure_message.as_deref().unwrap_or("missing result contract"),
             "UK installation labour skill did not return a result contract"
         );
-        return Ok(Some(InstallationLabourCostBasis::default()));
+        return Ok(UkInstallationLabourSkillOutcome::blocked(outcome));
     };
     let result = match parse_uk_installation_labour_result(result_json) {
         Ok(parsed) => parsed,
@@ -7690,10 +7759,12 @@ async fn run_uk_installation_labour_skill(
                 error = %error,
                 "UK installation labour result failed Stage 11 domain validation"
             );
-            return Ok(Some(InstallationLabourCostBasis::default()));
+            return Ok(UkInstallationLabourSkillOutcome::blocked(outcome));
         }
     };
-    Ok(Some(result.into()))
+    Ok(UkInstallationLabourSkillOutcome::from_result(
+        result, outcome,
+    ))
 }
 
 #[allow(clippy::too_many_lines)]
@@ -8440,14 +8511,16 @@ fn confidence_breakdown(
     .to_string()
 }
 
-#[allow(clippy::too_many_lines)]
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 fn build_domestic_landed_cost_estimate(
     row: &LandedCostAssessmentRow,
     supplier_cost: &SupplierCostBasis,
     installation_labour: Option<&InstallationLabourCostBasis>,
+    installation_labour_status: &str,
     stage_run_id: &str,
     order_quantity_basis: &OrderQuantityBasis,
     skill_versions: &Value,
+    skill_session_ids: &Value,
 ) -> Result<LandedCostEstimateWrite> {
     let mut warnings = supplier_cost.warnings.clone();
     warnings.push(Stage11Issue::warning(
@@ -8520,12 +8593,8 @@ fn build_domestic_landed_cost_estimate(
         "shipment_sizing_status": "not_required",
         "freight_status": "not_required",
         "fx_status": "not_required",
-    });
-    let skill_session_ids = json!({
-        "hmrc_customs": null,
-        "shipment_sizing": null,
-        "searates_freight": null,
-        "simple_fx": null,
+        "uk_installation_labour": installation_labour_status,
+        "uk_installation_labour_status": installation_labour_status,
     });
 
     Ok(LandedCostEstimateWrite {
@@ -8605,7 +8674,7 @@ fn build_domestic_landed_cost_estimate(
             Some(order_quantity_basis),
             &statuses,
             skill_versions,
-            &skill_session_ids,
+            skill_session_ids,
             "domestic_no_import_vat_not_modelled",
         ),
         warnings: json_array_string(&warnings)?,
@@ -8703,6 +8772,7 @@ fn build_import_landed_cost_estimate(
     sizing: Option<&ShipmentSizingResult>,
     freight: &FreightScenarioGbp,
     installation_labour: Option<&InstallationLabourCostBasis>,
+    installation_labour_status: &str,
     order_quantity_basis: &OrderQuantityBasis,
     skill_versions: &Value,
     skill_session_ids: &Value,
@@ -8965,6 +9035,8 @@ fn build_import_landed_cost_estimate(
         "shipment_sizing_status": sizing_status,
         "freight_status": freight_status,
         "fx_status": freight.fx_status,
+        "uk_installation_labour": installation_labour_status,
+        "uk_installation_labour_status": installation_labour_status,
     });
 
     Ok(LandedCostEstimateWrite {
@@ -9548,6 +9620,24 @@ fn persist_landed_cost_estimate(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
+fn landed_cost_live_loop_summary_line(
+    attempted: usize,
+    completed: usize,
+    blocked: usize,
+    domestic: usize,
+    import: usize,
+    customs_skill_runs: usize,
+    sizing_skill_runs: usize,
+    searates_skill_runs: usize,
+    fx_skill_runs: usize,
+    uk_installation_labour_skill_runs: usize,
+) -> String {
+    format!(
+        "landed-cost live loop completed: attempted={attempted} completed={completed} blocked={blocked} domestic={domestic} import={import} customs_skill_runs={customs_skill_runs} sizing_skill_runs={sizing_skill_runs} searates_skill_runs={searates_skill_runs} fx_skill_runs={fx_skill_runs} uk_installation_labour_skill_runs={uk_installation_labour_skill_runs}"
+    )
+}
+
 #[allow(clippy::future_not_send, clippy::too_many_lines)]
 async fn run_landed_cost_live_loop(
     runtime: &mut RuntimeBootstrap,
@@ -9596,6 +9686,7 @@ async fn run_landed_cost_live_loop(
     let mut sizing_skill_runs = 0_usize;
     let mut searates_skill_runs = 0_usize;
     let mut fx_skill_runs = 0_usize;
+    let mut uk_installation_labour_skill_runs = 0_usize;
     let retry_config = SearatesRetryConfig::from_env_and_job_parameters(&job_parameters);
     let freshness_policy = Stage11FreshnessPolicy::from_env();
     // Surface the active rerun policy. Tariff and FX are re-derived on every Stage 11
@@ -9622,6 +9713,7 @@ async fn run_landed_cost_live_loop(
             "shipment_sizing": sizing_skill.metadata.skill_version,
             "searates_freight": searates_skill.metadata.skill_version,
             "simple_fx": fx_skill.metadata.skill_version,
+            "uk_installation_labour": installation_labour_skill.metadata.skill_version,
         });
 
         if is_domestic_uk_quote(row) {
@@ -9645,13 +9737,20 @@ async fn run_landed_cost_live_loop(
                 supplier_cost.supplier_cost_gbp_pence,
             )
             .await?;
+            if installation_labour.skill_run().is_some() {
+                uk_installation_labour_skill_runs += 1;
+            }
+            let skill_session_ids =
+                domestic_landed_cost_skill_session_ids(installation_labour.skill_run());
             let screening_estimate = build_domestic_landed_cost_estimate(
                 row,
                 &supplier_cost,
-                installation_labour.as_ref(),
+                installation_labour.basis(),
+                installation_labour.status.as_str(),
                 &stage_run_id,
                 &order_quantity_basis,
                 &skill_versions,
+                &skill_session_ids,
             )?;
             let decision_grade_estimate =
                 build_decision_grade_landed_cost_candidate(&screening_estimate);
@@ -9927,12 +10026,16 @@ async fn run_landed_cost_live_loop(
             ),
         )
         .await?;
+        if installation_labour.skill_run().is_some() {
+            uk_installation_labour_skill_runs += 1;
+        }
 
         let skill_session_ids = landed_cost_skill_session_ids(
             &customs_outcome,
             sizing_outcome.as_ref(),
             searates_outcome.as_ref(),
             &freight,
+            installation_labour.skill_run(),
         );
         let skill_versions = json!({
             "hmrc_customs": customs_outcome.skill_version,
@@ -9945,6 +10048,10 @@ async fn run_landed_cost_live_loop(
                 |outcome| outcome.skill_version.clone()
             ),
             "simple_fx": fx_skill.metadata.skill_version,
+            "uk_installation_labour": installation_labour.skill_run().map_or_else(
+                || installation_labour_skill.metadata.skill_version.clone(),
+                |outcome| outcome.skill_version.clone()
+            ),
         });
 
         let screening_estimate = build_import_landed_cost_estimate(
@@ -9954,7 +10061,8 @@ async fn run_landed_cost_live_loop(
             customs.as_ref(),
             sizing.as_ref(),
             &freight,
-            installation_labour.as_ref(),
+            installation_labour.basis(),
+            installation_labour.status.as_str(),
             &order_quantity_basis,
             &skill_versions,
             &skill_session_ids,
@@ -9981,8 +10089,17 @@ async fn run_landed_cost_live_loop(
     }
 
     Ok(LiveLoopReport {
-        summary_line: format!(
-            "landed-cost live loop completed: attempted={attempted} completed={completed} blocked={blocked} domestic={domestic} import={import} customs_skill_runs={customs_skill_runs} sizing_skill_runs={sizing_skill_runs} searates_skill_runs={searates_skill_runs} fx_skill_runs={fx_skill_runs}"
+        summary_line: landed_cost_live_loop_summary_line(
+            attempted,
+            completed,
+            blocked,
+            domestic,
+            import,
+            customs_skill_runs,
+            sizing_skill_runs,
+            searates_skill_runs,
+            fx_skill_runs,
+            uk_installation_labour_skill_runs,
         ),
         status: "completed".to_owned(),
     })
@@ -28543,6 +28660,7 @@ mod tests {
             &row,
             &supplier_cost,
             None,
+            "not_required",
             "stage-run-oq6",
             &basis,
             &json!({
@@ -28550,7 +28668,9 @@ mod tests {
                 "shipment_sizing": "1.0.0",
                 "searates_freight": "1.0.0",
                 "simple_fx": "1.0.0",
+                "uk_installation_labour": "1.0.0",
             }),
+            &super::domestic_landed_cost_skill_session_ids(None),
         )?;
         assert_eq!(estimate.net_margin_low_bps, 0);
         assert_eq!(estimate.net_margin_base_bps, 0);
@@ -28581,6 +28701,7 @@ mod tests {
             &row,
             &supplier_cost,
             None,
+            "not_required",
             "stage-run-oq7",
             &basis,
             &json!({
@@ -28588,7 +28709,9 @@ mod tests {
                 "shipment_sizing": "1.0.0",
                 "searates_freight": "1.0.0",
                 "simple_fx": "1.0.0",
+                "uk_installation_labour": "1.0.0",
             }),
+            &super::domestic_landed_cost_skill_session_ids(None),
         )?;
         assert_eq!(estimate.net_margin_base_bps, 0);
         assert_eq!(estimate.commercial_estimate_confidence_bps, Some(1000));
@@ -28608,6 +28731,7 @@ mod tests {
             &row,
             &supplier_cost,
             None,
+            "not_required",
             "stage-run-oq8",
             &basis,
             &json!({
@@ -28615,7 +28739,9 @@ mod tests {
                 "shipment_sizing": "1.0.0",
                 "searates_freight": "1.0.0",
                 "simple_fx": "1.0.0",
+                "uk_installation_labour": "1.0.0",
             }),
+            &super::domestic_landed_cost_skill_session_ids(None),
         )?;
         let warnings: serde_json::Value = serde_json::from_str(&estimate.warnings)?;
         let codes: Vec<String> = warnings
@@ -28669,11 +28795,21 @@ mod tests {
             permit_traffic_mgmt_high_gbp_pence: 45_000,
             permit_responsibility: Some("contractor_provided".to_owned()),
         };
+        let labour_outcome = super::LandedCostSkillRunOutcome {
+            job_id: "job-labour-domestic-known".to_owned(),
+            session_id: "session-labour-domestic-known".to_owned(),
+            skill_version: "1.0.0".to_owned(),
+            result_json: None,
+            failure_message: None,
+        };
+        let skill_session_ids =
+            super::domestic_landed_cost_skill_session_ids(Some(&labour_outcome));
 
         let estimate = super::build_domestic_landed_cost_estimate(
             &row,
             &supplier_cost,
             Some(&installation_labour),
+            "estimated",
             "stage-run-domestic-labour",
             &order_quantity_basis,
             &json!({
@@ -28683,6 +28819,7 @@ mod tests {
                 "simple_fx": "1.0.0",
                 "uk_installation_labour": "1.0.0",
             }),
+            &skill_session_ids,
         )?;
 
         assert_eq!(estimate.goods_landed_cost_gbp_pence, 800_000);
@@ -28699,6 +28836,27 @@ mod tests {
         );
         assert_eq!(estimate.economic_landed_cost_gbp_pence, 950_000);
         assert_eq!(estimate.cash_outlay_gbp_pence, 950_000);
+        let confidence: Value = serde_json::from_str(&estimate.confidence_breakdown)?;
+        assert_eq!(
+            confidence["skill_versions"]["uk_installation_labour"],
+            "1.0.0"
+        );
+        assert_eq!(
+            confidence["skill_session_ids"]["uk_installation_labour"],
+            "session-labour-domestic-known"
+        );
+        assert_eq!(
+            confidence["skill_session_ids"]["uk_installation_labour_job_id"],
+            "job-labour-domestic-known"
+        );
+        assert_eq!(
+            confidence["statuses"]["uk_installation_labour"],
+            "estimated"
+        );
+        assert_eq!(
+            confidence["statuses"]["uk_installation_labour_status"],
+            "estimated"
+        );
         Ok(())
     }
 
@@ -28735,6 +28893,7 @@ mod tests {
             &row,
             &supplier_cost,
             Some(&stray_installation_labour),
+            "not_required",
             "stage-run-domestic-pure-goods",
             &order_quantity_basis,
             &json!({
@@ -28744,6 +28903,7 @@ mod tests {
                 "simple_fx": "1.0.0",
                 "uk_installation_labour": "1.0.0",
             }),
+            &super::domestic_landed_cost_skill_session_ids(None),
         )?;
 
         assert_eq!(
@@ -29022,6 +29182,7 @@ mod tests {
             Some(&sizing),
             &freight_not_required(),
             None,
+            "not_required",
             &order_quantity_basis,
             &json!({}),
             &json!({}),
@@ -29071,6 +29232,7 @@ mod tests {
             Some(&sizing),
             &freight_not_required(),
             None,
+            "not_required",
             &order_quantity_basis,
             &json!({}),
             &json!({}),
@@ -29097,6 +29259,7 @@ mod tests {
             &rows[0],
             &supplier_cost,
             None,
+            "not_required",
             "stage-run-domestic-test",
             &order_quantity_basis,
             &json!({
@@ -29104,7 +29267,9 @@ mod tests {
                 "shipment_sizing": "1.0.0",
                 "searates_freight": "1.0.0",
                 "simple_fx": "1.0.0",
+                "uk_installation_labour": "1.0.0",
             }),
+            &super::domestic_landed_cost_skill_session_ids(None),
         )?;
         super::persist_landed_cost_estimate(&mut runtime.state_db, &estimate)?;
 
@@ -29215,18 +29380,21 @@ mod tests {
             Some(&sized_shipment_for(&row)),
             &freight,
             None,
+            "not_required",
             &super::infer_order_quantity_basis(&row),
             &json!({
                 "hmrc_customs": "1.0.0",
                 "shipment_sizing": "1.0.0",
                 "searates_freight": "1.0.0",
                 "simple_fx": "1.0.0",
+                "uk_installation_labour": "1.0.0",
             }),
             &json!({
                 "hmrc_customs": "session-customs",
                 "shipment_sizing": "session-sizing",
                 "searates_freight": "session-searates",
                 "simple_fx": "session-fx-decision-grade",
+                "uk_installation_labour": null,
             }),
         )?;
 
@@ -29398,6 +29566,7 @@ mod tests {
             &rows[0],
             &supplier_cost,
             None,
+            "not_required",
             "stage-run-shadow-base",
             &order_quantity_basis,
             &json!({
@@ -29405,7 +29574,9 @@ mod tests {
                 "shipment_sizing": "1.0.0",
                 "searates_freight": "1.0.0",
                 "simple_fx": "1.0.0",
+                "uk_installation_labour": "1.0.0",
             }),
+            &super::domestic_landed_cost_skill_session_ids(None),
         )?;
 
         for (category, customs_duty, freight_base, decision_grade) in [
@@ -29519,18 +29690,21 @@ mod tests {
             Some(&sizing),
             &freight,
             None,
+            "not_required",
             &super::infer_order_quantity_basis(&rows[0]),
             &json!({
                 "hmrc_customs": "1.0.0",
                 "shipment_sizing": "1.0.0",
                 "searates_freight": "1.0.0",
                 "simple_fx": "1.0.0",
+                "uk_installation_labour": "1.0.0",
             }),
             &json!({
                 "hmrc_customs": "session-customs",
                 "shipment_sizing": "session-sizing",
                 "searates_freight": null,
                 "simple_fx": null,
+                "uk_installation_labour": null,
             }),
         )?;
         super::persist_landed_cost_estimate(&mut runtime.state_db, &estimate)?;
@@ -29589,11 +29763,19 @@ mod tests {
             result_json: None,
             failure_message: None,
         };
+        let labour_outcome = super::LandedCostSkillRunOutcome {
+            job_id: "job-labour-known".to_owned(),
+            session_id: "session-labour-known".to_owned(),
+            skill_version: "1.0.0".to_owned(),
+            result_json: None,
+            failure_message: None,
+        };
         let skill_session_ids = super::landed_cost_skill_session_ids(
             &customs_outcome,
             Some(&sizing_outcome),
             Some(&searates_outcome),
             &freight,
+            Some(&labour_outcome),
         );
         let order_quantity_basis = super::infer_order_quantity_basis(row);
         let estimate = super::build_import_landed_cost_estimate(
@@ -29604,31 +29786,42 @@ mod tests {
             Some(&sizing),
             &freight,
             None,
+            "estimated",
             &order_quantity_basis,
             &json!({
                 "hmrc_customs": "1.0.0",
                 "shipment_sizing": "1.0.0",
                 "searates_freight": "1.0.0",
                 "simple_fx": "1.0.0",
+                "uk_installation_labour": "1.0.0",
             }),
             &skill_session_ids,
         )?;
         super::persist_landed_cost_estimate(&mut runtime.state_db, &estimate)?;
 
-        let (fx_session_id, fx_job_id): (String, String) =
+        let (fx_session_id, fx_job_id, labour_session_id, labour_job_id): (
+            String,
+            String,
+            String,
+            String,
+        ) =
             runtime.state_db.connection().query_row(
                 "\
                 SELECT json_extract(confidence_breakdown, '$.skill_session_ids.simple_fx'),
-                       json_extract(confidence_breakdown, '$.skill_session_ids.simple_fx_job_id')
+                       json_extract(confidence_breakdown, '$.skill_session_ids.simple_fx_job_id'),
+                       json_extract(confidence_breakdown, '$.skill_session_ids.uk_installation_labour'),
+                       json_extract(confidence_breakdown, '$.skill_session_ids.uk_installation_labour_job_id')
                 FROM landed_cost_estimates
                 LIMIT 1
                 ",
                 [],
-                |row| Ok((row.get(0)?, row.get(1)?)),
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
             )?;
 
         assert_eq!(fx_session_id, "session-fx-known");
         assert_eq!(fx_job_id, "job-fx-known");
+        assert_eq!(labour_session_id, "session-labour-known");
+        assert_eq!(labour_job_id, "job-labour-known");
         Ok(())
     }
 
@@ -29712,6 +29905,7 @@ mod tests {
             Some(&sizing),
             &freight,
             None,
+            "not_required",
             &super::infer_order_quantity_basis(&row),
             &json!({}),
             &json!({}),
@@ -29725,6 +29919,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn import_landed_cost_rollup_adds_labour_permit_and_threads_bands() -> Result<()> {
         let mut row = stage11_row_fixture();
         row.critical_attributes_json = Some(
@@ -29789,6 +29984,7 @@ mod tests {
             Some(&sized_shipment_for(&row)),
             &freight,
             Some(&installation_labour),
+            "estimated",
             &order_quantity_basis,
             &json!({
                 "hmrc_customs": "1.0.0",
@@ -29817,6 +30013,19 @@ mod tests {
         assert_eq!(estimate.net_margin_base_bps, 2_700);
         assert_eq!(estimate.net_margin_high_bps, 3_370);
         assert_eq!(estimate.decision_grade, "review");
+        let confidence: Value = serde_json::from_str(&estimate.confidence_breakdown)?;
+        assert_eq!(
+            confidence["skill_versions"]["uk_installation_labour"],
+            "1.0.0"
+        );
+        assert_eq!(
+            confidence["statuses"]["uk_installation_labour"],
+            "estimated"
+        );
+        assert_eq!(
+            confidence["statuses"]["uk_installation_labour_status"],
+            "estimated"
+        );
         Ok(())
     }
 
@@ -29874,6 +30083,7 @@ mod tests {
             Some(&sized_shipment_for(&row)),
             &freight,
             Some(&stray_installation_labour),
+            "not_required",
             &order_quantity_basis,
             &json!({
                 "hmrc_customs": "1.0.0",
@@ -29944,6 +30154,7 @@ mod tests {
             &row,
             &domestic_supplier_cost,
             Some(&installation_labour),
+            "estimated",
             "stage-run-domestic-saturating-labour",
             &order_quantity_basis,
             &json!({
@@ -29953,6 +30164,7 @@ mod tests {
                 "simple_fx": "1.0.0",
                 "uk_installation_labour": "1.0.0",
             }),
+            &super::domestic_landed_cost_skill_session_ids(None),
         )?;
 
         assert_eq!(domestic_estimate.goods_landed_cost_gbp_pence, i64::MAX - 5);
@@ -29991,6 +30203,7 @@ mod tests {
             Some(&sized_shipment_for(&row)),
             &freight,
             Some(&installation_labour),
+            "estimated",
             &order_quantity_basis,
             &json!({
                 "hmrc_customs": "1.0.0",
@@ -30080,6 +30293,15 @@ mod tests {
             super::installation_labour_invocation_for_row(&row),
             super::InstallationLabourInvocation::SkipNoInstallationRequirement
         );
+    }
+
+    #[test]
+    fn landed_cost_live_loop_summary_counts_uk_installation_labour_skill_runs() {
+        let summary = super::landed_cost_live_loop_summary_line(5, 4, 1, 2, 3, 3, 3, 2, 2, 2);
+
+        assert!(summary.contains("customs_skill_runs=3"));
+        assert!(summary.contains("fx_skill_runs=2"));
+        assert!(summary.contains("uk_installation_labour_skill_runs=2"));
     }
 
     #[test]
