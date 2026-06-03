@@ -7554,6 +7554,17 @@ fn installation_labour_invocation_for_row(
     }
 }
 
+fn installation_labour_basis_for_rollup(
+    row: &LandedCostAssessmentRow,
+    installation_labour: Option<&InstallationLabourCostBasis>,
+) -> InstallationLabourCostBasis {
+    if installation_requirement_from_critical_attributes(row).is_some() {
+        installation_labour.cloned().unwrap_or_default()
+    } else {
+        InstallationLabourCostBasis::default()
+    }
+}
+
 const fn installation_labour_job_kind_for_invocation(
     invocation: InstallationLabourInvocation,
 ) -> Option<&'static str> {
@@ -8459,7 +8470,7 @@ fn build_domestic_landed_cost_estimate(
         warnings.push(warning);
     }
 
-    let installation_labour = installation_labour.cloned().unwrap_or_default();
+    let installation_labour = installation_labour_basis_for_rollup(row, installation_labour);
     let goods_landed_cost_gbp_pence = supplier_cost.supplier_cost_gbp_pence;
     let economic_landed_cost_gbp_pence = goods_landed_cost_gbp_pence
         .saturating_add(installation_labour.installation_labour_cost_gbp_pence)
@@ -8904,7 +8915,7 @@ fn build_import_landed_cost_estimate(
             .saturating_add(freight.high_gbp_pence)
             .saturating_add(duty_total),
     );
-    let installation_labour = installation_labour.cloned().unwrap_or_default();
+    let installation_labour = installation_labour_basis_for_rollup(row, installation_labour);
     let low_goods_landed_cost = supplier_cost
         .supplier_cost_gbp_pence
         .saturating_add(freight.low_gbp_pence)
@@ -28625,6 +28636,16 @@ mod tests {
     #[test]
     fn domestic_landed_cost_rollup_adds_installation_labour_and_permits() -> Result<()> {
         let mut row = stage11_undetermined_row_fixture();
+        row.critical_attributes_json = Some(
+            json!({
+                "installation_requirement": {
+                    "requires_installation": true,
+                    "requires_maintenance": false,
+                    "installation_scope": "install_only"
+                }
+            })
+            .to_string(),
+        );
         row.expected_addressable_revenue_ex_vat_pence = 1_500_000;
         let supplier_cost = super::SupplierCostBasis {
             supplier_cost_gbp_pence: 800_000,
@@ -28678,6 +28699,68 @@ mod tests {
         );
         assert_eq!(estimate.economic_landed_cost_gbp_pence, 950_000);
         assert_eq!(estimate.cash_outlay_gbp_pence, 950_000);
+        Ok(())
+    }
+
+    #[test]
+    fn domestic_landed_cost_rollup_preserves_pure_goods_without_installation_requirement()
+    -> Result<()> {
+        let mut row = stage11_undetermined_row_fixture();
+        row.critical_attributes_json = None;
+        row.expected_addressable_revenue_ex_vat_pence = 500_000;
+        let supplier_cost = super::SupplierCostBasis {
+            supplier_cost_gbp_pence: 120_000,
+            basis: "test_supplier_total".to_owned(),
+            quantity: 1.0,
+            quantity_unit: Some("lot".to_owned()),
+            warnings: Vec::new(),
+        };
+        let order_quantity_basis = super::OrderQuantityBasis::FromContractValue {
+            qty: 1.0,
+            contract_value_gbp_pence: row.expected_addressable_revenue_ex_vat_pence,
+            basis_unit: Some("lot".to_owned()),
+        };
+        let stray_installation_labour = super::InstallationLabourCostBasis {
+            installation_labour_cost_gbp_pence: 90_000,
+            installation_labour_low_gbp_pence: 70_000,
+            installation_labour_high_gbp_pence: 110_000,
+            installation_labour_confidence_bps: 8_000,
+            permit_traffic_mgmt_cost_gbp_pence: 15_000,
+            permit_traffic_mgmt_low_gbp_pence: 10_000,
+            permit_traffic_mgmt_high_gbp_pence: 20_000,
+            permit_responsibility: Some("contractor_provided".to_owned()),
+        };
+
+        let estimate = super::build_domestic_landed_cost_estimate(
+            &row,
+            &supplier_cost,
+            Some(&stray_installation_labour),
+            "stage-run-domestic-pure-goods",
+            &order_quantity_basis,
+            &json!({
+                "hmrc_customs": "1.0.0",
+                "shipment_sizing": "1.0.0",
+                "searates_freight": "1.0.0",
+                "simple_fx": "1.0.0",
+                "uk_installation_labour": "1.0.0",
+            }),
+        )?;
+
+        assert_eq!(
+            super::installation_labour_invocation_for_row(&row),
+            super::InstallationLabourInvocation::SkipNoInstallationRequirement
+        );
+        assert_eq!(estimate.goods_landed_cost_gbp_pence, 120_000);
+        assert_eq!(estimate.installation_labour_cost_gbp_pence, 0);
+        assert_eq!(estimate.installation_labour_low_gbp_pence, 0);
+        assert_eq!(estimate.installation_labour_high_gbp_pence, 0);
+        assert_eq!(estimate.installation_labour_confidence_bps, 0);
+        assert_eq!(estimate.permit_traffic_mgmt_cost_gbp_pence, 0);
+        assert_eq!(estimate.permit_traffic_mgmt_low_gbp_pence, 0);
+        assert_eq!(estimate.permit_traffic_mgmt_high_gbp_pence, 0);
+        assert_eq!(estimate.permit_responsibility, None);
+        assert_eq!(estimate.economic_landed_cost_gbp_pence, 120_000);
+        assert_eq!(estimate.cash_outlay_gbp_pence, 120_000);
         Ok(())
     }
 
@@ -29644,6 +29727,16 @@ mod tests {
     #[test]
     fn import_landed_cost_rollup_adds_labour_permit_and_threads_bands() -> Result<()> {
         let mut row = stage11_row_fixture();
+        row.critical_attributes_json = Some(
+            json!({
+                "installation_requirement": {
+                    "requires_installation": true,
+                    "requires_maintenance": false,
+                    "installation_scope": "install_only"
+                }
+            })
+            .to_string(),
+        );
         row.expected_addressable_revenue_ex_vat_pence = 2_000_000;
         row.revenue_basis_type = "expected_value".to_owned();
         row.revenue_confidence_bps = 9_000;
@@ -29724,6 +29817,194 @@ mod tests {
         assert_eq!(estimate.net_margin_base_bps, 2_700);
         assert_eq!(estimate.net_margin_high_bps, 3_370);
         assert_eq!(estimate.decision_grade, "review");
+        Ok(())
+    }
+
+    #[test]
+    fn import_landed_cost_rollup_preserves_pure_goods_without_installation_requirement()
+    -> Result<()> {
+        let mut row = stage11_row_fixture();
+        row.critical_attributes_json = None;
+        row.expected_addressable_revenue_ex_vat_pence = 2_000_000;
+        row.revenue_basis_type = "expected_value".to_owned();
+        let supplier_cost = super::SupplierCostBasis {
+            supplier_cost_gbp_pence: 700_000,
+            basis: "test_supplier_total".to_owned(),
+            quantity: 1.0,
+            quantity_unit: Some("lot".to_owned()),
+            warnings: Vec::new(),
+        };
+        let mut customs = classified_customs_for(&row);
+        customs.customs_duty_gbp_pence = Some(50_000);
+        customs.trade_remedy_duty_gbp_pence = Some(0);
+        customs.vat_rate_bps = Some(2_000);
+        let freight = super::FreightScenarioGbp {
+            low_gbp_pence: 80_000,
+            base_gbp_pence: 100_000,
+            high_gbp_pence: 120_000,
+            fx_rate: 1.0,
+            fx_checked_at: Some("2026-04-28T00:00:00Z".to_owned()),
+            fx_status: "not_required".to_owned(),
+            fx_session_id: None,
+            fx_job_id: None,
+            warnings: Vec::new(),
+            blockers: Vec::new(),
+        };
+        let order_quantity_basis = super::OrderQuantityBasis::FromContractValue {
+            qty: 1.0,
+            contract_value_gbp_pence: row.expected_addressable_revenue_ex_vat_pence,
+            basis_unit: Some("lot".to_owned()),
+        };
+        let stray_installation_labour = super::InstallationLabourCostBasis {
+            installation_labour_cost_gbp_pence: 240_000,
+            installation_labour_low_gbp_pence: 210_000,
+            installation_labour_high_gbp_pence: 265_000,
+            installation_labour_confidence_bps: 7_600,
+            permit_traffic_mgmt_cost_gbp_pence: 200_000,
+            permit_traffic_mgmt_low_gbp_pence: 120_000,
+            permit_traffic_mgmt_high_gbp_pence: 340_000,
+            permit_responsibility: Some("unknown".to_owned()),
+        };
+
+        let estimate = super::build_import_landed_cost_estimate(
+            &row,
+            &supplier_cost,
+            "stage-run-import-pure-goods",
+            Some(&customs),
+            Some(&sized_shipment_for(&row)),
+            &freight,
+            Some(&stray_installation_labour),
+            &order_quantity_basis,
+            &json!({
+                "hmrc_customs": "1.0.0",
+                "shipment_sizing": "1.0.0",
+                "searates_freight": "1.0.0",
+                "simple_fx": "1.0.0",
+                "uk_installation_labour": "1.0.0",
+            }),
+            &json!({}),
+        )?;
+
+        assert_eq!(
+            super::installation_labour_invocation_for_row(&row),
+            super::InstallationLabourInvocation::SkipNoInstallationRequirement
+        );
+        assert_eq!(estimate.import_vat_gbp_pence, 170_000);
+        assert_eq!(estimate.goods_landed_cost_gbp_pence, 1_020_000);
+        assert_eq!(estimate.installation_labour_cost_gbp_pence, 0);
+        assert_eq!(estimate.installation_labour_low_gbp_pence, 0);
+        assert_eq!(estimate.installation_labour_high_gbp_pence, 0);
+        assert_eq!(estimate.installation_labour_confidence_bps, 0);
+        assert_eq!(estimate.permit_traffic_mgmt_cost_gbp_pence, 0);
+        assert_eq!(estimate.permit_traffic_mgmt_low_gbp_pence, 0);
+        assert_eq!(estimate.permit_traffic_mgmt_high_gbp_pence, 0);
+        assert_eq!(estimate.permit_responsibility, None);
+        assert_eq!(estimate.economic_landed_cost_gbp_pence, 1_020_000);
+        assert_eq!(estimate.cash_outlay_gbp_pence, 1_020_000);
+        Ok(())
+    }
+
+    #[test]
+    fn landed_cost_rollup_saturates_labour_and_permit_additions() -> Result<()> {
+        let mut row = stage11_undetermined_row_fixture();
+        row.critical_attributes_json = Some(
+            json!({
+                "installation_requirement": {
+                    "requires_installation": true,
+                    "requires_maintenance": false,
+                    "installation_scope": "install_only"
+                }
+            })
+            .to_string(),
+        );
+        let order_quantity_basis = super::OrderQuantityBasis::BasisUndetermined {
+            reason: super::BasisUndeterminedReason::NoQuantityAnywhere,
+            note: "overflow guard fixture".to_owned(),
+            basis_unit: Some("lot".to_owned()),
+        };
+        let installation_labour = super::InstallationLabourCostBasis {
+            installation_labour_cost_gbp_pence: 10,
+            installation_labour_low_gbp_pence: 10,
+            installation_labour_high_gbp_pence: 10,
+            installation_labour_confidence_bps: 9_000,
+            permit_traffic_mgmt_cost_gbp_pence: 10,
+            permit_traffic_mgmt_low_gbp_pence: 10,
+            permit_traffic_mgmt_high_gbp_pence: 10,
+            permit_responsibility: Some("contractor_provided".to_owned()),
+        };
+        let domestic_supplier_cost = super::SupplierCostBasis {
+            supplier_cost_gbp_pence: i64::MAX - 5,
+            basis: "overflow_supplier_total".to_owned(),
+            quantity: 1.0,
+            quantity_unit: Some("lot".to_owned()),
+            warnings: Vec::new(),
+        };
+
+        let domestic_estimate = super::build_domestic_landed_cost_estimate(
+            &row,
+            &domestic_supplier_cost,
+            Some(&installation_labour),
+            "stage-run-domestic-saturating-labour",
+            &order_quantity_basis,
+            &json!({
+                "hmrc_customs": "1.0.0",
+                "shipment_sizing": "1.0.0",
+                "searates_freight": "1.0.0",
+                "simple_fx": "1.0.0",
+                "uk_installation_labour": "1.0.0",
+            }),
+        )?;
+
+        assert_eq!(domestic_estimate.goods_landed_cost_gbp_pence, i64::MAX - 5);
+        assert_eq!(domestic_estimate.economic_landed_cost_gbp_pence, i64::MAX);
+        assert_eq!(domestic_estimate.cash_outlay_gbp_pence, i64::MAX);
+
+        let import_supplier_cost = super::SupplierCostBasis {
+            supplier_cost_gbp_pence: i64::MAX - 5,
+            basis: "overflow_supplier_total".to_owned(),
+            quantity: 1.0,
+            quantity_unit: Some("lot".to_owned()),
+            warnings: Vec::new(),
+        };
+        let mut customs = classified_customs_for(&row);
+        customs.customs_duty_gbp_pence = Some(0);
+        customs.trade_remedy_duty_gbp_pence = Some(0);
+        customs.vat_rate_bps = Some(0);
+        let freight = super::FreightScenarioGbp {
+            low_gbp_pence: 3,
+            base_gbp_pence: 4,
+            high_gbp_pence: 5,
+            fx_rate: 1.0,
+            fx_checked_at: Some("2026-04-28T00:00:00Z".to_owned()),
+            fx_status: "not_required".to_owned(),
+            fx_session_id: None,
+            fx_job_id: None,
+            warnings: Vec::new(),
+            blockers: Vec::new(),
+        };
+
+        let import_estimate = super::build_import_landed_cost_estimate(
+            &row,
+            &import_supplier_cost,
+            "stage-run-import-saturating-labour",
+            Some(&customs),
+            Some(&sized_shipment_for(&row)),
+            &freight,
+            Some(&installation_labour),
+            &order_quantity_basis,
+            &json!({
+                "hmrc_customs": "1.0.0",
+                "shipment_sizing": "1.0.0",
+                "searates_freight": "1.0.0",
+                "simple_fx": "1.0.0",
+                "uk_installation_labour": "1.0.0",
+            }),
+            &json!({}),
+        )?;
+
+        assert_eq!(import_estimate.goods_landed_cost_gbp_pence, i64::MAX - 1);
+        assert_eq!(import_estimate.economic_landed_cost_gbp_pence, i64::MAX);
+        assert_eq!(import_estimate.cash_outlay_gbp_pence, i64::MAX);
         Ok(())
     }
 

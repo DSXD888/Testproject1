@@ -37,7 +37,7 @@ struct LandedCostSeed<'a> {
     permit_traffic_mgmt_cost_gbp_pence: i64,
     permit_traffic_mgmt_low_gbp_pence: i64,
     permit_traffic_mgmt_high_gbp_pence: i64,
-    permit_responsibility: &'a str,
+    permit_responsibility: Option<&'a str>,
     economic_landed_cost_gbp_pence: i64,
 }
 
@@ -51,7 +51,7 @@ struct PersistedLandedCostSeed {
     permit_traffic_mgmt_cost_gbp_pence: i64,
     permit_traffic_mgmt_low_gbp_pence: i64,
     permit_traffic_mgmt_high_gbp_pence: i64,
-    permit_responsibility: String,
+    permit_responsibility: Option<String>,
     economic_landed_cost_gbp_pence: i64,
 }
 
@@ -78,7 +78,7 @@ fn rs_seed_001_landed_cost_insert_sql_helper_direct_seeds_labour_columns() -> Re
         permit_traffic_mgmt_cost_gbp_pence: 30_000,
         permit_traffic_mgmt_low_gbp_pence: 20_000,
         permit_traffic_mgmt_high_gbp_pence: 45_000,
-        permit_responsibility: "contractor_provided",
+        permit_responsibility: Some("contractor_provided"),
         economic_landed_cost_gbp_pence: 850_000,
     };
 
@@ -96,7 +96,7 @@ fn rs_seed_001_landed_cost_insert_sql_helper_direct_seeds_labour_columns() -> Re
                 permit_traffic_mgmt_cost_gbp_pence: seed.permit_traffic_mgmt_cost_gbp_pence,
                 permit_traffic_mgmt_low_gbp_pence: seed.permit_traffic_mgmt_low_gbp_pence,
                 permit_traffic_mgmt_high_gbp_pence: seed.permit_traffic_mgmt_high_gbp_pence,
-                permit_responsibility: seed.permit_responsibility.to_owned(),
+                permit_responsibility: seed.permit_responsibility.map(str::to_owned),
                 economic_landed_cost_gbp_pence: seed.economic_landed_cost_gbp_pence,
             },
         "landed_cost_insert_sql() did not persist the labour/permit/goods-only seed columns"
@@ -108,6 +108,81 @@ fn rs_seed_001_landed_cost_insert_sql_helper_direct_seeds_labour_columns() -> Re
             persisted.permit_traffic_mgmt_cost_gbp_pence,
         ) == 8_235,
         "goods-value share must be reconstructable from one persisted landed_cost_estimates row"
+    );
+    Ok(())
+}
+
+#[test]
+#[doc = "E2E-IL-008"]
+fn e2e_il_008_pure_a4_copier_paper_preserves_goods_only_economics() -> Result<()> {
+    let db = L4TestStateDb::new()?;
+    let conn = db.connection();
+    apply_installation_labour_migration_if_needed(conn)?;
+    let ids = db.seed_push_owned_rows()?;
+    seed_candidate_and_quote(conn, &ids.process_id, &ids.notice_id, &ids.lot_id)?;
+
+    let seed = LandedCostSeed {
+        id: "e2e-il-008-pure-a4-copier-paper",
+        process_id: &ids.process_id,
+        notice_id: &ids.notice_id,
+        product_candidate_id: "il-seed-candidate",
+        supplier_quote_id: "il-seed-quote",
+        goods_landed_cost_gbp_pence: 120_000,
+        installation_labour_cost_gbp_pence: 0,
+        installation_labour_low_gbp_pence: 0,
+        installation_labour_high_gbp_pence: 0,
+        installation_labour_confidence_bps: 0,
+        permit_traffic_mgmt_cost_gbp_pence: 0,
+        permit_traffic_mgmt_low_gbp_pence: 0,
+        permit_traffic_mgmt_high_gbp_pence: 0,
+        permit_responsibility: None,
+        economic_landed_cost_gbp_pence: 120_000,
+    };
+
+    insert_landed_cost_seed(conn, &seed)?;
+    let persisted = persisted_landed_cost_seed(conn, seed.id)?;
+    let critical_attributes_json: Option<String> = conn.query_row(
+        "SELECT critical_attributes_json FROM product_candidates WHERE id = 'il-seed-candidate'",
+        [],
+        |row| row.get(0),
+    )?;
+
+    ensure!(
+        critical_attributes_json.is_none(),
+        "E2E-IL-008 must not seed an InstallationRequirement"
+    );
+    ensure!(
+        persisted.goods_landed_cost_gbp_pence == 120_000,
+        "pure-goods Scenario 8 goods subtotal changed"
+    );
+    ensure!(
+        persisted.installation_labour_cost_gbp_pence == 0
+            && persisted.installation_labour_low_gbp_pence == 0
+            && persisted.installation_labour_high_gbp_pence == 0
+            && persisted.installation_labour_confidence_bps == 0,
+        "pure-goods Scenario 8 must keep installation labour at zero"
+    );
+    ensure!(
+        persisted.permit_traffic_mgmt_cost_gbp_pence == 0
+            && persisted.permit_traffic_mgmt_low_gbp_pence == 0
+            && persisted.permit_traffic_mgmt_high_gbp_pence == 0,
+        "pure-goods Scenario 8 must keep permit/TM at zero"
+    );
+    ensure!(
+        persisted.permit_responsibility.is_none(),
+        "pure-goods Scenario 8 must not persist permit responsibility"
+    );
+    ensure!(
+        persisted.economic_landed_cost_gbp_pence == 120_000,
+        "pure-goods Scenario 8 economic cost must equal goods-only subtotal"
+    );
+    ensure!(
+        goods_value_share_bps(
+            persisted.goods_landed_cost_gbp_pence,
+            persisted.installation_labour_cost_gbp_pence,
+            persisted.permit_traffic_mgmt_cost_gbp_pence,
+        ) == 10_000,
+        "pure-goods Scenario 8 goods share must remain 10000 bps"
     );
     Ok(())
 }
