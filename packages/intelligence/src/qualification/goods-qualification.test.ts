@@ -100,4 +100,50 @@ describe("goods qualification", () => {
       }),
     ).toBe("pass");
   });
+
+  it("TS-QUAL-006: provisionally admits credible goods-bearing mixed and works notices", () => {
+    const mixed = qualifyGoodsOpportunity({
+      cpvCodes: ["33100000-1", "50750000-7"],
+      tenderDeadline: "2026-06-30T00:00:00.000Z",
+      now: "2026-03-28T00:00:00.000Z",
+      accessRoute: "open_tender",
+      qualificationBasis: "notice_only",
+      totalValuePence: 900_000,
+      goodsDensitySignals: {
+        serviceMentions: 2,
+      },
+      goodsConfidenceBps: 6500,
+    });
+    const works = qualifyGoodsOpportunity({
+      cpvCodes: ["45233120-6"],
+      tenderDeadline: "2026-06-30T00:00:00.000Z",
+      now: "2026-03-28T00:00:00.000Z",
+      accessRoute: "open_tender",
+      qualificationBasis: "notice_only",
+      totalValuePence: 900_000,
+      goodsSeparability: true,
+      goodsDensitySignals: {
+        physicalGoodsMentions: 1,
+      },
+      goodsConfidenceBps: 6500,
+    });
+    const serviceOnly = qualifyGoodsOpportunity({
+      cpvCodes: ["50750000-7"],
+      tenderDeadline: "2026-06-30T00:00:00.000Z",
+      now: "2026-03-28T00:00:00.000Z",
+      accessRoute: "open_tender",
+      qualificationBasis: "notice_only",
+      totalValuePence: 900_000,
+      goodsConfidenceBps: 6500,
+    });
+
+    expect(mixed.legalCategory).toBe("mixed");
+    expect(mixed.goodsDensityScore).toBeCloseTo(0.44);
+    expect(mixed.qualificationResult).toBe("review");
+    expect(works.legalCategory).toBe("works");
+    expect(works.goodsDensityScore).toBeCloseTo(0.35);
+    expect(works.qualificationResult).toBe("review");
+    expect(serviceOnly.legalCategory).toBe("services");
+    expect(serviceOnly.qualificationResult).toBe("reject");
+  });
 });

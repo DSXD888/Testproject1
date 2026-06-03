@@ -58,6 +58,8 @@ const REJECTED_ACCESS_ROUTES = new Set<AccessRoute>([
   "not_bidable",
 ]);
 
+const GOODS_PRESENCE_FLOOR_BPS = 3500;
+
 export function qualifyGoodsOpportunity(
   input: GoodsQualificationInput,
 ): GoodsQualificationOutput {
@@ -350,6 +352,14 @@ function determineQualificationDecision(input: {
     input.goodsDensityScore >= 0.55
   ) {
     return REVIEWABLE_ACCESS_ROUTES.has(input.accessRoute) ? "review" : "pass";
+  }
+
+  if (
+    (input.legalCategory === "mixed" || input.legalCategory === "works") &&
+    input.goodsSeparability !== false &&
+    Math.round(input.goodsDensityScore * 10_000) >= GOODS_PRESENCE_FLOOR_BPS
+  ) {
+    return "review";
   }
 
   if (
