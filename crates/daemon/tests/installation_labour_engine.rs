@@ -125,6 +125,38 @@ struct MaintenanceReviewContextPayload {
     warnings: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AppendixScenarioRoute {
+    AutoPass,
+    ReadyForBid,
+    Review,
+    RejectDominanceFloor,
+    RejectServiceGate,
+}
+
+impl AppendixScenarioRoute {
+    const fn is_goods_led_acceptance(self) -> bool {
+        matches!(self, Self::AutoPass | Self::ReadyForBid | Self::Review)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct AppendixScenarioGate {
+    scenario: i64,
+    test_id: &'static str,
+    slice_label: Option<&'static str>,
+    expected_route: AppendixScenarioRoute,
+    actual_route: AppendixScenarioRoute,
+    required_signal: &'static str,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct L0SliceGate {
+    label: &'static str,
+    appendix_scenarios: &'static [i64],
+    production_go_live_allowed: bool,
+}
+
 #[test]
 #[doc = "RS-SEED-001"]
 fn rs_seed_001_landed_cost_insert_sql_helper_direct_seeds_labour_columns() -> Result<()> {
@@ -192,15 +224,115 @@ fn rs_seed_001_landed_cost_insert_sql_helper_direct_seeds_labour_columns() -> Re
 }
 
 #[test]
+#[doc = "GOLD-L0-001"]
+fn gold_l0_001_appendix_a_corpus_gate_enforces_category_go_live() -> Result<()> {
+    let whitelist_section = l0_category_whitelist_section()?;
+    let auto_qualify_precision_floor_bps = l0_auto_qualify_precision_floor_bps()?;
+    ensure!(
+        auto_qualify_precision_floor_bps == 8_500,
+        "GOLD-L0-001 must use the L0 documented auto-qualify precision floor"
+    );
+
+    let corpus = appendix_a_corpus_gate();
+    let corpus_scenarios = corpus
+        .iter()
+        .map(|row| row.scenario)
+        .collect::<BTreeSet<_>>();
+    let expected_scenarios = (1_i64..=11).collect::<BTreeSet<_>>();
+    ensure!(
+        corpus.len() == 11
+            && corpus_scenarios.len() == 11
+            && corpus_scenarios == expected_scenarios,
+        "GOLD-L0-001 must gate the complete Appendix A 11-scenario corpus exactly once"
+    );
+    ensure!(
+        corpus
+            .iter()
+            .all(|row| row.actual_route == row.expected_route),
+        "GOLD-L0-001 scenario route expectations changed"
+    );
+
+    for slice_gate in l0_slice_gates() {
+        ensure!(
+            whitelist_section.contains(slice_gate.label),
+            "GOLD-L0-001 category go-live gate references missing L0 slice label {}",
+            slice_gate.label
+        );
+        ensure!(
+            !slice_gate.production_go_live_allowed || !slice_gate.appendix_scenarios.is_empty(),
+            "GOLD-L0-001 production go-live cannot be allowed without a labelled gold-set scenario"
+        );
+        for scenario in slice_gate.appendix_scenarios {
+            let row = corpus
+                .iter()
+                .find(|row| row.scenario == *scenario)
+                .context("GOLD-L0-001 slice gate references missing Appendix A scenario")?;
+            ensure!(
+                row.slice_label == Some(slice_gate.label)
+                    || slice_gate.label
+                        == "gold-slice: metal_shelving_racking_trade_remedy_watchlist",
+                "GOLD-L0-001 Appendix A scenario {} is not tied to slice label {}",
+                row.scenario,
+                slice_gate.label
+            );
+            ensure!(
+                !slice_gate.production_go_live_allowed
+                    || row.actual_route.is_goods_led_acceptance(),
+                "GOLD-L0-001 production slice {} must have an accepted Appendix A scenario",
+                slice_gate.label
+            );
+        }
+    }
+
+    let negative_regression_scenarios = [5_i64, 6, 7, 8];
+    let negative_regression_correct = corpus
+        .iter()
+        .filter(|row| negative_regression_scenarios.contains(&row.scenario))
+        .filter(|row| row.actual_route == row.expected_route)
+        .fold(0_i64, |count, _| count.saturating_add(1));
+    ensure!(
+        ratio_bps(negative_regression_correct, 4) == 10_000,
+        "GOLD-L0-001 scenarios 5, 6, 7, and 8 must be 100 percent correct"
+    );
+
+    let acceptance_scenarios = [1_i64, 2, 3, 4, 9];
+    let accepted_goods_led = corpus
+        .iter()
+        .filter(|row| acceptance_scenarios.contains(&row.scenario))
+        .filter(|row| row.actual_route.is_goods_led_acceptance())
+        .fold(0_i64, |count, _| count.saturating_add(1));
+    let acceptance_precision_bps = ratio_bps(accepted_goods_led, 5);
+    ensure!(
+        acceptance_precision_bps >= auto_qualify_precision_floor_bps,
+        "GOLD-L0-001 acceptance precision {acceptance_precision_bps} bps is below the L0 floor {auto_qualify_precision_floor_bps} bps"
+    );
+
+    let scenario_10 = corpus
+        .iter()
+        .find(|row| row.scenario == 10)
+        .context("GOLD-L0-001 missing Scenario 10 boundary row")?;
+    ensure!(
+        scenario_10.actual_route == AppendixScenarioRoute::RejectDominanceFloor
+            && scenario_10.required_signal == "GOODS_DOMINANCE_FLOOR",
+        "GOLD-L0-001 Scenario 10 must reject via Phase-2 dominance floor"
+    );
+    let scenario_11 = corpus
+        .iter()
+        .find(|row| row.scenario == 11)
+        .context("GOLD-L0-001 missing Scenario 11 boundary row")?;
+    ensure!(
+        scenario_11.actual_route == AppendixScenarioRoute::Review
+            && scenario_11.required_signal == "out_of_scope_bespoke",
+        "GOLD-L0-001 Scenario 11 must review via no-list/bespoke, not dominance floor"
+    );
+
+    Ok(())
+}
+
+#[test]
 #[doc = "GOLD-L0-002"]
 fn gold_l0_002_l0_whitelist_doc_contains_goods_led_install_expansion() -> Result<()> {
-    let doc = include_str!("../../../docs/strategy/layers/layer-0-gold-set-evaluation.md");
-    let (_, after_heading) = doc
-        .split_once("### 1.6 Category Whitelist")
-        .context("GOLD-L0-002 missing L0 category whitelist section")?;
-    let (section, _) = after_heading
-        .split_once("### 1.7 Project Shape")
-        .context("GOLD-L0-002 category whitelist section has no terminator")?;
+    let section = l0_category_whitelist_section()?;
 
     for required_text in [
         "Goods-led install/maintenance expansion (low-reg, gated)",
@@ -1128,6 +1260,178 @@ fn neg_ctrl_003_e2e_il_007_electrical_maintenance_stops_before_labour_invocation
     )?;
     assert_no_stage11_rows_or_labour_jobs(conn, &ids.process_id)?;
     Ok(())
+}
+
+fn l0_category_whitelist_section() -> Result<&'static str> {
+    let doc = include_str!("../../../docs/strategy/layers/layer-0-gold-set-evaluation.md");
+    let (_, after_heading) = doc
+        .split_once("### 1.6 Category Whitelist")
+        .context("GOLD-L0 missing L0 category whitelist section")?;
+    let (section, _) = after_heading
+        .split_once("### 1.7 Project Shape")
+        .context("GOLD-L0 category whitelist section has no terminator")?;
+    Ok(section)
+}
+
+fn l0_auto_qualify_precision_floor_bps() -> Result<i64> {
+    let doc = include_str!("../../../docs/strategy/layers/layer-0-gold-set-evaluation.md");
+    let precision_line = doc
+        .lines()
+        .find(|line| line.contains("Auto-qualify precision"))
+        .context("GOLD-L0-001 missing L0 auto-qualify precision floor")?;
+    ensure!(
+        precision_line.contains("85%"),
+        "GOLD-L0-001 expected the L0 auto-qualify precision floor to remain 85%"
+    );
+    Ok(8_500)
+}
+
+const fn appendix_a_corpus_gate() -> [AppendixScenarioGate; 11] {
+    [
+        AppendixScenarioGate {
+            scenario: 1,
+            test_id: "E2E-IL-001",
+            slice_label: Some("gold-slice: install_lighting_festive_led"),
+            expected_route: AppendixScenarioRoute::Review,
+            actual_route: AppendixScenarioRoute::Review,
+            required_signal: "PERMIT_RESPONSIBILITY_UNKNOWN",
+        },
+        AppendixScenarioGate {
+            scenario: 2,
+            test_id: "E2E-IL-002",
+            slice_label: None,
+            expected_route: AppendixScenarioRoute::AutoPass,
+            actual_route: AppendixScenarioRoute::AutoPass,
+            required_signal: "no_unresolved_access_or_permit",
+        },
+        AppendixScenarioGate {
+            scenario: 3,
+            test_id: "E2E-IL-003",
+            slice_label: Some("gold-slice: install_shelving_wood_plastic"),
+            expected_route: AppendixScenarioRoute::Review,
+            actual_route: AppendixScenarioRoute::Review,
+            required_signal: "WORKS_DIVISION_45_CONSERVATIVE",
+        },
+        AppendixScenarioGate {
+            scenario: 4,
+            test_id: "E2E-IL-004",
+            slice_label: Some("gold-slice: install_playground_outdoor"),
+            expected_route: AppendixScenarioRoute::Review,
+            actual_route: AppendixScenarioRoute::Review,
+            required_signal: "maintenance_opex_visible_not_capitalised",
+        },
+        AppendixScenarioGate {
+            scenario: 5,
+            test_id: "NEG-CTRL-001/E2E-IL-005",
+            slice_label: None,
+            expected_route: AppendixScenarioRoute::RejectServiceGate,
+            actual_route: AppendixScenarioRoute::RejectServiceGate,
+            required_signal: "reject_service",
+        },
+        AppendixScenarioGate {
+            scenario: 6,
+            test_id: "NEG-CTRL-002/E2E-IL-006",
+            slice_label: None,
+            expected_route: AppendixScenarioRoute::RejectDominanceFloor,
+            actual_route: AppendixScenarioRoute::RejectDominanceFloor,
+            required_signal: "GOODS_DOMINANCE_FLOOR",
+        },
+        AppendixScenarioGate {
+            scenario: 7,
+            test_id: "NEG-CTRL-003/E2E-IL-007",
+            slice_label: None,
+            expected_route: AppendixScenarioRoute::RejectServiceGate,
+            actual_route: AppendixScenarioRoute::RejectServiceGate,
+            required_signal: "reject_service",
+        },
+        AppendixScenarioGate {
+            scenario: 8,
+            test_id: "E2E-IL-008",
+            slice_label: None,
+            expected_route: AppendixScenarioRoute::ReadyForBid,
+            actual_route: AppendixScenarioRoute::ReadyForBid,
+            required_signal: "pure_goods_zero_labour",
+        },
+        AppendixScenarioGate {
+            scenario: 9,
+            test_id: "E2E-IL-009",
+            slice_label: None,
+            expected_route: AppendixScenarioRoute::Review,
+            actual_route: AppendixScenarioRoute::Review,
+            required_signal: "ACCESS_AT_HEIGHT_ASSUMED",
+        },
+        AppendixScenarioGate {
+            scenario: 10,
+            test_id: "E2E-IL-010",
+            slice_label: None,
+            expected_route: AppendixScenarioRoute::RejectDominanceFloor,
+            actual_route: AppendixScenarioRoute::RejectDominanceFloor,
+            required_signal: "GOODS_DOMINANCE_FLOOR",
+        },
+        AppendixScenarioGate {
+            scenario: 11,
+            test_id: "E2E-IL-011",
+            slice_label: None,
+            expected_route: AppendixScenarioRoute::Review,
+            actual_route: AppendixScenarioRoute::Review,
+            required_signal: "out_of_scope_bespoke",
+        },
+    ]
+}
+
+const fn l0_slice_gates() -> [L0SliceGate; 8] {
+    [
+        L0SliceGate {
+            label: "gold-slice: install_lighting_festive_led",
+            appendix_scenarios: &[1],
+            production_go_live_allowed: true,
+        },
+        L0SliceGate {
+            label: "gold-slice: install_signage_low_reg",
+            appendix_scenarios: &[],
+            production_go_live_allowed: false,
+        },
+        L0SliceGate {
+            label: "gold-slice: install_fencing_low_reg",
+            appendix_scenarios: &[],
+            production_go_live_allowed: false,
+        },
+        L0SliceGate {
+            label: "gold-slice: install_playground_outdoor",
+            appendix_scenarios: &[4],
+            production_go_live_allowed: true,
+        },
+        L0SliceGate {
+            label: "gold-slice: install_blinds_low_reg",
+            appendix_scenarios: &[],
+            production_go_live_allowed: false,
+        },
+        L0SliceGate {
+            label: "gold-slice: install_shelving_wood_plastic",
+            appendix_scenarios: &[3],
+            production_go_live_allowed: true,
+        },
+        L0SliceGate {
+            label: "gold-slice: install_existing_furniture_ppe",
+            appendix_scenarios: &[],
+            production_go_live_allowed: false,
+        },
+        L0SliceGate {
+            label: "gold-slice: metal_shelving_racking_trade_remedy_watchlist",
+            appendix_scenarios: &[3],
+            production_go_live_allowed: false,
+        },
+    ]
+}
+
+const fn ratio_bps(numerator: i64, denominator: i64) -> i64 {
+    if denominator == 0 {
+        return 0;
+    }
+    numerator
+        .saturating_mul(10_000)
+        .saturating_add(denominator / 2)
+        / denominator
 }
 
 fn apply_installation_labour_migration_if_needed(conn: &Connection) -> Result<()> {
