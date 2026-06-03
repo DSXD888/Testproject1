@@ -8182,19 +8182,33 @@ fn profile_maintenance_per_visit_labour_estimate(
     let mut trade_evidence = Vec::new();
     for (trade, hours) in default_visit_trade_hours {
         let hours = hours.as_i64().filter(|value| *value >= 0).unwrap_or(0);
-        let hourly_rate_gbp_pence = national_trade_rates
-            .get(trade.as_str())
+        let trade_rate = national_trade_rates.get(trade.as_str());
+        let hourly_rate_gbp_pence = trade_rate
             .and_then(|rate| rate.get("hourly_rate_gbp_pence"))
             .and_then(Value::as_i64)
             .filter(|value| *value >= 0)
             .unwrap_or(0);
+        let confidence_bps = trade_rate
+            .and_then(|rate| rate.get("confidence_bps"))
+            .and_then(Value::as_i64)
+            .filter(|value| (0..=10_000).contains(value))
+            .or_else(|| {
+                profile_object
+                    .get("confidence_bps")
+                    .and_then(Value::as_i64)
+                    .filter(|value| (0..=10_000).contains(value))
+            })
+            .unwrap_or(0);
         let trade_base = hours.saturating_mul(hourly_rate_gbp_pence);
         trade_subtotal_gbp_pence = trade_subtotal_gbp_pence.saturating_add(trade_base);
         trade_evidence.push(json!({
+            "labour_type": "maintenance",
             "trade": trade,
-            "hours": hours,
-            "hourly_rate_gbp_pence": hourly_rate_gbp_pence,
-            "base_gbp_pence": trade_base,
+            "quantity_hours": hours,
+            "rate_gbp_per_hour_pence": hourly_rate_gbp_pence,
+            "subtotal_gbp_pence": trade_base,
+            "confidence_bps": confidence_bps,
+            "rate_source": "uk-regional-labour-rates-2026-q2",
         }));
     }
     let regional_subtotal_gbp_pence =
@@ -32289,7 +32303,7 @@ mod tests {
 
     #[test]
     fn uk_installation_labour_parser_accepts_estimated_result() -> Result<()> {
-        let parsed = super::parse_uk_installation_labour_result(&json!({
+        let payload = json!({
             "status": "estimated",
             "labour_status": "estimated",
             "uk_region": "NW",
@@ -32321,18 +32335,24 @@ mod tests {
             "permit_responsibility": "unknown",
             "vat_treatment": "ex_vat_screening_estimate",
             "excluded_cost_flags": ["firm_pricing_excluded"],
-            "evidence": {
+            "evidence": [{
                 "kind": "rate_table",
                 "source": "uk-regional-labour-rates-2026-q2.json",
                 "rate_table_version": "uk-installation-labour-2026-q2"
-            },
+            }],
             "warnings": [{
                 "code": "PERMIT_RESPONSIBILITY_UNKNOWN",
                 "message": "permit responsibility unknown",
                 "severity": "warning"
             }],
             "blockers": []
-        }))?;
+        });
+        let schema: Value = serde_json::from_str(include_str!(
+            "../../../skills/landed-cost/uk-installation-labour-estimate/result.schema.json"
+        ))?;
+        super::validate_result_schema(&schema, &payload)?;
+
+        let parsed = super::parse_uk_installation_labour_result(&payload)?;
 
         assert_eq!(parsed.status, "estimated");
         assert_eq!(parsed.labour_status, "estimated");

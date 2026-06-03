@@ -253,31 +253,31 @@
     "labour_line_item": {
       "type": "object",
       "required": [
+        "labour_type",
         "trade",
-        "hours",
-        "crew_size",
-        "hourly_rate_gbp_pence",
-        "region_multiplier_bps",
-        "base_gbp_pence",
-        "basis"
+        "quantity_hours",
+        "rate_gbp_per_hour_pence",
+        "subtotal_gbp_pence",
+        "confidence_bps",
+        "rate_source"
       ],
       "properties": {
+        "labour_type": {
+          "type": "string",
+          "minLength": 1
+        },
         "trade": {
           "type": "string",
           "minLength": 1
         },
-        "hours": {
+        "quantity_hours": {
           "type": "integer",
           "minimum": 0
         },
-        "crew_size": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "hourly_rate_gbp_pence": { "$ref": "#/$defs/money" },
-        "region_multiplier_bps": { "$ref": "#/$defs/bps" },
-        "base_gbp_pence": { "$ref": "#/$defs/money" },
-        "basis": {
+        "rate_gbp_per_hour_pence": { "$ref": "#/$defs/money" },
+        "subtotal_gbp_pence": { "$ref": "#/$defs/money" },
+        "confidence_bps": { "$ref": "#/$defs/bps" },
+        "rate_source": {
           "type": "string",
           "minLength": 1
         }

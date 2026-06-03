@@ -294,6 +294,87 @@ fn qoa5_skl_lint_002_uk_installation_labour_has_no_browser_membership() -> Resul
     Ok(())
 }
 
+#[test]
+fn qoa5_skl_lint_003_uk_installation_labour_line_item_contract_matches_spec() -> Result<()> {
+    let skill_dir = repo_skill_dir("landed-cost/uk-installation-labour-estimate")?;
+    let result_schema: JsonValue = serde_json::from_str(&std::fs::read_to_string(
+        skill_dir.join("result.schema.json"),
+    )?)?;
+    let golden: JsonValue = serde_yaml::from_str(&std::fs::read_to_string(
+        skill_dir.join("golden.assertions.yaml"),
+    )?)?;
+    let expected_fields = [
+        "labour_type",
+        "trade",
+        "quantity_hours",
+        "rate_gbp_per_hour_pence",
+        "subtotal_gbp_pence",
+        "confidence_bps",
+        "rate_source",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect::<Vec<_>>();
+
+    let schema_required_fields =
+        json_string_vec(&result_schema, "/$defs/labour_line_item/required")?;
+    let golden_required_fields = json_string_vec(
+        &golden,
+        "/cases/lights-nw-2day-01/labour_line_item_required_fields",
+    )?;
+    ensure!(
+        schema_required_fields == expected_fields,
+        "labour_line_item schema required fields drifted from FR-L.6-c"
+    );
+    ensure!(
+        golden_required_fields == expected_fields,
+        "golden labour_line_item required fields drifted from FR-L.6-c"
+    );
+    ensure!(
+        schema_required_fields == golden_required_fields,
+        "schema and golden labour_line_item required fields disagree"
+    );
+
+    let schema_property_fields = result_schema
+        .pointer("/$defs/labour_line_item/properties")
+        .and_then(JsonValue::as_object)
+        .ok_or_else(|| anyhow::anyhow!("labour_line_item properties should be present"))?
+        .keys()
+        .map(std::string::ToString::to_string)
+        .collect::<BTreeSet<_>>();
+    let expected_field_set = expected_fields.into_iter().collect::<BTreeSet<_>>();
+    ensure!(
+        schema_property_fields == expected_field_set,
+        "labour_line_item schema properties must exactly match the FR-L.6-c fields"
+    );
+    ensure!(
+        result_schema
+            .pointer("/$defs/labour_line_item/additionalProperties")
+            .and_then(JsonValue::as_bool)
+            == Some(false),
+        "labour_line_item schema must reject non-contract fields"
+    );
+    ensure!(
+        result_schema
+            .pointer("/$defs/labour_line_item/properties/rate_gbp_per_hour_pence/$ref")
+            .and_then(JsonValue::as_str)
+            == Some("#/$defs/money")
+    );
+    ensure!(
+        result_schema
+            .pointer("/$defs/labour_line_item/properties/subtotal_gbp_pence/$ref")
+            .and_then(JsonValue::as_str)
+            == Some("#/$defs/money")
+    );
+    ensure!(
+        result_schema
+            .pointer("/$defs/labour_line_item/properties/confidence_bps/$ref")
+            .and_then(JsonValue::as_str)
+            == Some("#/$defs/bps")
+    );
+    Ok(())
+}
+
 const QOA5_RATE_REFRESH_REQUIRED_FILES: [&str; 5] = [
     "SKILL.md",
     "result.schema.json",
@@ -511,16 +592,23 @@ fn qoa5_rate_refresh_family_set() -> BTreeSet<String> {
     .collect()
 }
 
-fn json_string_set(value: &JsonValue, pointer: &str) -> Result<BTreeSet<String>> {
+fn json_string_vec(value: &JsonValue, pointer: &str) -> Result<Vec<String>> {
     let array = value
         .pointer(pointer)
         .and_then(JsonValue::as_array)
         .ok_or_else(|| anyhow::anyhow!("missing string array at `{pointer}`"))?;
-    Ok(array
+    array
         .iter()
-        .filter_map(JsonValue::as_str)
-        .map(str::to_owned)
-        .collect())
+        .map(|item| {
+            item.as_str()
+                .map(str::to_owned)
+                .ok_or_else(|| anyhow::anyhow!("non-string item at `{pointer}`"))
+        })
+        .collect::<Result<Vec<_>>>()
+}
+
+fn json_string_set(value: &JsonValue, pointer: &str) -> Result<BTreeSet<String>> {
+    Ok(json_string_vec(value, pointer)?.into_iter().collect())
 }
 
 #[test]
