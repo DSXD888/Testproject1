@@ -6,6 +6,10 @@ import {
   FreshnessBadge,
   type FreshnessBadgeVM,
 } from '../../../../packages/ui';
+import type {
+  GoodsLedReviewContextPayload,
+  GoodsLedReviewReason,
+} from '@project/contracts-schema';
 
 type ProcessRow = {
   processId: string;
@@ -31,6 +35,9 @@ type ProcessRow = {
   netQualifiedValueCoverageBps: number | null;
   grossMarginBps: number | null;
   netMarginBaseBps: number | null;
+  labourCoverageBps?: GoodsLedReviewContextPayload['labourCoverageBps'];
+  reviewReasons?: GoodsLedReviewReason[];
+  goodsLedReviewContext?: GoodsLedReviewContextPayload | null;
   candidateCount: number;
   quotedCandidateCount: number;
   decision: {
@@ -365,9 +372,18 @@ export function ContractList({
                       netQualifiedValueCoverageBps: item.netQualifiedValueCoverageBps,
                       grossMarginBps: item.grossMarginBps,
                       netMarginBaseBps: item.netMarginBaseBps,
+                      labourCoverageBps:
+                        item.labourCoverageBps ??
+                        item.goodsLedReviewContext?.labourCoverageBps ??
+                        null,
+                      reviewReasons:
+                        item.reviewReasons ??
+                        item.goodsLedReviewContext?.reviewReasons ??
+                        [],
                       candidateCount: item.candidateCount,
                       quotedCandidateCount: item.quotedCandidateCount,
                     }}
+                    goodsLedReviewContext={item.goodsLedReviewContext ?? undefined}
                     decision={item.decision}
                     rightRail={<FreshnessBadge vm={buildFreshnessVm(item.publishedAt)} />}
                   />

@@ -72,6 +72,34 @@ describe('packages/ui components', () => {
       metrics: {
         ...contractCardFrameFixture.metrics,
         pipelineState: 'review',
+        labourCoverageBps: 10_000,
+        reviewReasons: [
+          'near_floor_cost_proxy',
+          'unresolved_permit_responsibility',
+          'no_list_bespoke_flag',
+          'labour_uncertainty',
+        ],
+      },
+      goodsLedReviewContext: {
+        labourLow: 210_000,
+        labourBase: 240_000,
+        labourHigh: 265_000,
+        labourConfidenceBps: 7_600,
+        permitLow: 0,
+        permitBase: 200_000,
+        permitHigh: 340_000,
+        permitResponsibility: 'unknown',
+        region: 'north_west',
+        installationScope: 'festive-lighting-install-and-remove',
+        equipmentAssumptions: ['operated_boom_mewp'],
+        warningCodes: [
+          'ACCESS_AT_HEIGHT_ASSUMED_MEWP',
+          'PERMIT_RESPONSIBILITY_UNKNOWN',
+        ],
+        goodsShareBasis: 'cost_proxy',
+        goodsShareFloorBps: 6_000,
+        decisionRoute: 'review',
+        labourCoverageBps: 10_000,
         reviewReasons: [
           'near_floor_cost_proxy',
           'unresolved_permit_responsibility',
@@ -85,12 +113,17 @@ describe('packages/ui components', () => {
 
     expect(markup).toContain('Review');
     expect(markup).toContain('Labour coverage');
-    expect(markup).toContain('0%');
+    expect(markup).toContain('100%');
     expect(markup).toContain('Review reasons');
     expect(markup).toContain('Near-floor cost proxy');
     expect(markup).toContain('Unresolved permit responsibility');
     expect(markup).toContain('No-list/bespoke flag');
     expect(markup).toContain('Labour uncertainty');
+    expect(markup).toContain('Goods-led labour/permit');
+    expect(markup).toContain('Labour base');
+    expect(markup).toContain('£2,400');
+    expect(markup).toContain('Permit/TM base');
+    expect(markup).toContain('£2,000');
   });
 
   it('TS-UI-004 renders pipeline state with text, icon, and validation visibility rules', () => {

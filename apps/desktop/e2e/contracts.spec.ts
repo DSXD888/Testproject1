@@ -5,11 +5,32 @@ test.describe('contracts pages', () => {
     await page.goto('/');
     await expect(page.getByText('Contract queue')).toBeVisible();
     await expect(page.getByTestId('contract-row')).toHaveCount(25);
-    await expect(page.getByTestId('contract-row').first()).toContainText('Process process-1');
-    await expect(page.getByTestId('contract-row').first()).toContainText('Buyer process-1');
+    await expect(page.getByTestId('contract-row').first()).toContainText('E2E-IL-001');
+    await expect(page.getByTestId('contract-row').first()).toContainText('North West Borough Council');
     await expect(page.getByTestId('contract-row').first()).toContainText('Decision: watch');
     await expect(page.getByTestId('contract-row').first()).toContainText('public_web');
     await expect(page.getByTestId('contract-row').first()).toContainText('goods');
+  });
+
+  test('PW-CON-001a review goods-led rows stay visible with labour and permit context', async ({ page }) => {
+    await page.goto('/?pipelineState=review');
+
+    const festive = page.locator('article[data-process-id="process-1"]');
+    await expect(festive).toContainText('E2E-IL-001 Festive lights');
+    await expect(festive).toContainText('Labour coverage');
+    await expect(festive).toContainText('100%');
+    await expect(festive).toContainText('Goods-led labour/permit');
+    await expect(festive).toContainText('Labour base');
+    await expect(festive).toContainText('£2,400');
+    await expect(festive).toContainText('Permit/TM base');
+    await expect(festive).toContainText('£2,000');
+    await expect(festive).toContainText('Review reasons');
+    await expect(festive).toContainText('Unresolved permit responsibility');
+    await expect(festive).toContainText('Labour uncertainty');
+
+    const bespoke = page.locator('article[data-process-id="process-11"]');
+    await expect(bespoke).toContainText('E2E-IL-011 Bespoke made-to-measure windows');
+    await expect(bespoke).toContainText('No-list/bespoke flag');
   });
 
   test('PW-CON-002 empty query shows explicit empty state', async ({ page }) => {

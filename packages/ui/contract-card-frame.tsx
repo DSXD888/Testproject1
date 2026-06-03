@@ -89,6 +89,8 @@ export function ContractCardFrame({
   const reviewReasons = metrics.reviewReasons ?? goodsLedReviewContext?.reviewReasons ?? [];
   const shouldRenderReviewReasons =
     metrics.pipelineState === 'review' && reviewReasons.length > 0;
+  const shouldRenderGoodsLedCostContext =
+    metrics.pipelineState === 'review' && Boolean(goodsLedReviewContext);
 
   return (
     <article
@@ -142,6 +144,21 @@ export function ContractCardFrame({
             {reviewReasons.map((reason) => (
               <li key={reason}>{REVIEW_REASON_LABELS[reason]}</li>
             ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {shouldRenderGoodsLedCostContext && goodsLedReviewContext ? (
+        <section
+          aria-label="Goods-led review cost context"
+          className="contract-card-frame__review-cost-context"
+        >
+          <p className="contract-card-frame__review-reasons-title">
+            Goods-led labour/permit
+          </p>
+          <ul>
+            <li>Labour base {formatMoney(goodsLedReviewContext.labourBase)}</li>
+            <li>Permit/TM base {formatMoney(goodsLedReviewContext.permitBase)}</li>
           </ul>
         </section>
       ) : null}

@@ -70,6 +70,49 @@ const ERROR_SEVERITY_FILTERS = ['critical', 'warning', 'info'] as const satisfie
 let restartScenarioCommitted = false;
 let restartScenarioRefreshPending = false;
 
+const FESTIVE_LIGHTS_REVIEW_CONTEXT: GoodsLedReviewContextPayload = {
+  labourLow: 210_000,
+  labourBase: 240_000,
+  labourHigh: 265_000,
+  labourConfidenceBps: 7_600,
+  permitLow: 0,
+  permitBase: 200_000,
+  permitHigh: 340_000,
+  permitResponsibility: 'unknown',
+  region: 'north_west',
+  installationScope: 'festive-lighting-install-and-remove',
+  equipmentAssumptions: ['operated_boom_mewp'],
+  warningCodes: [
+    'ACCESS_AT_HEIGHT_ASSUMED_MEWP',
+    'PERMIT_RESPONSIBILITY_UNKNOWN',
+  ],
+  goodsShareBasis: 'cost_proxy',
+  goodsShareFloorBps: 6_000,
+  decisionRoute: 'review',
+  labourCoverageBps: 10_000,
+  reviewReasons: ['labour_uncertainty', 'unresolved_permit_responsibility'],
+};
+
+const BESPOKE_WINDOWS_REVIEW_CONTEXT: GoodsLedReviewContextPayload = {
+  labourLow: 360_000,
+  labourBase: 400_000,
+  labourHigh: 480_000,
+  labourConfidenceBps: 7_500,
+  permitLow: 0,
+  permitBase: 0,
+  permitHigh: 0,
+  permitResponsibility: 'contractor_provided',
+  region: 'south_east',
+  installationScope: 'bespoke-made-to-measure-window-fit',
+  equipmentAssumptions: [],
+  warningCodes: [],
+  goodsShareBasis: 'cost_proxy',
+  goodsShareFloorBps: 6_000,
+  decisionRoute: 'review',
+  labourCoverageBps: 10_000,
+  reviewReasons: ['no_list_bespoke_flag'],
+};
+
 function allowedStringFilters<T extends string>(
   source: unknown,
   allowed: readonly T[],
@@ -113,10 +156,39 @@ function stringFilters(source: unknown): string[] {
   }, []);
 }
 
+type ProcessSummaryFixture = {
+  processId: string;
+  canonicalProcessId: string;
+  title: string;
+  buyerName: string;
+  publishedAt: string;
+  deadlineAt: string;
+  estimatedValuePence: number;
+  lotCount: number;
+  accessRoute: string;
+  legalCategory: string;
+  pipelineState: string;
+  pricedCoverageBps: number;
+  netQualifiedCoverageBps: number;
+  netQualifiedValueCoverageBps: number;
+  grossMarginBps: number;
+  netMarginBaseBps: number;
+  labourCoverageBps?: GoodsLedReviewContextPayload['labourCoverageBps'];
+  reviewReasons?: GoodsLedReviewContextPayload['reviewReasons'];
+  goodsLedReviewContext?: GoodsLedReviewContextPayload;
+  candidateCount: number;
+  quotedCandidateCount: number;
+  decision: {
+    disposition: 'watch';
+    isStale: boolean;
+    decidedAt: string;
+  };
+};
+
 function makeProcessSummary(
   processId: string,
-  overrides: Partial<Record<string, unknown>> = {},
-) {
+  overrides: Partial<ProcessSummaryFixture> = {},
+): ProcessSummaryFixture {
   return {
     processId,
     canonicalProcessId: processId,
@@ -143,6 +215,43 @@ function makeProcessSummary(
     },
     ...overrides,
   };
+}
+
+function processSummaryFixture(index: number) {
+  const processId = `process-${index + 1}`;
+  if (processId === 'process-1') {
+    return makeProcessSummary(processId, {
+      title: 'E2E-IL-001 Festive lights supply/install/de-install',
+      buyerName: 'North West Borough Council',
+      estimatedValuePence: 1_440_000,
+      labourCoverageBps: FESTIVE_LIGHTS_REVIEW_CONTEXT.labourCoverageBps,
+      reviewReasons: FESTIVE_LIGHTS_REVIEW_CONTEXT.reviewReasons,
+      goodsLedReviewContext: FESTIVE_LIGHTS_REVIEW_CONTEXT,
+    });
+  }
+  if (processId === 'process-11') {
+    return makeProcessSummary(processId, {
+      title: 'E2E-IL-011 Bespoke made-to-measure windows',
+      buyerName: 'South East Housing Trust',
+      estimatedValuePence: 3_400_000,
+      labourCoverageBps: BESPOKE_WINDOWS_REVIEW_CONTEXT.labourCoverageBps,
+      reviewReasons: BESPOKE_WINDOWS_REVIEW_CONTEXT.reviewReasons,
+      goodsLedReviewContext: BESPOKE_WINDOWS_REVIEW_CONTEXT,
+    });
+  }
+  return makeProcessSummary(processId);
+}
+
+function processSummaryMatchesSearch(
+  item: ProcessSummaryFixture,
+  search: string,
+): boolean {
+  if (!search) {
+    return true;
+  }
+  return [item.processId, item.title, item.buyerName].some((value) =>
+    value.toLowerCase().includes(search),
+  );
 }
 
 type ProcessDetailFixture = {
@@ -1458,16 +1567,16 @@ export async function handleDevBridgeInvoke({
     const staleOnly = rawFilters?.staleOnly === true;
     const search =
       typeof rawFilters?.search === 'string' ? rawFilters.search.trim().toLowerCase() : '';
+    const allItems = Array.from({ length: 25 }, (_, index) =>
+      processSummaryFixture(index),
+    );
 
     const visible =
       (sourceIds.length === 0 || sourceIds.includes('fts')) &&
       (pipelineStates.length === 0 || pipelineStates.includes('review')) &&
       (decisionDispositions.length === 0 ||
         decisionDispositions.includes('watch')) &&
-      (!staleOnly || true) &&
-      (!search ||
-        'Process process-1'.toLowerCase().includes(search) ||
-        'Buyer process-1'.toLowerCase().includes(search));
+      (!staleOnly || true);
 
     if (sourceIds.includes('empty')) {
       return envelope({
@@ -1489,9 +1598,7 @@ export async function handleDevBridgeInvoke({
 
     return envelope({
       items: visible
-        ? Array.from({ length: 25 }, (_, index) =>
-            makeProcessSummary(`process-${index + 1}`),
-          )
+        ? allItems.filter((item) => processSummaryMatchesSearch(item, search))
         : [],
       nextCursor: 'cursor-page-2',
       hasMore: true,

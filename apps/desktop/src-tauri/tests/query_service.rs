@@ -431,6 +431,8 @@ fn rs_qs_002_process_list_returns_snapshot_page() -> Result<()> {
     assert_eq!(envelope.data.items[0].lot_count, 1);
     assert_eq!(envelope.data.items[0].access_route, "public_web");
     assert_eq!(envelope.data.items[0].legal_category, "goods");
+    assert!(envelope.data.items[0].labour_coverage_bps.is_none());
+    assert!(envelope.data.items[0].review_reasons.is_empty());
     assert_eq!(
         envelope.data.items[0].decision.disposition.as_deref(),
         Some("approve")
@@ -440,6 +442,54 @@ fn rs_qs_002_process_list_returns_snapshot_page() -> Result<()> {
         Some("queued")
     );
     assert!(!envelope.data.items[0].decision.is_stale);
+    Ok(())
+}
+
+#[test]
+fn rs_qs_002d_process_list_exposes_goods_led_review_context() -> Result<()> {
+    let mut harness = Harness::new()?;
+    harness.seed_process("process-review", "2026-03-26T11:00:00Z", "review")?;
+    harness.seed_candidate_and_quote("process-review")?;
+    harness.state_db.with_write_transaction(|tx| {
+        tx.execute(
+            "UPDATE pipeline_assessments
+             SET installation_labour_coverage_bps = 10000,
+                 review_reason = 'out_of_scope_bespoke; PERMIT_RESPONSIBILITY_UNKNOWN; labour_uncertainty'
+             WHERE process_id = 'process-review'",
+            [],
+        )?;
+        Ok(())
+    })?;
+
+    let service = harness.service()?;
+    let envelope = service
+        .list_processes(
+            None,
+            25,
+            &ProcessListFilters {
+                pipeline_states: vec!["review".to_owned()],
+                ..ProcessListFilters::default()
+            },
+        )
+        .map_err(|error| anyhow!("{:?}: {}", error.code, error.message))?;
+
+    assert_eq!(envelope.data.items.len(), 1);
+    let item = envelope
+        .data
+        .items
+        .first()
+        .ok_or_else(|| anyhow!("expected one review queue item"))?;
+    assert_eq!(item.process_id, "process-review");
+    assert_eq!(item.pipeline_state, PipelineState::Review);
+    assert_eq!(item.labour_coverage_bps, Some(10_000));
+    assert_eq!(
+        item.review_reasons,
+        vec![
+            "unresolved_permit_responsibility".to_owned(),
+            "no_list_bespoke_flag".to_owned(),
+            "labour_uncertainty".to_owned(),
+        ]
+    );
     Ok(())
 }
 

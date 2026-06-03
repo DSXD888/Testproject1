@@ -449,6 +449,8 @@ pub struct ProcessListItem {
     pub net_qualified_value_coverage_bps: Option<i64>,
     pub gross_margin_bps: Option<i64>,
     pub net_margin_base_bps: Option<i64>,
+    pub labour_coverage_bps: Option<i64>,
+    pub review_reasons: Vec<String>,
     pub candidate_count: i64,
     pub quoted_candidate_count: i64,
     pub decision: DecisionStatus,
@@ -948,6 +950,8 @@ fn load_process_list_rows(
                      pa.net_qualified_value_coverage_bps,
                      pa.gross_margin_bps,
                      pa.net_margin_bps,
+                     pa.installation_labour_coverage_bps,
+                     pa.review_reason,
                      COALESCE((SELECT COUNT(*) FROM product_candidates pc WHERE pc.process_id = p.id), 0) AS candidate_count,
                      COALESCE((SELECT COUNT(*) FROM supplier_quotes sq WHERE sq.process_id = p.id), 0) AS quoted_candidate_count,
                      pa.decision_basis_hash,
@@ -998,6 +1002,8 @@ fn load_process_list_rows(
                    net_qualified_value_coverage_bps,
                    gross_margin_bps,
                    net_margin_bps,
+                   installation_labour_coverage_bps,
+                   review_reason,
                    candidate_count,
                    quoted_candidate_count,
                    decision_disposition,
@@ -1084,13 +1090,15 @@ fn load_process_list_rows(
                     row.get::<_, Option<i64>>(13)?,
                     row.get::<_, Option<i64>>(14)?,
                     row.get::<_, Option<i64>>(15)?,
-                    row.get::<_, i64>(16)?,
-                    row.get::<_, i64>(17)?,
-                    row.get::<_, Option<String>>(18)?,
-                    row.get::<_, Option<String>>(19)?,
+                    row.get::<_, Option<i64>>(16)?,
+                    row.get::<_, Option<String>>(17)?,
+                    row.get::<_, i64>(18)?,
+                    row.get::<_, i64>(19)?,
                     row.get::<_, Option<String>>(20)?,
                     row.get::<_, Option<String>>(21)?,
                     row.get::<_, Option<String>>(22)?,
+                    row.get::<_, Option<String>>(23)?,
+                    row.get::<_, Option<String>>(24)?,
                 ))
             },
         )
@@ -1114,6 +1122,8 @@ fn load_process_list_rows(
             net_qualified_value_coverage_bps,
             gross_margin_bps,
             net_margin_base_bps,
+            labour_coverage_bps,
+            review_reason,
             candidate_count,
             quoted_candidate_count,
             decision_disposition,
@@ -1146,6 +1156,8 @@ fn load_process_list_rows(
             net_qualified_value_coverage_bps,
             gross_margin_bps,
             net_margin_base_bps,
+            labour_coverage_bps,
+            review_reasons: goods_led_review_reasons_from_review_reason(review_reason.as_deref()),
             candidate_count,
             quoted_candidate_count,
             decision: DecisionStatus {
@@ -1157,6 +1169,37 @@ fn load_process_list_rows(
         })
     })
     .collect()
+}
+
+fn goods_led_review_reasons_from_review_reason(review_reason: Option<&str>) -> Vec<String> {
+    let Some(review_reason) = review_reason else {
+        return Vec::new();
+    };
+    let normalized = review_reason.to_ascii_lowercase();
+    let mut reasons = Vec::new();
+    if normalized.contains("near_floor_cost_proxy") || normalized.contains("near-floor") {
+        reasons.push("near_floor_cost_proxy".to_owned());
+    }
+    if normalized.contains("permit")
+        || normalized.contains("traffic_mgmt")
+        || normalized.contains("traffic management")
+    {
+        reasons.push("unresolved_permit_responsibility".to_owned());
+    }
+    if normalized.contains("no_list")
+        || normalized.contains("bespoke")
+        || normalized.contains("out_of_scope_bespoke")
+        || normalized.contains("out_of_scope_category")
+    {
+        reasons.push("no_list_bespoke_flag".to_owned());
+    }
+    if normalized.contains("labour_uncertainty")
+        || normalized.contains("labour_scope")
+        || normalized.contains("labour_region")
+    {
+        reasons.push("labour_uncertainty".to_owned());
+    }
+    reasons
 }
 
 fn load_notice_rows(
