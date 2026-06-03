@@ -15,7 +15,7 @@ use chrono::{TimeZone, Utc};
 use db_support::{FTS_SOURCE_ID, TestStateDb};
 use serde_json::{Value, json};
 use serde_yaml::Value as YamlValue;
-use skills_support::lint_skill_directory;
+use skills_support::{lint_skill_directory, load_skill_metadata};
 
 const AGENT_PROTOCOL_MISMATCH: &str = "AGENT_PROTOCOL_MISMATCH";
 const SOURCE_SOFT_BLOCKED: &str = "SOURCE_SOFT_BLOCKED";
@@ -61,6 +61,33 @@ const OVERLAY_LABOUR_CANARY_CASES: [&str; 3] = [
     "labour-overlay-clean-001",
     "labour-overlay-mutated-bad-001",
     "labour-overlay-worker-outage-001",
+];
+const RATE_REFRESH_CANARY_CASE_ID: &str = "rate-refresh-stale-2026-q2-01";
+const RATE_REFRESH_REQUIRED_FAMILIES: [&str; 4] = [
+    "labour_rates",
+    "access_equipment_bands",
+    "installation_profiles",
+    "permit_tm_bands",
+];
+const RATE_REFRESH_REFERENCE_FILES: [&str; 4] = [
+    "uk-regional-labour-rates-2026-q2.json",
+    "uk-access-equipment-bands-2026-q2.json",
+    "uk-installation-profiles-2026-q2.json",
+    "uk-permit-tm-bands-2026-q2.json",
+];
+const RATE_REFRESH_REQUIRED_RESULT_FIELDS: [&str; 12] = [
+    "refresh_status",
+    "source_health_mode",
+    "checked_at",
+    "as_of",
+    "source_reference_version",
+    "candidate_version",
+    "candidate_updates",
+    "provenance",
+    "changed_cells",
+    "production_reference_mutation_performed",
+    "warnings",
+    "blockers",
 ];
 
 fn repo_root() -> Result<PathBuf> {
@@ -562,6 +589,24 @@ fn json_string_set_field(value: &Value, key: &str) -> Result<BTreeSet<String>> {
                 .ok_or_else(|| anyhow::anyhow!("field `{key}` must contain strings"))
         })
         .collect()
+}
+
+fn json_string_set_array(value: Option<&Value>, label: &str) -> Result<BTreeSet<String>> {
+    let items = value
+        .and_then(Value::as_array)
+        .ok_or_else(|| anyhow::anyhow!("missing JSON string sequence `{label}`"))?;
+    items
+        .iter()
+        .map(|item| {
+            item.as_str()
+                .map(str::to_owned)
+                .ok_or_else(|| anyhow::anyhow!("JSON sequence `{label}` must contain strings"))
+        })
+        .collect()
+}
+
+fn str_array_set(items: &[&str]) -> BTreeSet<String> {
+    items.iter().map(|item| (*item).to_owned()).collect()
 }
 
 fn yaml_sequence_string_set(value: Option<&YamlValue>, label: &str) -> Result<BTreeSet<String>> {
@@ -1236,6 +1281,499 @@ fn assert_overlay_labour_rubric_contract(
         })
         .collect::<Result<BTreeSet<_>>>()?;
     ensure!(blocking_checks == *required_checks);
+
+    Ok(())
+}
+
+#[test]
+fn can_rate_refresh_001_stale_inputs_produce_candidate_json_without_mutating_references()
+-> Result<()> {
+    let refresh_root = skill_dir("source-health/uk-installation-labour-rate-refresh")?;
+    let reference_root =
+        skill_dir("landed-cost/uk-installation-labour-estimate")?.join("reference");
+    let reference_snapshot = rate_refresh_reference_snapshot(&reference_root)?;
+    let linted = load_skill_metadata(&refresh_root)?;
+    let required_families = rate_refresh_required_family_set();
+
+    assert_rate_refresh_metadata_and_files(&refresh_root, &linted)?;
+    assert_rate_refresh_schema_contract(&refresh_root, &required_families)?;
+    assert_rate_refresh_canary_and_golden_contract(
+        &refresh_root,
+        &reference_root,
+        &required_families,
+    )?;
+    assert_rate_refresh_rubric_contract(&refresh_root)?;
+    ensure!(
+        rate_refresh_reference_snapshot(&reference_root)? == reference_snapshot,
+        "CAN-RATE-REFRESH-001 must not mutate production reference JSON files"
+    );
+
+    Ok(())
+}
+
+fn rate_refresh_required_family_set() -> BTreeSet<String> {
+    str_array_set(&RATE_REFRESH_REQUIRED_FAMILIES)
+}
+
+fn rate_refresh_required_result_field_set() -> BTreeSet<String> {
+    str_array_set(&RATE_REFRESH_REQUIRED_RESULT_FIELDS)
+}
+
+fn rate_refresh_reference_snapshot(reference_root: &Path) -> Result<Vec<(String, Vec<u8>)>> {
+    [
+        (
+            "uk-regional-labour-rates-2026-q2.json",
+            reference_root.join("uk-regional-labour-rates-2026-q2.json"),
+        ),
+        (
+            "uk-access-equipment-bands-2026-q2.json",
+            reference_root.join("uk-access-equipment-bands-2026-q2.json"),
+        ),
+        (
+            "uk-installation-profiles-2026-q2.json",
+            reference_root.join("uk-installation-profiles-2026-q2.json"),
+        ),
+        (
+            "uk-permit-tm-bands-2026-q2.json",
+            reference_root.join("uk-permit-tm-bands-2026-q2.json"),
+        ),
+    ]
+    .into_iter()
+    .map(|(file_name, path)| {
+        ensure!(
+            path.is_file(),
+            "rate-refresh production reference file missing: {}",
+            path.display()
+        );
+        Ok((file_name.to_owned(), fs::read(path)?))
+    })
+    .collect()
+}
+
+fn assert_rate_refresh_metadata_and_files(
+    refresh_root: &Path,
+    linted: &skills_support::LintedSkill,
+) -> Result<()> {
+    ensure!(linted.metadata.skill_id == "source-health/uk-installation-labour-rate-refresh");
+    ensure!(linted.metadata.interaction_profile == "http_public");
+    ensure!(linted.metadata.side_effect_class == "none");
+    ensure!(!linted.metadata.requires_cdp);
+    ensure!(linted.metadata.promotion_stage.as_deref() == Some("candidate"));
+    ensure!(
+        linted.metadata.source_structure_version.as_deref()
+            == Some("uk-installation-labour-rate-refresh-2026-q2")
+    );
+
+    for (required_file, required_path) in [
+        ("SKILL.md", refresh_root.join("SKILL.md")),
+        (
+            "result.schema.json",
+            refresh_root.join("result.schema.json"),
+        ),
+        (
+            "canary.inputs.jsonl",
+            refresh_root.join("canary.inputs.jsonl"),
+        ),
+        (
+            "golden.assertions.yaml",
+            refresh_root.join("golden.assertions.yaml"),
+        ),
+        (
+            "validator-rubric.yaml",
+            refresh_root.join("validator-rubric.yaml"),
+        ),
+    ] {
+        ensure!(
+            required_path.is_file(),
+            "rate-refresh skill missing {required_file}"
+        );
+    }
+
+    for required_text in [
+        "quarterly source-health",
+        "candidate JSON outputs",
+        "production_reference_mutation_performed: false",
+        "Never resume by editing production reference files in place",
+        "candidate_output_root",
+    ] {
+        ensure!(
+            linted.skill_markdown.contains(required_text),
+            "rate-refresh SKILL.md missing `{required_text}`"
+        );
+    }
+
+    Ok(())
+}
+
+fn assert_rate_refresh_schema_contract(
+    refresh_root: &Path,
+    required_families: &BTreeSet<String>,
+) -> Result<()> {
+    let schema: Value = serde_json::from_str(&fs::read_to_string(
+        refresh_root.join("result.schema.json"),
+    )?)?;
+    ensure!(
+        json_string_set_array(
+            schema.get("required"),
+            "rate-refresh result required fields"
+        )? == rate_refresh_required_result_field_set()
+    );
+    ensure!(
+        json_string_set_array(
+            schema.pointer("/properties/candidate_updates/required"),
+            "candidate_updates required families",
+        )? == *required_families
+    );
+    for pointer in [
+        "/$defs/candidate_family_result/properties/family/enum",
+        "/$defs/provenance_record/properties/family/enum",
+        "/$defs/changed_cell/properties/family/enum",
+    ] {
+        ensure!(
+            json_string_set_array(schema.pointer(pointer), pointer)? == *required_families,
+            "rate-refresh schema family enum mismatch at {pointer}"
+        );
+    }
+    assert_rate_refresh_schema_mutation_and_evidence_contract(&schema)
+}
+
+fn assert_rate_refresh_schema_mutation_and_evidence_contract(schema: &Value) -> Result<()> {
+    ensure!(
+        schema
+            .pointer("/properties/production_reference_mutation_performed/const")
+            .and_then(Value::as_bool)
+            == Some(false)
+    );
+    ensure!(
+        schema
+            .pointer("/$defs/candidate_family_result/properties/production_reference_mutated/const")
+            .and_then(Value::as_bool)
+            == Some(false)
+    );
+    ensure!(
+        json_string_set_array(
+            schema.pointer("/$defs/candidate_family_result/required"),
+            "candidate family required fields",
+        )?
+        .is_superset(&str_array_set(&[
+            "candidate_output_path",
+            "as_of",
+            "source_urls",
+            "changed_cell_count",
+            "production_reference_mutated",
+        ]))
+    );
+    ensure!(
+        json_string_set_array(
+            schema.pointer("/$defs/provenance_record/required"),
+            "provenance required fields",
+        )?
+        .is_superset(&str_array_set(&[
+            "provenance_id",
+            "source_name",
+            "source_url",
+            "source_role",
+            "as_of",
+            "observed_at",
+        ]))
+    );
+    ensure!(
+        json_string_set_array(
+            schema.pointer("/$defs/changed_cell/required"),
+            "changed cell required fields",
+        )?
+        .is_superset(&str_array_set(&[
+            "family",
+            "table_key",
+            "field_path",
+            "old_value",
+            "candidate_value",
+            "source_url",
+            "provenance_id",
+        ]))
+    );
+
+    Ok(())
+}
+
+fn assert_rate_refresh_canary_and_golden_contract(
+    refresh_root: &Path,
+    reference_root: &Path,
+    required_families: &BTreeSet<String>,
+) -> Result<()> {
+    let canaries = load_canary_inputs(&refresh_root.join("canary.inputs.jsonl"))?;
+    let canary = find_canary_case(&canaries, RATE_REFRESH_CANARY_CASE_ID)?;
+    let golden: YamlValue = serde_yaml::from_str(&fs::read_to_string(
+        refresh_root.join("golden.assertions.yaml"),
+    )?)?;
+
+    assert_rate_refresh_canary_input_contract(canary, required_families)?;
+    assert_rate_refresh_golden_contract(&golden, reference_root, canary, required_families)
+}
+
+fn assert_rate_refresh_canary_input_contract(
+    canary: &Value,
+    required_families: &BTreeSet<String>,
+) -> Result<()> {
+    ensure!(json_str_field_eq(
+        canary.get("refresh_kind"),
+        "quarterly_source_health"
+    ));
+    ensure!(json_str_field_eq(
+        canary.get("source_reference_version"),
+        "uk-installation-labour-2026-q2"
+    ));
+    ensure!(json_str_field_eq(
+        canary.get("candidate_version"),
+        "uk-installation-labour-2026-q3-candidate"
+    ));
+    ensure!(json_bool_field_eq(
+        canary.get("allow_production_mutation"),
+        false
+    ));
+    ensure!(json_string_set_field(canary, "families")? == *required_families);
+    assert_rate_refresh_candidate_output_root(canary)?;
+    assert_rate_refresh_public_sources(canary, required_families)?;
+    assert_rate_refresh_expected_result(canary, required_families)
+}
+
+fn assert_rate_refresh_candidate_output_root(canary: &Value) -> Result<()> {
+    let production_root = canary
+        .get("production_reference_root")
+        .and_then(Value::as_str)
+        .ok_or_else(|| anyhow::anyhow!("rate-refresh canary missing production_reference_root"))?;
+    let candidate_root = canary
+        .get("candidate_output_root")
+        .and_then(Value::as_str)
+        .ok_or_else(|| anyhow::anyhow!("rate-refresh canary missing candidate_output_root"))?;
+    ensure!(
+        candidate_root.starts_with("artifacts/source-health/uk-installation-labour-rate-refresh/"),
+        "rate-refresh candidate output must use source-health artifact root"
+    );
+    ensure!(
+        !candidate_root.starts_with(production_root),
+        "rate-refresh candidate output root must not be under production reference root"
+    );
+    Ok(())
+}
+
+fn assert_rate_refresh_public_sources(
+    canary: &Value,
+    required_families: &BTreeSet<String>,
+) -> Result<()> {
+    let public_sources = canary
+        .get("public_sources")
+        .and_then(Value::as_array)
+        .ok_or_else(|| anyhow::anyhow!("rate-refresh canary missing public_sources"))?;
+    let source_families = public_sources
+        .iter()
+        .map(|source| {
+            source
+                .get("family")
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+                .ok_or_else(|| anyhow::anyhow!("rate-refresh public source missing family"))
+        })
+        .collect::<Result<BTreeSet<_>>>()?;
+    ensure!(source_families == *required_families);
+    for source in public_sources {
+        let source_url = source
+            .get("source_url")
+            .and_then(Value::as_str)
+            .ok_or_else(|| anyhow::anyhow!("rate-refresh public source missing source_url"))?;
+        ensure!(
+            source_url.starts_with("https://"),
+            "rate-refresh public source URL must be HTTPS"
+        );
+        ensure!(
+            source
+                .get("source_name")
+                .and_then(Value::as_str)
+                .is_some_and(|name| !name.trim().is_empty())
+                && source
+                    .get("source_role")
+                    .and_then(Value::as_str)
+                    .is_some_and(|role| !role.trim().is_empty())
+                && json_str_field_eq(source.get("as_of"), "2026-06-30"),
+            "rate-refresh public source must carry source_name, source_role, and as_of"
+        );
+    }
+    Ok(())
+}
+
+fn assert_rate_refresh_expected_result(
+    canary: &Value,
+    required_families: &BTreeSet<String>,
+) -> Result<()> {
+    let expected = canary
+        .get("expected_result")
+        .ok_or_else(|| anyhow::anyhow!("rate-refresh canary missing expected_result"))?;
+    ensure!(json_str_field_eq(
+        expected.get("source_health_mode"),
+        "quarterly_canary_refresh"
+    ));
+    ensure!(json_str_field_eq(
+        expected.get("refresh_status"),
+        "candidate_updates_produced"
+    ));
+    ensure!(json_bool_field_eq(
+        expected.get("production_reference_mutation_performed"),
+        false
+    ));
+    ensure!(json_bool_field_eq(
+        expected.get("requires_provenance"),
+        true
+    ));
+    ensure!(json_bool_field_eq(
+        expected.get("requires_changed_cells"),
+        true
+    ));
+    ensure!(
+        json_string_set_array(
+            expected.get("requires_candidate_updates_for"),
+            "requires_candidate_updates_for",
+        )? == *required_families
+    );
+    Ok(())
+}
+
+fn assert_rate_refresh_golden_contract(
+    golden: &YamlValue,
+    reference_root: &Path,
+    canary: &Value,
+    required_families: &BTreeSet<String>,
+) -> Result<()> {
+    ensure!(yaml_sequence_contains_str(
+        yaml_get(golden, "test_ids"),
+        "CAN-RATE-REFRESH-001"
+    ));
+    ensure!(
+        yaml_sequence_string_set(
+            yaml_get(golden, "candidate_output_families"),
+            "candidate_output_families",
+        )? == *required_families
+    );
+    ensure!(
+        yaml_sequence_string_set(
+            yaml_get(golden, "required_result_fields"),
+            "required_result_fields",
+        )? == rate_refresh_required_result_field_set()
+    );
+    assert_rate_refresh_golden_required_assertions(golden)?;
+    assert_rate_refresh_output_contract(golden, reference_root, canary)
+}
+
+fn assert_rate_refresh_golden_required_assertions(golden: &YamlValue) -> Result<()> {
+    let required_assertions = yaml_sequence_string_set(
+        yaml_get(golden, "required_assertions"),
+        "required_assertions",
+    )?;
+    ensure!(
+        required_assertions.is_superset(&str_array_set(&[
+            "stale_reference_inputs_produce_candidate_json",
+            "all_four_candidate_output_families_present",
+            "source_urls_recorded_for_every_family",
+            "as_of_recorded_for_every_family",
+            "provenance_recorded_for_every_family",
+            "changed_cells_recorded_for_candidate_deltas",
+            "no_in_place_production_reference_mutation",
+            "production_reference_mutation_performed_is_false",
+        ])),
+        "rate-refresh golden assertions must pin candidate JSON and no-mutation evidence"
+    );
+    Ok(())
+}
+
+fn assert_rate_refresh_output_contract(
+    golden: &YamlValue,
+    reference_root: &Path,
+    canary: &Value,
+) -> Result<()> {
+    let output_contract = yaml_get(golden, "candidate_output_contract")
+        .ok_or_else(|| anyhow::anyhow!("rate-refresh golden missing output contract"))?;
+    let production_root = canary
+        .get("production_reference_root")
+        .and_then(Value::as_str)
+        .ok_or_else(|| anyhow::anyhow!("rate-refresh canary missing production_reference_root"))?;
+    ensure!(yaml_str_field_eq(
+        yaml_get(output_contract, "production_reference_root"),
+        production_root
+    ));
+    ensure!(yaml_str_field_eq(
+        yaml_get(output_contract, "candidate_output_root_prefix"),
+        "artifacts/source-health/uk-installation-labour-rate-refresh/"
+    ));
+    ensure!(yaml_str_field_eq(
+        yaml_get(output_contract, "output_policy"),
+        "candidate_json_only_until_explicit_review"
+    ));
+
+    let expected_paths = rate_refresh_expected_reference_path_set(production_root);
+    let golden_paths = yaml_sequence_string_set(
+        yaml_get(
+            output_contract,
+            "production_reference_files_must_not_be_written",
+        ),
+        "production_reference_files_must_not_be_written",
+    )?;
+    ensure!(golden_paths == expected_paths);
+    for relative_path in golden_paths {
+        let absolute_path = repo_root()?.join(&relative_path);
+        ensure!(absolute_path.is_file(), "{relative_path} must exist");
+        ensure!(
+            absolute_path.starts_with(reference_root),
+            "{relative_path} must stay under the production reference root"
+        );
+    }
+
+    Ok(())
+}
+
+fn rate_refresh_expected_reference_path_set(production_root: &str) -> BTreeSet<String> {
+    RATE_REFRESH_REFERENCE_FILES
+        .iter()
+        .map(|file_name| format!("{production_root}/{file_name}"))
+        .collect()
+}
+
+fn assert_rate_refresh_rubric_contract(refresh_root: &Path) -> Result<()> {
+    let rubric: YamlValue = serde_yaml::from_str(&fs::read_to_string(
+        refresh_root.join("validator-rubric.yaml"),
+    )?)?;
+    let primary_tests =
+        yaml_get(&rubric, "test_ids").and_then(|test_ids| yaml_get(test_ids, "primary"));
+    ensure!(yaml_sequence_contains_str(
+        primary_tests,
+        "CAN-RATE-REFRESH-001"
+    ));
+    let blocking_checks = yaml_get(&rubric, "blocking_checks")
+        .and_then(YamlValue::as_sequence)
+        .ok_or_else(|| anyhow::anyhow!("rate-refresh rubric missing blocking_checks"))?
+        .iter()
+        .map(|check| {
+            yaml_get(check, "id")
+                .and_then(YamlValue::as_str)
+                .map(str::to_owned)
+                .ok_or_else(|| anyhow::anyhow!("rate-refresh rubric blocking_check missing id"))
+        })
+        .collect::<Result<BTreeSet<_>>>()?;
+    ensure!(blocking_checks.is_superset(&str_array_set(&[
+        "all_four_candidate_families",
+        "public_source_provenance",
+        "changed_cell_ledger_required",
+        "no_in_place_production_reference_mutation",
+    ])));
+    let promotion_controls = yaml_get(&rubric, "promotion_controls")
+        .ok_or_else(|| anyhow::anyhow!("rate-refresh rubric missing promotion_controls"))?;
+    ensure!(yaml_str_field_eq(
+        yaml_get(promotion_controls, "output_policy"),
+        "candidate_json_only_until_explicit_review"
+    ));
+    ensure!(
+        yaml_get(promotion_controls, "stable_promotion_owner")
+            .and_then(YamlValue::as_str)
+            .is_some_and(|owner| owner.contains("qoa5.7.9"))
+    );
 
     Ok(())
 }
