@@ -28,6 +28,13 @@ struct L5BlockerVector {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+struct PipelineAssessmentVector {
+    decision_basis_hash: String,
+    goods_value_share_bps: Option<i64>,
+    goods_value_share_basis: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct CompanyProfileVersionVector {
     profile_id: String,
     remote_revision: i64,
@@ -35,7 +42,7 @@ struct CompanyProfileVersionVector {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct DecisionBasisSnapshot {
-    pipeline_assessment_hash: String,
+    pipeline_assessment: PipelineAssessmentVector,
     quote_versions: Vec<QuoteVersionVector>,
     company_profile: CompanyProfileVersionVector,
     candidate_freshness: Vec<CandidateFreshnessVector>,
@@ -51,7 +58,23 @@ impl DecisionBasisSnapshot {
     fn hash(&self) -> String {
         let mut hasher = Sha256::new();
 
-        update_field(&mut hasher, "pa", &self.pipeline_assessment_hash);
+        hasher.update(b"pa[");
+        update_field(
+            &mut hasher,
+            "decision_basis_hash",
+            &self.pipeline_assessment.decision_basis_hash,
+        );
+        update_optional_i64_field(
+            &mut hasher,
+            "goods_value_share_bps",
+            self.pipeline_assessment.goods_value_share_bps,
+        );
+        update_field(
+            &mut hasher,
+            "goods_value_share_basis",
+            opt(self.pipeline_assessment.goods_value_share_basis.as_ref()),
+        );
+        hasher.update(b"]");
 
         hasher.update(b"qv[");
         for quote in &self.quote_versions {
@@ -103,7 +126,7 @@ impl DecisionBasisSnapshot {
 }
 
 fn load_snapshot(conn: &Connection, scope: &BidScopePayload) -> Result<DecisionBasisSnapshot> {
-    let pipeline_assessment_hash = load_pipeline_assessment_hash(conn, &scope.process_id)?;
+    let pipeline_assessment = load_pipeline_assessment_vector(conn, &scope.process_id)?;
     let quote_versions = load_quote_versions(conn, &scope.selected_quote_ids)?;
     let company_profile = load_company_profile_version(conn, &scope.company_profile_version)?;
     let candidate_freshness =
@@ -112,7 +135,7 @@ fn load_snapshot(conn: &Connection, scope: &BidScopePayload) -> Result<DecisionB
         load_l5_blocker_vectors(conn, &scope.candidate_ids, &scope.selected_quote_ids)?;
 
     Ok(DecisionBasisSnapshot {
-        pipeline_assessment_hash,
+        pipeline_assessment,
         quote_versions,
         company_profile,
         candidate_freshness,
@@ -120,22 +143,46 @@ fn load_snapshot(conn: &Connection, scope: &BidScopePayload) -> Result<DecisionB
     })
 }
 
-fn load_pipeline_assessment_hash(conn: &Connection, process_id: &str) -> Result<String> {
-    conn.query_row(
-        "\
-        SELECT decision_basis_hash
+fn load_pipeline_assessment_vector(
+    conn: &Connection,
+    process_id: &str,
+) -> Result<PipelineAssessmentVector> {
+    let vector = conn
+        .query_row(
+            "\
+        SELECT decision_basis_hash, goods_value_share_bps, goods_value_share_basis
         FROM pipeline_assessments
         WHERE process_id = ?1
         ",
-        params![process_id],
-        |row| row.get::<_, Option<String>>(0),
-    )
-    .optional()
-    .context("loading pipeline_assessments.decision_basis_hash")?
-    .flatten()
-    .map(|value| value.trim().to_owned())
-    .filter(|value| !value.is_empty())
-    .ok_or_else(|| anyhow!("missing pipeline_assessments.decision_basis_hash for `{process_id}`"))
+            params![process_id],
+            |row| {
+                let decision_basis_hash = row
+                    .get::<_, Option<String>>(0)?
+                    .unwrap_or_default()
+                    .trim()
+                    .to_owned();
+                let goods_value_share_basis = row
+                    .get::<_, Option<String>>(2)?
+                    .map(|value| value.trim().to_owned())
+                    .filter(|value| !value.is_empty());
+                Ok(PipelineAssessmentVector {
+                    decision_basis_hash,
+                    goods_value_share_bps: row.get(1)?,
+                    goods_value_share_basis,
+                })
+            },
+        )
+        .optional()
+        .context("loading pipeline_assessments decision basis vector")?
+        .ok_or_else(|| anyhow!("missing pipeline_assessments row for `{process_id}`"))?;
+
+    if vector.decision_basis_hash.is_empty() {
+        return Err(anyhow!(
+            "missing pipeline_assessments.decision_basis_hash for `{process_id}`"
+        ));
+    }
+
+    Ok(vector)
 }
 
 fn load_quote_versions(conn: &Connection, quote_ids: &[String]) -> Result<Vec<QuoteVersionVector>> {
@@ -237,6 +284,15 @@ struct LandedCostBasisRow {
     candidate_id: String,
     estimate_id: String,
     supplier_quote_id: String,
+    goods_landed_cost_gbp_pence: i64,
+    installation_labour_cost_gbp_pence: i64,
+    installation_labour_low_gbp_pence: i64,
+    installation_labour_high_gbp_pence: i64,
+    installation_labour_confidence_bps: i64,
+    permit_traffic_mgmt_cost_gbp_pence: i64,
+    permit_traffic_mgmt_low_gbp_pence: i64,
+    permit_traffic_mgmt_high_gbp_pence: i64,
+    permit_responsibility: Option<String>,
     decision_grade: String,
     blockers_json: String,
     tariff_checked_at: Option<String>,
@@ -258,6 +314,51 @@ impl LandedCostBasisRow {
         update_field(&mut hasher, "candidate_id", &self.candidate_id);
         update_field(&mut hasher, "estimate_id", &self.estimate_id);
         update_field(&mut hasher, "supplier_quote_id", &self.supplier_quote_id);
+        update_field(
+            &mut hasher,
+            "goods_landed_cost_gbp_pence",
+            &self.goods_landed_cost_gbp_pence,
+        );
+        update_field(
+            &mut hasher,
+            "installation_labour_cost_gbp_pence",
+            &self.installation_labour_cost_gbp_pence,
+        );
+        update_field(
+            &mut hasher,
+            "installation_labour_low_gbp_pence",
+            &self.installation_labour_low_gbp_pence,
+        );
+        update_field(
+            &mut hasher,
+            "installation_labour_high_gbp_pence",
+            &self.installation_labour_high_gbp_pence,
+        );
+        update_field(
+            &mut hasher,
+            "installation_labour_confidence_bps",
+            &self.installation_labour_confidence_bps,
+        );
+        update_field(
+            &mut hasher,
+            "permit_traffic_mgmt_cost_gbp_pence",
+            &self.permit_traffic_mgmt_cost_gbp_pence,
+        );
+        update_field(
+            &mut hasher,
+            "permit_traffic_mgmt_low_gbp_pence",
+            &self.permit_traffic_mgmt_low_gbp_pence,
+        );
+        update_field(
+            &mut hasher,
+            "permit_traffic_mgmt_high_gbp_pence",
+            &self.permit_traffic_mgmt_high_gbp_pence,
+        );
+        update_field(
+            &mut hasher,
+            "permit_responsibility",
+            opt(self.permit_responsibility.as_ref()),
+        );
         update_field(
             &mut hasher,
             "tariff_checked_at",
@@ -329,6 +430,15 @@ fn load_landed_cost_basis_row(
           id,
           product_candidate_id,
           supplier_quote_id,
+          COALESCE(goods_landed_cost_gbp_pence, 0),
+          COALESCE(installation_labour_cost_gbp_pence, 0),
+          COALESCE(installation_labour_low_gbp_pence, 0),
+          COALESCE(installation_labour_high_gbp_pence, 0),
+          COALESCE(installation_labour_confidence_bps, 0),
+          COALESCE(permit_traffic_mgmt_cost_gbp_pence, 0),
+          COALESCE(permit_traffic_mgmt_low_gbp_pence, 0),
+          COALESCE(permit_traffic_mgmt_high_gbp_pence, 0),
+          permit_responsibility,
           decision_grade,
           blockers,
           tariff_checked_at,
@@ -362,19 +472,28 @@ fn load_landed_cost_basis_row(
             estimate_id: row.get(0)?,
             candidate_id: row.get(1)?,
             supplier_quote_id: row.get(2)?,
-            decision_grade: row.get(3)?,
-            blockers_json: row.get(4)?,
-            tariff_checked_at: row.get(5)?,
-            measures_fresh_until: row.get(6)?,
-            classification_fresh_until: row.get(7)?,
-            trade_remedy_watch_state: row.get(8)?,
-            trade_remedy_cases_json: row.get(9)?,
-            duty_breakdown_json: row.get(10)?,
-            measure_interaction_json: row.get(11)?,
-            fx_rate_checked_at: row.get(12)?,
-            customs_fx_rate: row.get(13)?,
-            commercial_fx_rate: row.get(14)?,
-            fx_basis_delta_bps: row.get(15)?,
+            goods_landed_cost_gbp_pence: row.get(3)?,
+            installation_labour_cost_gbp_pence: row.get(4)?,
+            installation_labour_low_gbp_pence: row.get(5)?,
+            installation_labour_high_gbp_pence: row.get(6)?,
+            installation_labour_confidence_bps: row.get(7)?,
+            permit_traffic_mgmt_cost_gbp_pence: row.get(8)?,
+            permit_traffic_mgmt_low_gbp_pence: row.get(9)?,
+            permit_traffic_mgmt_high_gbp_pence: row.get(10)?,
+            permit_responsibility: row.get(11)?,
+            decision_grade: row.get(12)?,
+            blockers_json: row.get(13)?,
+            tariff_checked_at: row.get(14)?,
+            measures_fresh_until: row.get(15)?,
+            classification_fresh_until: row.get(16)?,
+            trade_remedy_watch_state: row.get(17)?,
+            trade_remedy_cases_json: row.get(18)?,
+            duty_breakdown_json: row.get(19)?,
+            measure_interaction_json: row.get(20)?,
+            fx_rate_checked_at: row.get(21)?,
+            customs_fx_rate: row.get(22)?,
+            commercial_fx_rate: row.get(23)?,
+            fx_basis_delta_bps: row.get(24)?,
         })
     })
     .optional()
@@ -435,6 +554,13 @@ where
     hasher.update(b"=");
     hasher.update(value.to_string().as_bytes());
     hasher.update(b";");
+}
+
+fn update_optional_i64_field(hasher: &mut Sha256, key: &str, value: Option<i64>) {
+    match value {
+        Some(value) => update_field(hasher, key, &value),
+        None => update_field(hasher, key, "missing"),
+    }
 }
 
 fn opt(value: Option<&String>) -> &str {

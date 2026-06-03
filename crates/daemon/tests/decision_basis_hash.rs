@@ -70,9 +70,10 @@ fn seed_decision_basis_fixture(conn: &Connection) -> Result<()> {
     conn.execute(
         "\
         INSERT INTO pipeline_assessments (
-          process_id, pipeline_state, decision_basis_hash, owner_id
+          process_id, pipeline_state, decision_basis_hash, goods_value_share_bps,
+          goods_value_share_basis, owner_id
         ) VALUES (
-          ?1, 'net_margin_passed', ?2, 'local-owner'
+          ?1, 'net_margin_passed', ?2, 8065, 'cost_proxy', 'local-owner'
         )
         ",
         params![PROCESS_ID, PIPELINE_BASIS_HASH],
@@ -126,6 +127,11 @@ fn seed_candidate_quote_and_landed_cost(
           shipping_mode, mode_confidence_bps, declarable_commodity_code_10,
           commodity_confidence_bps, classification_stability_bps,
           customs_fx_rate, commercial_fx_rate, fx_basis_delta_bps, fx_rate_checked_at,
+          goods_landed_cost_gbp_pence, installation_labour_cost_gbp_pence,
+          installation_labour_low_gbp_pence, installation_labour_high_gbp_pence,
+          installation_labour_confidence_bps, permit_traffic_mgmt_cost_gbp_pence,
+          permit_traffic_mgmt_low_gbp_pence, permit_traffic_mgmt_high_gbp_pence,
+          permit_responsibility,
           supplier_cost_gbp_pence, freight_low_gbp_pence, freight_base_gbp_pence,
           freight_high_gbp_pence, customs_duty_gbp_pence, import_vat_gbp_pence,
           import_vat_treatment, uk_final_mile_cost_gbp_pence, other_fees_gbp_pence,
@@ -140,10 +146,11 @@ fn seed_candidate_quote_and_landed_cost(
           'parcel', 9000, '1234567890',
           9000, 9000,
           1.0, 1.0, 0, '2026-05-22T00:00:00Z',
+          1210, 240, 210, 265, 7000, 200, 80, 340, 'unknown',
           1000, 100, 125,
           150, 50, 235,
           'recoverable', 25, 10,
-          1210, 1210, 1210,
+          1650, 1650, 1650,
           'notice_lot_value', 9000, 2000,
           3000, 4000, 'ready_for_bid', 9000,
           '[]', '[]', '2026-05-22T00:00:00Z', '2099-01-01T00:00:00Z',
@@ -189,14 +196,17 @@ fn seeded_hash() -> Result<(TestStateDb, BidScopePayload, String)> {
     Ok((db, scope, hash))
 }
 
-fn assert_single_vector_mutation_changes_hash<F>(mutate: F) -> Result<()>
+fn assert_single_vector_mutation_changes_hash<F>(field_name: &str, mutate: F) -> Result<()>
 where
     F: FnOnce(&Connection) -> Result<()>,
 {
     let (db, scope, baseline) = seeded_hash()?;
     mutate(db.connection())?;
     let changed = decision_basis_hash::compute(db.connection(), &scope)?;
-    assert_ne!(baseline, changed);
+    assert_ne!(
+        baseline, changed,
+        "{field_name} mutation should change the decision basis hash"
+    );
     Ok(())
 }
 
@@ -227,7 +237,7 @@ fn l6_t_bid_workflow_states_031_hash_is_lowercase_sha256_and_order_stable() -> R
 #[test]
 #[doc = "L6-T-bid_workflow_states-031"]
 fn l6_t_bid_workflow_states_031_hash_changes_when_pipeline_assessment_changes() -> Result<()> {
-    assert_single_vector_mutation_changes_hash(|conn| {
+    assert_single_vector_mutation_changes_hash("pipeline_assessments.decision_basis_hash", |conn| {
         conn.execute(
             "UPDATE pipeline_assessments SET decision_basis_hash = 'pipeline-basis-v2' WHERE process_id = ?1",
             params![PROCESS_ID],
@@ -239,7 +249,7 @@ fn l6_t_bid_workflow_states_031_hash_changes_when_pipeline_assessment_changes() 
 #[test]
 #[doc = "L6-T-bid_workflow_states-031"]
 fn l6_t_bid_workflow_states_031_hash_changes_when_quote_version_changes() -> Result<()> {
-    assert_single_vector_mutation_changes_hash(|conn| {
+    assert_single_vector_mutation_changes_hash("supplier_quotes.row_version", |conn| {
         conn.execute(
             "UPDATE supplier_quotes SET row_version = row_version + 1 WHERE id = 'quote-1'",
             [],
@@ -251,7 +261,7 @@ fn l6_t_bid_workflow_states_031_hash_changes_when_quote_version_changes() -> Res
 #[test]
 #[doc = "L6-T-bid_workflow_states-031"]
 fn l6_t_bid_workflow_states_031_hash_changes_when_company_profile_version_changes() -> Result<()> {
-    assert_single_vector_mutation_changes_hash(|conn| {
+    assert_single_vector_mutation_changes_hash("shared_company_profile.remote_revision", |conn| {
         conn.execute(
             "UPDATE shared_company_profile SET remote_revision = 2 WHERE id = ?1",
             params![COMPANY_PROFILE_ID],
@@ -263,23 +273,26 @@ fn l6_t_bid_workflow_states_031_hash_changes_when_company_profile_version_change
 #[test]
 #[doc = "L6-T-bid_workflow_states-031"]
 fn l6_t_bid_workflow_states_031_hash_changes_when_classification_freshness_changes() -> Result<()> {
-    assert_single_vector_mutation_changes_hash(|conn| {
-        conn.execute(
-            "\
+    assert_single_vector_mutation_changes_hash(
+        "landed_cost_estimates.classification_fresh_until",
+        |conn| {
+            conn.execute(
+                "\
             UPDATE landed_cost_estimates
             SET classification_fresh_until = '2000-01-01T00:00:00Z'
             WHERE product_candidate_id = 'candidate-1'
             ",
-            [],
-        )?;
-        Ok(())
-    })
+                [],
+            )?;
+            Ok(())
+        },
+    )
 }
 
 #[test]
 #[doc = "L6-T-bid_workflow_states-031"]
 fn l6_t_bid_workflow_states_031_hash_changes_when_l5_freshness_vector_changes() -> Result<()> {
-    assert_single_vector_mutation_changes_hash(|conn| {
+    assert_single_vector_mutation_changes_hash("landed_cost_estimates.tariff_checked_at", |conn| {
         conn.execute(
             "\
             UPDATE landed_cost_estimates
@@ -295,7 +308,7 @@ fn l6_t_bid_workflow_states_031_hash_changes_when_l5_freshness_vector_changes() 
 #[test]
 #[doc = "L6-T-bid_workflow_states-031"]
 fn l6_t_bid_workflow_states_031_hash_changes_when_l5_blocker_state_changes() -> Result<()> {
-    assert_single_vector_mutation_changes_hash(|conn| {
+    assert_single_vector_mutation_changes_hash("landed_cost_estimates.blockers", |conn| {
         conn.execute(
             "\
             UPDATE landed_cost_estimates
@@ -306,4 +319,110 @@ fn l6_t_bid_workflow_states_031_hash_changes_when_l5_blocker_state_changes() -> 
         )?;
         Ok(())
     })
+}
+
+#[test]
+#[doc = "RS-HASH-001"]
+#[doc = "RS-HASH-002"]
+fn rs_hash_001_002_hash_changes_when_labour_permit_or_goods_share_fields_change() -> Result<()> {
+    let mutations = [
+        (
+            "landed_cost_estimates.goods_landed_cost_gbp_pence",
+            "UPDATE landed_cost_estimates SET goods_landed_cost_gbp_pence = 1220 WHERE product_candidate_id = 'candidate-1'",
+        ),
+        (
+            "landed_cost_estimates.installation_labour_cost_gbp_pence",
+            "UPDATE landed_cost_estimates SET installation_labour_cost_gbp_pence = 241 WHERE product_candidate_id = 'candidate-1'",
+        ),
+        (
+            "landed_cost_estimates.installation_labour_low_gbp_pence",
+            "UPDATE landed_cost_estimates SET installation_labour_low_gbp_pence = 211 WHERE product_candidate_id = 'candidate-1'",
+        ),
+        (
+            "landed_cost_estimates.installation_labour_high_gbp_pence",
+            "UPDATE landed_cost_estimates SET installation_labour_high_gbp_pence = 266 WHERE product_candidate_id = 'candidate-1'",
+        ),
+        (
+            "landed_cost_estimates.installation_labour_confidence_bps",
+            "UPDATE landed_cost_estimates SET installation_labour_confidence_bps = 7100 WHERE product_candidate_id = 'candidate-1'",
+        ),
+        (
+            "landed_cost_estimates.permit_traffic_mgmt_cost_gbp_pence",
+            "UPDATE landed_cost_estimates SET permit_traffic_mgmt_cost_gbp_pence = 201 WHERE product_candidate_id = 'candidate-1'",
+        ),
+        (
+            "landed_cost_estimates.permit_traffic_mgmt_low_gbp_pence",
+            "UPDATE landed_cost_estimates SET permit_traffic_mgmt_low_gbp_pence = 81 WHERE product_candidate_id = 'candidate-1'",
+        ),
+        (
+            "landed_cost_estimates.permit_traffic_mgmt_high_gbp_pence",
+            "UPDATE landed_cost_estimates SET permit_traffic_mgmt_high_gbp_pence = 341 WHERE product_candidate_id = 'candidate-1'",
+        ),
+        (
+            "landed_cost_estimates.permit_responsibility",
+            "UPDATE landed_cost_estimates SET permit_responsibility = 'contractor_provided' WHERE product_candidate_id = 'candidate-1'",
+        ),
+        (
+            "pipeline_assessments.goods_value_share_bps",
+            "UPDATE pipeline_assessments SET goods_value_share_bps = 8066 WHERE process_id = 'process-decision-basis'",
+        ),
+        (
+            "pipeline_assessments.goods_value_share_basis",
+            "UPDATE pipeline_assessments SET goods_value_share_basis = 'contract_value' WHERE process_id = 'process-decision-basis'",
+        ),
+    ];
+
+    for (field_name, mutation_sql) in mutations {
+        assert_single_vector_mutation_changes_hash(field_name, |conn| {
+            conn.execute(mutation_sql, [])?;
+            Ok(())
+        })?;
+    }
+    Ok(())
+}
+
+#[test]
+#[doc = "RS-HASH-003"]
+fn rs_hash_003_null_default_labour_permit_rows_hash_deterministically() -> Result<()> {
+    let db = TestStateDb::new()?;
+    let conn = db.connection();
+    seed_decision_basis_fixture(conn)?;
+    conn.execute(
+        "\
+        UPDATE landed_cost_estimates
+        SET goods_landed_cost_gbp_pence = 0,
+            installation_labour_cost_gbp_pence = 0,
+            installation_labour_low_gbp_pence = 0,
+            installation_labour_high_gbp_pence = 0,
+            installation_labour_confidence_bps = 0,
+            permit_traffic_mgmt_cost_gbp_pence = 0,
+            permit_traffic_mgmt_low_gbp_pence = 0,
+            permit_traffic_mgmt_high_gbp_pence = 0,
+            permit_responsibility = NULL
+        ",
+        [],
+    )?;
+    conn.execute(
+        "\
+        UPDATE pipeline_assessments
+        SET goods_value_share_bps = NULL,
+            goods_value_share_basis = NULL
+        WHERE process_id = ?1
+        ",
+        params![PROCESS_ID],
+    )?;
+
+    let scope = valid_scope();
+    let first = decision_basis_hash::compute(conn, &scope)?;
+    let second = decision_basis_hash::compute(conn, &scope)?;
+
+    assert_eq!(first, second);
+    assert_eq!(first.len(), 64);
+    assert!(
+        first
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)),
+        "decision basis hash must be lowercase hexadecimal: {first}"
+    );
+    Ok(())
 }

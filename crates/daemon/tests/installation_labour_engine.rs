@@ -39,6 +39,8 @@ struct LandedCostSeed<'a> {
     permit_traffic_mgmt_high_gbp_pence: i64,
     permit_responsibility: Option<&'a str>,
     economic_landed_cost_gbp_pence: i64,
+    decision_grade: &'a str,
+    warnings: &'a str,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -53,6 +55,8 @@ struct PersistedLandedCostSeed {
     permit_traffic_mgmt_high_gbp_pence: i64,
     permit_responsibility: Option<String>,
     economic_landed_cost_gbp_pence: i64,
+    decision_grade: String,
+    warnings: String,
 }
 
 #[test]
@@ -80,6 +84,8 @@ fn rs_seed_001_landed_cost_insert_sql_helper_direct_seeds_labour_columns() -> Re
         permit_traffic_mgmt_high_gbp_pence: 45_000,
         permit_responsibility: Some("contractor_provided"),
         economic_landed_cost_gbp_pence: 850_000,
+        decision_grade: "review",
+        warnings: "[]",
     };
 
     insert_landed_cost_seed(conn, &seed)?;
@@ -98,6 +104,8 @@ fn rs_seed_001_landed_cost_insert_sql_helper_direct_seeds_labour_columns() -> Re
                 permit_traffic_mgmt_high_gbp_pence: seed.permit_traffic_mgmt_high_gbp_pence,
                 permit_responsibility: seed.permit_responsibility.map(str::to_owned),
                 economic_landed_cost_gbp_pence: seed.economic_landed_cost_gbp_pence,
+                decision_grade: seed.decision_grade.to_owned(),
+                warnings: seed.warnings.to_owned(),
             },
         "landed_cost_insert_sql() did not persist the labour/permit/goods-only seed columns"
     );
@@ -137,6 +145,8 @@ fn e2e_il_001_festive_lights_persisted_row_reconstructs_all_in_goods_share() -> 
         permit_traffic_mgmt_high_gbp_pence: 340_000,
         permit_responsibility: Some("unknown"),
         economic_landed_cost_gbp_pence: 1_440_000,
+        decision_grade: "review",
+        warnings: "[\"ACCESS_AT_HEIGHT_ASSUMED_MEWP\",\"PERMIT_RESPONSIBILITY_UNKNOWN\"]",
     };
 
     insert_landed_cost_seed(conn, &seed)?;
@@ -181,6 +191,17 @@ fn e2e_il_001_festive_lights_persisted_row_reconstructs_all_in_goods_share() -> 
         ) == 6_944,
         "E2E-IL-001 all-in goods share must be reconstructable from one row"
     );
+    ensure!(
+        persisted.decision_grade == "review",
+        "E2E-IL-001 must route to review for unresolved public-realm assumptions"
+    );
+    let warnings = serde_json::from_str::<BTreeSet<String>>(&persisted.warnings)
+        .context("parsing E2E-IL-001 warning codes")?;
+    ensure!(
+        warnings.contains("ACCESS_AT_HEIGHT_ASSUMED_MEWP")
+            && warnings.contains("PERMIT_RESPONSIBILITY_UNKNOWN"),
+        "E2E-IL-001 must persist access-at-height and permit-responsibility warnings"
+    );
     Ok(())
 }
 
@@ -209,6 +230,8 @@ fn e2e_il_008_pure_a4_copier_paper_preserves_goods_only_economics() -> Result<()
         permit_traffic_mgmt_high_gbp_pence: 0,
         permit_responsibility: None,
         economic_landed_cost_gbp_pence: 120_000,
+        decision_grade: "ready_for_bid",
+        warnings: "[]",
     };
 
     insert_landed_cost_seed(conn, &seed)?;
@@ -368,6 +391,8 @@ fn insert_landed_cost_seed(conn: &Connection, seed: &LandedCostSeed<'_>) -> Resu
             seed.permit_traffic_mgmt_high_gbp_pence,
             seed.permit_responsibility,
             seed.economic_landed_cost_gbp_pence,
+            seed.decision_grade,
+            seed.warnings,
         ],
     )?;
     Ok(())
@@ -394,8 +419,8 @@ const fn landed_cost_insert_sql() -> &'static str {
       ?1, ?2, ?3, ?4, ?5, 'domestic_install', 9000, 9000, 9000, 1.0, 1.0,
       0, '2026-06-02T00:00:00Z', 650000, 0, 0, 0, 0, 0, 'not_applicable',
       10000, 0, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?15, ?15,
-      'expected_value', 9000, 2000, 3000, 4000, 'review_required', 7600,
-      '[]', '[]', 'local-owner', 1, 'installation-labour-seed'
+      'expected_value', 9000, 2000, 3000, 4000, ?16, 7600,
+      ?17, '[]', 'local-owner', 1, 'installation-labour-seed'
     )
     "
 }
@@ -410,7 +435,7 @@ fn persisted_landed_cost_seed(
                installation_labour_low_gbp_pence, installation_labour_high_gbp_pence,
                installation_labour_confidence_bps, permit_traffic_mgmt_cost_gbp_pence,
                permit_traffic_mgmt_low_gbp_pence, permit_traffic_mgmt_high_gbp_pence,
-               permit_responsibility, economic_landed_cost_gbp_pence
+               permit_responsibility, economic_landed_cost_gbp_pence, decision_grade, warnings
         FROM landed_cost_estimates
         WHERE id = ?1
         ",
@@ -427,6 +452,8 @@ fn persisted_landed_cost_seed(
                 permit_traffic_mgmt_high_gbp_pence: row.get(7)?,
                 permit_responsibility: row.get(8)?,
                 economic_landed_cost_gbp_pence: row.get(9)?,
+                decision_grade: row.get(10)?,
+                warnings: row.get(11)?,
             })
         },
     )
