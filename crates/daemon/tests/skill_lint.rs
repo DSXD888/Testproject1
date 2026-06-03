@@ -294,6 +294,235 @@ fn qoa5_skl_lint_002_uk_installation_labour_has_no_browser_membership() -> Resul
     Ok(())
 }
 
+const QOA5_RATE_REFRESH_REQUIRED_FILES: [&str; 5] = [
+    "SKILL.md",
+    "result.schema.json",
+    "canary.inputs.jsonl",
+    "golden.assertions.yaml",
+    "validator-rubric.yaml",
+];
+
+#[test]
+fn qoa5_skl_rate_refresh_001_source_health_skill_lints_with_required_files() -> Result<()> {
+    let relative = "source-health/uk-installation-labour-rate-refresh";
+    let skill_dir = repo_skill_dir(relative)?;
+    let skill = load_skill_metadata(&skill_dir)?;
+
+    ensure!(skill.metadata.skill_id == relative);
+    ensure!(skill.metadata.skill_version == "2026.06.03-1");
+    ensure!(skill.metadata.interaction_profile == "http_public");
+    ensure!(skill.metadata.result_schema_version == "1.0.0");
+    ensure!(skill.metadata.checkpoint_schema_version.is_none());
+    ensure!(skill.metadata.model_profile == "browse_stable_low_cost");
+    ensure!(skill.metadata.side_effect_class == "none");
+    ensure!(!skill.metadata.requires_cdp);
+    ensure!(skill.metadata.cdp_default_port.is_none());
+    ensure!(
+        skill.metadata.source_structure_version.as_deref()
+            == Some("uk-installation-labour-rate-refresh-2026-q2")
+    );
+    ensure!(skill.metadata.promotion_stage.as_deref() == Some("candidate"));
+    ensure!(
+        skill.metadata.worker_behavior_version.as_deref()
+            == Some("source-health/uk-installation-labour-rate-refresh@2026.06.03-1+1.0.0")
+    );
+    ensure!(skill.metadata.gate_a_family_key.as_deref() == Some("source-health"));
+    ensure!(!CDP_BROWSER_SKILLS.contains(&relative));
+    ensure!(!SIGNED_IN_BROWSER_SKILLS.contains(&relative));
+
+    for required_file in QOA5_RATE_REFRESH_REQUIRED_FILES {
+        ensure!(
+            skill_dir.join(required_file).is_file(),
+            "rate-refresh skill missing required file `{required_file}`"
+        );
+    }
+
+    let _: JsonValue = serde_json::from_str(&std::fs::read_to_string(
+        skill_dir.join("result.schema.json"),
+    )?)?;
+    let _: serde_yaml::Value = serde_yaml::from_str(&std::fs::read_to_string(
+        skill_dir.join("golden.assertions.yaml"),
+    )?)?;
+    let _: serde_yaml::Value = serde_yaml::from_str(&std::fs::read_to_string(
+        skill_dir.join("validator-rubric.yaml"),
+    )?)?;
+
+    for required in [
+        "quarterly source-health refresh",
+        "not a live landed-cost estimate",
+        "candidate JSON files",
+        "Run Manifest Requirements",
+    ] {
+        ensure!(
+            skill.skill_markdown.contains(required),
+            "rate-refresh SKILL.md missing `{required}`"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn qoa5_skl_rate_refresh_002_contract_enumerates_candidate_output_families() -> Result<()> {
+    let skill_dir = repo_skill_dir("source-health/uk-installation-labour-rate-refresh")?;
+    let expected = qoa5_rate_refresh_family_set();
+    let result_schema: JsonValue = serde_json::from_str(&std::fs::read_to_string(
+        skill_dir.join("result.schema.json"),
+    )?)?;
+    let required = result_schema
+        .pointer("/properties/candidate_updates/required")
+        .and_then(JsonValue::as_array)
+        .ok_or_else(|| anyhow::anyhow!("candidate_updates.required should be present"))?;
+    let schema_required_families = required
+        .iter()
+        .filter_map(JsonValue::as_str)
+        .map(str::to_owned)
+        .collect::<BTreeSet<_>>();
+    ensure!(schema_required_families == expected);
+
+    let schema_property_families = result_schema
+        .pointer("/properties/candidate_updates/properties")
+        .and_then(JsonValue::as_object)
+        .ok_or_else(|| anyhow::anyhow!("candidate_updates.properties should be present"))?
+        .keys()
+        .map(std::string::ToString::to_string)
+        .collect::<BTreeSet<_>>();
+    ensure!(schema_property_families == expected);
+
+    let mut canary_count = 0_u32;
+    for line in std::fs::read_to_string(skill_dir.join("canary.inputs.jsonl"))?
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+    {
+        let row: JsonValue = serde_json::from_str(line)?;
+        let canary_families = json_string_set(&row, "/families")?;
+        ensure!(canary_families == expected);
+        let expected_families =
+            json_string_set(&row, "/expected_result/requires_candidate_updates_for")?;
+        ensure!(expected_families == expected);
+        let public_sources = row
+            .pointer("/public_sources")
+            .and_then(JsonValue::as_array)
+            .ok_or_else(|| anyhow::anyhow!("public_sources should be present"))?;
+        let mut public_source_families = BTreeSet::new();
+        for source in public_sources {
+            let family = source
+                .get("family")
+                .and_then(JsonValue::as_str)
+                .ok_or_else(|| anyhow::anyhow!("public source family should be present"))?;
+            public_source_families.insert(family.to_owned());
+        }
+        ensure!(public_source_families == expected);
+        canary_count = canary_count.saturating_add(1);
+    }
+    ensure!(canary_count > 0);
+
+    let golden = std::fs::read_to_string(skill_dir.join("golden.assertions.yaml"))?;
+    let rubric = std::fs::read_to_string(skill_dir.join("validator-rubric.yaml"))?;
+    for family in expected {
+        ensure!(
+            golden.contains(&family) && rubric.contains(&family),
+            "golden/rubric missing candidate family `{family}`"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn qoa5_skl_rate_refresh_003_declares_no_production_reference_mutation() -> Result<()> {
+    let relative = "source-health/uk-installation-labour-rate-refresh";
+    let skill_dir = repo_skill_dir(relative)?;
+    let result_schema: JsonValue = serde_json::from_str(&std::fs::read_to_string(
+        skill_dir.join("result.schema.json"),
+    )?)?;
+    ensure!(
+        result_schema
+            .pointer("/properties/production_reference_mutation_performed/const")
+            .and_then(JsonValue::as_bool)
+            == Some(false)
+    );
+    ensure!(
+        result_schema
+            .pointer("/$defs/candidate_family_result/properties/production_reference_mutated/const")
+            .and_then(JsonValue::as_bool)
+            == Some(false)
+    );
+
+    let skill = load_skill_metadata(&skill_dir)?;
+    for required in [
+        "No in-place mutation",
+        "Never resume by editing production reference files in place",
+        "production_reference_mutation_performed: false",
+    ] {
+        ensure!(
+            skill.skill_markdown.contains(required),
+            "rate-refresh SKILL.md missing no-mutation token `{required}`"
+        );
+    }
+
+    for line in std::fs::read_to_string(skill_dir.join("canary.inputs.jsonl"))?
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+    {
+        let row: JsonValue = serde_json::from_str(line)?;
+        ensure!(
+            row.get("allow_production_mutation")
+                .and_then(JsonValue::as_bool)
+                == Some(false),
+            "rate-refresh canary must set allow_production_mutation=false"
+        );
+        let production_reference_root = row
+            .get("production_reference_root")
+            .and_then(JsonValue::as_str)
+            .ok_or_else(|| anyhow::anyhow!("production_reference_root should be present"))?;
+        let candidate_output_root = row
+            .get("candidate_output_root")
+            .and_then(JsonValue::as_str)
+            .ok_or_else(|| anyhow::anyhow!("candidate_output_root should be present"))?;
+        ensure!(
+            !candidate_output_root.starts_with(production_reference_root),
+            "candidate output root must not be inside production reference root"
+        );
+    }
+
+    let golden = std::fs::read_to_string(skill_dir.join("golden.assertions.yaml"))?;
+    let rubric = std::fs::read_to_string(skill_dir.join("validator-rubric.yaml"))?;
+    for required in [
+        "no_in_place_production_reference_mutation",
+        "skills/landed-cost/uk-installation-labour-estimate/reference",
+        "candidate_json_only_until_explicit_review",
+    ] {
+        ensure!(
+            golden.contains(required) || rubric.contains(required),
+            "rate-refresh golden/rubric missing no-mutation token `{required}`"
+        );
+    }
+    Ok(())
+}
+
+fn qoa5_rate_refresh_family_set() -> BTreeSet<String> {
+    [
+        "labour_rates",
+        "access_equipment_bands",
+        "installation_profiles",
+        "permit_tm_bands",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect()
+}
+
+fn json_string_set(value: &JsonValue, pointer: &str) -> Result<BTreeSet<String>> {
+    let array = value
+        .pointer(pointer)
+        .and_then(JsonValue::as_array)
+        .ok_or_else(|| anyhow::anyhow!("missing string array at `{pointer}`"))?;
+    Ok(array
+        .iter()
+        .filter_map(JsonValue::as_str)
+        .map(str::to_owned)
+        .collect())
+}
+
 #[test]
 fn l6_t_bid_portal_procontract_skill_001_frontmatter_declares_l6_contract() -> Result<()> {
     let skill = load_skill_metadata(&repo_skill_dir("bid-portal-procontract")?)?;

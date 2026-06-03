@@ -1,0 +1,304 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://testproject1.local/schemas/uk-installation-labour-rate-refresh-result.schema.json",
+  "type": "object",
+  "required": [
+    "refresh_status",
+    "source_health_mode",
+    "checked_at",
+    "as_of",
+    "source_reference_version",
+    "candidate_version",
+    "candidate_updates",
+    "provenance",
+    "changed_cells",
+    "production_reference_mutation_performed",
+    "warnings",
+    "blockers"
+  ],
+  "properties": {
+    "refresh_status": {
+      "enum": [
+        "candidate_updates_produced",
+        "unchanged",
+        "partial",
+        "blocked"
+      ]
+    },
+    "source_health_mode": {
+      "const": "quarterly_canary_refresh"
+    },
+    "checked_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "as_of": {
+      "type": "string",
+      "format": "date"
+    },
+    "source_reference_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "candidate_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "candidate_updates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "labour_rates",
+        "access_equipment_bands",
+        "installation_profiles",
+        "permit_tm_bands"
+      ],
+      "properties": {
+        "labour_rates": {
+          "$ref": "#/$defs/candidate_family_result"
+        },
+        "access_equipment_bands": {
+          "$ref": "#/$defs/candidate_family_result"
+        },
+        "installation_profiles": {
+          "$ref": "#/$defs/candidate_family_result"
+        },
+        "permit_tm_bands": {
+          "$ref": "#/$defs/candidate_family_result"
+        }
+      }
+    },
+    "provenance": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/provenance_record"
+      }
+    },
+    "changed_cells": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/changed_cell"
+      }
+    },
+    "production_reference_mutation_performed": {
+      "type": "boolean",
+      "const": false
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/message"
+      }
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/message"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "candidate_family_result": {
+      "type": "object",
+      "required": [
+        "family",
+        "status",
+        "source_reference_file",
+        "candidate_output_path",
+        "candidate_json_sha256",
+        "as_of",
+        "source_urls",
+        "changed_cell_count",
+        "production_reference_mutated"
+      ],
+      "properties": {
+        "family": {
+          "enum": [
+            "labour_rates",
+            "access_equipment_bands",
+            "installation_profiles",
+            "permit_tm_bands"
+          ]
+        },
+        "status": {
+          "enum": [
+            "candidate_update",
+            "unchanged",
+            "blocked"
+          ]
+        },
+        "source_reference_file": {
+          "type": "string",
+          "minLength": 1
+        },
+        "candidate_output_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "candidate_json_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "as_of": {
+          "type": "string",
+          "format": "date"
+        },
+        "source_urls": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "changed_cell_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "production_reference_mutated": {
+          "type": "boolean",
+          "const": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "provenance_record": {
+      "type": "object",
+      "required": [
+        "provenance_id",
+        "family",
+        "source_name",
+        "source_url",
+        "source_role",
+        "as_of",
+        "observed_at"
+      ],
+      "properties": {
+        "provenance_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "family": {
+          "enum": [
+            "labour_rates",
+            "access_equipment_bands",
+            "installation_profiles",
+            "permit_tm_bands"
+          ]
+        },
+        "source_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "source_role": {
+          "enum": [
+            "labour_rate_public_reference",
+            "hire_rate_public_reference",
+            "installation_profile_public_reference",
+            "permit_tm_public_reference"
+          ]
+        },
+        "as_of": {
+          "type": "string",
+          "format": "date"
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "evidence_excerpt": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "changed_cell": {
+      "type": "object",
+      "required": [
+        "family",
+        "table_key",
+        "field_path",
+        "old_value",
+        "candidate_value",
+        "source_url",
+        "provenance_id"
+      ],
+      "properties": {
+        "family": {
+          "enum": [
+            "labour_rates",
+            "access_equipment_bands",
+            "installation_profiles",
+            "permit_tm_bands"
+          ]
+        },
+        "table_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "field_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "old_value": {
+          "$ref": "#/$defs/cell_value"
+        },
+        "candidate_value": {
+          "$ref": "#/$defs/cell_value"
+        },
+        "source_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "provenance_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "cell_value": {
+      "type": [
+        "string",
+        "integer",
+        "boolean",
+        "null"
+      ]
+    },
+    "message": {
+      "type": "object",
+      "required": [
+        "code",
+        "message",
+        "severity"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "severity": {
+          "enum": [
+            "info",
+            "warning",
+            "blocker"
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

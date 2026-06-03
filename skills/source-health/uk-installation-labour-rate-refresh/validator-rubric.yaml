@@ -1,0 +1,62 @@
+rubric_version: 1
+worker_skill_id: source-health/uk-installation-labour-rate-refresh
+validator_overlay: none
+worker_behavior_version: source-health/uk-installation-labour-rate-refresh@2026.06.03-1+1.0.0
+test_ids:
+  primary:
+    - SKL-RATE-REFRESH-001
+    - SKL-RATE-REFRESH-002
+    - SKL-RATE-REFRESH-003
+    - CAN-RATE-REFRESH-001
+
+blocking_checks:
+  - id: all_four_candidate_families
+    severity: blocker
+    rule: "The result contract must include labour_rates, access_equipment_bands, installation_profiles, and permit_tm_bands candidate updates."
+    evidence_fields:
+      - candidate_updates.labour_rates
+      - candidate_updates.access_equipment_bands
+      - candidate_updates.installation_profiles
+      - candidate_updates.permit_tm_bands
+
+  - id: public_source_provenance
+    severity: blocker
+    rule: "Every family must carry source_url, source_name, source_role, as_of, observed_at, and provenance_id evidence."
+    evidence_fields:
+      - provenance
+      - candidate_updates.*.source_urls
+      - candidate_updates.*.as_of
+
+  - id: changed_cell_ledger_required
+    severity: blocker
+    rule: "Every candidate delta must be represented as a changed_cell with family, table_key, field_path, old_value, candidate_value, source_url, and provenance_id."
+    evidence_fields:
+      - changed_cells
+
+  - id: no_in_place_production_reference_mutation
+    severity: blocker
+    rule: "The skill must not mutate skills/landed-cost/uk-installation-labour-estimate/reference/*.json; it may only write candidate JSON under the candidate output artifact root."
+    evidence_fields:
+      - production_reference_mutation_performed
+      - candidate_updates.*.candidate_output_path
+      - candidate_updates.*.production_reference_mutated
+
+warning_checks:
+  - id: stale_or_missing_public_source
+    severity: warning
+    rule: "A stale or missing public source should degrade to partial or blocked with blockers; it must not fabricate a candidate update."
+
+  - id: screening_grade_candidate_only
+    severity: warning
+    rule: "Candidate values are screening-grade table suggestions and must not be described as firm quotes."
+
+promotion_controls:
+  promotion_stage: candidate
+  stable_promotion_owner: qoa5.7.9-rate-refresh-canary-reviewed-update-path
+  required_standard_files:
+    - SKILL.md
+    - result.schema.json
+    - canary.inputs.jsonl
+    - golden.assertions.yaml
+    - validator-rubric.yaml
+  output_policy: candidate_json_only_until_explicit_review

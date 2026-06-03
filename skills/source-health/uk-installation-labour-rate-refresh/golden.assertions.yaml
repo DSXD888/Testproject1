@@ -1,0 +1,50 @@
+schema_version: 1
+skill_id: source-health/uk-installation-labour-rate-refresh
+test_ids:
+  - SKL-RATE-REFRESH-001
+  - SKL-RATE-REFRESH-002
+  - SKL-RATE-REFRESH-003
+  - CAN-RATE-REFRESH-001
+required_files:
+  - SKILL.md
+  - result.schema.json
+  - canary.inputs.jsonl
+  - golden.assertions.yaml
+  - validator-rubric.yaml
+candidate_output_families:
+  - labour_rates
+  - access_equipment_bands
+  - installation_profiles
+  - permit_tm_bands
+required_assertions:
+  - quarterly_source_health_mode
+  - stale_reference_inputs_produce_candidate_json
+  - all_four_candidate_output_families_present
+  - source_urls_recorded_for_every_family
+  - as_of_recorded_for_every_family
+  - provenance_recorded_for_every_family
+  - changed_cells_recorded_for_candidate_deltas
+  - no_in_place_production_reference_mutation
+  - production_reference_mutation_performed_is_false
+candidate_output_contract:
+  production_reference_root: skills/landed-cost/uk-installation-labour-estimate/reference
+  candidate_output_root_prefix: artifacts/source-health/uk-installation-labour-rate-refresh/
+  output_policy: candidate_json_only_until_explicit_review
+  production_reference_files_must_not_be_written:
+    - skills/landed-cost/uk-installation-labour-estimate/reference/uk-regional-labour-rates-2026-q2.json
+    - skills/landed-cost/uk-installation-labour-estimate/reference/uk-access-equipment-bands-2026-q2.json
+    - skills/landed-cost/uk-installation-labour-estimate/reference/uk-installation-profiles-2026-q2.json
+    - skills/landed-cost/uk-installation-labour-estimate/reference/uk-permit-tm-bands-2026-q2.json
+required_result_fields:
+  - refresh_status
+  - source_health_mode
+  - checked_at
+  - as_of
+  - source_reference_version
+  - candidate_version
+  - candidate_updates
+  - provenance
+  - changed_cells
+  - production_reference_mutation_performed
+  - warnings
+  - blockers
