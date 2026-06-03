@@ -5613,6 +5613,27 @@ struct LandedCostEstimateWrite {
     force_pricing_assessment_zero_gross_margin: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct MaintenancePeriodEstimateWrite {
+    id: String,
+    process_id: String,
+    notice_id: String,
+    product_candidate_id: String,
+    landed_cost_estimate_id: String,
+    supplier_quote_id: String,
+    visit_scope: Option<String>,
+    visits_per_year: i64,
+    term_years: i64,
+    per_visit_labour_cost_gbp_pence: i64,
+    annualised_opex_gbp_pence: i64,
+    total_visible_term_opex_gbp_pence: i64,
+    maintenance_confidence_bps: i64,
+    margin_signal: Option<String>,
+    warnings: String,
+    evidence_json: String,
+    stage_run_id: String,
+}
+
 pub const L5_DECISION_GRADE_LANDED_COST_FEATURE_FLAG_ENV: &str =
     "L5_ENABLE_DECISION_GRADE_LANDED_COST";
 const L5_DECISION_GRADE_BRIDGE_SCHEMA: &str = "l5_decision_grade_landed_cost_bridge_v1";
@@ -7805,6 +7826,82 @@ fn installation_requirement_from_critical_attributes(
     }
 }
 
+fn typed_non_negative_i64(value: Option<&Value>) -> i64 {
+    value
+        .and_then(Value::as_i64)
+        .filter(|value| *value >= 0)
+        .unwrap_or(0)
+}
+
+fn trimmed_string(value: Option<&Value>) -> Option<String> {
+    value
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_owned)
+}
+
+fn maintenance_period_estimate_for_row(
+    row: &LandedCostAssessmentRow,
+    landed_cost: &LandedCostEstimateWrite,
+) -> Option<MaintenancePeriodEstimateWrite> {
+    let requirement = installation_requirement_from_critical_attributes(row)?;
+    let schedule = requirement.get("maintenance_schedule");
+    let schedule_has_payload = schedule.is_some_and(|value| match value {
+        Value::Null => false,
+        Value::String(raw) => !raw.trim().is_empty(),
+        Value::Object(map) => !map.is_empty(),
+        _ => true,
+    });
+    let requires_maintenance = requirement
+        .get("requires_maintenance")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    if !requires_maintenance && !schedule_has_payload {
+        return None;
+    }
+
+    let schedule_object = schedule.and_then(Value::as_object);
+    let visit_scope = schedule_object
+        .and_then(|schedule| trimmed_string(schedule.get("visit_scope")))
+        .or_else(|| trimmed_string(schedule))
+        .or_else(|| trimmed_string(requirement.get("maintenance_scope")))
+        .or_else(|| trimmed_string(requirement.get("visit_scope")));
+    let visits_per_year = schedule_object
+        .map(|schedule| typed_non_negative_i64(schedule.get("visits_per_year")))
+        .unwrap_or_default();
+    let term_years = schedule_object
+        .map(|schedule| typed_non_negative_i64(schedule.get("term_years")))
+        .unwrap_or_default();
+
+    Some(MaintenancePeriodEstimateWrite {
+        id: format!(
+            "maintenance-{}-{}",
+            landed_cost.product_candidate_id, landed_cost.id
+        ),
+        process_id: landed_cost.process_id.clone(),
+        notice_id: landed_cost.notice_id.clone(),
+        product_candidate_id: landed_cost.product_candidate_id.clone(),
+        landed_cost_estimate_id: landed_cost.id.clone(),
+        supplier_quote_id: landed_cost.supplier_quote_id.clone(),
+        visit_scope,
+        visits_per_year,
+        term_years,
+        per_visit_labour_cost_gbp_pence: 0,
+        annualised_opex_gbp_pence: 0,
+        total_visible_term_opex_gbp_pence: 0,
+        maintenance_confidence_bps: 0,
+        margin_signal: None,
+        warnings: "[]".to_owned(),
+        evidence_json: json!({
+            "source": "installation_requirement",
+            "maintenance_schedule": schedule.cloned().unwrap_or(Value::Null),
+        })
+        .to_string(),
+        stage_run_id: landed_cost.stage_run_id.clone(),
+    })
+}
+
 fn installation_labour_invocation_for_row(
     row: &LandedCostAssessmentRow,
 ) -> InstallationLabourInvocation {
@@ -9831,6 +9928,71 @@ fn persist_landed_cost_estimate(
     Ok(())
 }
 
+fn persist_maintenance_period_estimate(
+    state_db: &mut StateDb,
+    estimate: &MaintenancePeriodEstimateWrite,
+) -> Result<()> {
+    state_db.with_write_transaction(|tx| {
+        let visible_after_seq = next_commit_seq(tx)?;
+        tx.execute(
+            "\
+            INSERT INTO maintenance_period_estimates (
+              id, process_id, notice_id, product_candidate_id, landed_cost_estimate_id,
+              supplier_quote_id, visit_scope, visits_per_year, term_years,
+              per_visit_labour_cost_gbp_pence, annualised_opex_gbp_pence,
+              total_visible_term_opex_gbp_pence, maintenance_confidence_bps,
+              margin_signal, warnings, evidence_json, owner_id, last_local_seq, stage_run_id
+            ) VALUES (
+              ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15,
+              ?16, ?17, ?18, ?19
+            )
+            ON CONFLICT(product_candidate_id, landed_cost_estimate_id) DO UPDATE SET
+              process_id = excluded.process_id,
+              notice_id = excluded.notice_id,
+              supplier_quote_id = excluded.supplier_quote_id,
+              visit_scope = excluded.visit_scope,
+              visits_per_year = excluded.visits_per_year,
+              term_years = excluded.term_years,
+              per_visit_labour_cost_gbp_pence = excluded.per_visit_labour_cost_gbp_pence,
+              annualised_opex_gbp_pence = excluded.annualised_opex_gbp_pence,
+              total_visible_term_opex_gbp_pence = excluded.total_visible_term_opex_gbp_pence,
+              maintenance_confidence_bps = excluded.maintenance_confidence_bps,
+              margin_signal = excluded.margin_signal,
+              warnings = excluded.warnings,
+              evidence_json = excluded.evidence_json,
+              owner_id = excluded.owner_id,
+              row_version = maintenance_period_estimates.row_version + 1,
+              last_local_seq = excluded.last_local_seq,
+              stage_run_id = excluded.stage_run_id,
+              updated_at = CURRENT_TIMESTAMP
+            ",
+            params![
+                estimate.id,
+                estimate.process_id,
+                estimate.notice_id,
+                estimate.product_candidate_id,
+                estimate.landed_cost_estimate_id,
+                estimate.supplier_quote_id,
+                estimate.visit_scope,
+                estimate.visits_per_year,
+                estimate.term_years,
+                estimate.per_visit_labour_cost_gbp_pence,
+                estimate.annualised_opex_gbp_pence,
+                estimate.total_visible_term_opex_gbp_pence,
+                estimate.maintenance_confidence_bps,
+                estimate.margin_signal,
+                estimate.warnings,
+                estimate.evidence_json,
+                LOCAL_EXECUTOR_ID,
+                visible_after_seq,
+                estimate.stage_run_id,
+            ],
+        )?;
+        Ok(())
+    })?;
+    Ok(())
+}
+
 #[allow(clippy::too_many_arguments)]
 fn landed_cost_live_loop_summary_line(
     attempted: usize,
@@ -9971,6 +10133,9 @@ async fn run_landed_cost_live_loop(
                 &decision_grade_estimate,
             );
             persist_landed_cost_estimate(&mut runtime.state_db, estimate)?;
+            if let Some(maintenance_estimate) = maintenance_period_estimate_for_row(row, estimate) {
+                persist_maintenance_period_estimate(&mut runtime.state_db, &maintenance_estimate)?;
+            }
             persist_landed_cost_path_comparison(
                 &mut runtime.state_db,
                 landed_cost_path_mode,
@@ -10291,6 +10456,9 @@ async fn run_landed_cost_live_loop(
             completed += 1;
         }
         persist_landed_cost_estimate(&mut runtime.state_db, estimate)?;
+        if let Some(maintenance_estimate) = maintenance_period_estimate_for_row(row, estimate) {
+            persist_maintenance_period_estimate(&mut runtime.state_db, &maintenance_estimate)?;
+        }
         persist_landed_cost_path_comparison(
             &mut runtime.state_db,
             landed_cost_path_mode,
@@ -29864,6 +30032,87 @@ mod tests {
     }
 
     #[test]
+    fn maintenance_period_estimate_persists_after_landed_cost_row() -> Result<()> {
+        let (_temp, mut runtime) = bootstrap_validation_runtime()?;
+        seed_stage11_minimal_graph(runtime.state_db.connection(), "GB")?;
+        runtime.state_db.connection().execute(
+            "\
+            UPDATE product_candidates
+            SET critical_attributes_json = ?1
+            WHERE id = 'candidate-stage11'
+            ",
+            [json!({
+                "installation_requirement": {
+                    "requires_installation": true,
+                    "requires_maintenance": true,
+                    "installation_scope": "playground_install",
+                    "maintenance_schedule": {
+                        "visits_per_year": 4,
+                        "term_years": 3,
+                        "visit_scope": "quarterly inspection and minor service"
+                    }
+                }
+            })
+            .to_string()],
+        )?;
+        let rows = super::load_landed_cost_assessments(runtime.state_db.connection(), 10)?;
+        assert_eq!(rows.len(), 1);
+        let supplier_cost = super::compute_supplier_cost_basis(&rows[0]);
+        let order_quantity_basis = super::infer_order_quantity_basis(&rows[0]);
+        let estimate = super::build_domestic_landed_cost_estimate(
+            &rows[0],
+            &supplier_cost,
+            None,
+            "not_required",
+            "stage-run-maintenance-persist-test",
+            &order_quantity_basis,
+            &json!({
+                "hmrc_customs": "1.0.0",
+                "shipment_sizing": "1.0.0",
+                "searates_freight": "1.0.0",
+                "simple_fx": "1.0.0",
+                "uk_installation_labour": "1.0.0",
+            }),
+            &super::domestic_landed_cost_skill_session_ids(None),
+        )?;
+        super::persist_landed_cost_estimate(&mut runtime.state_db, &estimate)?;
+        let maintenance = super::maintenance_period_estimate_for_row(&rows[0], &estimate)
+            .ok_or_else(|| anyhow::anyhow!("expected maintenance estimate"))?;
+        super::persist_maintenance_period_estimate(&mut runtime.state_db, &maintenance)?;
+
+        let persisted: (i64, String, i64, i64, i64) = runtime.state_db.connection().query_row(
+            "\
+                SELECT COUNT(*), MAX(visit_scope), MAX(visits_per_year), MAX(term_years),
+                       MAX(total_visible_term_opex_gbp_pence)
+                FROM maintenance_period_estimates
+                WHERE product_candidate_id = 'candidate-stage11'
+                  AND landed_cost_estimate_id = ?1
+                ",
+            [estimate.id],
+            |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                ))
+            },
+        )?;
+        assert_eq!(
+            persisted,
+            (
+                1,
+                "quarterly inspection and minor service".to_owned(),
+                4,
+                3,
+                0
+            )
+        );
+        Ok(())
+    }
+
+    #[test]
     fn l5_decision_grade_feature_flag_defaults_to_decision_grade() {
         assert!(matches!(
             super::LandedCostPathMode::from_env_value(None),
@@ -30993,6 +31242,101 @@ mod tests {
             super::installation_labour_invocation_for_row(&row),
             super::InstallationLabourInvocation::Invoke
         );
+    }
+
+    #[test]
+    fn maintenance_requirement_creates_first_class_period_estimate() -> Result<()> {
+        let mut row = stage11_undetermined_row_fixture();
+        row.critical_attributes_json = Some(
+            json!({
+                "installation_requirement": {
+                    "requires_installation": true,
+                    "requires_maintenance": true,
+                    "installation_scope": "playground_install",
+                    "maintenance_schedule": {
+                        "visits_per_year": 4,
+                        "term_years": 3,
+                        "visit_scope": "quarterly inspection and minor service"
+                    }
+                }
+            })
+            .to_string(),
+        );
+        row.expected_addressable_revenue_ex_vat_pence = 3_000_000;
+        row.revenue_basis_type = "expected_value".to_owned();
+        row.revenue_confidence_bps = 9_000;
+        let supplier_cost = super::SupplierCostBasis {
+            supplier_cost_gbp_pence: 1_800_000,
+            basis: "test_supplier_total".to_owned(),
+            quantity: 1.0,
+            quantity_unit: Some("lot".to_owned()),
+            warnings: Vec::new(),
+        };
+        let installation_labour = super::InstallationLabourCostBasis {
+            installation_labour_cost_gbp_pence: 450_000,
+            installation_labour_low_gbp_pence: 400_000,
+            installation_labour_high_gbp_pence: 520_000,
+            installation_labour_confidence_bps: 8_000,
+            permit_traffic_mgmt_cost_gbp_pence: 50_000,
+            permit_traffic_mgmt_low_gbp_pence: 20_000,
+            permit_traffic_mgmt_high_gbp_pence: 80_000,
+            permit_responsibility: Some("contractor_provided".to_owned()),
+        };
+        let order_quantity_basis = super::OrderQuantityBasis::FromContractValue {
+            qty: 1.0,
+            contract_value_gbp_pence: row.expected_addressable_revenue_ex_vat_pence,
+            basis_unit: Some("lot".to_owned()),
+        };
+        let landed_cost = super::build_domestic_landed_cost_estimate(
+            &row,
+            &supplier_cost,
+            Some(&installation_labour),
+            "estimated",
+            "stage-run-maintenance-route-test",
+            &order_quantity_basis,
+            &json!({
+                "hmrc_customs": "1.0.0",
+                "shipment_sizing": "1.0.0",
+                "searates_freight": "1.0.0",
+                "simple_fx": "1.0.0",
+                "uk_installation_labour": "1.0.0",
+            }),
+            &super::domestic_landed_cost_skill_session_ids(None),
+        )?;
+        let maintenance = super::maintenance_period_estimate_for_row(&row, &landed_cost)
+            .ok_or_else(|| anyhow::anyhow!("expected maintenance estimate"))?;
+
+        assert_eq!(maintenance.process_id, landed_cost.process_id);
+        assert_eq!(maintenance.notice_id, landed_cost.notice_id);
+        assert_eq!(
+            maintenance.product_candidate_id,
+            landed_cost.product_candidate_id
+        );
+        assert_eq!(maintenance.landed_cost_estimate_id, landed_cost.id);
+        assert_eq!(maintenance.supplier_quote_id, landed_cost.supplier_quote_id);
+        assert_eq!(
+            maintenance.visit_scope.as_deref(),
+            Some("quarterly inspection and minor service")
+        );
+        assert_eq!(maintenance.visits_per_year, 4);
+        assert_eq!(maintenance.term_years, 3);
+        assert_eq!(maintenance.per_visit_labour_cost_gbp_pence, 0);
+        assert_eq!(maintenance.annualised_opex_gbp_pence, 0);
+        assert_eq!(maintenance.total_visible_term_opex_gbp_pence, 0);
+        assert!(maintenance.evidence_json.contains("maintenance_schedule"));
+
+        row.critical_attributes_json = Some(
+            json!({
+                "installation_requirement": {
+                    "requires_installation": true,
+                    "requires_maintenance": false,
+                    "installation_scope": "install_only"
+                }
+            })
+            .to_string(),
+        );
+        assert!(super::maintenance_period_estimate_for_row(&row, &landed_cost).is_none());
+        Ok(())
     }
 
     #[test]

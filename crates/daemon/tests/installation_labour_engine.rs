@@ -63,6 +63,43 @@ struct PersistedLandedCostSeed {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+struct MaintenancePeriodSeed<'a> {
+    id: &'a str,
+    process_id: &'a str,
+    notice_id: &'a str,
+    product_candidate_id: &'a str,
+    landed_cost_estimate_id: &'a str,
+    supplier_quote_id: &'a str,
+    visit_scope: &'a str,
+    visits_per_year: i64,
+    term_years: i64,
+    per_visit_labour_cost_gbp_pence: i64,
+    annualised_opex_gbp_pence: i64,
+    total_visible_term_opex_gbp_pence: i64,
+    maintenance_confidence_bps: i64,
+    margin_signal: &'a str,
+    warnings: &'a str,
+    evidence_json: &'a str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PersistedMaintenancePeriodSeed {
+    product_candidate_id: String,
+    landed_cost_estimate_id: String,
+    supplier_quote_id: String,
+    visit_scope: String,
+    visits_per_year: i64,
+    term_years: i64,
+    per_visit_labour_cost_gbp_pence: i64,
+    annualised_opex_gbp_pence: i64,
+    total_visible_term_opex_gbp_pence: i64,
+    maintenance_confidence_bps: i64,
+    margin_signal: String,
+    warnings: String,
+    evidence_json: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct PersistedDecisionBasis {
     goods_value_share_bps: Option<i64>,
     goods_value_share_basis: Option<String>,
@@ -217,6 +254,124 @@ fn e2e_il_001_festive_lights_persisted_row_reconstructs_all_in_goods_share() -> 
         "E2E-IL-001 must persist access-at-height and permit-responsibility warnings"
     );
     assert_e2e_il_001_decision_basis(conn, &ids.process_id, &persisted)?;
+    Ok(())
+}
+
+#[test]
+#[doc = "E2E-IL-004"]
+#[allow(clippy::too_many_lines)]
+fn e2e_il_004_playground_maintenance_persists_first_class_period_estimate() -> Result<()> {
+    let db = L4TestStateDb::new()?;
+    let conn = db.connection();
+    apply_installation_labour_migration_if_needed(conn)?;
+    let ids = db.seed_push_owned_rows()?;
+    seed_candidate_and_quote(conn, &ids.process_id, &ids.notice_id, &ids.lot_id)?;
+
+    conn.execute(
+        "\
+        UPDATE product_candidates
+        SET critical_attributes_json = ?1
+        WHERE id = 'il-seed-candidate'
+        ",
+        [serde_json::json!({
+            "installation_requirement": {
+                "requires_installation": true,
+                "requires_maintenance": true,
+                "installation_scope": "playground_install",
+                "maintenance_schedule": {
+                    "visits_per_year": 4,
+                    "term_years": 3,
+                    "visit_scope": "quarterly inspection and minor service"
+                }
+            }
+        })
+        .to_string()],
+    )?;
+
+    let landed_cost = LandedCostSeed {
+        id: "e2e-il-004-playground-maintenance",
+        process_id: &ids.process_id,
+        notice_id: &ids.notice_id,
+        product_candidate_id: "il-seed-candidate",
+        supplier_quote_id: "il-seed-quote",
+        goods_landed_cost_gbp_pence: 1_800_000,
+        installation_labour_cost_gbp_pence: 450_000,
+        installation_labour_low_gbp_pence: 400_000,
+        installation_labour_high_gbp_pence: 520_000,
+        installation_labour_confidence_bps: 8_000,
+        permit_traffic_mgmt_cost_gbp_pence: 50_000,
+        permit_traffic_mgmt_low_gbp_pence: 20_000,
+        permit_traffic_mgmt_high_gbp_pence: 80_000,
+        permit_responsibility: Some("contractor_provided"),
+        economic_landed_cost_gbp_pence: 2_300_000,
+        decision_grade: "review",
+        warnings: "[]",
+        blockers: "[]",
+    };
+    insert_landed_cost_seed(conn, &landed_cost)?;
+
+    let maintenance = MaintenancePeriodSeed {
+        id: "e2e-il-004-maintenance-period",
+        process_id: &ids.process_id,
+        notice_id: &ids.notice_id,
+        product_candidate_id: "il-seed-candidate",
+        landed_cost_estimate_id: landed_cost.id,
+        supplier_quote_id: "il-seed-quote",
+        visit_scope: "quarterly inspection and minor service",
+        visits_per_year: 4,
+        term_years: 3,
+        per_visit_labour_cost_gbp_pence: 0,
+        annualised_opex_gbp_pence: 0,
+        total_visible_term_opex_gbp_pence: 0,
+        maintenance_confidence_bps: 0,
+        margin_signal: "pending_maintenance_cost_model",
+        warnings: "[]",
+        evidence_json: r#"{"source":"installation_requirement","maintenance_schedule":{"visits_per_year":4,"term_years":3,"visit_scope":"quarterly inspection and minor service"}}"#,
+    };
+    insert_maintenance_period_seed(conn, &maintenance)?;
+
+    let persisted_landed_cost = persisted_landed_cost_seed(conn, landed_cost.id)?;
+    let persisted_maintenance = persisted_maintenance_period_seed(conn, maintenance.id)?;
+
+    ensure!(
+        persisted_maintenance.product_candidate_id == maintenance.product_candidate_id
+            && persisted_maintenance.landed_cost_estimate_id == maintenance.landed_cost_estimate_id
+            && persisted_maintenance.supplier_quote_id == maintenance.supplier_quote_id,
+        "E2E-IL-004 maintenance estimate must be keyed by product candidate, landed-cost estimate, and quote"
+    );
+    ensure!(
+        persisted_maintenance.visit_scope == maintenance.visit_scope
+            && persisted_maintenance.visits_per_year == 4
+            && persisted_maintenance.term_years == 3,
+        "E2E-IL-004 maintenance schedule must persist as typed cadence/scope fields"
+    );
+    ensure!(
+        persisted_maintenance.per_visit_labour_cost_gbp_pence == 0
+            && persisted_maintenance.annualised_opex_gbp_pence == 0
+            && persisted_maintenance.total_visible_term_opex_gbp_pence == 0
+            && persisted_maintenance.maintenance_confidence_bps == 0,
+        "E2E-IL-004 qoa5.5.2 only establishes the row route; qoa5.5.3 fills maintenance economics"
+    );
+    ensure!(
+        persisted_maintenance.margin_signal == "pending_maintenance_cost_model"
+            && persisted_maintenance.warnings == "[]"
+            && persisted_maintenance
+                .evidence_json
+                .contains("maintenance_schedule"),
+        "E2E-IL-004 maintenance route must retain evidence and margin signal outside generic candidate JSON"
+    );
+    ensure!(
+        persisted_landed_cost.economic_landed_cost_gbp_pence == 2_300_000,
+        "E2E-IL-004 capital event denominator must exclude recurring maintenance opex"
+    );
+    ensure!(
+        goods_value_share_bps(
+            persisted_landed_cost.goods_landed_cost_gbp_pence,
+            persisted_landed_cost.installation_labour_cost_gbp_pence,
+            persisted_landed_cost.permit_traffic_mgmt_cost_gbp_pence,
+        ) == 7_826,
+        "E2E-IL-004 goods share must use the supply+install capital event only"
+    );
     Ok(())
 }
 
@@ -896,6 +1051,46 @@ fn insert_landed_cost_seed(conn: &Connection, seed: &LandedCostSeed<'_>) -> Resu
     Ok(())
 }
 
+fn insert_maintenance_period_seed(
+    conn: &Connection,
+    seed: &MaintenancePeriodSeed<'_>,
+) -> Result<()> {
+    conn.execute(
+        "\
+        INSERT INTO maintenance_period_estimates (
+          id, process_id, notice_id, product_candidate_id, landed_cost_estimate_id,
+          supplier_quote_id, visit_scope, visits_per_year, term_years,
+          per_visit_labour_cost_gbp_pence, annualised_opex_gbp_pence,
+          total_visible_term_opex_gbp_pence, maintenance_confidence_bps,
+          margin_signal, warnings, evidence_json, owner_id, row_version,
+          stage_run_id
+        ) VALUES (
+          ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15,
+          ?16, 'local-owner', 1, 'maintenance-period-seed'
+        )
+        ",
+        params![
+            seed.id,
+            seed.process_id,
+            seed.notice_id,
+            seed.product_candidate_id,
+            seed.landed_cost_estimate_id,
+            seed.supplier_quote_id,
+            seed.visit_scope,
+            seed.visits_per_year,
+            seed.term_years,
+            seed.per_visit_labour_cost_gbp_pence,
+            seed.annualised_opex_gbp_pence,
+            seed.total_visible_term_opex_gbp_pence,
+            seed.maintenance_confidence_bps,
+            seed.margin_signal,
+            seed.warnings,
+            seed.evidence_json,
+        ],
+    )?;
+    Ok(())
+}
+
 const fn landed_cost_insert_sql() -> &'static str {
     "\
     INSERT INTO landed_cost_estimates (
@@ -958,6 +1153,41 @@ fn persisted_landed_cost_seed(
         },
     )
     .context("reading installation labour landed-cost seed row")
+}
+
+fn persisted_maintenance_period_seed(
+    conn: &Connection,
+    maintenance_id: &str,
+) -> Result<PersistedMaintenancePeriodSeed> {
+    conn.query_row(
+        "\
+        SELECT product_candidate_id, landed_cost_estimate_id, supplier_quote_id,
+               visit_scope, visits_per_year, term_years, per_visit_labour_cost_gbp_pence,
+               annualised_opex_gbp_pence, total_visible_term_opex_gbp_pence,
+               maintenance_confidence_bps, margin_signal, warnings, evidence_json
+        FROM maintenance_period_estimates
+        WHERE id = ?1
+        ",
+        [maintenance_id],
+        |row| {
+            Ok(PersistedMaintenancePeriodSeed {
+                product_candidate_id: row.get(0)?,
+                landed_cost_estimate_id: row.get(1)?,
+                supplier_quote_id: row.get(2)?,
+                visit_scope: row.get(3)?,
+                visits_per_year: row.get(4)?,
+                term_years: row.get(5)?,
+                per_visit_labour_cost_gbp_pence: row.get(6)?,
+                annualised_opex_gbp_pence: row.get(7)?,
+                total_visible_term_opex_gbp_pence: row.get(8)?,
+                maintenance_confidence_bps: row.get(9)?,
+                margin_signal: row.get(10)?,
+                warnings: row.get(11)?,
+                evidence_json: row.get(12)?,
+            })
+        },
+    )
+    .context("reading installation maintenance period seed row")
 }
 
 const fn goods_value_share_bps(goods: i64, labour: i64, permit_traffic_mgmt: i64) -> i64 {
