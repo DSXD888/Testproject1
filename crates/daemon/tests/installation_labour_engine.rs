@@ -113,6 +113,78 @@ fn rs_seed_001_landed_cost_insert_sql_helper_direct_seeds_labour_columns() -> Re
 }
 
 #[test]
+#[doc = "E2E-IL-001"]
+fn e2e_il_001_festive_lights_persisted_row_reconstructs_all_in_goods_share() -> Result<()> {
+    let db = L4TestStateDb::new()?;
+    let conn = db.connection();
+    apply_installation_labour_migration_if_needed(conn)?;
+    let ids = db.seed_push_owned_rows()?;
+    seed_candidate_and_quote(conn, &ids.process_id, &ids.notice_id, &ids.lot_id)?;
+
+    let seed = LandedCostSeed {
+        id: "e2e-il-001-festive-lights-nw",
+        process_id: &ids.process_id,
+        notice_id: &ids.notice_id,
+        product_candidate_id: "il-seed-candidate",
+        supplier_quote_id: "il-seed-quote",
+        goods_landed_cost_gbp_pence: 1_000_000,
+        installation_labour_cost_gbp_pence: 240_000,
+        installation_labour_low_gbp_pence: 210_000,
+        installation_labour_high_gbp_pence: 265_000,
+        installation_labour_confidence_bps: 7_000,
+        permit_traffic_mgmt_cost_gbp_pence: 200_000,
+        permit_traffic_mgmt_low_gbp_pence: 80_000,
+        permit_traffic_mgmt_high_gbp_pence: 340_000,
+        permit_responsibility: Some("unknown"),
+        economic_landed_cost_gbp_pence: 1_440_000,
+    };
+
+    insert_landed_cost_seed(conn, &seed)?;
+    let persisted = persisted_landed_cost_seed(conn, seed.id)?;
+
+    ensure!(
+        persisted.goods_landed_cost_gbp_pence == 1_000_000,
+        "E2E-IL-001 goods-only landed subtotal must be persisted"
+    );
+    ensure!(
+        persisted.installation_labour_cost_gbp_pence == 240_000
+            && persisted.installation_labour_low_gbp_pence == 210_000
+            && persisted.installation_labour_high_gbp_pence == 265_000,
+        "E2E-IL-001 labour 3-point band changed"
+    );
+    ensure!(
+        persisted.permit_traffic_mgmt_cost_gbp_pence == 200_000
+            && persisted.permit_traffic_mgmt_high_gbp_pence == 340_000,
+        "E2E-IL-001 permit/TM base/high values changed"
+    );
+    ensure!(
+        persisted.permit_responsibility.as_deref() == Some("unknown"),
+        "E2E-IL-001 unresolved permit responsibility must remain visible"
+    );
+    ensure!(
+        persisted.economic_landed_cost_gbp_pence == 1_440_000,
+        "E2E-IL-001 economic landed cost must include labour and permit/TM"
+    );
+    ensure!(
+        goods_value_share_bps(
+            persisted.goods_landed_cost_gbp_pence,
+            persisted.installation_labour_cost_gbp_pence,
+            0,
+        ) == 8_065,
+        "E2E-IL-001 pre-permit goods share must be reconstructable"
+    );
+    ensure!(
+        goods_value_share_bps(
+            persisted.goods_landed_cost_gbp_pence,
+            persisted.installation_labour_cost_gbp_pence,
+            persisted.permit_traffic_mgmt_cost_gbp_pence,
+        ) == 6_944,
+        "E2E-IL-001 all-in goods share must be reconstructable from one row"
+    );
+    Ok(())
+}
+
+#[test]
 #[doc = "E2E-IL-008"]
 fn e2e_il_008_pure_a4_copier_paper_preserves_goods_only_economics() -> Result<()> {
     let db = L4TestStateDb::new()?;
