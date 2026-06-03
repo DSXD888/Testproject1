@@ -9349,9 +9349,16 @@ fn build_domestic_landed_cost_estimate(
 
     let installation_labour = installation_labour_basis_for_rollup(row, installation_labour);
     let goods_landed_cost_gbp_pence = supplier_cost.supplier_cost_gbp_pence;
-    let economic_landed_cost_gbp_pence = goods_landed_cost_gbp_pence
+    let low_landed_cost = goods_landed_cost_gbp_pence
+        .saturating_add(installation_labour.installation_labour_low_gbp_pence)
+        .saturating_add(installation_labour.permit_traffic_mgmt_low_gbp_pence);
+    let base_landed_cost = goods_landed_cost_gbp_pence
         .saturating_add(installation_labour.installation_labour_cost_gbp_pence)
         .saturating_add(installation_labour.permit_traffic_mgmt_cost_gbp_pence);
+    let high_landed_cost = goods_landed_cost_gbp_pence
+        .saturating_add(installation_labour.installation_labour_high_gbp_pence)
+        .saturating_add(installation_labour.permit_traffic_mgmt_high_gbp_pence);
+    let economic_landed_cost_gbp_pence = base_landed_cost;
     let calibrate_zero_margin = order_quantity_basis.requires_zero_margin_calibration();
     let commercial_estimate_confidence_bps = if calibrate_zero_margin {
         Some(1000)
@@ -9367,7 +9374,7 @@ fn build_domestic_landed_cost_estimate(
     } else {
         net_margin_bps(
             row.expected_addressable_revenue_ex_vat_pence,
-            economic_landed_cost_gbp_pence,
+            high_landed_cost,
         )
     };
     let net_margin_base_bps = if calibrate_zero_margin {
@@ -9375,7 +9382,7 @@ fn build_domestic_landed_cost_estimate(
     } else {
         net_margin_bps(
             row.expected_addressable_revenue_ex_vat_pence,
-            economic_landed_cost_gbp_pence,
+            base_landed_cost,
         )
     };
     let net_margin_high_bps = if calibrate_zero_margin {
@@ -9383,7 +9390,7 @@ fn build_domestic_landed_cost_estimate(
     } else {
         net_margin_bps(
             row.expected_addressable_revenue_ex_vat_pence,
-            economic_landed_cost_gbp_pence,
+            low_landed_cost,
         )
     };
     let confidence_bps = clamp_bps(
@@ -30180,6 +30187,73 @@ mod tests {
             confidence["statuses"]["uk_installation_labour_status"],
             "estimated"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn domestic_landed_cost_rollup_uses_labour_permit_bands_for_net_margin() -> Result<()> {
+        let mut row = stage11_undetermined_row_fixture();
+        row.critical_attributes_json = Some(
+            json!({
+                "installation_requirement": {
+                    "requires_installation": true,
+                    "requires_maintenance": false,
+                    "installation_scope": "install_only"
+                }
+            })
+            .to_string(),
+        );
+        row.expected_addressable_revenue_ex_vat_pence = 1_500_000;
+        row.revenue_basis_type = "expected_value".to_owned();
+        row.revenue_confidence_bps = 9_000;
+        row.pricing_input_confidence_bps = 8_000;
+        row.gross_estimate_confidence_bps = 8_000;
+        let supplier_cost = super::SupplierCostBasis {
+            supplier_cost_gbp_pence: 800_000,
+            basis: "test_supplier_total".to_owned(),
+            quantity: 1.0,
+            quantity_unit: Some("lot".to_owned()),
+            warnings: Vec::new(),
+        };
+        let order_quantity_basis = super::OrderQuantityBasis::FromContractValue {
+            qty: 1.0,
+            contract_value_gbp_pence: row.expected_addressable_revenue_ex_vat_pence,
+            basis_unit: Some("lot".to_owned()),
+        };
+        let installation_labour = super::InstallationLabourCostBasis {
+            installation_labour_cost_gbp_pence: 120_000,
+            installation_labour_low_gbp_pence: 96_000,
+            installation_labour_high_gbp_pence: 144_000,
+            installation_labour_confidence_bps: 7_500,
+            permit_traffic_mgmt_cost_gbp_pence: 30_000,
+            permit_traffic_mgmt_low_gbp_pence: 20_000,
+            permit_traffic_mgmt_high_gbp_pence: 45_000,
+            permit_responsibility: Some("contractor_provided".to_owned()),
+        };
+
+        let estimate = super::build_domestic_landed_cost_estimate(
+            &row,
+            &supplier_cost,
+            Some(&installation_labour),
+            "estimated",
+            "stage-run-domestic-band-test",
+            &order_quantity_basis,
+            &json!({
+                "hmrc_customs": "1.0.0",
+                "shipment_sizing": "1.0.0",
+                "searates_freight": "1.0.0",
+                "simple_fx": "1.0.0",
+                "uk_installation_labour": "1.0.0",
+            }),
+            &super::domestic_landed_cost_skill_session_ids(None),
+        )?;
+
+        assert_eq!(estimate.economic_landed_cost_gbp_pence, 950_000);
+        assert_eq!(estimate.net_margin_low_bps, 3_406);
+        assert_eq!(estimate.net_margin_base_bps, 3_666);
+        assert_eq!(estimate.net_margin_high_bps, 3_893);
+        assert!(estimate.net_margin_low_bps < estimate.net_margin_base_bps);
+        assert!(estimate.net_margin_base_bps < estimate.net_margin_high_bps);
         Ok(())
     }
 

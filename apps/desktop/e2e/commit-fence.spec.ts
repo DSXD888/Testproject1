@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../../e2e-playwright-compat';
 
 test.describe('commit fence', () => {
   test('PW-FEN-003 capture-decision keeps the old state until the fence clears', async ({ page }) => {

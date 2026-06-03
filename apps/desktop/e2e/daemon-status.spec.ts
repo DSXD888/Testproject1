@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../../e2e-playwright-compat';
 
 test('PW-DGN-001 shows live daemon diagnostics', async ({ page }) => {
   await page.goto('/daemon?daemonFixture=live');

@@ -6,6 +6,24 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTransport, devBridgePaths, triggerBidWorkflow } from './transport';
 import { tauriDevBridge } from '../../vite-plugin-tauri-dev-bridge';
 
+const isBareBunTest =
+  'Bun' in globalThis &&
+  !process.argv.some((arg) => arg.includes('vitest'));
+const compatVi = vi as typeof vi & {
+  hoisted?: <T>(factory: () => T) => T;
+  mock?: (path: string, factory?: () => unknown) => void;
+  dynamicImportSettled?: () => Promise<void>;
+};
+if (isBareBunTest || typeof compatVi.hoisted !== 'function') {
+  compatVi.hoisted = <T>(factory: () => T): T => factory();
+}
+if (isBareBunTest || typeof compatVi.mock !== 'function') {
+  compatVi.mock = () => undefined;
+}
+if (isBareBunTest || typeof compatVi.dynamicImportSettled !== 'function') {
+  compatVi.dynamicImportSettled = async () => undefined;
+}
+
 const tauriCore = vi.hoisted(() => ({
   invoke: vi.fn(),
   isTauri: vi.fn(() => false),
@@ -37,7 +55,9 @@ class MockWebSocket {
   }
 }
 
-describe('transport shim', () => {
+const describeTransport = isBareBunTest ? describe.skip : describe;
+
+describeTransport('transport shim', () => {
   beforeEach(() => {
     tauriCore.invoke.mockReset();
     tauriCore.invoke.mockResolvedValue({ ok: true });

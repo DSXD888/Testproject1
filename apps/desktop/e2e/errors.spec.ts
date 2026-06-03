@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../../e2e-playwright-compat';
 
 test('PW-ERR-001 lists unresolved manifests with stable severity', async ({ page }) => {
   await page.goto('/errors?errorsFixture=default');

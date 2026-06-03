@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../../e2e-playwright-compat';
 
 test('PW-SEC-001 renders hostile manifest HTML as inert text nodes', async ({ page }) => {
   await page.goto('/process/process-sec?securityFixture=manifest-html');

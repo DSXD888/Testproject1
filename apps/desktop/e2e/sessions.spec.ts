@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../../e2e-playwright-compat';
 
 test.describe('sessions page', () => {
   test('PW-SES-001 renders active and recent sessions from the query envelope', async ({

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../../e2e-playwright-compat';
 
 test.describe('contracts pages', () => {
   test('PW-CON-001 list page renders queue rows from one envelope', async ({ page }) => {
