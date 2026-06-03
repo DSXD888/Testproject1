@@ -1,4 +1,5 @@
 import { useState, type ReactElement } from 'react';
+import type { GoodsLedReviewContextPayload } from '@project/contracts-schema';
 
 import {
   boundUntrustedText,
@@ -87,6 +88,7 @@ type DetailState =
             stoplight?: string | null;
             suggestedAction?: string | null;
           } | null;
+          goodsLedReviewContext?: GoodsLedReviewContextPayload | null;
           manifestError: { code: string; message: string } | null;
           coverage: CoverageMetrics;
           decision: {
@@ -584,6 +586,7 @@ export function ContractDetail({
             <ManifestViewer
               basisHash={data.manifest.basisHash ?? 'Unavailable'}
               generatedAt={data.manifest.generatedAt}
+              goodsLedReviewContext={data.goodsLedReviewContext ?? null}
               manifestMarkdown={data.manifest.markdown}
               manifestVersion="desktop-query"
               sections={data.manifest.sections}

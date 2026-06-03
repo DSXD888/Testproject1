@@ -2,6 +2,7 @@ import type { IncomingMessage } from 'node:http';
 
 import type { WebSocket } from 'ws';
 
+import type { GoodsLedReviewContextPayload } from '@project/contracts-schema';
 import type { SessionFrame } from '../stores/session-registry';
 import type { InvokePayload } from './transport';
 
@@ -202,6 +203,7 @@ type ProcessDetailFixture = {
     artifactHash: string;
     stageRunId: string;
   } | null;
+  goodsLedReviewContext?: GoodsLedReviewContextPayload | null;
   reviewMetadata: {
     basisHash: string;
     manifestHash: string;
@@ -304,6 +306,25 @@ function makeProcessDetail(processId: string): ProcessDetailFixture {
     sections: ['Summary', 'Risks'],
     artifactHash: 'artifact-1',
     stageRunId: 'stage-run-1',
+  },
+  goodsLedReviewContext: {
+    labourLow: 96_000,
+    labourBase: 120_000,
+    labourHigh: 144_000,
+    labourConfidenceBps: 7_500,
+    permitLow: 0,
+    permitBase: 25_000,
+    permitHigh: 50_000,
+    permitResponsibility: 'unknown',
+    region: 'london',
+    installationScope: 'supply_install',
+    equipmentAssumptions: ['operated_mewp'],
+    warningCodes: ['PERMIT_RESPONSIBILITY_UNKNOWN'],
+    goodsShareBasis: 'cost_proxy',
+    goodsShareFloorBps: 6_000,
+    decisionRoute: 'review',
+    labourCoverageBps: 10_000,
+    reviewReasons: ['labour_uncertainty', 'unresolved_permit_responsibility'],
   },
   reviewMetadata: {
     basisHash: 'basis-1',

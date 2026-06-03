@@ -144,6 +144,18 @@ describe('packages/ui components', () => {
     expect(clickedSections).toHaveLength(0);
   });
 
+  it('UI-AGB-001 renders the Installation labour cost row from the shared payload', () => {
+    const markup = renderToStaticMarkup(<ManifestViewer {...manifestViewerFixture} />);
+
+    expect(markup).toContain('data-testid="manifest-cost-table"');
+    expect(markup).toContain('data-testid="manifest-cost-row-installation-labour"');
+    expect(markup).toContain('Installation labour');
+    expect(markup).toContain('£960.00');
+    expect(markup).toContain('£1,200.00');
+    expect(markup).toContain('£1,440.00');
+    expect(markup).toContain('75% (7,500 bps)');
+  });
+
   it('keeps hostile unicode controls visible and bounds oversized payloads', () => {
     const longManifest = `${'A'.repeat(21_000)}\u202Espoofed`;
     const markup = renderToStaticMarkup(

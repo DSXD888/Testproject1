@@ -1,11 +1,14 @@
 import type { ReactElement, ReactNode } from 'react';
 
+import type { GoodsLedReviewContextPayload } from '@project/contracts-schema';
+
 export interface ManifestViewerProps {
   manifestMarkdown: string;
   manifestVersion: string;
   basisHash: string;
   generatedAt: string;
   sections?: string[];
+  goodsLedReviewContext?: GoodsLedReviewContextPayload | null;
   highlightBlockers?: boolean;
   onSectionClick?: (sectionId: string) => void;
 }
@@ -181,12 +184,76 @@ function renderMarkdown(markdown: string, highlightBlockers: boolean): ReactNode
   return nodes;
 }
 
+function formatPence(value: number | null): string {
+  if (value === null) {
+    return 'Unknown';
+  }
+
+  const sign = value < 0 ? '-' : '';
+  const absolutePence = Math.abs(value);
+  const pounds = Math.trunc(absolutePence / 100).toLocaleString('en-GB');
+  const pence = String(absolutePence % 100).padStart(2, '0');
+  return `${sign}£${pounds}.${pence}`;
+}
+
+function formatBps(value: number | null): string {
+  if (value === null) {
+    return 'Unknown';
+  }
+
+  const sign = value < 0 ? '-' : '';
+  const absoluteBps = Math.abs(value);
+  const wholePercent = Math.trunc(absoluteBps / 100).toLocaleString('en-GB');
+  const remainder = absoluteBps % 100;
+  const percent =
+    remainder === 0 ? wholePercent : `${wholePercent}.${String(remainder).padStart(2, '0')}`;
+  return `${sign}${percent}% (${value.toLocaleString('en-GB')} bps)`;
+}
+
+function renderGoodsLedCostTable(
+  context: GoodsLedReviewContextPayload | null | undefined,
+): ReactElement | null {
+  if (!context) {
+    return null;
+  }
+
+  return (
+    <section
+      aria-label="Goods-led landed-cost breakdown"
+      className="manifest-viewer__cost-breakdown"
+    >
+      <h3>Goods-led cost breakdown</h3>
+      <table data-testid="manifest-cost-table">
+        <thead>
+          <tr>
+            <th scope="col">Cost line</th>
+            <th scope="col">Low</th>
+            <th scope="col">Base</th>
+            <th scope="col">High</th>
+            <th scope="col">Confidence</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr data-testid="manifest-cost-row-installation-labour">
+            <th scope="row">Installation labour</th>
+            <td>{formatPence(context.labourLow)}</td>
+            <td>{formatPence(context.labourBase)}</td>
+            <td>{formatPence(context.labourHigh)}</td>
+            <td>{formatBps(context.labourConfidenceBps)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
 export function ManifestViewer({
   manifestMarkdown,
   manifestVersion,
   basisHash,
   generatedAt,
   sections,
+  goodsLedReviewContext,
   highlightBlockers = false,
   onSectionClick,
 }: ManifestViewerProps): ReactElement {
@@ -217,6 +284,8 @@ export function ManifestViewer({
           })}
         </ul>
       </nav>
+
+      {renderGoodsLedCostTable(goodsLedReviewContext)}
 
       <div className="manifest-viewer__content">
         {renderMarkdown(boundedManifest.safeText, highlightBlockers)}
