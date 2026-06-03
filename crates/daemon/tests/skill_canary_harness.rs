@@ -1120,15 +1120,18 @@ fn assert_overlay_labour_canary_and_golden_contract(
             "required_domain_checks",
         )?;
         ensure!(canary_checks == golden_checks);
-        if case_id == "labour-overlay-worker-outage-001" {
-            ensure!(canary_checks.is_empty());
-            ensure!(json_str_field_eq(
-                canary.get("expected_downstream_route"),
-                "review"
-            ));
-        } else {
-            ensure!(canary_checks == *required_checks);
-        }
+        let expected_route = canary
+            .get("expected_downstream_route")
+            .and_then(Value::as_str)
+            .ok_or_else(|| anyhow::anyhow!("{case_id} missing expected_downstream_route"))?;
+        assert_overlay_labour_case_route_contract(
+            case_id,
+            canary,
+            golden_case,
+            &canary_checks,
+            required_checks,
+            expected_route,
+        )?;
     }
 
     let shared = yaml_get(&golden, "shared_assertions")
@@ -1139,16 +1142,74 @@ fn assert_overlay_labour_canary_and_golden_contract(
             "domain_check_inventory",
         )? == *required_checks
     );
+    let outage_policy = yaml_get(shared, "validator_rejection_or_outage_policy")
+        .ok_or_else(|| anyhow::anyhow!("overlay golden missing outage policy"))?;
     ensure!(
-        yaml_get(
-            yaml_get(shared, "validator_rejection_or_outage_policy")
-                .ok_or_else(|| anyhow::anyhow!("overlay golden missing outage policy"))?,
-            "never_silent_pass_on_missing_worker_result",
-        )
-        .and_then(YamlValue::as_bool)
+        yaml_str_field_eq(
+            yaml_get(outage_policy, "rejected_overlay_downstream_route"),
+            "review"
+        ),
+        "overlay rejected outputs must route to review"
+    );
+    ensure!(
+        yaml_str_field_eq(yaml_get(outage_policy, "outage_downstream_route"), "review"),
+        "overlay outages must route to review"
+    );
+    ensure!(
+        yaml_get(outage_policy, "never_silent_pass_on_missing_worker_result")
+            .and_then(YamlValue::as_bool)
             == Some(true)
     );
 
+    Ok(())
+}
+
+fn assert_overlay_labour_case_route_contract(
+    case_id: &str,
+    canary: &Value,
+    golden_case: &YamlValue,
+    canary_checks: &BTreeSet<String>,
+    required_checks: &BTreeSet<String>,
+    expected_route: &str,
+) -> Result<()> {
+    match case_id {
+        "labour-overlay-mutated-bad-001" => {
+            ensure!(canary_checks == required_checks);
+            ensure!(json_str_field_eq(
+                canary.get("expected_verdict"),
+                "rejected"
+            ));
+            ensure!(matches!(expected_route, "review"));
+            ensure!(yaml_str_field_eq(
+                yaml_get(golden_case, "expected_downstream_route"),
+                "review"
+            ));
+            let canary_issue_categories =
+                json_string_set_field(canary, "expected_issue_categories")?;
+            ensure!(canary_issue_categories == *required_checks);
+        }
+        "labour-overlay-worker-outage-001" => {
+            ensure!(canary_checks.is_empty());
+            ensure!(json_str_field_eq(canary.get("expected_verdict"), "flagged"));
+            ensure!(json_str_field_eq(
+                canary.get("expected_basis_sufficiency_state"),
+                "insufficient"
+            ));
+            ensure!(json_str_field_eq(
+                canary.get("worker_result_status"),
+                "unavailable"
+            ));
+            ensure!(matches!(expected_route, "review"));
+            ensure!(yaml_str_field_eq(
+                yaml_get(golden_case, "expected_downstream_route"),
+                "review"
+            ));
+        }
+        _ => {
+            ensure!(canary_checks == required_checks);
+            ensure!(matches!(expected_route, "pass"));
+        }
+    }
     Ok(())
 }
 

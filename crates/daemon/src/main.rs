@@ -293,6 +293,8 @@ const LANDED_COST_SKILL_TIMEOUT_SECONDS: u64 = 300;
 const LANDED_COST_STAGE_NAME: &str = "landed cost";
 const LANDED_COST_SCOPE_KIND: &str = "candidate_quote";
 const LANDED_COST_UK_INSTALLATION_LABOUR_JOB_KIND: &str = "landed_cost_uk_installation_labour";
+const OVERLAY_LABOUR_COST_SKILL_ID: &str = "validation/overlay-labour-cost";
+const LABOUR_OVERLAY_REVIEW_REQUIRED: &str = "LABOUR_OVERLAY_REVIEW_REQUIRED";
 const UK_INSTALLATION_LABOUR_RATE_TABLE_VERSION: &str = "uk-installation-labour-2026-q2";
 // Stage 11 CDP / captcha resilience knobs (handoff stage-11-hardening-cdp-resilience).
 // `STAGE11_SKILL_RETRY_PER_ATTEMPT_SECONDS` bounds each SeaRates attempt only —
@@ -5157,11 +5159,30 @@ struct LandedCostSkillRunOutcome {
     failure_message: Option<String>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LabourOverlayRoute {
+    NotRequired,
+    Pass,
+    Review,
+}
+
+impl LabourOverlayRoute {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::NotRequired => "not_required",
+            Self::Pass => "pass",
+            Self::Review => "review",
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 struct UkInstallationLabourSkillOutcome {
     basis: Option<InstallationLabourCostBasis>,
     status: String,
     skill_run: Option<LandedCostSkillRunOutcome>,
+    labour_overlay_route: LabourOverlayRoute,
+    labour_overlay_reason: Option<String>,
 }
 
 impl UkInstallationLabourSkillOutcome {
@@ -5170,6 +5191,8 @@ impl UkInstallationLabourSkillOutcome {
             basis: None,
             status: "not_required".to_owned(),
             skill_run: None,
+            labour_overlay_route: LabourOverlayRoute::NotRequired,
+            labour_overlay_reason: None,
         }
     }
 
@@ -5178,6 +5201,8 @@ impl UkInstallationLabourSkillOutcome {
             basis: Some(InstallationLabourCostBasis::default()),
             status: "blocked".to_owned(),
             skill_run: Some(skill_run),
+            labour_overlay_route: LabourOverlayRoute::Review,
+            labour_overlay_reason: Some("worker_result_unavailable_or_invalid".to_owned()),
         }
     }
 
@@ -5186,10 +5211,27 @@ impl UkInstallationLabourSkillOutcome {
         skill_run: LandedCostSkillRunOutcome,
     ) -> Self {
         let status = result.status.clone();
+        let has_blockers = !result.blockers.is_empty();
+        let worker_blocked = matches!(result.status.as_str(), "blocked")
+            || matches!(result.labour_status.as_str(), "blocked");
+        let labour_overlay_route = if worker_blocked || has_blockers {
+            LabourOverlayRoute::Review
+        } else {
+            LabourOverlayRoute::Pass
+        };
+        let labour_overlay_reason = if worker_blocked {
+            Some("worker_status_blocked".to_owned())
+        } else if has_blockers {
+            Some("validator_rejected_worker_result".to_owned())
+        } else {
+            None
+        };
         Self {
             basis: Some(result.into()),
             status,
             skill_run: Some(skill_run),
+            labour_overlay_route,
+            labour_overlay_reason,
         }
     }
 
@@ -5199,6 +5241,14 @@ impl UkInstallationLabourSkillOutcome {
 
     const fn skill_run(&self) -> Option<&LandedCostSkillRunOutcome> {
         self.skill_run.as_ref()
+    }
+
+    const fn labour_overlay_route(&self) -> LabourOverlayRoute {
+        self.labour_overlay_route
+    }
+
+    fn labour_overlay_reason(&self) -> Option<&str> {
+        self.labour_overlay_reason.as_deref()
     }
 }
 
@@ -5770,6 +5820,53 @@ fn push_unique_stage11_issue(issues: &mut Vec<Stage11Issue>, issue: Stage11Issue
         return;
     }
     issues.push(issue);
+}
+
+fn apply_labour_overlay_review_route(
+    mut estimate: LandedCostEstimateWrite,
+    labour_outcome: &UkInstallationLabourSkillOutcome,
+) -> LandedCostEstimateWrite {
+    if labour_outcome.labour_overlay_route() != LabourOverlayRoute::Review {
+        return estimate;
+    }
+
+    let reason = labour_outcome
+        .labour_overlay_reason()
+        .unwrap_or("overlay_rejected_or_unavailable");
+    let mut warnings = stage11_issues_from_json(&estimate.warnings);
+    push_unique_stage11_issue(
+        &mut warnings,
+        Stage11Issue::warning(
+            LABOUR_OVERLAY_REVIEW_REQUIRED,
+            format!(
+                "{OVERLAY_LABOUR_COST_SKILL_ID} routed the UK installation labour estimate to review ({reason}); Stage 11 remains fail-soft and will not auto-pass on overlay rejection or outage."
+            ),
+        ),
+    );
+    estimate.warnings = stage11_issues_to_json(&warnings);
+    "review_required".clone_into(&mut estimate.decision_grade);
+    estimate.confidence_bps = clamp_bps(estimate.confidence_bps.min(4000));
+
+    let mut breakdown = parse_json_or_null(Some(&estimate.confidence_breakdown));
+    if !breakdown.is_object() {
+        breakdown = Value::Object(Map::new());
+    }
+    if let Some(map) = breakdown.as_object_mut() {
+        map.insert(
+            "labour_overlay".to_owned(),
+            json!({
+                "skill_id": OVERLAY_LABOUR_COST_SKILL_ID,
+                "downstream_route": labour_outcome.labour_overlay_route().as_str(),
+                "reason": reason,
+                "fail_soft": true,
+                "crash_propagated": false,
+                "silent_pass": false,
+            }),
+        );
+        estimate.confidence_breakdown = breakdown.to_string();
+    }
+
+    estimate
 }
 
 fn goods_dominance_floor_bps_from_env_value(raw: Option<&str>) -> i64 {
@@ -10524,6 +10621,8 @@ async fn run_landed_cost_live_loop(
                 &skill_versions,
                 &skill_session_ids,
             )?;
+            let screening_estimate =
+                apply_labour_overlay_review_route(screening_estimate, &installation_labour);
             let decision_grade_estimate =
                 build_decision_grade_landed_cost_candidate(&screening_estimate);
             let estimate = authoritative_landed_cost_estimate(
@@ -10842,6 +10941,8 @@ async fn run_landed_cost_live_loop(
             &skill_versions,
             &skill_session_ids,
         )?;
+        let screening_estimate =
+            apply_labour_overlay_review_route(screening_estimate, &installation_labour);
         let decision_grade_estimate =
             build_decision_grade_landed_cost_candidate(&screening_estimate);
         let estimate = authoritative_landed_cost_estimate(
@@ -27595,6 +27696,98 @@ mod tests {
         }
     }
 
+    fn labour_skill_run_outcome(
+        result_json: Option<Value>,
+        failure_message: Option<&str>,
+    ) -> super::LandedCostSkillRunOutcome {
+        super::LandedCostSkillRunOutcome {
+            job_id: "job-labour-overlay-test".to_owned(),
+            session_id: "session-labour-overlay-test".to_owned(),
+            skill_version: "1.0.0".to_owned(),
+            result_json,
+            failure_message: failure_message.map(str::to_owned),
+        }
+    }
+
+    fn import_screening_for_labour_overlay(
+        labour_outcome: &super::UkInstallationLabourSkillOutcome,
+    ) -> Result<super::LandedCostEstimateWrite> {
+        let mut row = stage11_row_fixture();
+        row.critical_attributes_json = Some(
+            json!({
+                "installation_requirement": {
+                    "requires_installation": true,
+                    "requires_maintenance": false,
+                    "installation_scope": "install_only"
+                }
+            })
+            .to_string(),
+        );
+        row.expected_addressable_revenue_ex_vat_pence = 50_000;
+        row.revenue_basis_type = "expected_value".to_owned();
+        row.revenue_confidence_bps = 9000;
+        row.pricing_input_confidence_bps = 8000;
+        row.gross_estimate_confidence_bps = 8000;
+        let supplier_cost = super::SupplierCostBasis {
+            supplier_cost_gbp_pence: 10_000,
+            basis: "test".to_owned(),
+            quantity: 10.0,
+            quantity_unit: Some("unit".to_owned()),
+            warnings: Vec::new(),
+        };
+        let mut customs = classified_customs_for(&row);
+        customs.customs_duty_gbp_pence = Some(1_000);
+        customs.duty_breakdown = vec![json!({
+            "measureType": "third_country_duty",
+            "family": "additive",
+            "amountPence": 1_000
+        })];
+        customs.measure_interaction = Some(json!({
+            "family": "additive",
+            "status": "resolved"
+        }));
+        customs.classification_fresh_until = Some("2099-01-01T00:00:00Z".to_owned());
+        customs.measures_fresh_until = Some("2099-01-01T00:00:00Z".to_owned());
+        let freight = super::FreightScenarioGbp {
+            low_gbp_pence: 1_000,
+            base_gbp_pence: 2_000,
+            high_gbp_pence: 3_000,
+            fx_rate: 0.807,
+            fx_checked_at: Some("2026-05-19T12:00:00Z".to_owned()),
+            fx_status: "converted".to_owned(),
+            fx_session_id: Some("session-fx-labour-overlay".to_owned()),
+            fx_job_id: Some("job-fx-labour-overlay".to_owned()),
+            warnings: Vec::new(),
+            blockers: Vec::new(),
+        };
+        super::build_import_landed_cost_estimate(
+            &row,
+            &supplier_cost,
+            "stage-run-labour-overlay-review",
+            Some(&customs),
+            Some(&sized_shipment_for(&row)),
+            &freight,
+            labour_outcome.basis(),
+            labour_outcome.status.as_str(),
+            &super::infer_order_quantity_basis(&row),
+            &json!({
+                "hmrc_customs": "1.0.0",
+                "shipment_sizing": "1.0.0",
+                "searates_freight": "1.0.0",
+                "simple_fx": "1.0.0",
+                "uk_installation_labour": "1.0.0",
+            }),
+            &json!({
+                "hmrc_customs": "session-customs",
+                "shipment_sizing": "session-sizing",
+                "searates_freight": "session-searates",
+                "simple_fx": "session-fx-labour-overlay",
+                "uk_installation_labour": "session-labour-overlay-test",
+                "uk_installation_labour_job_id": "job-labour-overlay-test",
+            }),
+        )
+    }
+
     fn set_source_health(conn: &Connection, source_id: &str, health_state: &str) -> Result<()> {
         conn.execute(
             "UPDATE source_runtime_state SET last_health_state = ?1 WHERE source_id = ?2",
@@ -30810,6 +31003,90 @@ mod tests {
             confidence["l5_to_l6_readiness"]["blocks_ready_to_bid"],
             json!(false)
         );
+        Ok(())
+    }
+
+    #[test]
+    fn labour_overlay_rejection_forces_review_required_not_auto_pass() -> Result<()> {
+        let rejected_result = super::parse_uk_installation_labour_result(&json!({
+            "status": "estimated",
+            "labour_status": "estimated",
+            "labour_base_gbp_pence": 0,
+            "labour_low_gbp_pence": 0,
+            "labour_high_gbp_pence": 0,
+            "labour_confidence_bps": 7_500,
+            "permit_traffic_mgmt_base_gbp_pence": 0,
+            "permit_traffic_mgmt_low_gbp_pence": 0,
+            "permit_traffic_mgmt_high_gbp_pence": 0,
+            "warnings": [],
+            "blockers": [{
+                "code": "LABOUR_OVERLAY_VALIDATION_REJECTED",
+                "message": "overlay rejected implausible labour result",
+                "severity": "blocked"
+            }]
+        }))?;
+        let labour_outcome = super::UkInstallationLabourSkillOutcome::from_result(
+            rejected_result,
+            labour_skill_run_outcome(Some(json!({"status": "estimated"})), None),
+        );
+        let screening = import_screening_for_labour_overlay(&labour_outcome)?;
+        assert_eq!(
+            super::build_decision_grade_landed_cost_candidate(&screening).decision_grade,
+            "auto_pass"
+        );
+
+        let routed = super::apply_labour_overlay_review_route(screening, &labour_outcome);
+        assert_eq!(routed.decision_grade, "review_required");
+        assert!(routed.confidence_bps <= 4000);
+        let warnings = super::stage11_issues_from_json(&routed.warnings);
+        assert!(
+            super::stage11_issue_codes(&warnings).contains(super::LABOUR_OVERLAY_REVIEW_REQUIRED)
+        );
+        let confidence: Value = serde_json::from_str(&routed.confidence_breakdown)?;
+        assert_eq!(
+            confidence["labour_overlay"]["skill_id"],
+            json!(super::OVERLAY_LABOUR_COST_SKILL_ID)
+        );
+        assert_eq!(
+            confidence["labour_overlay"]["downstream_route"],
+            json!("review")
+        );
+        assert_eq!(confidence["labour_overlay"]["silent_pass"], json!(false));
+
+        let decision_grade = super::build_decision_grade_landed_cost_candidate(&routed);
+        assert_eq!(decision_grade.decision_grade, "review_required");
+        Ok(())
+    }
+
+    #[test]
+    fn labour_overlay_outage_forces_review_required_without_crash() -> Result<()> {
+        let labour_outcome = super::UkInstallationLabourSkillOutcome::blocked(
+            labour_skill_run_outcome(None, Some("overlay worker timeout")),
+        );
+        let screening = import_screening_for_labour_overlay(&labour_outcome)?;
+        assert_eq!(
+            super::build_decision_grade_landed_cost_candidate(&screening).decision_grade,
+            "auto_pass"
+        );
+
+        let routed = super::apply_labour_overlay_review_route(screening, &labour_outcome);
+        assert_eq!(routed.decision_grade, "review_required");
+        let warnings = super::stage11_issues_from_json(&routed.warnings);
+        assert!(
+            super::stage11_issue_codes(&warnings).contains(super::LABOUR_OVERLAY_REVIEW_REQUIRED)
+        );
+        let confidence: Value = serde_json::from_str(&routed.confidence_breakdown)?;
+        assert_eq!(
+            confidence["labour_overlay"]["reason"],
+            json!("worker_result_unavailable_or_invalid")
+        );
+        assert_eq!(
+            confidence["labour_overlay"]["crash_propagated"],
+            json!(false)
+        );
+
+        let decision_grade = super::build_decision_grade_landed_cost_candidate(&routed);
+        assert_eq!(decision_grade.decision_grade, "review_required");
         Ok(())
     }
 
