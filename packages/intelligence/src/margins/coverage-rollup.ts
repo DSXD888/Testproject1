@@ -23,6 +23,8 @@ export interface CoverageInput {
   goodsLandedCostGbpPence?: number | null;
   installationLabourCostGbpPence?: number | null;
   permitTrafficMgmtCostGbpPence?: number | null;
+  maintenanceAnnualisedOpexGbpPence?: number | null;
+  maintenanceTotalVisibleTermOpexGbpPence?: number | null;
 }
 
 export interface CoverageMetrics {

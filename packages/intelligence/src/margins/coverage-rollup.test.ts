@@ -340,9 +340,24 @@ describe("computeCoverageRollup", () => {
       goodsLandedCostGbpPence: 1_000_000,
       installationLabourCostGbpPence: 240_000,
       permitTrafficMgmtCostGbpPence: 200_000,
+      maintenanceAnnualisedOpexGbpPence: 240_000,
+      maintenanceTotalVisibleTermOpexGbpPence: 720_000,
     });
 
     expect(output.goodsValueShareBps).toBe(6944);
+  });
+
+  it("TS-COV-010: excludes recurring maintenance opex from goods share denominator", () => {
+    const output = computeCoverageRollup({
+      lots: [],
+      goodsLandedCostGbpPence: 1_800_000,
+      installationLabourCostGbpPence: 450_000,
+      permitTrafficMgmtCostGbpPence: 50_000,
+      maintenanceAnnualisedOpexGbpPence: 240_000,
+      maintenanceTotalVisibleTermOpexGbpPence: 720_000,
+    });
+
+    expect(output.goodsValueShareBps).toBe(7826);
   });
 
   it("TS-COV-008: permits/TM push goods share down through the all-in denominator", () => {

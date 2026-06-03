@@ -372,6 +372,17 @@ fn e2e_il_004_playground_maintenance_persists_first_class_period_estimate() -> R
         ) == 7_826,
         "E2E-IL-004 goods share must use the supply+install capital event only"
     );
+    let capitalized_maintenance_share = goods_value_share_bps(
+        persisted_landed_cost.goods_landed_cost_gbp_pence,
+        persisted_landed_cost
+            .installation_labour_cost_gbp_pence
+            .saturating_add(persisted_maintenance.total_visible_term_opex_gbp_pence),
+        persisted_landed_cost.permit_traffic_mgmt_cost_gbp_pence,
+    );
+    ensure!(
+        capitalized_maintenance_share == 5_960 && capitalized_maintenance_share != 7_826,
+        "E2E-IL-004 would resolve to {capitalized_maintenance_share} bps if maintenance opex were capitalised"
+    );
     Ok(())
 }
 
