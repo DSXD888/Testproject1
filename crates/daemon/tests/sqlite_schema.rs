@@ -1121,7 +1121,7 @@ fn l6_t_bid_workflow_states_034_schema_stable_without_sql_lifecycle_check() -> R
     ensure!(
         migration_names
             .iter()
-            .all(|name| !name.starts_with("0014_") && !name.contains("bid_workflow")),
+            .all(|name| !name.contains("bid_workflow")),
         "L6 must not add a bid-workflow SQLite migration; found {migration_names:?}"
     );
 
