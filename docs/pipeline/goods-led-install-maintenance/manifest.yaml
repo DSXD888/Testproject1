@@ -1,0 +1,239 @@
+feature: goods-led-install-maintenance
+created: "2026-06-02"
+source_doc: docs/research/2026-06-01-goods-led-install-maintenance-pipeline-research.md
+source_type: research
+entry_point: batch-1-create-spec
+generated_by: pipemaxxer (Pattern A — research doc → full pipeline)
+
+# ============================================================================
+# What this feature is
+# ============================================================================
+# Two coupled capabilities (the research doc is the contract — ZERO scope drift):
+#   1. WIDEN the qualification filter so goods-LED supply-and-install /
+#      supply-and-maintain contracts surface (two-phase qualification + a
+#      relaxed description-quality service gate), while STILL rejecting
+#      service-only contracts (decided by a configurable goods value-share rule).
+#   2. BUILD a modular UK installation/maintenance labour-cost engine as a
+#      first-class peer to freight/customs/VAT in the landed-cost rollup
+#      (a new transient-loaded landed-cost skill + skill-local reference tables).
+# Both halves SHIP TOGETHER — the filter cannot be trusted until the labour
+# engine exists (ADR-001). Estimates are SCREENING-GRADE (±20%) only.
+
+paths:
+  spec: docs/pipeline/goods-led-install-maintenance/artifacts/goods-led-install-maintenance-spec.md
+  architecture: docs/pipeline/goods-led-install-maintenance/artifacts/goods-led-install-maintenance-architecture.md
+  tdd: docs/pipeline/goods-led-install-maintenance/artifacts/goods-led-install-maintenance-tdd.md
+  bootstrap: docs/pipeline/goods-led-install-maintenance/artifacts/goods-led-install-maintenance-bootstrap.md
+  strategy: docs/pipeline/goods-led-install-maintenance/artifacts/goods-led-install-maintenance-strategy.md
+  kickoff: docs/pipeline/goods-led-install-maintenance/artifacts/goods-led-install-maintenance-kickoff.md
+  push: docs/pipeline/goods-led-install-maintenance/artifacts/goods-led-install-maintenance-push.md
+  status: docs/pipeline/goods-led-install-maintenance/artifacts/goods-led-install-maintenance-status.yaml
+  completion_audit: docs/pipeline/goods-led-install-maintenance/artifacts/goods-led-install-maintenance-completion-audit-YYYY-MM-DD.md
+
+# ============================================================================
+# Bead tracking
+# ============================================================================
+# Project issue prefix is `testproject1` (.beads/config.yaml) — ALL bead IDs are
+# testproject1-XXXX. The feature is tagged with a label, not an ID prefix.
+bead_cli: br
+bead_sync_cmd: bin/br-sync                  # NEVER raw `br sync` (it may run git commands)
+bead_label: goods-led-install               # label applied to every bead in this feature
+bead_id_prefix: testproject1                # actual IDs assigned at step 07
+# Step 07 creates one implementation epic (sister-epic pattern, matches L4/L5/L6):
+#   br create --type=epic --priority=P0 \
+#     --title="Epic: Goods-Led Install/Maintenance Expansion + UK Labour-Cost Engine" \
+#     --labels goods-led-install
+# Capture the resulting epic ID into the status file under `implementation_epic`.
+implementation_epic: "testproject1-qoa5"    # set at step 07 (2026-06-02); 8 phase sub-epics qoa5.1..qoa5.8 + 74 task beads (Tier-B consolidated 6->3 in Step 5/6 audit)
+
+agentmail:
+  enabled: true
+  project_key: /Users/alinaaitova/Desktop/Testproject1
+  health_endpoint: http://127.0.0.1:8765/health/liveness
+
+# ============================================================================
+# Tech stack + quality gates (verbatim from the L6 manifest — same repo)
+# ============================================================================
+tech_stack:
+  language: "mixed (rust + typescript)"
+  rust:
+    edition: 2024
+    toolchain: "nightly (per rust-toolchain.toml)"
+    package_manager: cargo
+    build_cmd: "cargo check --all-targets"
+    test_cmd: "cargo test"
+    lint_cmd: "cargo clippy --all-targets -- -D warnings && cargo fmt --check"
+    test_framework: "cargo test (#[test], #[tokio::test])"
+    forbid: "unsafe_code"
+  typescript:
+    package_manager: bun
+    pinned_version: "bun@1.3.10"
+    build_cmd: "bun run build"
+    test_cmd: "bun run test"
+    lint_cmd: "bun run lint"
+    test_framework: "vitest / bun:test (unit); @playwright/test for desktop+web E2E"
+
+quality_gates:
+  # The AGENTS.md FULL stage gate — a passing `cargo test -p daemon --bin daemon`
+  # alone is NOT green; EVERY integration target must also run (research §6.3).
+  build: "cargo check --all-targets && bun run build"
+  fmt: "cargo fmt --check"
+  clippy: "cargo clippy --all-targets -- -D warnings"
+  test_rust_bin: "cargo test -p daemon --bin daemon"
+  test_rust_integration: "for t in crates/daemon/tests/*.rs; do cargo test --test \"$(basename \"$t\" .rs)\" || exit 1; done"
+  test_ts: "bun run test"
+  lint: "cargo clippy --all-targets -- -D warnings && cargo fmt --check && bun run lint"
+
+handoff_dir: docs/pipeline/goods-led-install-maintenance
+
+# ============================================================================
+# Operator decisions ALREADY RESOLVED in the research session (research §1, §2.4, §10)
+# Step 01 TRANSCRIBES these verbatim into the spec — it does NOT re-decide.
+# Remaining §10 defaults below have recommendations; step 01 escalates only if
+# the operator has not accepted them.
+# ============================================================================
+recorded_decisions:
+  category_breadth: "Broaden cautiously, low-reg only: festive/LED lighting, signage, fencing, playground/outdoor, blinds, shelving/racking (wood/plastic; metal split out for trade-remedy), + install on existing furniture/PPE. NO biocidal/medical/chemical/bespoke. (research §1, ADR-006)"
+  in_scope_rule: "Goods value-share threshold, configurable, default 5500-6000 bps (55-60%). (research §1, ADR-001)"
+  labour_scope: "BOTH one-off install/de-install AND recurring multi-year maintenance. (research §1)"
+  estimate_grade: "Screening-grade only (±20%); never a firm quote. (research §2.3)"
+
+open_defaults_recommended:   # research §10 — accept recommendations unless operator overrides at step 01
+  goods_dominance_default: "Start 60% (6000 bps), tune against gold-set"
+  maintenance_default_term: "Assume 1-year visible term + MAINTENANCE_TERM_ASSUMED warning when notice silent"
+  mewp_default: "Operated (no in-house IPAF assumption) — conservative"
+  review_queue_visibility: "Show 'review' contracts in desktop queue WITH labour+permit breakdown"
+  permit_responsibility_default: "unknown -> conservative permit/TM band in `high` + PERMIT_RESPONSIBILITY_UNKNOWN; operator review in MVP, auto-extract Phase 2"
+  no_list_bespoke_policy: "Route to REVIEW with exclusion reason by default; auto-reject only on high-confidence no-list CPV match"
+
+# ============================================================================
+# Scope contract — every feature surface below MUST survive to beads (ZERO drift)
+# Source: research doc §2.4 MVP + Phase 2 + Future. Phases are EXECUTION ORDER,
+# not importance tiers. NOTHING is silently dropped. Two tiers apply (see the
+# SCOPE TIERS block after `future_tier_b` below, operator-decided 2026-06-02):
+#   - TIER A (MVP + §2.4 "Phase 2 / Should Have"): full ACs + tests + beads.
+#   - TIER B (§2.4 "Future / Could Have" + §10 "requiring further research"):
+#     named + bounded + research-spike, NOT fabricated full ACs.
+# ============================================================================
+feature_surface:
+  qualification:
+    - "Phase-1 provisional-admit branch in determineQualificationDecision (goods-bearing mixed/works -> review)"
+    - "Downgrade the separable-mixed `pass` branch to defer to Phase-2 unless early contract-value share >= floor"
+    - "Phase-2 post-landed-cost goods-value-share dominance gate at decision synthesis"
+    - "Service-gate split: add `goods_led_mixed` variant to DescriptionQualityVerdict; relax isServiceDescription"
+    - "Prefer the early contract-value share (computeAddressableValue) over the Phase-2 cost proxy when available"
+    - "No-list/bespoke flag (CPV/keyword -> review with exclusion reason)"
+    - "GOODS_PRESENCE_FLOOR (Phase-1) + GOODS_DOMINANCE_FLOOR_BPS (Phase-2) as config"
+  labour_engine:
+    - "uk-installation-labour-estimate skill (http_public, transient-loaded in run_landed_cost_live_loop after FX)"
+    - "Installation-Requirement Extractor (Component A)"
+    - "Installation Profile Resolver — goods->trade+equipment, catalogue + LLM fallback (Component A2)"
+    - "Permits & Traffic-Management cost + responsibility resolver (Component A3)"
+    - "Curated skill-local reference tables (regional rates, access-equipment bands, install-profile catalogue, permit/TM bands)"
+    - "Goods-value-share calculator (cost proxy, Component D)"
+    - "One-off install + de-install modelling"
+    - "Recurring/scheduled maintenance modelling (per-visit x frequency x term) as first-class — MaintenancePeriodEstimate entity"
+    - "Access-equipment auto-selection (height/site -> MEWP class)"
+    - "Quarterly rate-refresh enrichment skill"
+    - "Validation overlay overlay-labour-cost (headless_contract)"
+  rollup_schema:
+    - "Explicit labour fields on LandedCostEstimate (+_low/_high/_confidence_bps) summed at BOTH rollup sites (domestic 8114 + import 8548)"
+    - "permit_traffic_mgmt fields (+_low/_high/permit_responsibility)"
+    - "goods_value_share_bps + labour/permit coverage on PipelineAssessment"
+    - "InstallationRequirement on ProductCandidate.critical_attributes_json or new columns"
+    - "Migration (additive, nullable/default-0) + Supabase projection migration + schema_epoch bump 9->10 across all 4 constants"
+  surfacing:
+    - "Desktop manifest viewer: labour + permit breakdown rows"
+    - "Contract card: labourCoverageBps metric row"
+  validation_corpus:
+    - "Gold-set scenario corpus (Appendix A — 11 scenarios)"
+    - "11 runnable E2E manifests (Appendix E) -> NEW installation_labour_engine.rs target"
+    - "Labour-skill canary corpus (Appendix F)"
+    - "L0 whitelist doc update + per-category gold-set validation gate"
+  future_tier_b:
+    # OPERATOR DECISION 2026-06-02: "Bounded in-scope + research spike."
+    # These are the §2.4 "Future (Could Have)" items that §10 ALSO flags as
+    # "Requiring further research". They are IN SCOPE but NOT given fabricated
+    # testable ACs (the research doc itself says they need more research first).
+    # Treatment for EACH: (a) the spec NAMES it + defines its scope boundary +
+    # the extension point it hangs off + cites the §10 open research question;
+    # (b) the strategy gives it a tracked LATE phase OR a research-spike bead;
+    # (c) it is NEVER silently dropped and NEVER given invented full ACs.
+    # NOT a scope cut — a precision distinction between "designed/committed" and
+    # "in-scope-but-research-gated".
+    - "Live per-estimate enrichment lane for high-value bids (operator-triggered) — §10 further-research item"
+    - "Sub-contractor installer-quote ingestion (quote_class = installer_quote) — §10.1 further-research item"
+    - "Detailed per-authority/per-zone permit & lane-rental sub-model — §10.2 (MVP ships banded ranges + responsibility flag in Component A3; only the per-zone REFINEMENT is Tier B)"
+
+# ----------------------------------------------------------------------------
+# SCOPE TIERS (operator-decided 2026-06-02) — referenced by every handoff
+# ----------------------------------------------------------------------------
+# TIER A — COMMITTED (full spec ACs + named tests + beads, equal depth):
+#   everything under qualification / labour_engine / rollup_schema / surfacing /
+#   validation_corpus above — i.e. ALL of MVP + ALL §2.4 "Phase 2 (Should Have)"
+#   items (recurring maintenance, access-equipment auto-selection, quarterly
+#   rate-refresh skill, overlay-labour-cost). These get the zero-drift treatment.
+# TIER B — BOUNDED IN-SCOPE + RESEARCH SPIKE (named + bounded, NO fabricated ACs):
+#   the three `future_tier_b` items above. Spec names+bounds each; strategy gives
+#   each a tracked late phase or research-spike bead; no invented testable ACs.
+# Red-flag scans still apply to BOTH tiers: nothing may be SILENTLY dropped.
+
+# ============================================================================
+# Key integration files (verified file:line — research §3, §8; do NOT use
+# generic 'find the file' language in handoffs)
+# ============================================================================
+key_files:
+  qualification_gate:
+    path: packages/intelligence/src/qualification/goods-qualification.ts
+    notes: "determineQualificationDecision() lines 319-372 (verified). computeAddressableValue() 290-317. computeGoodsDensityScore() 264-288. REVIEWABLE_ACCESS_ROUTES line 50. Phase-1 branch sits after line 353, before the line-355 mixed|unknown->review branch."
+  service_gate:
+    path: packages/intelligence/src/customs/description-quality.ts
+    notes: "gateDescriptionQuality() lines 100-113 (verified). isServiceDescription() line 360 (verified). DescriptionQualityVerdict union lines 23-36 — ADD `goods_led_mixed` variant. reject_service at line 110. NO test file exists today (highest-risk change, zero coverage)."
+  landed_cost_rollup:
+    path: crates/daemon/src/main.rs
+    notes: "LandedCostEstimateWrite 5361-5432 (uk_final_mile_cost_gbp_pence:5403, economic_landed_cost_gbp_pence:5405). build_domestic_landed_cost_estimate:8086 (economic=supplier-only at 8114). build_import_landed_cost_estimate:8324 (.saturating_add base ~8548). uk_final_mile=0 literals at 8213/8630. persistence 8933/8992, read-back 9064. run_landed_cost_live_loop skill load+sequential invoke 9136-9150. Job-kinds are landed_cost_* (NOT next_job_kind chaining). New labour job kind: landed_cost_uk_installation_labour, after FX before synthesis. Decision synthesis: build_decision_grade_landed_cost_candidate:5502, authoritative_landed_cost_estimate ~9210/9493."
+  skill_template:
+    path: skills/landed-cost/simple-fx-lookup/
+    notes: "http_public profile template (SKILL.md + result.schema.json + canary.inputs.jsonl + golden.assertions.yaml + validator-rubric.yaml). Freight skills (freightos-freight-estimate, searates-freight-estimate) are the result-ENVELOPE template but are pty_interactive/CDP — do NOT copy their profile. NEITHER freight skill has checkpoint.schema.json (it's an overlay-only requirement)."
+  overlay_template:
+    path: skills/validation/overlay-supplier-enrichment/
+    notes: "Richest overlay template: SKILL.md + result.schema.json + checkpoint.schema.json + validator-rubric.yaml + canary.inputs.jsonl + golden.assertions.yaml + references/. overlay-labour-cost is headless_contract and DOES need checkpoint.schema.json."
+  contracts_schema:
+    path: packages/contracts-schema/src/index.ts
+    notes: "ProductCandidateRow:36 (candidate_value_share_bps:53, candidate_type free string, critical_attributes_json free-form). LandedCostEstimateRow:166. PipelineAssessmentRow:216. Money is integer pence; ratios are bps (10000=100%)."
+  coverage_rollup:
+    path: packages/intelligence/src/margins/coverage-rollup.ts
+    notes: "Where goods_value_share_bps (cost proxy) + labour/permit coverage metrics live. coverage-rollup.test.ts holds TS-COV-* tests."
+  l0_whitelist_doc:
+    path: docs/strategy/layers/layer-0-gold-set-evaluation.md
+    notes: "§1.6 lines ~96-122 (verified). 6 whitelist categories + no-list + 'each new category requires its own gold-set validation' expansion rule. NOT code-enforced. Metal furniture/shelving flagged HIGH trade-remedy."
+  supabase_projection:
+    path: infra/supabase/migrations/0009_l5_field_level_projection.sql
+    notes: "Builds landed_cost_estimates_viewer over economic_landed_cost_gbp_pence. Projected labour fields need a matching Supabase projection migration."
+
+migration_numbers:        # verified 2026-06-02 — handoffs use these concrete numbers, not 00NN
+  next_sqlite: "migrations/0014_installation_labour_fields.sql (current max 0013_l5_product_commodity_codes.sql)"
+  next_supabase: "infra/supabase/migrations/0010_*.sql for the landed_cost_estimates projection (current max 0009_l5_field_level_projection.sql)"
+
+schema_epoch_constants:   # bump 9 -> 10 must update ALL of these (verified 2026-06-02)
+  - "crates/daemon/src/db/sqlite.rs DEFAULT_SCHEMA_EPOCH (currently 9)"
+  - "apps/desktop/src-tauri/src/main.rs EXPECTED_SCHEMA_EPOCH = 9 (line 51)"
+  - "apps/desktop/src-tauri/src/daemon_bridge.rs DEFAULT_SCHEMA_EPOCH = 8 (line 16) — RECONCILE to match"
+  - "apps/desktop/src-tauri/src/query_service.rs EXPECTED_SCHEMA_EPOCH = 8 (line 14) — RECONCILE to match"
+  - "Supabase schema_metadata (= 9)"
+  - "customs_fx_freight_engine.rs asserts user_version == DEFAULT_SCHEMA_EPOCH"
+
+test_harnesses:   # research §6.3/§6.4, Appendix E/F — REAL, no mocks
+  - "packages/intelligence/src/qualification/goods-qualification.test.ts (extend: TS-QUAL-003a/b split, TS-QUAL-006/007/008)"
+  - "packages/intelligence/src/customs/description-quality.test.ts (NEW — mirror customs-classification.test.ts; service-gate truth table)"
+  - "packages/intelligence/src/margins/coverage-rollup.test.ts (extend: TS-COV-007/008/009)"
+  - "crates/daemon/tests/installation_labour_engine.rs (NEW integration target — 11 Appendix-E manifests; mirror customs_fx_freight_engine.rs + decision_basis_hash.rs)"
+  - "crates/daemon/tests/skill_canary_harness.rs (NEW fixture dir tests/fixtures/calibration/landed-cost/uk-installation-labour/)"
+  - "crates/daemon/tests/skill_lint.rs (labour skill frontmatter + http_public profile)"
+  - "Rust #[test] in daemon bin (rollup sums labour at BOTH sites; field round-trip)"
+  - "agent-browser UI flow (Appendix F.3 — manifest viewer + contract card render)"
+
+mandatory_stops:
+  - "After step 10 (kickoff generated) — human authorizes execution"
+  - "After execution complete — human triggers completion audit (step 12)"
+  - "After step 12 (fix beads created) — human authorizes fix-bead execution (step 13)"
