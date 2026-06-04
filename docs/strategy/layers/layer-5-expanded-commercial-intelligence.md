@@ -7,6 +7,8 @@
 > **Exit criteria:** System handles >=3 goods categories with decision-grade landed cost and >=2 supplier sources per category.
 
 > **Implementation Status (as of 2026-05-02):** Layer 5 is **PLANNED — not yet built**. No production decision-grade customs classification engine, expanded supplier-source portfolio, or L5 commercial-intelligence authority exists yet. This doc remains a planned execution-grade specification and intentionally has no inline implementation markers.
+>
+> **Updated 2026-06-04 — goods-led labour-cost extension shipped.** A goods-led supply-and-install / maintenance expansion plus a UK installation-labour cost engine has been implemented and merged (schema epoch bumped 9 → 10 by `migrations/0014_installation_labour_fields.sql` and `infra/supabase/migrations/0010_installation_labour_projection.sql`). It rides on real L5 landed-cost infrastructure (`run_landed_cost_live_loop`, `build_domestic_landed_cost_estimate`, `build_import_landed_cost_estimate` in `crates/daemon/src/main.rs`). The sections describing this capability — §1.17, the corrected §1.3, the §1.15 labour skills, and the §2.4 column additions — are **implemented**, not planned. The remainder of L5 (decision-grade customs, dual-FX, dual-freight, expanded marketplace sources) remains as originally specified.
 
 > **3-SOT Validation (2026-05-08):** Validated for downstream TDD, bead creation, and completion-audit coverage by the L5 pipemaxxer pipeline. Requirement IDs use `L5-FR-{section}.{subsection}.{item}` and acceptance criteria are listed immediately under the requirements they verify. Operator decisions are recorded in `## L5 Pipeline Decisions Recorded 2026-05-08`.
 
@@ -41,9 +43,10 @@ L5-FR-1.2.5 — L5 requires per-category gold-set expansion before production us
 - AC1: A category cannot enter production until its `customs-classification/<category>/` calibration corpus exists and passes §3.4 metrics.
 
 ### 1.3 Data Changes
-L5-FR-1.3.1 — L5 populates existing `landed_cost_estimates` columns without adding columns to that table
-- AC1: All decision-grade `landed_cost_estimates` fields listed in §2.4 are populated through existing nullable/non-null columns from `migrations/0001_sqlite_state_initial.sql`.
-- AC2: L5 does not add new columns to `landed_cost_estimates`.
+L5-FR-1.3.1 — L5 populates the pre-existing decision-grade `landed_cost_estimates` columns, and the goods-led labour-cost extension adds labour/permit columns plus a goods-only subtotal
+- AC1: All decision-grade `landed_cost_estimates` fields listed in §2.4 that pre-date the goods-led extension are populated through existing nullable/non-null columns from `migrations/0001_sqlite_state_initial.sql`.
+- AC2: The goods-led supply-and-install / maintenance extension (shipped 2026-06-04) **adds** new columns to `landed_cost_estimates` via `migrations/0014_installation_labour_fields.sql` at **schema_epoch 10**: the eight labour/permit fields (`installation_labour_cost_gbp_pence`, `installation_labour_low_gbp_pence`, `installation_labour_high_gbp_pence`, `installation_labour_confidence_bps`, `permit_traffic_mgmt_cost_gbp_pence`, `permit_traffic_mgmt_low_gbp_pence`, `permit_traffic_mgmt_high_gbp_pence`, `permit_responsibility`) plus the goods-only subtotal `goods_landed_cost_gbp_pence` (kept so the goods value-share ratio is reconstructable from a single row). This is the documented epoch-10 exception to the original no-ALTER intent; see §1.17.
+- AC3: The same migration adds six coverage / value-share columns to `pipeline_assessments` (`goods_value_share_bps`, `goods_value_share_basis`, `installation_labour_coverage_bps`, `installation_labour_value_coverage_bps`, `permit_traffic_mgmt_coverage_bps`, `permit_traffic_mgmt_value_coverage_bps`) and creates the new `maintenance_period_estimates` table. All additions are additive (nullable / default-0). The Supabase projection mirror is `infra/supabase/migrations/0010_installation_labour_projection.sql`, which rebuilds `landed_cost_estimates_viewer` and sets `schema_metadata` epoch to 10.
 L5-FR-1.3.2 — L5 introduces the local SQLite `product_commodity_codes` junction
 - AC1: L5 creates `product_commodity_codes` in `migrations/0013_l5_product_commodity_codes.sql` or the next-free `NNNN_l5_product_commodity_codes.sql` at implementation time.
 - AC2: The Supabase projection table of the same name, created in L4, is the push target.
@@ -54,7 +57,9 @@ L5-FR-1.3.3 — L5 activates additional `supplier_quotes` rows without changing 
 
 | Table | Layer 5 Change |
 |-------|----------------|
-| `landed_cost_estimates` | Full duty breakdown, measure interaction results, exporter rate basis, supplementary unit requirements, valuation mode, customs valuation method, FX, freight, CBAM exposure, freshness, and confidence fields are populated from existing columns |
+| `landed_cost_estimates` | Full duty breakdown, measure interaction results, exporter rate basis, supplementary unit requirements, valuation mode, customs valuation method, FX, freight, CBAM exposure, freshness, and confidence fields are populated from existing columns. **Goods-led extension (epoch 10, `migrations/0014`):** adds 8 labour/permit columns + `goods_landed_cost_gbp_pence` goods-only subtotal (§1.17) |
+| `pipeline_assessments` | **Goods-led extension (epoch 10, `migrations/0014`):** adds `goods_value_share_bps`, `goods_value_share_basis`, and the labour/permit lot-count + value coverage columns (§1.17) |
+| `maintenance_period_estimates` | **New table (epoch 10, `migrations/0014`):** persisted annualised per-period maintenance estimate; not capitalised into the goods-dominance denominator (§1.17) |
 | `product_commodity_codes` | L5 creates the local SQLite junction; L4 Supabase projection becomes the push target |
 | `supplier_quotes` | Multi-source quotes: Alibaba, 1688, Amazon rows alongside existing eBay rows |
 
@@ -243,7 +248,7 @@ L5-FR-1.14.3 — CBAM exposure flag has explicit clear conditions
 ### 1.15 Layer 5 Skill Work
 
 Repository baseline verified during validation: `skills/supplier-price-enrichment/{ebay,alibaba,amazon,1688}/SKILL.md` all exist and currently declare `promotion_stage: candidate`. L5 matures Alibaba, 1688, and Amazon because they are the expanded-source deltas; eBay remains the existing baseline supplier source.
-All L5 production-bound skill directories follow the L0/L4 directory standard: `SKILL.md`, `result.schema.json`, `checkpoint.schema.json`, `canary.inputs.jsonl`, `golden.assertions.yaml`, and `validator-rubric.yaml`.
+L5 source/browser production-bound skill directories follow the L0/L4 resumable-skill standard: `SKILL.md`, `result.schema.json`, `checkpoint.schema.json`, `canary.inputs.jsonl`, `golden.assertions.yaml`, and `validator-rubric.yaml`. Pure `http_public` landed-cost workers and source-health canaries follow the lighter contract used by their shipped directories; the labour validation overlay is the one labour skill that carries `checkpoint.schema.json`.
 L5-FR-1.15.1 — Existing marketplace skills mature from candidate to decision-grade
 - AC1: `skills/supplier-price-enrichment/alibaba/`, `1688/`, and `amazon/` are promoted from `promotion_stage: candidate` to stable only after the deltas below and validator overlay binding are complete.
 - AC2: Phase 5 bead scope is limited to the listed deltas and promotion; no speculative gap-fill work is added.
@@ -258,6 +263,16 @@ L5-FR-1.15.2 — PCS Scotland ingestion is truly new and in scope
 - AC1: Phase 5 creates `skills/procurement-ingestion/pcs/` with `SKILL.md`, `result.schema.json`, `checkpoint.schema.json`, `canary.inputs.jsonl`, `golden.assertions.yaml`, and `validator-rubric.yaml`.
 - AC2: `crates/daemon/src/sources/registry.rs` gains the PCS source entry near existing procurement ingestion sources after `procontract-enrich` and before supplier sources.
 - AC3: PCS is not conditional in L5 implementation; the 2026-05-08 operator decision closes the scope question as IN-SCOPE.
+
+L5-FR-1.15.3 — The goods-led labour-cost extension ships three new skill directories
+- AC1: The three skills below exist and follow their profile-appropriate directory standard. The worker is the `http_public` landed-cost worker; the validation overlay is a `headless_contract` overlay with `checkpoint.schema.json` and current manifest `promotion_stage: candidate`; the quarterly rate-refresh canary also exists at `promotion_stage: candidate` and is **not yet daemon-wired** (no `crates/daemon/src/sources/registry.rs` source-health entry and no cron schedule references it yet). The rate-refresh skill is a built-but-candidate source-health skill that re-seeds the four reference-table families, not a live/scheduled job.
+- AC2: The labour worker skill (§1.17.3) is `http_public` with curated skill-local rate tables; it is not BoQ-driven, does not use ASHE/ONS wage APIs, and is not a CDP/browser skill.
+
+| Skill | Role | Interaction Profile | Promotion Stage |
+|-------|------|---------------------|-----------------|
+| `skills/landed-cost/uk-installation-labour-estimate/` | Worker — installation-labour + permit/TM cost estimate from curated skill-local rate tables (region-as-multiplier, bounded LLM archetype inference) | `http_public` | production-bound |
+| `skills/validation/overlay-labour-cost/` | Validation overlay — sanity check on the labour estimate (rate-band plausibility, scope/region consistency, conservative-default usage); includes `checkpoint.schema.json` | `headless_contract` | `candidate` (built overlay, not a source-health job) |
+| `skills/source-health/uk-installation-labour-rate-refresh/` | Quarterly rate-refresh canary — re-seeds the reference tables (`covered_reference_families: [labour_rates, access_equipment_bands, installation_profiles, permit_tm_bands]`, `side_effect_class: none`) | `http_public` | `candidate` (built, not yet registered/scheduled) |
 
 ### 1.16 Intelligence Package Additions (19 files)
 L5-FR-1.16.1 — L5 adds customs, FX, logistics, validation, and accuracy modules under `packages/intelligence`
@@ -274,6 +289,66 @@ L5-FR-1.16.2 — Intelligence package file counts are fixed for bead planning
 | `packages/intelligence/src/logistics/` | 5 files | Mode selection, Freightos skill adapter, SeaRates skill adapter, dual-packing scenarios, low/base/high estimates |
 | `packages/intelligence/src/validation/` | 3 files | Landed-cost comparison adapters for Dutify/Zonos/Avalara fixtures or captured samples only; no external vendor credentials |
 | `packages/intelligence/src/customs/accuracy.ts` | 1 file | Evidence-tiered classification accuracy measurement |
+
+L5-FR-1.16.3 — The goods-led extension modifies existing intelligence files rather than adding to the 19-file count
+- AC1: The description-quality gate (`packages/intelligence/src/customs/description-quality.ts`, one of the 6 customs files above) gained a `goods_led_mixed` verdict variant — `{ kind: "goods_led_mixed"; installationTerms: string[]; goodsHeadNoun: string; supplySignal: string }` — and a `detectGoodsLedMixedDescription` helper, so a description carrying a goods head-noun, a supply signal, and install/maintenance terms returns `goods_led_mixed` (continue) instead of `reject_service`. This is an extension of an existing file, not a new file, so the 19-file count is unchanged.
+- AC2: The goods-led labour engine itself lives outside this count: in `packages/intelligence/src/margins/coverage-rollup.ts` (`computeGoodsValueShareBps`), in `packages/intelligence/src/qualification/goods-qualification.ts`, and in the `crates/daemon/src/main.rs` landed-cost rollup — see §1.17.
+
+### 1.17 Installation-Labour Cost Engine (Goods-Led Mixed Work)
+
+The installation-labour cost engine is a **landed-cost peer component**, alongside customs, FX, freight, and VAT. It exists so the platform can bid goods-led "supply-and-install" and "supply-and-maintain" mixed contracts — where physical goods dominate but a fitting/installation labour component (and sometimes permits, traffic management, and recurring maintenance) is bundled into the same lot. It estimates that labour/permit cost at **screening-grade ±20% triage** accuracy and sums it into the economic landed cost, while a two-phase goods value-share test keeps genuinely services-led work out of the pipeline.
+
+#### 1.17.1 Two-Phase Goods Value-Share Qualification
+
+L5-FR-1.17.1 — Goods-led mixed work is admitted through a two-phase goods value-share model with two operator-tunable floors
+- AC1: **Phase 1 (qualification, `packages/intelligence/src/qualification/goods-qualification.ts`).** For `(mixed | works)` lots with `goodsSeparability !== false` and `Math.round(goodsDensityScore * 10000) >= GOODS_PRESENCE_FLOOR_BPS`, the lot is provisionally admitted to `review` (a presence floor, not a new signal — `GOODS_PRESENCE_FLOOR_BPS = 3500` ≈ a 0.35 goods-density presence floor). For the separable-mixed branch (`legalCategory === "mixed" && goodsSeparability === true`), the engine computes an **early contract-value goods share** via `computeValueShareBps(addressableValuePence, totalValuePence)` and returns `pass` iff that share `>= GOODS_DOMINANCE_FLOOR_BPS` (`review` on a restricted/framework route), **else `review`** — deferring the borderline case to the Phase-2 landed-cost gate. There is no unconditional density-only `pass`.
+- AC2: **Phase 2 (landed-cost synthesis, daemon).** At landed-cost rollup the daemon applies the goods-dominance gate using `GOODS_DOMINANCE_FLOOR_BPS_DEFAULT: i64 = 6_000` (env-overridable via `GOODS_DOMINANCE_FLOOR_BPS`). The persisted basis prefers the exact `contract_value` enum value when the confidence breakdown carries addressable/total value; otherwise it falls back to the exact `cost_proxy` enum value computed from `goods ÷ (goods + labour + permits)` (`computeGoodsValueShareBps` in `packages/intelligence/src/margins/coverage-rollup.ts`), returning null when any component is unknown.
+- AC3: The two floors are constants, stated identically wherever qualification thresholds appear: `GOODS_PRESENCE_FLOOR_BPS = 3500` (Phase-1 presence) and `GOODS_DOMINANCE_FLOOR_BPS = 6000` / 60% (Phase-1 separable short-circuit and Phase-2 dominance gate). The values reconcile across `goods-qualification.ts` and `crates/daemon/src/main.rs`.
+
+#### 1.17.2 Goods Value-Share is a Proxy With an Explicit Basis
+
+L5-FR-1.17.2 — The persisted goods value-share records the basis it was computed on
+- AC1: `pipeline_assessments.goods_value_share_bps` carries the share and `pipeline_assessments.goods_value_share_basis` records the exact stored enum value: `cost_proxy` (goods/labour/permit landed-cost components) or `contract_value` (contract-value evidence). `contract_value` is preferred when available.
+- AC2: `landed_cost_estimates.goods_landed_cost_gbp_pence` persists the goods-only landed-cost subtotal so the value-share ratio is reconstructable from a single estimate row, independent of how the share was computed.
+
+#### 1.17.3 The Labour Skill
+
+L5-FR-1.17.3 — Installation-labour cost is produced by an `http_public` worker skill reading curated, skill-local rate tables
+- AC1: The worker skill is `skills/landed-cost/uk-installation-labour-estimate/` with `interaction_profile: http_public` (**no browser/CDP**). It ships `SKILL.md`, `result.schema.json`, `canary.inputs.jsonl`, `golden.assertions.yaml`, `validator-rubric.yaml`, and four curated reference tables under `reference/`: `uk-regional-labour-rates-2026-q2.json`, `uk-installation-profiles-2026-q2.json`, `uk-access-equipment-bands-2026-q2.json`, `uk-permit-tm-bands-2026-q2.json`.
+- AC2: Region is modelled as a **multiplier on a Midlands baseline**; cost is derived from skill-local rate tables plus a **bounded LLM archetype inference** constrained to known installation trades — **not** from Bills of Quantities parsing, **not** from ASHE/ONS wage APIs, and **not** through any commercial connector.
+- AC3: The skill is `load_skill`-ed transiently inside `run_landed_cost_live_loop` and invoked sequentially via the `LANDED_COST_UK_INSTALLATION_LABOUR_JOB_KIND = "landed_cost_uk_installation_labour"` job kind. It is **not** registered in `crates/daemon/src/sources/registry.rs` and is **not** chained via `next_job_kind`.
+
+#### 1.17.4 Permits, Traffic Management & Cost Rollup
+
+L5-FR-1.17.4 — Permits and traffic management are a separate cost component, conservatively defaulted, and labour + permits sum into the economic landed cost
+- AC1: Permit / traffic-management cost is carried as `permit_traffic_mgmt_cost_gbp_pence` (with `_low`/`_high` banded fields) and a `permit_responsibility` field. When responsibility is `unknown`, the engine defaults conservatively to the high band.
+- AC2: Both labour (`installation_labour_cost_gbp_pence`) and permits (`permit_traffic_mgmt_cost_gbp_pence`) are summed via `.saturating_add` into `economic_landed_cost_gbp_pence` at **both** rollup sites — `build_domestic_landed_cost_estimate` and `build_import_landed_cost_estimate` in `crates/daemon/src/main.rs`. Only the base cost is summed into the economic total; the `_low`/`_high` fields feed the banded estimate, and `installation_labour_confidence_bps` / `permit_responsibility` are metadata.
+- AC3: Labour and permit **line items** are carried as a JSON array (`labour_line_items: Vec<Value>` on the estimate write/result struct) and surfaced in the run-manifest cost breakdown. They are **aggregated cost fields with a JSON breakdown**, not first-class normalized line-item tables.
+
+#### 1.17.5 Maintenance as a Separate Annualised Estimate
+
+L5-FR-1.17.5 — Recurring maintenance is a separate persisted per-period estimate, never capitalised into the dominance denominator
+- AC1: `maintenance_period_estimates` is a real persisted table (`per_visit_labour_cost_gbp_pence`, `annualised_opex_gbp_pence`, `total_visible_term_opex_gbp_pence`, `visits_per_year`, `term_years`, `margin_signal`, …). It is the only new persisted entity in the labour set.
+- AC2: Maintenance opex is kept as visible recurring opex; it is **not** added into the goods value-share denominator used by the dominance gate.
+
+#### 1.17.6 Labour Skill Warning Codes (Skill-Level, Not Daemon ErrorCode Vocabulary)
+
+L5-FR-1.17.6 — The labour engine's warning codes are skill-level and live in the skill's manifest/rubric, not in the daemon `ErrorCode` enum
+- AC1: `LABOUR_REGION_UNKNOWN`, `LABOUR_SCOPE_UNRESOLVED`, `ACCESS_AT_HEIGHT_ASSUMED_MEWP`, `MAINTENANCE_TERM_ASSUMED`, `RATE_TABLE_STALE`, `PERMIT_RESPONSIBILITY_UNKNOWN`, `LANE_RENTAL_ZONE`, and `TTRO_LEAD_TIME_RISK` are declared only in the worker skill's `SKILL.md` `## Failure Codes`, `golden.assertions.yaml`, and `validator-rubric.yaml` (and the canary fixtures).
+- AC2: These codes are **not** added to `crates/daemon/src/errors/manifest.rs` and do **not** belong in §3.5 (the daemon `ErrorCode` enum vocabulary). This is the opposite of the customs error codes in §3.5, which ARE daemon enum entries.
+
+#### 1.17.7 Fail-Soft Degradation
+
+L5-FR-1.17.7 — A blocked or low-confidence labour estimate degrades to review, never to a crash or a fabricated number
+- AC1: A `blocked` labour outcome routes the opportunity to review rather than aborting the landed-cost run; the engine records the skill warning code and continues with the remaining landed-cost components.
+- AC2: Unresolved region, scope, access-at-height, or permit-responsibility facts produce the corresponding §1.17.6 warning code and a conservative (high-band) assumption, not a silent best guess.
+
+#### 1.17.8 Future Work (Not Yet Built)
+
+L5-FR-1.17.8 — Adjacent labour-engine capabilities are reserved scaffolding, documented as future work
+- AC1: **Sub-contractor installer-quote ingestion** is a reserved scaffold only: `SupplierQuoteClass` includes an `installer_quote` value (`packages/contracts-schema/src/index.ts`) used by `quote_class`, but there is no ingestion or consumption logic in daemon/skills/intelligence. It is a future RFQ re-entry lane, not a working source.
+- AC2: A **live per-estimate enrichment lane** (operator-triggered fresh rate fetch for high-value bids) is not built.
+- AC3: A **detailed per-authority / per-zone permit & lane-rental sub-model** is not built; the MVP ships only the banded ranges in `uk-permit-tm-bands-2026-q2.json`.
 
 ---
 
@@ -388,6 +463,7 @@ L5-FR-2.4.1 — L5 populates every `landed_cost_estimates` column or preserves i
 | `exporter_rate_basis`, `exporter_identity_confidence_bps`, `origin_evidence_state` | L5-FR-1.6.1, L5-FR-1.6.2, L5-FR-1.12.1 | Exporter and origin evidence basis |
 | `import_vat_gbp_pence`, `vat_rate_state`, `import_vat_treatment`, `vat_recovery_rate_bps` | L5-FR-1.9.1, L5-FR-1.9.2 | VAT amount, treatment, and recovery fraction |
 | `uk_final_mile_cost_gbp_pence`, `other_fees_gbp_pence`, `economic_landed_cost_gbp_pence`, `cash_outlay_gbp_pence`, `cash_to_clear_gbp_pence`, `working_capital_cost_gbp_pence` | L5-FR-2.2.3, L5-FR-1.12.2 | Cost rollup, cash outlay, clearance cash, and working-capital cost |
+| *(new columns at epoch 10 — not pre-existing activation)* `installation_labour_cost_gbp_pence`, `installation_labour_low_gbp_pence`, `installation_labour_high_gbp_pence`, `installation_labour_confidence_bps`, `permit_traffic_mgmt_cost_gbp_pence`, `permit_traffic_mgmt_low_gbp_pence`, `permit_traffic_mgmt_high_gbp_pence`, `permit_responsibility`, `goods_landed_cost_gbp_pence` | L5-FR-1.17.2, L5-FR-1.17.4 | Goods-led labour/permit cost (base + banded), permit responsibility, and goods-only subtotal — **added by `migrations/0014`, not present in L0 DDL**; labour + permits summed into `economic_landed_cost_gbp_pence` |
 | `revenue_basis_type`, `revenue_confidence_bps`, `net_margin_low_bps`, `net_margin_base_bps`, `net_margin_high_bps` | L5-FR-1.2.1, L5-FR-1.13.2 | Revenue basis and net margin band |
 | `customs_resolution_confidence_bps`, `commercial_estimate_confidence_bps`, `decision_grade`, `confidence_bps`, `confidence_breakdown`, `warnings`, `blockers` | L5-FR-1.12.2, L5-FR-1.12.4, L5-FR-1.13.1, L5-FR-3.4.2 | Confidence, evidence leverage, decision grade, warnings, and blockers |
 | `tariff_checked_at`, `measures_fresh_until`, `classification_fresh_until`, `trade_remedy_watch_state` | L5-FR-1.11.1, L5-FR-1.11.2, L5-FR-1.11.3, L5-FR-1.11.4 | Independent freshness vectors and expired-classification blockers |
@@ -430,6 +506,10 @@ L5-FR-3.1.11 — DoD 11: Decision-grade landed cost per validated category with 
 L5-FR-3.1.12 — DoD 12: Gold-set expansion completed for fasteners, packaging-cartons, and examination-gloves
 - AC1: Each category has `canary.inputs.jsonl`, `golden.assertions.yaml`, `metadata.json`, and `manifest.md`.
 - AC2: Each category passes the §3.4 evidence-tiered accuracy metrics before production use.
+L5-FR-3.1.13 — DoD 13: Goods-led installation-labour cost engine operational (shipped 2026-06-04)
+- AC1: The `http_public` worker skill (§1.17.3), the `overlay-labour-cost` validation overlay, and the candidate-stage rate-refresh canary all exist; labour + permits sum into `economic_landed_cost_gbp_pence` at both rollup sites.
+- AC2: The two-phase goods value-share qualification (§1.17.1) and the Phase-2 goods-dominance gate (`GOODS_DOMINANCE_FLOOR_BPS = 6000`, persisted basis `contract_value` preferred over `cost_proxy`) gate goods-led mixed work; `maintenance_period_estimates` is persisted and is not capitalised into the dominance denominator.
+- AC3: Calibration fixtures exist under `tests/fixtures/calibration/landed-cost/uk-installation-labour/` (`canary.inputs.jsonl`, `golden.assertions.yaml`, `validator-rubric.yaml`, `metadata.json`, `manifest.md`).
 
 ### 3.2 Test Files (5 New, Cumulative 57)
 L5-FR-3.2.1 — L5 adds five focused test files with cumulative target 57
@@ -443,6 +523,8 @@ L5-FR-3.2.1 — L5 adds five focused test files with cumulative target 57
 | `measure-interaction.test.ts` | AD/CVD/safeguard stacking/substitution, supplementary units, exporter basis, additional-code satisfiability |
 | `fx-engine.test.ts` | Dual rates, monthly rollover, historical correction, basis delta, recalculation triggers, missing-rate blockers |
 | `freight-engine.test.ts` | Mode locks, Freightos/SeaRates cross-check, dual packing, Incoterm boundary scenarios, provider failures |
+
+**Goods-led labour-cost extension tests (separate from the 5-new / cumulative-57 count above).** Shipped 2026-06-04, these are additional to the original L5 test plan and do not alter the "5 new / cumulative 57" arithmetic: `crates/daemon/tests/installation_labour_engine.rs` (new Rust integration target), `packages/intelligence/src/customs/description-quality.test.ts` (new — the file was previously zero-coverage), and the extended `packages/intelligence/src/qualification/goods-qualification.test.ts` (TS-QUAL-* cases; the old TS-QUAL-003 unconditional `pass` expectation was split because the goods-dominance floor now applies). Calibration fixtures live under `tests/fixtures/calibration/landed-cost/uk-installation-labour/`.
 L5-FR-3.2.2 — Local quality gate is the only automated repository gate because no `.github/workflows/` exists
 - AC1: Verification uses `cargo fmt --check && cargo check --all-targets && cargo clippy --all-targets -- -D warnings && cargo test -p daemon --bin daemon && bun run build && bun run test`.
 - AC2: Adding CI workflow coverage is a separate owner-authorized scope addition and is not silently included in L5.

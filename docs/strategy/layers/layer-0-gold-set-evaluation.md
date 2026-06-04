@@ -7,6 +7,8 @@
 > **Exit criteria:** Experiments 1–3b pass on the gold-set corpus (≥80 lots: gating + challenge).
 
 > **Implementation Status (as of 2026-05-02):** Layer 0 is **PARTIALLY BUILT**. Gold-set fixtures and daemon integration/evaluation harness scaffolding exist in `crates/daemon/tests/`, but the full standalone evaluation pipeline described here is not complete. This layer remains the measurement foundation for L1-L3; no inline implementation markers are added because this pass annotates only built L1-L3 design decisions.
+>
+> **Updated 2026-06-04 — goods-led labour-cost harmonization.** §1.6 (gold-slices tied to the dominance floor + no-list/bespoke flags), §2.2.1 / §2.5.2 DDL (labour/permit/goods-share columns + new `maintenance_period_estimates` table at schema epoch 10, `migrations/0014`), §3.4 (two-phase goods value-share qualification), §3.11.4 (labour step + Phase-2 dominance gate), and §3.13 (goods value-share + labour coverage metrics) were reconciled to the shipped goods-led install/maintenance extension. The schema epoch is now **10**.
 
 ---
 
@@ -122,6 +124,8 @@ These categories may enter production only through labelled gold-set slices. Eac
 | `gold-slice: install_shelving_wood_plastic` | Shelving/racking (wood/plastic) supply-fit | Admitted as a low-reg furniture-adjacent slice when material evidence is wood or plastic. |
 | `gold-slice: install_existing_furniture_ppe` | Install on existing furniture/PPE | Labour can price fitting/assembly for existing goods, but the underlying goods must remain in the L0 whitelist. |
 | `gold-slice: metal_shelving_racking_trade_remedy_watchlist` | Metal shelving/racking split-out | Trade-remedy-heavy; not part of the wood/plastic slice and requires separate customs remedy evidence before production. |
+
+**What actually admits or excludes these slices (the economic mechanism):** These slices are governed by the goods-led two-phase value-share model and the UK installation-labour cost engine documented in `layer-5-expanded-commercial-intelligence.md` §1.17 and in §3.4 / §3.11 below. A slice is admitted only when goods dominate by value: Phase-1 qualification applies a goods-density **presence floor** (`GOODS_PRESENCE_FLOOR_BPS = 3500`) plus an early contract-value share short-circuit, and Phase-2 landed-cost synthesis applies the **goods-dominance floor** (`GOODS_DOMINANCE_FLOOR_BPS = 6000`, i.e. goods ≥ 60% of `goods + labour + permits`). The "route to review when unresolved" and "bespoke/custom flags route to review" admission notes above are backed by runtime scope-exclusion flags `out_of_scope_no_list` and `out_of_scope_bespoke` (§3.4). Recurring maintenance (e.g. the playground slice's "visible opex") is held as a separate annualised `maintenance_period_estimates` row and is **not** capitalised into the dominance denominator. The `metal_shelving_racking_trade_remedy_watchlist` split-out exists because the wood/plastic shelving slice (`install_shelving_wood_plastic`) is low-reg only when material evidence is wood or plastic; metal subfamilies carry live trade remedies and need separate customs evidence.
 
 **Explicit no-list (defer until system proves reliable on whitelist):**
 
@@ -368,6 +372,8 @@ The correct framing: freeze **logical schema slots** early, but treat **activati
 
 **Retroactive constitutional additions:** `tender_document_sets.extraction_state` was added to the constitutional shape alongside the PDF extraction toolkit introduction, following the same pattern as `workflow_jobs.validation_required` (forward-compatibility provision included at table creation time).
 
+**Schema evolution beyond L0 (goods-led labour-cost extension, epoch 10):** The no-ALTER principle held through L0–L4, but the goods-led supply-and-install / maintenance expansion (shipped 2026-06-04) performed a genuine **additive** schema migration — `migrations/0014_installation_labour_fields.sql` adds the 9 labour/permit/goods columns to `landed_cost_estimates`, the 6 coverage / value-share columns to `pipeline_assessments`, and creates `maintenance_period_estimates`, bumping the schema epoch 9 → 10 (mirrored to Supabase by `infra/supabase/migrations/0010_installation_labour_projection.sql`). All additions are nullable / default-0 and therefore back-compatible. The DDL above shows these columns/tables inline with `-- added at epoch 10` comments so this file remains the complete schema record; the canonical migration provenance is layer-strategy §9 (Schema Stability Matrix) and L5 §1.17.
+
 ### 2.3 Authority Classification
 
 Every table has exactly one authority classification. This is permanent — no reclassification across layers.
@@ -394,6 +400,9 @@ Every table has exactly one authority classification. This is permanent — no r
 | 16 | `process_stage_heads` | Scoped | Current stage head per scope |
 | 17 | `document_extractions` | Notice | Structural extraction output from Docling (L1-introduced via `0006_pdf_extraction_toolkit.sql`) |
 | 18 | `document_semantic_extractions` | Notice | Semantic mapping output from pdf-extraction skills (L1-introduced via `0006_pdf_extraction_toolkit.sql`) |
+| +1 | `maintenance_period_estimates` | Candidate-quote | Per-period maintenance estimate; **goods-led extension, added at epoch 10 via `migrations/0014`** (the 50th table — see count note below). Push-owned. |
+
+> **Table count:** the original constitutional inventory is **49 tables**. The goods-led labour-cost extension adds one persisted table (`maintenance_period_estimates`) at epoch 10, bringing the operational total to **50**. References elsewhere to "49 tables" describe the pre-extension constitutional inventory.
 
 **Push-owned infrastructure tables:**
 
@@ -944,6 +953,16 @@ create table landed_cost_estimates (
   trade_remedy_watch_state text,
   cbam_exposure_flag boolean,
   cbam_estimate_gbp_pence bigint,
+  -- goods-led install/maintenance extension (added at epoch 10 by migrations/0014_installation_labour_fields.sql; see §2.2.1 and L5 §1.17)
+  goods_landed_cost_gbp_pence bigint,             -- goods-only landed-cost subtotal (makes goods value-share reconstructable from one row)
+  installation_labour_cost_gbp_pence bigint,      -- integer pence (base; summed into economic_landed_cost_gbp_pence)
+  installation_labour_low_gbp_pence bigint,       -- integer pence (banded low)
+  installation_labour_high_gbp_pence bigint,      -- integer pence (banded high)
+  installation_labour_confidence_bps integer,     -- basis points (0-10000)
+  permit_traffic_mgmt_cost_gbp_pence bigint,      -- integer pence (base; summed into economic_landed_cost_gbp_pence)
+  permit_traffic_mgmt_low_gbp_pence bigint,       -- integer pence (banded low)
+  permit_traffic_mgmt_high_gbp_pence bigint,      -- integer pence (banded high)
+  permit_responsibility text,                     -- who holds permit/TM responsibility; unknown → conservative high band
   -- sync tracking (push-owned)
   owner_id text not null,
   row_version bigint not null default 1,
@@ -951,6 +970,38 @@ create table landed_cost_estimates (
   stage_run_id text,
   updated_at timestamptz not null default now(),
   created_at timestamptz not null default now()
+);
+
+-- Goods-led install/maintenance extension: per-period maintenance estimate.
+-- Added at epoch 10 by migrations/0014_installation_labour_fields.sql (see §2.2.1 and L5 §1.17).
+-- Recurring maintenance opex is held here as a separate annualised estimate and is
+-- NEVER capitalised into the goods value-share dominance denominator.
+-- Authority: PUSH-OWNED
+create table maintenance_period_estimates (
+  id uuid primary key default gen_random_uuid(),
+  process_id uuid not null references procurement_processes(id),
+  notice_id uuid not null references contract_notices(id),
+  product_candidate_id uuid not null references product_candidates(id),
+  landed_cost_estimate_id uuid not null references landed_cost_estimates(id),
+  supplier_quote_id uuid references supplier_quotes(id),
+  visit_scope text,
+  visits_per_year integer not null default 0,
+  term_years integer not null default 0,
+  per_visit_labour_cost_gbp_pence bigint not null default 0,    -- integer pence
+  annualised_opex_gbp_pence bigint not null default 0,          -- integer pence
+  total_visible_term_opex_gbp_pence bigint not null default 0,  -- integer pence
+  maintenance_confidence_bps integer not null default 0,        -- basis points (0-10000)
+  margin_signal text,
+  warnings jsonb not null default '[]',
+  evidence_json jsonb not null default '{}',
+  -- sync tracking (push-owned)
+  owner_id text not null,
+  row_version bigint not null default 1,
+  last_local_seq bigint,
+  stage_run_id text,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  unique (product_candidate_id, landed_cost_estimate_id)
 );
 
 -- Authority: PUSH-OWNED
@@ -990,6 +1041,13 @@ create table pipeline_assessments (
   decision_basis_hash text,
   review_stage text,
   review_reason text,
+  -- goods-led install/maintenance extension (added at epoch 10 by migrations/0014_installation_labour_fields.sql; see §2.2.1 and L5 §1.17)
+  goods_value_share_bps integer,                       -- goods ÷ (goods + labour + permits), gated by GOODS_DOMINANCE_FLOOR_BPS (6000)
+  goods_value_share_basis text,                        -- exact values: cost_proxy | contract_value (contract_value preferred when available)
+  installation_labour_coverage_bps integer,            -- lot-count coverage of labour-estimated lots
+  installation_labour_value_coverage_bps integer,      -- value-weighted labour coverage
+  permit_traffic_mgmt_coverage_bps integer,            -- lot-count coverage of permit/TM-estimated lots
+  permit_traffic_mgmt_value_coverage_bps integer,      -- value-weighted permit/TM coverage
   assessed_at timestamptz not null default now(),
   -- sync tracking (push-owned)
   owner_id text not null,
@@ -2538,6 +2596,16 @@ Provisional `notice_only` qualification can still trigger document acquisition f
 - **Phase A (`prequalify_notice`):** `QualificationResult` per notice with `expiryQualified`, `goodsQualified`, `accessRoute`, `qualificationBasis = notice_only`. No `lotId` yet.
 - **Phase B (`qualify_lot`):** `QualificationResult` per lot with `lotId`, `expiryQualified`, `goodsQualified`, `accessRoute`, `qualificationBasis = notice_plus_docs | lot_level`, `addressableValuePence`.
 
+**Goods-led mixed work (install/maintenance) — two-phase value-share gate.** Shipped 2026-06-04 as part of the goods-led expansion (`packages/intelligence/src/qualification/goods-qualification.ts`). This is the qualification half of a two-phase model whose second phase runs at landed-cost synthesis (§3.11). The decision logic in `determineQualificationDecision` does three things:
+
+- **Separable-mixed early value-share short-circuit.** For `legalCategory === "mixed" && goodsSeparability === true`, the engine computes the early **contract-value** goods share via `computeValueShareBps(addressableValuePence, totalValuePence)` and returns `pass` iff that share `>= GOODS_DOMINANCE_FLOOR_BPS` (`review` on a restricted/framework route), **else `review`** — deferring the borderline case to the Phase-2 landed-cost dominance gate. There is no unconditional density-only `pass`.
+- **Phase-1 provisional-admit.** For goods-bearing `(mixed | works)` lots with `goodsSeparability !== false` and `Math.round(goodsDensityScore * 10000) >= GOODS_PRESENCE_FLOOR_BPS`, the lot is admitted to `review`. `GOODS_PRESENCE_FLOOR_BPS = 3500` is compared against `goodsDensityScore` scaled to bps (≈ a 0.35 presence floor) — it is a concrete value for the presence floor, not a new signal.
+- **No-list / bespoke scope-exclusion flag** (`detectScopeExclusionFlags`): a no-list CPV family sets `out_of_scope_no_list` (reject only on a high-confidence CPV match, else review); a bespoke / made-to-measure keyword sets `out_of_scope_bespoke` → review. These back the §1.6 "route to review" admission notes.
+
+The service-description gate (`packages/intelligence/src/customs/description-quality.ts`, in the L5 customs package) was split so a description carrying a goods head-noun **and** a supply signal **and** install/maintenance terms returns the `goods_led_mixed` verdict (continue) — `{ kind: "goods_led_mixed"; installationTerms: string[]; goodsHeadNoun: string; supplySignal: string }` — instead of `reject_service`; pure-service patterns still return `reject_service`.
+
+**New operator strategy knobs:** `GOODS_PRESENCE_FLOOR_BPS = 3500` (Phase-1 goods-density presence floor) and `GOODS_DOMINANCE_FLOOR_BPS = 6000` (Phase-1 separable-mixed short-circuit and the Phase-2 dominance gate; env-overridable in the daemon via `GOODS_DOMINANCE_FLOOR_BPS`). Both are stated identically in §1.6, §3.11, and L5 §1.17.
+
 ### 3.5 Stage 5 — Acquire Documents
 
 Download publicly accessible tender documents. In UK procurement, the notice body is often the **least useful** product document. The real signal lives in:
@@ -3022,6 +3090,23 @@ economicLandedCostGbp = supplierCost + freightBase + customsDuty
 - `vatRecoveryRate` — proportion recoverable
 - `valuationMode`: `estimation` | `declaration` — distinguishes marketplace-derived proxy values from actual transaction prices
 
+#### 3.11.4 Goods-Led Installation Labour & Phase-2 Dominance Gate (Goods-Led Extension)
+
+Shipped 2026-06-04 with the goods-led supply-and-install / maintenance expansion. This is the second phase of the two-phase goods value-share model whose first phase runs in qualification (§3.4). It is documented in full in `layer-5-expanded-commercial-intelligence.md` §1.17.
+
+**Installation-labour estimation step** (after FX, before decision synthesis): for goods-led mixed work, the daemon invokes the `http_public` worker skill `skills/landed-cost/uk-installation-labour-estimate/` (transient-loaded in `run_landed_cost_live_loop` via the `landed_cost_uk_installation_labour` job kind; not registered in `sources/registry.rs`, not chained via `next_job_kind`). The skill reads curated skill-local rate tables (region modelled as a multiplier on a Midlands baseline) plus bounded LLM archetype inference — **not** Bills of Quantities, ASHE/ONS wage APIs, or a CDP/browser skill. It returns labour and permit/traffic-management cost as base + banded (`_low`/`_high`) values with a confidence and a `permit_responsibility` (default `unknown` → conservative high band). Labour and permit base costs are summed via `.saturating_add` into `economic_landed_cost_gbp_pence` at both `build_domestic_landed_cost_estimate` and `build_import_landed_cost_estimate`. The extended computation:
+
+```
+economicLandedCostGbp = supplierCost + freightBase + customsDuty
+  + tradeRemedyDuty + ukFinalMile + otherFees
+  + installationLabourBase + permitTrafficMgmtBase   (goods-led extension)
+  (ex-recoverable-VAT)
+```
+
+Labour/permit line items are carried as a JSON breakdown (`labour_line_items`), not normalized tables; only `maintenance_period_estimates` is a persisted entity.
+
+**Phase-2 goods-dominance gate:** the daemon applies `GOODS_DOMINANCE_FLOOR_BPS` (default 6000 / 60%, env-overridable) after landed-cost synthesis. The persisted share carries an explicit `goods_value_share_basis` using exact stored values: `contract_value` when addressable/total value evidence is available, otherwise `cost_proxy` computed as `goods ÷ (goods + labour + permits)` (`computeGoodsValueShareBps` in `packages/intelligence/src/margins/coverage-rollup.ts`, null if any component is unknown). The goods-only subtotal `goods_landed_cost_gbp_pence` is persisted so the cost-proxy ratio is reconstructable from one row. A `blocked` labour outcome degrades the opportunity to review rather than crashing or fabricating a number. Recurring maintenance is held as a separate annualised `maintenance_period_estimates` row and is never capitalised into the dominance denominator.
+
 ### 3.12 Stage 12 — Net Margin Gate
 
 Net margin with **low/base/high scenarios**:
@@ -3088,6 +3173,15 @@ Process-level business rollup computed from candidate-level results. **This is n
 | `netQualifiedValueCoverageBps` | (sum of net-qualified lot values / total qualifying lot value) × 10000 | Net-qualified breadth (value-weighted) |
 | `unresolvedMandatoryLots` | Count of mandatory lots without resolution | Gap count |
 | `decisionBasisHash` | SHA-256 of pipeline data the operator would review | Staleness detection |
+
+**Goods-led extension coverage metrics** (persisted on `pipeline_assessments`, added at epoch 10 by `migrations/0014`):
+
+| Metric | Formula / Meaning |
+|--------|-------------------|
+| `goodsValueShareBps` | `goods ÷ (goods + labour + permits)` × 10000 (`computeGoodsValueShareBps`); null when any component is unknown. Gated by `GOODS_DOMINANCE_FLOOR_BPS` (6000). |
+| `goodsValueShareBasis` | Basis enum for the share above — exact stored values `cost_proxy` vs `contract_value` (`contract_value` preferred when available). |
+| `installationLabourCoverageBps` / `installationLabourValueCoverageBps` | Lot-count and value-weighted coverage of lots that received an installation-labour estimate. |
+| `permitTrafficMgmtCoverageBps` / `permitTrafficMgmtValueCoverageBps` | Lot-count and value-weighted coverage of lots with a permit / traffic-management estimate. |
 
 **Auto-qualification coverage floor:** Uses **value-weighted** coverage: `netQualifiedValueCoverageBps >= 5000` (50% of qualifying value). Lot-count coverage is displayed but value coverage gates. A process with 9/10 lots qualified but the unresolved lot representing 80% of value cannot auto-qualify.
 

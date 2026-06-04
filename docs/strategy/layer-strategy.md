@@ -12,8 +12,10 @@
 > - Layer 2 (Single-Operator Desktop): **BUILT**. Tauri desktop app, IPC bridge, `ContractList`/`ContractDetail`/`ManifestInbox`/`OperatorDecisionPanel` pages.
 > - Layer 3 (Operational Hardening): **BUILT**. Stages 1-14 of the pipeline, multi-source ingestion, Stage 11 hardening, Stage 14 Phase 1+2.
 > - Layer 4 (Shared Visibility): **BUILT** 2026-05-08. SQLite ↔ Supabase sync engine (`crates/daemon/src/db/sync.rs`), 8 Supabase migrations with RLS for 4 roles, read-only Next.js web portal at `apps/web/`, 4 validator overlays, Wilson-bound calibration harness, two-user verification passed. Pipeline archived at `docs/pipeline/l4-shared-visibility/archived/2026-05-08-l4-shared-visibility/`; SOT artifacts remain at `docs/pipeline/l4-shared-visibility/artifacts/`.
-> - Layer 5 (Expanded Commercial Intelligence): NOT BUILT.
+> - Layer 5 (Expanded Commercial Intelligence): NOT BUILT, **except the goods-led install/maintenance + UK installation-labour cost extension, shipped 2026-06-04** (schema epoch 10; see L5 §1.17).
 > - Layer 6 (Request Pipeline Automation): NOT BUILT. Stage 15 (`bid_workflow`) blocked on this layer.
+>
+> **Updated 2026-06-04 — goods-led labour-cost harmonization.** §7 (L5 Data Introduced), §9 (Schema Stability Matrix + rules), §10 (Stage Scope / Landed-cost boundary), and the L4 epoch-transition stub were reconciled to the shipped goods-led labour-cost extension: `landed_cost_estimates` / `pipeline_assessments` gained labour/permit/goods-share columns and `maintenance_period_estimates` was added at schema epoch 10 (`migrations/0014` + Supabase `0010`).
 
 ---
 
@@ -887,7 +889,7 @@ Formalized and enforced at the Supabase database level via RLS:
 
 | Feature | Stub | Full Implementation |
 |---------|------|-------------------|
-| Schema epoch transitions | Initial epoch only (no transitions needed yet) | Future: expand/drain/upgrade/contract |
+| Schema epoch transitions | The schema has since evolved — **current epoch is 10**, last bumped by the goods-led labour migration (`migrations/0014` + Supabase `0010`). The expand/drain/upgrade/contract transition *protocol* (L4 §1.7) remains the future hardening target; additive epoch bumps like 0014 are handled by the existing PRAGMA-backed guard | Future: full expand/drain/upgrade/contract orchestration |
 | Multi-org | Single org hardcoded | Future: org_id scoping |
 | Epoch-repair reproject | Minimum L4 path: mark `projection_generation`, republish current row images, discard stale-epoch outbox only after successful reseed | Future: full generation-based rebuild with anti-entropy |
 | Logical consistency auditor | Not implemented | Future: domain invariant checking |
@@ -986,11 +988,13 @@ System handles ≥3 goods categories with decision-grade landed cost and ≥2 su
 
 ### Data Introduced
 
-No new tables and no new columns — all decision-grade columns exist as nullable from Layer 0. Layer 5 populates previously-empty fields:
+The decision-grade customs/FX/freight columns all exist as nullable from Layer 0 — Layer 5 populates previously-empty fields. The **goods-led install/maintenance extension** (shipped 2026-06-04) is the exception: it adds new columns and one new table at **schema epoch 10** (see §9 and L5 §1.17):
 
-| Table | Columns Now Populated |
-|-------|----------------------|
-| `landed_cost_estimates` | Decision-grade fields: full duty breakdown, measure interaction results, exporter rate basis, supplementary unit requirements, valuation mode (all existed as nullable since L0) |
+| Table | Columns Now Populated / Added |
+|-------|------------------------------|
+| `landed_cost_estimates` | *Populated (existed since L0):* decision-grade fields — full duty breakdown, measure interaction results, exporter rate basis, supplementary unit requirements, valuation mode. *Added at epoch 10 (`migrations/0014`):* 8 labour/permit columns + `goods_landed_cost_gbp_pence` goods-only subtotal |
+| `pipeline_assessments` | *Added at epoch 10 (`migrations/0014`):* `goods_value_share_bps`, `goods_value_share_basis`, and labour/permit lot-count + value coverage columns |
+| `maintenance_period_estimates` | *New table at epoch 10 (`migrations/0014`):* persisted annualised per-period maintenance estimate (not capitalised into the goods-dominance denominator) |
 | `product_candidates` | Commodity code families from multi-source recall (via `product_commodity_codes` junction table, existed since L0) |
 | `supplier_quotes` | Multi-source quotes (Alibaba, 1688, Amazon rows alongside existing eBay rows — same schema, more rows) |
 
@@ -1161,7 +1165,7 @@ Nothing — this is the final layer.
 
 L0 §2 is the constitutional schema source and reserves the full logical shape of every table up front. In this matrix, **Created** means the first layer where that already-specified table is physically materialized or operationally introduced in the implementation plan; **First Active Use** means the first layer where real workloads begin writing or consuming it.
 
-Matrix-count note: this section currently renders as 46 rows because the five Supabase summary tables are grouped into one row for readability. Counting underlying operational tables represented here yields 50. That does not conflict with the Layer 0 "49 tables" count, which is the constitutional DDL inventory and excludes the later Supabase-only CAS ledger `operator_decision_commands`.
+Matrix-count note: this section currently renders as 47 rows because the five Supabase summary tables are grouped into one row for readability. Counting underlying operational tables represented here yields 51. That does not conflict with the Layer 0 "49 tables" constitutional DDL inventory: the count excludes the later Supabase-only CAS ledger `operator_decision_commands`, and includes `maintenance_period_estimates`, which was added at **schema epoch 10** by the goods-led labour-cost extension (`migrations/0014`) rather than at L0.
 
 | Table | Created | First Active Use | Sync Activated | Authority |
 |-------|---------|-----------------|----------------|-----------|
@@ -1173,9 +1177,10 @@ Matrix-count note: this section currently renders as 46 rows because the five Su
 | `search_attempts` | L0 | L0 | L4 | Push-owned |
 | `supplier_quotes` | L0 | L0 | L4 | Push-owned |
 | `candidate_pricing_assessments` | L0 | L0 | L4 | Push-owned |
-| `pipeline_assessments` | L0 | L0 (gold-set harness), L1 (first live-source rollups), L2 (desktop coverage surface) | L4 | Push-owned |
+| `pipeline_assessments` | L0 | L0 (gold-set harness), L1 (first live-source rollups), L2 (desktop coverage surface) | L4 | Push-owned. **+6 goods-value-share / labour coverage columns added at epoch 10 (`migrations/0014`, goods-led extension)** |
 | `qualification_runs` | L0 | L0 | L4 | Push-owned |
-| `landed_cost_estimates` | L0 | L0 (screening-grade), L5 (decision-grade fields populated) | L4 | Push-owned |
+| `landed_cost_estimates` | L0 | L0 (screening-grade), L5 (decision-grade fields populated) | L4 | Push-owned. **+8 labour/permit columns + `goods_landed_cost_gbp_pence` added at epoch 10 (`migrations/0014`, goods-led extension)** |
+| `maintenance_period_estimates` | **epoch 10 (`migrations/0014`, goods-led extension; not L0)** | epoch 10 (goods-led mixed work) | L4 (Supabase mirror via `0010_installation_labour_projection.sql`) | Push-owned |
 | `tender_document_sets` | L0 | L1 (first live-source document acquisition); `extraction_state` column exists from L0 (forward-compatibility), first populated in L1 | L4 | Push-owned |
 | `document_extractions` | L1 | L1 (structural extraction from document acquisition) | L4 | Push-owned |
 | `document_semantic_extractions` | L1 | L1 (semantic overlay extraction) | L4 | Push-owned |
@@ -1217,7 +1222,7 @@ Matrix-count note: this section currently renders as 46 rows because the five Su
 ### Schema Evolution Rules
 
 1. **No table reclassification.** A table's authority classification is permanent from its introduction layer. `operator_decision_heads` is remote-owned from introduction in Layer 4; before that, local single-operator decisions exist only as `pending_operator_intents`.
-2. **All columns exist from table creation.** Later layers populate existing nullable columns — they never add new columns to tables introduced in earlier layers. This eliminates late `ALTER TABLE` on synced tables. It does not eliminate index migrations, check-constraint changes, view changes, backfills, RLS/RPC changes, or semantic migrations (see L0 §2.2.1 for full scope).
+2. **All columns exist from table creation (held through L0–L4).** Through Layer 4, later layers populated existing nullable columns rather than adding new ones, eliminating late `ALTER TABLE` on synced tables. It does not eliminate index migrations, check-constraint changes, view changes, backfills, RLS/RPC changes, or semantic migrations (see L0 §2.2.1 for full scope). **Documented exception — goods-led labour-cost extension (epoch 10):** `migrations/0014_installation_labour_fields.sql` performed a genuine additive `ALTER TABLE` on `landed_cost_estimates` and `pipeline_assessments` and created `maintenance_period_estimates`. All additions are nullable / default-0 (back-compatible) and were mirrored to Supabase by `0010_installation_labour_projection.sql`, which bumped the schema epoch 9 → 10. This is the first real post-L0 column addition; the schema-epoch guard (L4 §1.7) is what makes such an evolution safe.
 3. **Sync tracking columns from day 1.** All push-owned tables include `owner_id`, `row_version`, `last_local_seq`, `stage_run_id`, `created_at`, `updated_at` from their creation in Layer 0, and those fields are populated on first write even before the outbox engine exists.
 4. **No column renames.** Column names are stable across layers (important for sync field mapping).
 5. **Junction tables introduced with parent tables.** `notice_cpv_codes` created alongside `contract_notices` in L0.
@@ -1272,7 +1277,7 @@ Matrix-count note: this section currently renders as 46 rows because the five Su
 | Score quoteability | per candidate | `candidate` | `product_candidates`, `search_profiles` |
 | Price-signal match | per candidate-source pair | `candidate_source_pair` | `product_candidates`, `search_profiles`, `search_attempts`, `supplier_quotes` |
 | Gross margin gate | per candidate | `candidate` | `candidate_pricing_assessments`, `supplier_quotes` |
-| Landed cost | per candidate-quote scenario | `candidate_quote_scenario` | `candidate_pricing_assessments`, `landed_cost_estimates` |
+| Landed cost | per candidate-quote scenario | `candidate_quote_scenario` | `candidate_pricing_assessments`, `landed_cost_estimates` (+ `maintenance_period_estimates` for goods-led mixed work). Goods-led extension: installation-labour estimation runs after FX and before decision synthesis; labour + permits sum into `economic_landed_cost_gbp_pence`; the Phase-2 goods-dominance gate (`GOODS_DOMINANCE_FLOOR_BPS`) runs here and the goods-only subtotal `goods_landed_cost_gbp_pence` must stay reconstructable for the ratio |
 | Net margin gate | per candidate | `candidate` | `landed_cost_estimates`, `pipeline_assessments` rollup inputs |
 | Manifest | per process | `process` | `pipeline_assessments`, `manifests` |
 | Operator decision | per process | `process` | `pending_operator_intents` first, `operator_decision_heads` once Layer 4 activates remote authority |

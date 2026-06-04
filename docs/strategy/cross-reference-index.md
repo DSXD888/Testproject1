@@ -4,9 +4,11 @@
 >
 > **Normative planning docs:** `layer-strategy.md` + 7 per-layer docs in `layers/`. **Navigation aids (no planning authority):** this index + `README.md`.
 
-## Implementation Status Snapshot (2026-05-02)
+## Implementation Status Snapshot (2026-05-02; goods-led labour-cost rows added 2026-06-04)
 
 Entries in this index that point at L1-L3 strategy sections describe **built** code unless their layer doc says otherwise in an inline status callout. Use the implementation references below before treating historical strategy prose as future work.
+
+> **Updated 2026-06-04:** topic rows for the goods-led install/maintenance + UK installation-labour cost extension (shipped 2026-06-04, schema epoch 10) were added — see "Installation-labour cost engine", "Goods value-share & dominance floor", "Goods-led mixed qualification", "MaintenancePeriodEstimate", and the labour-skills rows below.
 
 | Layer / Topic | Strategy Entry | Impl |
 |---------------|----------------|------|
@@ -30,7 +32,8 @@ Entries in this index that point at L1-L3 strategy sections describe **built** c
 
 | Topic | File | Section |
 |-------|------|---------|
-| Full SQLite DDL (49 tables, all columns from creation) | `layers/layer-0-gold-set-evaluation.md` | §2 |
+| Full SQLite DDL (49 tables + `maintenance_period_estimates` added at epoch 10 = 50) | `layers/layer-0-gold-set-evaluation.md` | §2 |
+| Goods-led labour/permit columns + `maintenance_period_estimates` (epoch 10, `migrations/0014`) | `layers/layer-0-gold-set-evaluation.md`, `layer-strategy.md` | §2.2.1, §2.5.2; §9 matrix |
 | Evaluation tables (gold_set_cases, evaluation_runs, evaluation_case_results, evaluation_metric_summaries) | `layers/layer-0-gold-set-evaluation.md` | §2 (§2.5.12) |
 | Cross-authority FK discipline (rule 15) | `layers/layer-0-gold-set-evaluation.md` | §2 (§2.2) |
 | Rounding policy and BPS constraint families (rules 17-18) | `layers/layer-0-gold-set-evaluation.md` | §2 (§2.2) |
@@ -143,7 +146,7 @@ Entries in this index that point at L1-L3 strategy sections describe **built** c
 | Outcome classes (6 standard) | `layers/layer-3-operational-hardening.md` | §2 (§2.5) |
 | Initial calibration (L3) | `layers/layer-3-operational-hardening.md` | §2 (§2.9) |
 | Validation enforcement mode (L4 transition) | `layers/layer-4-shared-visibility.md` | §3 (§3.4) |
-| Domain-specific validator overlays (4) | `layers/layer-4-shared-visibility.md` | §3 (§3.5) |
+| Domain-specific validator overlays (4 at L4; +`overlay-labour-cost` added by L5) | `layers/layer-4-shared-visibility.md`, `layers/layer-5-expanded-commercial-intelligence.md` | §3 (§3.5); `L5-FR-1.15.3` |
 | Formal calibration harness (3 corpora, mutation bank) | `layers/layer-4-shared-visibility.md` | §3 (§3.6) |
 
 ### Customs & Landed Cost
@@ -166,6 +169,13 @@ Entries in this index that point at L1-L3 strategy sections describe **built** c
 | Full freight engine (Freightos + SeaRates CDP skills) | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-2.2.1`-`L5-FR-2.2.4` |
 | Customs error types (10 domain-specific requirements; 9 new enum variants + existing `FPO_ACCESS_UNAVAILABLE`) | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-3.5.1`-`L5-FR-3.5.10` |
 | Evidence-tiered accuracy (gold/silver/bronze) | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-3.4.1`-`L5-FR-3.4.3` |
+| Installation-labour cost engine (goods-led mixed work) | `layers/layer-5-expanded-commercial-intelligence.md`, `layers/layer-0-gold-set-evaluation.md` | `L5-FR-1.17.*` (§1.17); L0 §3.11.4 |
+| Goods value-share & dominance floor (`GOODS_DOMINANCE_FLOOR_BPS`=6000, `GOODS_PRESENCE_FLOOR_BPS`=3500) | `layers/layer-5-expanded-commercial-intelligence.md`, `layers/layer-0-gold-set-evaluation.md` | `L5-FR-1.17.1`-`L5-FR-1.17.2`; L0 §1.6, §3.4, §3.11.4 |
+| Goods-led mixed qualification (two-phase, `goods_led_mixed` verdict, no-list/bespoke flags) | `layers/layer-0-gold-set-evaluation.md` | §3.4 |
+| Permits & traffic management / `permit_responsibility` | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-1.17.4` |
+| `MaintenancePeriodEstimate` (annualised per-period; not capitalised into dominance) | `layers/layer-5-expanded-commercial-intelligence.md`, `layers/layer-0-gold-set-evaluation.md` | `L5-FR-1.17.5`; L0 §2.5.2 DDL |
+| Labour skills (worker `landed-cost/uk-installation-labour-estimate` + `validation/overlay-labour-cost` + `source-health/uk-installation-labour-rate-refresh` candidate-stage) | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-1.15.3` |
+| Labour warning codes (skill-level, NOT daemon ErrorCode) | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-1.17.6` |
 | Multi-family expansion tractability (local cache, shortlist, scenarioing) | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-1.5.3`, `L5-FR-1.5.4` |
 | Classification freshness (4 vectors: structure, measures, remedies, FX) | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-1.11.1` |
 | Unlockable margin and evidence leverage | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-1.12.2` |

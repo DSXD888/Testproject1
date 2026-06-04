@@ -9,6 +9,8 @@
 > **Implementation Status (as of 2026-05-02):** Layer 4 is **PLANNED — not yet built**. No production sync engine, read-only web portal, shared Supabase authority, or validation-enforcement code exists for this layer. This doc remains a planned execution-grade specification and intentionally has no inline implementation markers.
 
 > **3-SOT Validation (2026-05-06):** Validated for downstream TDD, bead creation, and completion-audit coverage. Requirement IDs use `L4-FR-{section}.{subsection}.{item}` and acceptance criteria are listed under the requirements they verify.
+>
+> **Updated 2026-06-04 — goods-led labour-cost harmonization.** Forward notes added to §1.7 (Schema Epoch Guard), §3.5 (validator overlays), and the §5.2/§5.3 epoch stubs to reflect that the schema epoch has since advanced to **10** (goods-led labour migration `migrations/0014` + Supabase projection `0010`), and that the L5 `overlay-labour-cost` overlay joins the four L4 domain overlays. L4 itself did not add labour fields; these are forward pointers only.
 
 ---
 
@@ -286,6 +288,8 @@ On lease acquisition, increment `writer_epoch`. Every `apply_push_batch` must in
 - Prevents schema-mismatched data from corrupting the remote projection
 
 Current daemon grounding: `crates/daemon/src/db/sqlite.rs::open_state_db(path, schema_epoch)` threads the expected epoch into `StateDbConfig`, applies eligible migrations, and persists the resulting value in `PRAGMA user_version`. L4 extends that existing path rather than introducing a second local epoch source. The L4 SQLite migration `migrations/0012_l4_sync_state.sql` is registered in the `MIGRATIONS` list at the next schema epoch after the current repo epoch (`DEFAULT_SCHEMA_EPOCH = 8` before L4), and push code reads the active epoch from `StateDb::schema_epoch()`/`PRAGMA user_version` when constructing outbox and batch envelopes.
+
+> **Forward note (2026-06-04):** The epoch has advanced since L4. The **current schema epoch is 10**, last bumped by the L5 commercial-intelligence work and the goods-led installation-labour migration `migrations/0014_installation_labour_fields.sql`. The labour/permit columns and the `maintenance_period_estimates` table are projected to Supabase by `infra/supabase/migrations/0010_installation_labour_projection.sql`, which sets `schema_metadata` epoch to 10. The "epoch 8 before L4" baseline above describes the pre-L4 state only — L4 itself did not add labour fields. `crates/daemon/src/db/sqlite.rs` `DEFAULT_SCHEMA_EPOCH`, `apps/desktop/src-tauri/src/main.rs` `EXPECTED_SCHEMA_EPOCH`, `daemon_bridge.rs`, `query_service.rs`, and Supabase `schema_metadata` are all reconciled at 10 (the 0014 migration also closed the prior desktop/daemon epoch-coupling lag).
 
 **L4-FR-1.7.1 — Schema epoch mismatch pauses sync without stopping local operation**
 - AC1: Every push batch includes `schema_epoch`.
@@ -916,9 +920,9 @@ Demotion is automatic and immediate. Re-promotion requires meeting calibration t
 - AC5: Metrics and tests can query `enforcement_readiness` directly to verify promotion, demotion, and re-promotion behavior.
 - AC6: `enforcement_readiness` stores the active demotion threshold config snapshot used for the latest decision, so later audits can explain why enforcement was enabled or demoted.
 
-### 3.5 Domain-Specific Validator Overlays (4 skills)
+### 3.5 Domain-Specific Validator Overlays (4 skills at L4; +1 added by L5)
 
-Layer 3 deploys the base validator (generic semantic quality). Layer 4 adds domain-specific overlays that check business rules unique to each skill family.
+Layer 3 deploys the base validator (generic semantic quality). Layer 4 adds the four domain-specific overlays below that check business rules unique to each skill family. (The goods-led labour-cost extension later added a fifth overlay, `overlay-labour-cost`, listed under "Later additions".)
 
 | ID | Overlay | Directory | Domain Checks |
 |----|---------|-----------|--------------|
@@ -926,6 +930,12 @@ Layer 3 deploys the base validator (generic semantic quality). Layer 4 adds doma
 | L4-FR-3.5.2 | **Supplier enrichment** | `skills/validation/overlay-supplier-enrichment/` | Price plausibility (too high/low for category), currency correctness, pack basis consistency, seller diversity, listing freshness, compliance evidence completeness for regulated goods |
 | L4-FR-3.5.3 | **Document acquisition** | `skills/validation/overlay-document-acquisition/` | Document type identification correctness, download completeness, content-type verification, file size plausibility, document set hash consistency |
 | L4-FR-3.5.4 | **Product extraction** | `skills/validation/overlay-product-extraction/` | Candidate type plausibility for CPV family, archetype assignment consistency, slot completeness for archetype, quantity/unit plausibility, bundle decomposition correctness |
+
+**Later additions (not L4):**
+
+| Added by | Overlay | Directory | Domain Checks |
+|----------|---------|-----------|--------------|
+| L5 (goods-led extension, 2026-06-04) | **Installation-labour cost** | `skills/validation/overlay-labour-cost/` | Labour-estimate sanity: rate-band plausibility against the curated reference tables, scope/region consistency, conservative-default usage (e.g. unknown permit responsibility → high band), and goods value-share basis coherence. See L5 §1.17. |
 
 Each overlay follows the skill directory standard: `SKILL.md` + `result.schema.json` + `checkpoint.schema.json` + `canary.inputs.jsonl` + `golden.assertions.yaml` + `validator-rubric.yaml`.
 
@@ -1160,7 +1170,7 @@ CREATE TABLE viewer_sync_status (
 
 | Feature | L4 Stub | Full Implementation |
 |---------|---------|-------------------|
-| Schema epoch transitions | Initial epoch only (no transitions needed) | Future: expand/drain/upgrade/contract protocol |
+| Schema epoch transitions | No expand/drain/upgrade/contract *protocol* yet. Additive epoch bumps have since occurred — **current epoch is 10** (last bumped by the goods-led labour migration `migrations/0014`; see §1.7 forward note) — handled by the existing PRAGMA-backed guard | Future: expand/drain/upgrade/contract protocol |
 | Multi-org | Single org hardcoded | Future: org_id scoping on all tables |
 | Epoch-repair reproject | Minimum path: after epoch repair, mark `projection_generation`, republish current row images from local tables, discard stale-epoch outbox entries after successful reseed | Future: full generation-based rebuild with anti-entropy |
 | Logical consistency auditor | Not implemented | Future: domain invariant checking with conditional auto-repair |
@@ -1178,7 +1188,7 @@ CREATE TABLE viewer_sync_status (
 
 | Provision | What Exists in L4 | Target Layer |
 |-----------|-------------------|-------------|
-| schema_epoch on every batch | Initial epoch; sync pauses on mismatch | Future schema evolution protocol |
+| schema_epoch on every batch | Per-batch epoch present, sync pauses on mismatch; epoch has since advanced to 10 via additive migrations (see §1.7 forward note) | Future schema evolution protocol |
 | RLS roles designed for multi-org | viewer/operator/admin/daemon roles | Future: org_id column for multi-tenancy |
 | Projection tables | Denormalized push-owned mirrors | Future: materialized views for complex queries |
 
