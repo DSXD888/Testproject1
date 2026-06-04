@@ -1,0 +1,39 @@
+feature: goods-led-install-maintenance
+status: complete
+completed: "2026-06-04"
+
+# ============================================================================
+# Sources of Truth (authoritative — beads embed spec + TDD verbatim)
+# ============================================================================
+spec: docs/pipeline/goods-led-install-maintenance/artifacts/goods-led-install-maintenance-spec.md
+tdd: docs/pipeline/goods-led-install-maintenance/artifacts/goods-led-install-maintenance-tdd.md
+strategy: docs/pipeline/goods-led-install-maintenance/artifacts/goods-led-install-maintenance-strategy.md
+architecture: docs/pipeline/goods-led-install-maintenance/artifacts/goods-led-install-maintenance-architecture.md
+bootstrap: docs/pipeline/goods-led-install-maintenance/artifacts/goods-led-install-maintenance-bootstrap.md
+completion_audit: docs/pipeline/goods-led-install-maintenance/artifacts/goods-led-install-maintenance-completion-audit-2026-06-03.md
+
+# ============================================================================
+# Implementation summary
+# ============================================================================
+implementation_epic: "testproject1-qoa5"
+bead_label: goods-led-install
+total_beads: 85          # 1 root epic + 8 phase sub-epics + 76 task beads
+fix_beads: 2             # testproject1-qoa5.9 (FR-L.6 labour_line_item contract), testproject1-qoa5.10 (FR-R.2-c domestic net-margin bands)
+research_spike_beads: 3  # testproject1-qoa5.8.1 / .8.3 / .8.5 (Tier-B, research/design output committed)
+audit_iterations: 1      # completion audit 2026-06-03: 2 Tier-A gaps -> 2 fix beads -> both closed & verified
+schema_epoch: 10
+
+# ============================================================================
+# Verification (all green at archive, 2026-06-04)
+# ============================================================================
+gates:
+  beads: "87 closed under label (85 impl + 2 fix); 0 open, 0 in_progress"
+  completion_audit: "SUBSTANTIALLY COMPLETE -> 100% accounted-for; both fix beads closed"
+  stage_gate: "green — fmt/check/clippy + cargo test -p daemon --bin daemon + all integration targets + bun test (274 pass / 0 fail)"
+  scenario_1_nw_band: "installation_labour_engine.rs hard-assert passes (40 tests)"
+  schema_epoch: "10 consistent across 4 constants + Supabase migration 0010_installation_labour_projection"
+
+# ============================================================================
+# Archive
+# ============================================================================
+archived_to: docs/pipeline/goods-led-install-maintenance/archived/2026-06-04-goods-led-install-maintenance/
