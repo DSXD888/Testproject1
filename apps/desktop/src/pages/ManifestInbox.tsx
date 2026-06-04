@@ -174,10 +174,24 @@ export function ManifestInbox({
     setState({ status: 'loading' });
     const promise = loader
       ? loader()
-      : (invoke('list_manifests') as Promise<QueryEnvelope<ManifestInboxRow[]>>);
+      : (invoke('list_manifests') as Promise<
+          QueryEnvelope<ManifestInboxRow[]> | Record<string, unknown>
+        >);
     promise
-      .then((envelope) => {
+      .then((response) => {
         if (cancelled) return;
+        // The desktop bridge resolves (never rejects) command failures as an
+        // error-shaped envelope `{ code, message, ... }` with no `data` field.
+        // Treat anything lacking `data` as an error rather than trusting the shape.
+        if (!response || typeof response !== 'object' || !('data' in response)) {
+          const bridge = parseBridgeError(response);
+          setState({
+            status: 'error',
+            message: bridge?.message ?? 'Failed to load manifests',
+          });
+          return;
+        }
+        const envelope = response as QueryEnvelope<ManifestInboxRow[]>;
         setState({
           status: 'ready',
           rows: envelope.data,
