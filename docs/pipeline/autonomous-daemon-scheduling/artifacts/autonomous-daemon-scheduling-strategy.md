@@ -44,7 +44,7 @@
 | 0 | Foundations, Q1, Clock Seam, And Live-Loop Refactor | Spec/TDD accepted, decisions ready to record | decision, harness, refactor regression | 12 |
 | 1 | Scheduler Tick And Registry Reload | Phase 0 harness and route surface | `tick_001..007`, M1 enqueue path | 10 |
 | 2 | Worker Pump And Cron Kind Routing | Phase 0 refactor, Phase 1 tick body | `worker_001..005`, M1 drain path, M4 ingestion path | 14 |
-| 3 | Commercial Sweep Autonomy | Phases 1-2 | 07:00 cron slot, M2, commercial side effects | 9 |
+| 3 | Commercial Sweep Autonomy | Phases 1-2 | 07:00 cron slot, M2, commercial side effects | 11 |
 | 4 | ProContract Awaiting-Access Resumption | Phases 1-2; Phase 0 ProContract body extraction | M3 lifecycle, Q4 schema branch, skill contract | 13 |
 | 5 | Concurrency Hardening And E2E Soak | Phases 1-4 writer surfaces | M5, R1-R8, full Rust gate | 10 |
 | 6 | Desktop Status Surfacing Decision Branch | Phases 1-5 state surfaces | `desktop_status_001` when selected, recorded branch otherwise | 6 |
@@ -93,6 +93,18 @@
 
 No consumer above depends on a surface created in a later phase.
 
+## Code Foothold Audit
+
+| Phase | First Task Anchor | Current Code Foothold |
+|-------|-------------------|-----------------------|
+| 0 | Q1 runtime and live-loop extraction | `crates/daemon/src/main.rs:20096`, `19171`, `19382`, `19481`, `19627`; `SyncLeaseHeartbeat::spawn` precedent at `main.rs:3260` |
+| 1 | scheduler thread and startup fold | `SyncLeaseHeartbeat::spawn` at `main.rs:3260`; `build_cron_status_snapshot` at `main.rs:3890`; cron scheduler tests already exist |
+| 2 | lane-filtered claim and route table | `claim_next_job` at `crates/daemon/src/jobs/claim.rs:72`; ordering at `claim.rs:176`; `run_next_workflow_job` at `main.rs:1703`; arbiter denial variants in `agents/arbiter.rs:82` |
+| 3 | in-process commercial body | `run_deterministic_pipeline` at `main.rs:23323`; commercial live loops at `main.rs:10532`, `12345`, and `15043` |
+| 4 | ProContract lifecycle and work-list | ProContract live loops at `main.rs:19382`, `19481`, `19627`; candidate guard at `main.rs:15371`; schema epoch at `db/sqlite.rs:89` |
+| 5 | writer and lease soak | WAL/busy timeout at `db/sqlite.rs:215` and `218`; claim leases in `jobs/claim.rs`; arbiter in `agents/arbiter.rs:152` |
+| 6 | read-only status surfacing | `build_cron_status_snapshot` at `main.rs:3890`; desktop schema/bridge constants in `apps/desktop/src-tauri` |
+
 ## Suggested Bead Fan-Out
 
 | Phase | Task Beads | Epic / Review Beads |
@@ -100,22 +112,26 @@ No consumer above depends on a surface created in a later phase.
 | 0 | 12 | 1 |
 | 1 | 10 | 1 |
 | 2 | 14 | 1 |
-| 3 | 9 | 1 |
+| 3 | 11 | 1 |
 | 4 | 13 | 1 |
 | 5 | 10 | 1 |
 | 6 | 6 | 1 |
 
-Expected total: `74` task beads plus `7` phase sub-epic/review beads.
+Expected total: `76` task beads plus `7` phase sub-epic/review beads.
 
-Recommended phase sub-epics:
+## Phase Balance Audit
 
-- `ads-p0-foundations-q1-clock-refactor`
-- `ads-p1-scheduler-tick-registry-reload`
-- `ads-p2-worker-pump-kind-routing`
-- `ads-p3-commercial-sweep-autonomy`
-- `ads-p4-procontract-awaiting-access`
-- `ads-p5-concurrency-e2e-soak`
-- `ads-p6-desktop-status-decision-branch`
+| Phase | Primary Requirements | Manifest Surface Items | Target Beads | Balance Check |
+|-------|----------------------|------------------------|--------------|---------------|
+| 0 | 6 | 9 | 12 | Foundation carries Q1, clock seam, one-shot harness, and source refactor |
+| 1 | 5 | 5 | 10 | Scheduler tick is full-depth but narrower than worker and G4 |
+| 2 | 6 | 12 | 14 | Worker owns lanes, admission, all cron-kind executors, Q6, and E1 |
+| 3 | 5 | 7 | 11 | G6 is not thin: cron slot, route, body, rerun coexistence, Q8, M2 |
+| 4 | 5 | 7 | 13 | G4 is not thin: Q4/Q5, 5-state lifecycle, net-new M3 suite, skill contract |
+| 5 | 5 | 5 | 10 | G5 waits for all writers and then owns R1-R8 plus full gate |
+| 6 | 1 | 1 | 6 | Q7 is a bounded read-only surfacing branch with daemon/Rust/React gates |
+
+Later phases are not lesser phases. Phase 3 and Phase 4 both carry full implementation gates and bead fan-out at or above the scheduler-tick phase.
 
 ## Phase Bead Routing Batches
 
@@ -567,21 +583,21 @@ Rows are routing labels, not miniature specifications. Beads in the same paralle
 | `CI-ADS-001..005` | 0 through 5 | Rust quality gate for touched Rust phases |
 | `CI-ADS-006` | 6 | Q7-selected desktop gate |
 
-## Test File Phase Homes
+## Test File Status
 
-| Test File Or Evidence | First Home | Closure Phase |
-|-----------------------|------------|---------------|
-| `crates/daemon/tests/scheduler_tick.rs` | 0 | 1 |
-| `crates/daemon/tests/worker_pump.rs` | 2 | 5 |
-| `crates/daemon/tests/procontract_resumption.rs` | 4 | 5 |
-| `crates/daemon/tests/cron_scheduler.rs` impacts | 3 | 3 |
-| `crates/daemon/tests/job_claim.rs` impacts | 1 + 2 | 5 |
-| `crates/daemon/tests/agent_procurement_ingestion.rs` | 0 | 5 |
-| `crates/daemon/tests/agent_contracts_finder_ingestion.rs` | 0 | 5 |
-| `crates/daemon/tests/sqlite_schema.rs` Q4 branch | 4 | 5 |
-| `skills/procurement-ingestion/procontract-enrich-tender/` contract | 4 | 5 |
-| Desktop/IPC `trigger_ingestion` modeled tests | 2 | 5 |
-| Desktop status surfacing tests | 6 | 6 |
+| Test File Or Evidence | Status | Phase Home |
+|-----------------------|--------|------------|
+| `crates/daemon/tests/scheduler_tick.rs` | net-new | 1 |
+| `crates/daemon/tests/worker_pump.rs` | net-new | 2 |
+| `crates/daemon/tests/procontract_resumption.rs` | net-new | 4 |
+| `crates/daemon/tests/cron_scheduler.rs` impacts | existing, extend | 3 |
+| `crates/daemon/tests/job_claim.rs` impacts | existing, extend | 2 |
+| `crates/daemon/tests/agent_procurement_ingestion.rs` | existing, preserve | 0 |
+| `crates/daemon/tests/agent_contracts_finder_ingestion.rs` | existing, preserve/extend | 0 |
+| `crates/daemon/tests/sqlite_schema.rs` Q4 branch | existing, conditional extend | 4 |
+| `skills/procurement-ingestion/procontract-enrich-tender/` contract | existing, extend | 4 |
+| Desktop/IPC `trigger_ingestion` modeled tests | modeled from existing IPC tests | 2 |
+| Desktop status surfacing tests | Q7-gated | 6 |
 
 ## Literal TDD ID Routing
 
@@ -744,11 +760,77 @@ All writer surfaces -> M5 -> desktop read-only status branch
 | 5 | M5; lease tests; R1-R8 proof; guard scope IDs; `CI-ADS-001..005` full loop | WAL assumptions fail without escalation, same-source overlap occurs, or bin-only tests hide failures |
 | 6 | Q7 decision; `desktop_status_001`; `CI-ADS-006` when rendered UI selected | desktop status mutates state, needs missing upstream fields, or Q7 is not recorded first |
 
+## Feature Surface Routing
+
+Every manifest `feature_surface` item has exactly one phase home below. Compound manifest bullets are split into route atoms only where a single bullet names multiple concrete surfaces.
+
+| ID | Manifest Item | Phase Home |
+|----|---------------|------------|
+| S1 | scheduler background thread | 1 |
+| S2 | build scheduler and seed history once | 1 |
+| S3 | per-tick dispatch, enqueue, and `record_enqueued` | 1 |
+| S4 | clock-injection seam | 0 |
+| S5 | one-shot autonomous entrypoint | 0 |
+| S6 | Q9 registry reload trigger | 1 |
+| S7 | fold startup enqueue into tick path | 1 |
+| S8 | sleep/wake catch-up | 1 |
+| S9 | tick thread separate from worker | 1 |
+| W1 | continuous worker claim/route/execute loop | 2 |
+| W2 | two worker lanes by job class | 2 |
+| W3 | worker idle backoff | 2 |
+| W4 | ResourceArbiter quota respect | 2 |
+| W5 | defer-on-denial backoff | 2 |
+| W6 | local execution independent of remote writer lease | 2 |
+| R1 | source body extraction | 0 |
+| R2 | thin `--ingest` wrappers | 0 |
+| R3 | `(source_id, skill_id)` source routing | 0 |
+| R4 | execution-time parameter derivation | 0 |
+| R5 | commercial stages excluded from `sync_source` routing | 0 |
+| H1 | `source_health` handler | 2 |
+| H2 | `auth_refresh` handler | 2 |
+| H3 | `validation_cross_model_audit` handler | 2 |
+| H4 | `validation_calibration_readiness_sweep` handler | 2 |
+| H5 | route table covers all cron kinds | 2 |
+| C1 | `commercial_sweep` cron kind and 07:00 slot | 3 |
+| C2 | coverage-driven commercial body | 3 |
+| C3 | net-gate pure DB plus skill-backed sub-pass shape | 3 |
+| C4 | manual rerun reconciliation | 3 |
+| C5 | in-process coverage lane execution | 3 |
+| C6 | commercial two-layer dedup | 3 |
+| C7 | Q8-residual chained nudge branch | 3 |
+| P1 | Q4 awaiting-access model | 4 |
+| P2 | create row on register-interest success | 4 |
+| P3 | create/keep/clear/backfill/expire lifecycle | 4 |
+| P4 | observation count separate from job attempts | 4 |
+| P5 | daemon-tracked enrich sweep | 4 |
+| P6 | ProContract enrich skill contract change | 4 |
+| P7 | Q5 staleness expiry | 4 |
+| K1 | Q1 worker execution context | 0 |
+| K2 | WAL single-writer discipline | 5 |
+| K3 | same-source serialization | 5 |
+| K4 | single-writer actor escalation path | 5 |
+| K5 | sleep/wake claim and lease interaction | 5 |
+| U1 | Q7 desktop status surfacing branch | 6 |
+| T1 | new `scheduler_tick.rs` suite | 1 |
+| T2 | new `worker_pump.rs` suite | 2 |
+| T3 | new `procontract_resumption.rs` suite | 4 |
+| T4 | M1 end-to-end autonomy | 2 |
+| T5 | M2 commercial autonomy | 3 |
+| T6 | M3 ProContract lifecycle | 4 |
+| T7 | M4 manual path and live buttons | 3 |
+| T8 | M5 concurrency soak | 5 |
+| T9 | `cron_scheduler.rs` existing-test impacts | 3 |
+| T10 | `job_claim.rs` existing-test impacts | 2 |
+| T11 | ingestion regression existing-test impacts | 0 |
+| T12 | Q4 schema migration branch tests | 4 |
+
 ## Scope-Preservation Check
 
 - Enumerated source set: `33` functional/runtime requirement IDs plus `5` guardrail non-goal IDs.
 - Requirement routing contains all `33 / 33` functional/runtime IDs with exactly one primary phase home.
 - Guardrail routing contains all `5 / 5` IDs with explicit enforcement homes.
+- Manifest `feature_surface` routing contains every route atom from scheduler, worker, refactor, handler, commercial, ProContract, concurrency, desktop, and test surfaces.
+- Operator-gated items are named in phase homes: Q6 in Phase 2, Q7 in Phase 6, Q8-residual in Phase 3, and E1/enrich-process routing in Phase 2.
 - G4 depth check: Phase 4 owns schema branch, lifecycle, work-list sweep, skill contract, expiry, M3, and skill canaries.
 - G6 depth check: Phase 3 owns cron definition, scheduler impacts, coverage body, rerun coexistence, Q8 branch, and M2.
 - G5 depth check: Phase 5 owns full WAL/lane/lease/IPC writer soak, R1-R8 closure, and full Rust gate.
