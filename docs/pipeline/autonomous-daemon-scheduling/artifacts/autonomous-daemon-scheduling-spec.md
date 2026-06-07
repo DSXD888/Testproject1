@@ -134,6 +134,19 @@ These are not scope cuts. The feature still ships the underlying capability. Eac
 
 **Core Tests:** `scheduler_tick.rs` `tick_003_long_gap_catchup`; E2E M1.
 
+#### FR-G1.6 Overdue-First Drain Contract
+
+**Requirement:** A missed or overdue scheduled slot must be claimed before newer unscheduled manual work in the same worker lane.
+
+**Acceptance Criteria:**
+
+- `AC-FR-G1.6-a`: Cron enqueue preserves `scheduled_for` on the workflow job row.
+- `AC-FR-G1.6-b`: Worker lane claim ordering preserves the existing SQL contract `ORDER BY COALESCE(scheduled_for, created_at), created_at`.
+- `AC-FR-G1.6-c`: An overdue scheduled job with an older `scheduled_for` is claimed before a newer manual/unscheduled job in the same lane.
+- `AC-FR-G1.6-d`: The one-shot scheduler entrypoint drains overdue scheduled work through the same claim ordering as the always-on worker; it does not claim manually by job ID except where existing `--ingest` wrappers do so.
+
+**Core Tests:** existing `job_claim.rs` ordering regression plus `scheduler_tick.rs` catch-up assertions and E2E M1.
+
 ### 2.2 G2 - Continuous Worker Pump And Cron Kind Routing
 
 #### FR-G2.1 Two-Lane Worker Pump
@@ -163,6 +176,8 @@ These are not scope cuts. The feature still ships the underlying capability. Eac
 - `AC-FR-G2.2-d`: Denied admission clears any job lease and holds no resource lease.
 - `AC-FR-G2.2-e`: Denied admission applies denial backoff. Recommended model: in-memory per-lane cool-down keyed by denial class and source/kind to avoid a schema change.
 - `AC-FR-G2.2-f`: Denial handling does not reuse failure retry machinery. A denial is not an attempt.
+- `AC-FR-G2.2-g`: The worker handles every current `DenialReason` variant explicitly: `BrowserSlotsExhausted { limit, in_use }`, `AgentSlotsExhausted { limit, in_use }`, `SourceLaneExhausted { source_id, limit, in_use }`, and `SkillConcurrencyCapReached { key, limit, in_use }`.
+- `AC-FR-G2.2-h`: `worker_002_defer_on_denial_no_attempt_bump` must force `BrowserSlotsExhausted`; `worker_003_source_lane_serializes_same_source` must force `SourceLaneExhausted { source_id, limit: 1, in_use: 1 }`.
 
 **Core Tests:** `worker_pump.rs` `worker_002_defer_on_denial_no_attempt_bump`; `worker_003_source_lane_serializes_same_source`.
 
@@ -179,6 +194,9 @@ These are not scope cuts. The feature still ships the underlying capability. Eac
 - `AC-FR-G2.3-e`: `validation_calibration_readiness_sweep` has a new handler that persists readiness summary evidence.
 - `AC-FR-G2.3-f`: `commercial_sweep` has the G6 handler and side effects.
 - `AC-FR-G2.3-g`: Empty handlers that only mark jobs completed do not satisfy this requirement. Each handler test must assert a real side-effect row.
+- `AC-FR-G2.3-h`: The current `run_next_workflow_job` match at `crates/daemon/src/main.rs:1703-1727` has exactly three supported arms: `extract_document_structure`, `extract_document_semantics`, and `run_bid_workflow`; implementation must extend the shared route table beyond those three arms.
+- `AC-FR-G2.3-i`: `source_health`, `auth_refresh`, `validation_cross_model_audit`, and `validation_calibration_readiness_sweep` have no executor today. They require net-new handlers, not simple wiring to an existing `run_next_workflow_job` arm.
+- `AC-FR-G2.3-j`: `sync_source` is the cron kind that reuses refactored live-loop logic; `commercial_sweep` is a new coverage handler; neither may be satisfied by the unsupported-kind failure path.
 
 **Core Tests:** `worker_pump.rs` `worker_001_routes_each_cron_kind`.
 
@@ -339,6 +357,8 @@ These are not scope cuts. The feature still ships the underlying capability. Eac
 - `AC-FR-G4.1-d`: State-string path does not bump the schema epoch but must widen the re-registration guard so `awaiting_access` counts as already registered.
 - `AC-FR-G4.1-e`: In all paths, `process_stage_status` for `stage='interest_registration'` remains `state='completed'`, `state='succeeded'`, or another existing completed terminal state after successful register-interest.
 - `AC-FR-G4.1-f`: Register-interest must not re-express interest on an item already tracked as awaiting access.
+- `AC-FR-G4.1-g`: Flipping `interest_registration.state` to `awaiting_access` is a blocking correctness failure because `load_procontract_interest_candidates` currently excludes only `completed`, `succeeded`, and `skipped`.
+- `AC-FR-G4.1-h`: If Q4 selects the state-string option, the same implementation must widen `load_procontract_interest_candidates` so an `awaiting_access` marker still excludes the notice from register-interest candidates.
 
 **Core Tests:** `procontract_resumption.rs` M3 step 1; `sqlite_schema.rs` conditional migration test.
 
@@ -507,7 +527,7 @@ These are not scope cuts. The feature still ships the underlying capability. Eac
 
 | ID | Story | Mapped Requirements |
 |---|---|---|
-| US-1 | As the operator, I want the daemon to fire schedules while it stays open so morning procurement runs do not depend on restart habits. | FR-G1.1-FR-G1.5 |
+| US-1 | As the operator, I want the daemon to fire schedules while it stays open so morning procurement runs do not depend on restart habits. | FR-G1.1-FR-G1.6 |
 | US-2 | As the operator, I want scheduled jobs to execute automatically so queued source and validation work does not become an orphaned backlog. | FR-G2.1-FR-G2.4, FR-RT.1-FR-RT.4 |
 | US-3 | As the operator, I want existing manual commands and desktop controls to keep working while autonomy is added. | FR-G3.1-FR-G3.5 |
 | US-4 | As the operator, I want ProContract awaiting-access tenders to resume even after several days of portal delay. | FR-G4.1-FR-G4.4 |
@@ -555,7 +575,7 @@ All tests use real SQLite state and the real daemon binary where the flow demand
 
 | Goal | Correct Proof | Regression Shape | Gate |
 |---|---|---|---|
-| G1 | M1 plus `scheduler_tick.rs` `tick_001`, `tick_003`, `tick_004`. | Due slot never enqueues without restart; no tick thread; inline wall-clock-only test path. | Full Rust stage gate, including per-file integration loop. |
+| G1 | M1 plus `scheduler_tick.rs` `tick_001`, `tick_003`, `tick_004` and the `job_claim.rs` overdue-first ordering assertion. | Due slot never enqueues without restart; no tick thread; inline wall-clock-only test path; overdue slot waits behind newer manual work. | Full Rust stage gate, including per-file integration loop. |
 | G2 | `worker_pump.rs` `worker_001` proves every cron kind has side effects and never hits unsupported-kind fail. | Any cron kind reaches `other => fail_job`; empty handler only flips status. | Full Rust stage gate. |
 | G3 | M4 proves `--ingest`, `--run-next-job`, `trigger_pipeline_rerun`, and `trigger_ingestion` behavior. | Desktop ingestion job remains pending; manual CLI paths break after refactor. | Rust integration loop; desktop gates if Q7/E1 touches desktop. |
 | G4 | M3 full lifecycle and schema test conditional on Q4. | Enrich misses aged-out item; register-interest re-expresses interest; expiry uses RFx response deadline. | Full Rust integration loop plus skill lint/schema checks. |
