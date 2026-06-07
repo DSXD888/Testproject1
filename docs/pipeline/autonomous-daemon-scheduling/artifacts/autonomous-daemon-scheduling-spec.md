@@ -93,6 +93,9 @@ These are not scope cuts. The feature still ships the underlying capability. Eac
 - `AC-FR-G1.2-c`: Add `--run-scheduler-once --tick-now <rfc3339>`.
 - `AC-FR-G1.2-d`: The one-shot entrypoint evaluates schedules at the injected instant, enqueues due jobs, drains worker lanes to quiescence, and exits 0.
 - `AC-FR-G1.2-e`: A tick before a source's slot enqueues nothing; the same tick at or after the slot enqueues the expected row.
+- `AC-FR-G1.2-f`: The one-shot entrypoint is the primary M1/M2 harness shape because `RunHarness.run()` uses `Command::output()` and would block forever against a live `--serve` daemon.
+- `AC-FR-G1.2-g`: The implementation may add a spawn/poll/terminate serve harness for higher-fidelity tests, but M1/M2 correctness must not depend on wall-clock waiting against `--serve`.
+- `AC-FR-G1.2-h`: The one-shot drain uses the same route table, resource admission, defer-on-denial, and completion/failure paths as the always-on worker. It is not a separate test-only executor.
 
 **Core Tests:** `scheduler_tick.rs` `tick_004_clock_seam`; E2E M1/M2.
 
@@ -237,14 +240,17 @@ These are not scope cuts. The feature still ships the underlying capability. Eac
 - `AC-FR-RT.2-a`: FTS maps to the FTS body.
 - `AC-FR-RT.2-b`: Contracts Finder maps to the Contracts Finder body.
 - `AC-FR-RT.2-c`: ProContract discover, register-interest, and enrich are differentiated by skill binding even though their logical portal family is shared.
-- `AC-FR-RT.2-d`: Marketplace search loops that are `--ingest`-only remain executable manually but are not incorrectly treated as source cron production slots unless a schedule exists.
-- `AC-FR-RT.2-e`: Commercial stages are not routed through `sync_source`.
+- `AC-FR-RT.2-d`: The route lookup treats `(source_id, skill_id)` as the stable key even where today's built-in registry uses stage-specific source IDs (`procontract`, `procontract-interest`, `procontract-enrich`). A `source_id`-only route is forbidden because cron freezes the skill binding and future/alternate ProContract bindings may share a source ID.
+- `AC-FR-RT.2-e`: Marketplace search loops that are `--ingest`-only remain executable manually but are not incorrectly treated as source cron production slots unless a schedule exists.
+- `AC-FR-RT.2-f`: Commercial stages are not routed through `sync_source`.
 
 **Core Tests:** `worker_pump.rs` `worker_001_routes_each_cron_kind`; live-loop regression tests.
 
 #### FR-RT.3 Execution-Time Parameter Derivation
 
 **Requirement:** The shared source body must derive execution parameters at run time from daemon state because cron payloads carry schedule metadata, not CLI execution parameters.
+
+The table uses the current registry source IDs. The invariant is the `(source_id, skill_id)` tuple, not either column alone.
 
 | `source_id` / binding | Body to invoke | Parameters derived at execution time |
 |---|---|---|
@@ -411,6 +417,21 @@ These are not scope cuts. The feature still ships the underlying capability. Eac
 
 **Core Tests:** skill schema lint/canary; `procontract_resumption.rs`.
 
+#### FR-G4.5 Staleness And Expiry Sweep
+
+**Requirement:** Awaiting-access rows must have a bounded, testable staleness policy that removes dead work from the active enrich sweep without hiding audit evidence.
+
+**Acceptance Criteria:**
+
+- `AC-FR-G4.5-a`: Q5 operator decision is recorded before the expiry path is implemented.
+- `AC-FR-G4.5-b`: Recommended policy expires active rows when notice-level `deadline_at` is past if present, otherwise when `now - interest_registered_at > max_age`.
+- `AC-FR-G4.5-c`: The expiry path never uses RFx response deadline because that value is unknown before access is granted.
+- `AC-FR-G4.5-d`: Expired rows become terminal `state='expired'`, record `last_checked_at`, and carry an expiry reason such as `notice_deadline` or `max_age`.
+- `AC-FR-G4.5-e`: Expired rows are excluded from future `awaitingAccessTargets` but remain auditable and do not make register-interest eligible again.
+- `AC-FR-G4.5-f`: If Q7 status surfacing is selected, awaiting-access counts distinguish active awaiting rows from expired terminal rows.
+
+**Core Tests:** `procontract_resumption.rs` M3 step 4; conditional Q7 snapshot assertion when selected.
+
 ### 2.6 G5 - Concurrency Correctness
 
 #### FR-G5.1 StateDb Ownership And Thread Model
@@ -467,6 +488,23 @@ These are not scope cuts. The feature still ships the underlying capability. Eac
 
 **Core Tests:** M5 plus existing job-claim lease tests.
 
+#### FR-G5.5 R1-R8 Concurrency Invariant Map
+
+**Requirement:** The implementation and tests must preserve every concurrency invariant from the research contract.
+
+| Risk | Spec Contract | Proof |
+|---|---|---|
+| R1 write contention | Use short writes, WAL `busy_timeout=5000`, and escalate to a single-writer actor if M5 exposes permanent contention. | FR-G5.2, M5 counter/unique-row soak. |
+| R2 PTY starvation of tick | Scheduler tick is a separate thread from worker lanes. | FR-G1.1, M1/M5. |
+| R3 double dispatch | Startup enqueue is folded into tick and duplicate same-slot enqueue dedups through the cron idempotency key. | FR-G1.3, `tick_002`. |
+| R4 arbiter accounting | Worker admission uses the existing resource budgets and handles every `DenialReason`. | FR-G2.2, `worker_005`. |
+| R5 sleep/wake and leases | Host-sleep tainting, 300s claim lease, and retry recycle remain compatible with catch-up. | FR-G1.5, FR-G5.4, M5. |
+| R6 schema epoch coupling | Q4 table path bumps migration `0015_*` and every daemon/desktop epoch constant 10 -> 11; state-string path does not bump but widens the guard. | FR-G4.1, `sqlite_schema.rs` or re-fire guard test. |
+| R7 same-source overlap | `procurement_source_lanes=1` denies the second same-source procurement `sync_source`, which defers without running. | FR-G5.3, `worker_003`, M5. |
+| R8 heavy sweep writer pressure | Commercial sweep transactions are per-process scoped, not one giant transaction. | FR-G5.2, M5. |
+
+**Core Tests:** M5 plus the named subsystem tests in the Proof column.
+
 ### 2.7 G6 - Autonomous Commercial Sweep
 
 #### FR-G6.1 Commercial Sweep Cron Slot
@@ -478,7 +516,9 @@ These are not scope cuts. The feature still ships the underlying capability. Eac
 - `AC-FR-G6.1-a`: The scheduler includes a new `commercial_sweep` definition in addition to existing source-backed, validation, and L5 scheduler-owned definitions.
 - `AC-FR-G6.1-b`: Existing source schedule values are not retuned.
 - `AC-FR-G6.1-c`: `cron_scheduler.rs` schedule-anchor tests are updated for the new definition count and ordering.
-- `AC-FR-G6.1-d`: The idempotency key uses the same per-slot cron dedup family and is bounded by FR-G1.3.
+- `AC-FR-G6.1-d`: The new definition uses scheduler-owned identity `source_id='commercial-sweep'`, `skill_id='pipeline/commercial-sweep'`, `kind='commercial_sweep'`, `scope_kind='pipeline'`, and `scope_id='commercial'`.
+- `AC-FR-G6.1-e`: The idempotency key uses the same per-slot cron dedup family, concretely `cron:commercial-sweep:pipeline/commercial-sweep:{scheduled_for}`, and is bounded by FR-G1.3.
+- `AC-FR-G6.1-f`: The 07:00 `commercial_sweep` slot is the only schedule addition in this feature.
 
 **Core Tests:** `cron_scheduler.rs` updated anchor/catch-up tests; `scheduler_tick.rs`.
 
@@ -507,6 +547,7 @@ These are not scope cuts. The feature still ships the underlying capability. Eac
 - `AC-FR-G6.3-b`: The sweep does not stop the daemon, wait for runtime-lock release, spawn one-shot `daemon --ingest landed-cost`, `--ingest net-gate`, or `--ingest manifest`, or relaunch the daemon.
 - `AC-FR-G6.3-c`: Manual pipeline rerun remains available to the desktop operator.
 - `AC-FR-G6.3-d`: Mid-run manual daemon stop is safe through per-process transactions and coverage idempotency.
+- `AC-FR-G6.3-e`: M2 must fail if the manifest only appears after an operator `trigger_pipeline_rerun` or if the daemon restart/PID-stop path is observed as the autonomous mechanism.
 
 **Core Tests:** E2E M2 and M4.
 
@@ -541,7 +582,7 @@ All tests use real SQLite state and the real daemon binary where the flow demand
 | Manifest | Scenario | Expected Outcome |
 |---|---|---|
 | M1 | Invoke `--run-scheduler-once --tick-now 2026-06-05T04:15:00Z` with FTS enabled. | A `sync_source` FTS job is enqueued, drained, completed, and persists FTS-produced rows with no `--ingest` or IPC trigger. Negative control at 03:00 enqueues nothing. |
-| M2 | Invoke one-shot scheduler at the 07:00 commercial sweep slot after an eligible process exists. | `landed-cost` -> `net-gate` -> `manifest` rows become current in-process, with no daemon stop/restart path. |
+| M2 | Invoke one-shot scheduler at the 07:00 commercial sweep slot after an eligible process exists. | `landed-cost` -> `net-gate` -> `manifest` rows become current in-process, with no daemon stop/restart path. Regression shape: manifest appears only after operator rerun, or the daemon PID-stop/relaunch path is observed. |
 | M3 | Run ProContract register-interest and enrich canned outcomes through fake-claude. | Awaiting-access row is created, kept, backfilled, cleared, and expired correctly; interest registration remains completed. |
 | M4 | Exercise `--ingest`, `--run-next-job`, desktop `trigger_ingestion`, and manual `trigger_pipeline_rerun`. | Manual paths still work; desktop `sync_source` job becomes executable; rerun remains manual PID-stop affordance. |
 | M5 | Run worker lanes, IPC mutations, lease heartbeat, and same-source overlap under WAL. | No lost writes, no permanent `SQLITE_BUSY`, and no concurrent same-source procurement scrape. |
