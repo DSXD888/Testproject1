@@ -109,6 +109,8 @@ These are not scope cuts. The feature still ships the underlying capability. Eac
 - `AC-FR-G1.3-b`: The implementation relies on `find_existing_enqueue_ack` status filtering for `pending`, `running`, `retry`, and `completed`.
 - `AC-FR-G1.3-c`: The spec and implementation do not promise exactly-once forever. A previous `failed` job for the slot is legitimately re-enqueueable.
 - `AC-FR-G1.3-d`: Startup catch-up and first interval tick are dedup-safe because the race occurs while the job is still live, not failed.
+- `AC-FR-G1.3-e`: If any temporary startup shim remains during refactor, it must call the same tick/body enqueue path and produce the identical request tuple and idempotency key as the first interval tick for the same slot. The second call returns the existing `MutationAck` through `find_existing_enqueue_ack` and inserts no row.
+- `AC-FR-G1.3-f`: The implementation must not introduce a second cron dedup mechanism such as an auxiliary table, flag, or special bootstrap-only guard. Cron dedup is the existing enqueue read-before-write path plus the per-slot idempotency key.
 
 **Core Tests:** `scheduler_tick.rs` `tick_002_repeated_ticks_same_slot_idempotent`; a failed-slot reenqueue assertion in `scheduler_tick.rs`.
 
@@ -519,6 +521,7 @@ The table uses the current registry source IDs. The invariant is the `(source_id
 - `AC-FR-G6.1-d`: The new definition uses scheduler-owned identity `source_id='commercial-sweep'`, `skill_id='pipeline/commercial-sweep'`, `kind='commercial_sweep'`, `scope_kind='pipeline'`, and `scope_id='commercial'`.
 - `AC-FR-G6.1-e`: The idempotency key uses the same per-slot cron dedup family, concretely `cron:commercial-sweep:pipeline/commercial-sweep:{scheduled_for}`, and is bounded by FR-G1.3.
 - `AC-FR-G6.1-f`: The 07:00 `commercial_sweep` slot is the only schedule addition in this feature.
+- `AC-FR-G6.1-g`: `commercial_sweep` uses the same `JobRunner::enqueue_job` / `find_existing_enqueue_ack` dedup path as source cron jobs. Its coverage-idempotent body is a second safety layer, not a substitute for per-slot enqueue dedup.
 
 **Core Tests:** `cron_scheduler.rs` updated anchor/catch-up tests; `scheduler_tick.rs`.
 
