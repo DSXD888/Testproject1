@@ -131,7 +131,7 @@ Expected total: `76` task beads plus `7` phase sub-epic/review beads.
 | 5 | 5 | 5 | 10 | G5 waits for all writers and then owns R1-R8 plus full gate |
 | 6 | 1 | 1 | 6 | Q7 is a bounded read-only surfacing branch with daemon/Rust/React gates |
 
-Later phases are not lesser phases. Phase 3 and Phase 4 both carry full implementation gates and bead fan-out at or above the scheduler-tick phase.
+Later phases are equal shipping phases. Phase 3 and Phase 4 both carry full implementation gates and bead fan-out at or above the scheduler-tick phase.
 
 ## Phase Bead Routing Batches
 
