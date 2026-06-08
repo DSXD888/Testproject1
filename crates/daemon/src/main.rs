@@ -19391,6 +19391,13 @@ fn claimed_source_job_parameters(claimed: &ClaimedJob, source_id: &str) -> Resul
     Ok(request_payload.clone())
 }
 
+fn procontract_enrich_download_root(runtime: &RuntimeBootstrap) -> PathBuf {
+    fs::canonicalize(&runtime.artifact_root)
+        .unwrap_or_else(|_| runtime.artifact_root.clone())
+        .join("downloads")
+        .join("procontract")
+}
+
 #[allow(clippy::too_many_lines, clippy::future_not_send)]
 async fn run_contracts_finder_live_loop(
     runtime: &mut RuntimeBootstrap,
@@ -19625,14 +19632,26 @@ async fn run_procontract_discover_live_loop(
         adapter_config.kind,
     )?;
     let runner = JobRunner::new(LOCAL_EXECUTOR_ID);
-    let _claimed = runner
+    let claimed = runner
         .claim_job_by_id(runtime.state_db.connection(), &job_id)?
         .ok_or_else(|| anyhow!("expected claimed workflow job for procontract"))?;
 
+    run_procontract_discover_claimed_live_loop(runtime, claimed, cli, &ingest_skill).await
+}
+
+#[allow(clippy::future_not_send, clippy::needless_pass_by_value)]
+async fn run_procontract_discover_claimed_live_loop(
+    runtime: &mut RuntimeBootstrap,
+    claimed: ClaimedJob,
+    cli: &Cli,
+    ingest_skill: &LoadedSkill,
+) -> Result<LiveLoopReport> {
+    let job_id = claimed.id.clone();
+    let job_parameters = claimed_source_job_parameters(&claimed, "procontract")?;
     let session_id = format!("session-pty-{}", sha256_hex(job_id.as_bytes()));
     let executed = execute_skill_session(
         runtime,
-        &ingest_skill,
+        ingest_skill,
         &job_id,
         &session_id,
         &job_parameters,
@@ -19645,7 +19664,7 @@ async fn run_procontract_discover_live_loop(
     );
     insert_executed_session_log(
         runtime.state_db.connection(),
-        &ingest_skill,
+        ingest_skill,
         &job_id,
         &executed,
     )?;
@@ -19712,9 +19731,38 @@ async fn run_procontract_register_interest_live_loop(
         adapter_config.kind,
     )?;
     let runner = JobRunner::new(LOCAL_EXECUTOR_ID);
-    let _claimed = runner
+    let claimed = runner
         .claim_job_by_id(runtime.state_db.connection(), &job_id)?
         .ok_or_else(|| anyhow!("expected claimed workflow job for procontract-interest"))?;
+
+    run_procontract_register_interest_claimed_live_loop(runtime, claimed, cli, &skill).await
+}
+
+#[allow(
+    clippy::future_not_send,
+    clippy::needless_pass_by_value,
+    clippy::too_many_lines
+)]
+async fn run_procontract_register_interest_claimed_live_loop(
+    runtime: &mut RuntimeBootstrap,
+    claimed: ClaimedJob,
+    cli: &Cli,
+    skill: &LoadedSkill,
+) -> Result<LiveLoopReport> {
+    let job_id = claimed.id.clone();
+    let evaluations = build_procontract_interest_evaluations(load_procontract_interest_candidates(
+        runtime.state_db.connection(),
+    )?);
+    let registration_targets = procontract_interest_registration_targets(&evaluations);
+    let evaluation_report = evaluations
+        .iter()
+        .map(evaluation_report_entry)
+        .collect::<Vec<_>>();
+    let job_parameters = json!({
+        "source_id": "procontract-interest",
+        "contracts_to_register": registration_targets,
+        "pre_filter_evaluated": evaluation_report,
+    });
 
     if evaluations.is_empty() {
         return complete_source_job(
@@ -19788,12 +19836,12 @@ async fn run_procontract_register_interest_live_loop(
 
     let session_id = format!("session-pty-{}", sha256_hex(job_id.as_bytes()));
     let executed =
-        execute_skill_session(runtime, &skill, &job_id, &session_id, &job_parameters, cli).await?;
+        execute_skill_session(runtime, skill, &job_id, &session_id, &job_parameters, cli).await?;
     ensure!(
         executed.execution_mode == ExecutionMode::Pty,
         "procontract interest-registration skill must resolve to PTY"
     );
-    insert_executed_session_log(runtime.state_db.connection(), &skill, &job_id, &executed)?;
+    insert_executed_session_log(runtime.state_db.connection(), skill, &job_id, &executed)?;
     let result_path = executed.result_path.as_ref().ok_or_else(|| {
         anyhow!("procontract interest-registration skill did not produce a result contract")
     })?;
@@ -19846,10 +19894,7 @@ async fn run_procontract_enrich_tender_live_loop(
             |row| row.get(0),
         )
         .optional()?;
-    let download_root = fs::canonicalize(&runtime.artifact_root)
-        .unwrap_or_else(|_| runtime.artifact_root.clone())
-        .join("downloads")
-        .join("procontract");
+    let download_root = procontract_enrich_download_root(runtime);
     fs::create_dir_all(&download_root)
         .with_context(|| format!("creating {}", download_root.display()))?;
     let job_parameters = json!({
@@ -19866,9 +19911,33 @@ async fn run_procontract_enrich_tender_live_loop(
         adapter_config.kind,
     )?;
     let runner = JobRunner::new(LOCAL_EXECUTOR_ID);
-    let _claimed = runner
+    let claimed = runner
         .claim_job_by_id(runtime.state_db.connection(), &job_id)?
         .ok_or_else(|| anyhow!("expected claimed workflow job for procontract-enrich"))?;
+
+    run_procontract_enrich_tender_claimed_live_loop(runtime, claimed, cli, &skill).await
+}
+
+#[allow(
+    clippy::future_not_send,
+    clippy::needless_pass_by_value,
+    clippy::too_many_lines
+)]
+async fn run_procontract_enrich_tender_claimed_live_loop(
+    runtime: &mut RuntimeBootstrap,
+    claimed: ClaimedJob,
+    cli: &Cli,
+    skill: &LoadedSkill,
+) -> Result<LiveLoopReport> {
+    let job_id = claimed.id.clone();
+    let job_parameters = claimed_source_job_parameters(&claimed, "procontract-enrich")?;
+    let download_root = job_parameters
+        .get("download_root")
+        .and_then(Value::as_str)
+        .filter(|path| !path.is_empty())
+        .map_or_else(|| procontract_enrich_download_root(runtime), PathBuf::from);
+    fs::create_dir_all(&download_root)
+        .with_context(|| format!("creating {}", download_root.display()))?;
 
     if let Ok(replay_result_path) = std::env::var("PROCONTRACT_ENRICH_REPLAY_RESULT_JSON") {
         let result_path = PathBuf::from(replay_result_path);
@@ -19907,12 +19976,12 @@ async fn run_procontract_enrich_tender_live_loop(
 
     let session_id = format!("session-pty-{}", sha256_hex(job_id.as_bytes()));
     let executed =
-        execute_skill_session(runtime, &skill, &job_id, &session_id, &job_parameters, cli).await?;
+        execute_skill_session(runtime, skill, &job_id, &session_id, &job_parameters, cli).await?;
     ensure!(
         executed.execution_mode == ExecutionMode::Pty,
         "procontract enrichment skill must resolve to PTY"
     );
-    insert_executed_session_log(runtime.state_db.connection(), &skill, &job_id, &executed)?;
+    insert_executed_session_log(runtime.state_db.connection(), skill, &job_id, &executed)?;
     let result_path = executed
         .result_path
         .as_ref()
