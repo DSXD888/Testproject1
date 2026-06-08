@@ -702,8 +702,8 @@ impl AgentCliKind {
 }
 
 struct RuntimeBootstrap {
-    _lock: LockGuard,
-    listener: std::os::unix::net::UnixListener,
+    _lock: Option<LockGuard>,
+    listener: Option<std::os::unix::net::UnixListener>,
     descriptor: DaemonDescriptor,
     state_db: StateDb,
     state_db_path: PathBuf,
@@ -711,12 +711,25 @@ struct RuntimeBootstrap {
     resource_arbiter: Arc<Mutex<ResourceArbiter>>,
     restart_controller: RestartController,
     scheduler_tick_thread: Option<SchedulerTickThread>,
+    autonomous_worker_threads: Vec<AutonomousWorkerThread>,
     #[allow(dead_code)]
     sync_lease_heartbeat: Option<SyncLeaseHeartbeat>,
 }
 
+const AUTONOMOUS_WORKER_LANES: [AutonomousWorkerLane; 2] = [
+    AutonomousWorkerLane::PtyBrowser,
+    AutonomousWorkerLane::CoverageDeterministic,
+];
+const PTY_BROWSER_WORKFLOW_KINDS: &[&str] = &["sync_source", "source_health", "auth_refresh"];
+const COVERAGE_DETERMINISTIC_WORKFLOW_KINDS: &[&str] = &[
+    "commercial_sweep",
+    "validation_cross_model_audit",
+    "validation_calibration_readiness_sweep",
+];
+const AUTONOMOUS_WORKER_IDLE_BACKOFF_MS: u64 = 250;
+
 #[allow(dead_code)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum AutonomousWorkerLane {
     PtyBrowser,
     CoverageDeterministic,
@@ -727,6 +740,20 @@ impl AutonomousWorkerLane {
         match self {
             Self::PtyBrowser => "pty_browser",
             Self::CoverageDeterministic => "coverage_deterministic",
+        }
+    }
+
+    const fn thread_name(self) -> &'static str {
+        match self {
+            Self::PtyBrowser => "autonomous-worker-pty-browser",
+            Self::CoverageDeterministic => "autonomous-worker-coverage",
+        }
+    }
+
+    const fn claimable_kinds(self) -> &'static [&'static str] {
+        match self {
+            Self::PtyBrowser => PTY_BROWSER_WORKFLOW_KINDS,
+            Self::CoverageDeterministic => COVERAGE_DETERMINISTIC_WORKFLOW_KINDS,
         }
     }
 }
@@ -820,6 +847,12 @@ struct SyncLeaseHeartbeat {
 }
 
 struct SchedulerTickThread {
+    stop_tx: Option<mpsc::Sender<()>>,
+    handle: Option<thread::JoinHandle<()>>,
+}
+
+struct AutonomousWorkerThread {
+    lane: AutonomousWorkerLane,
     stop_tx: Option<mpsc::Sender<()>>,
     handle: Option<thread::JoinHandle<()>>,
 }
@@ -1547,7 +1580,7 @@ async fn main() -> Result<()> {
     }
 
     if cli.serve {
-        serve_handshake_service(&mut runtime)?;
+        serve_handshake_service(&mut runtime, &cli)?;
         return Ok(());
     }
 
@@ -1902,6 +1935,28 @@ async fn run_shared_worker_iteration(
         .claim_next_job(runtime.state_db.connection())?
         .ok_or_else(|| anyhow!("expected a pending workflow job"))?;
     execute_claimed_workflow_job(runtime, cli, &runner, claimed).await
+}
+
+#[allow(clippy::future_not_send)]
+async fn run_shared_worker_iteration_for_lane(
+    runtime: &mut RuntimeBootstrap,
+    cli: &Cli,
+    lane: AutonomousWorkerLane,
+) -> Result<Option<LiveLoopReport>> {
+    let runner = JobRunner::new(LOCAL_EXECUTOR_ID);
+    ensure_local_executor_registered(runtime.state_db.connection())?;
+    let Some(claimed) = jobs::claim::claim_next_job_for_kinds(
+        runtime.state_db.connection(),
+        LOCAL_EXECUTOR_ID,
+        lane.claimable_kinds(),
+    )
+    .with_context(|| format!("claiming next {} workflow job", lane.as_str()))?
+    else {
+        return Ok(None);
+    };
+    execute_claimed_workflow_job(runtime, cli, &runner, claimed)
+        .await
+        .map(Some)
 }
 
 #[allow(clippy::future_not_send)]
@@ -3270,8 +3325,8 @@ fn bootstrap_runtime(cli: &Cli) -> Result<RuntimeBootstrap> {
     );
 
     Ok(RuntimeBootstrap {
-        _lock: lock_guard,
-        listener,
+        _lock: Some(lock_guard),
+        listener: Some(listener),
         descriptor,
         state_db,
         state_db_path: runtime_paths.state_db_path(),
@@ -3279,6 +3334,7 @@ fn bootstrap_runtime(cli: &Cli) -> Result<RuntimeBootstrap> {
         resource_arbiter: Arc::new(Mutex::new(ResourceArbiter::new(ResourceBudgets::default()))),
         restart_controller: RestartController::new(build_restart_plan(cli)?),
         scheduler_tick_thread: None,
+        autonomous_worker_threads: Vec::new(),
         sync_lease_heartbeat: None,
     })
 }
@@ -3510,6 +3566,174 @@ impl SchedulerTickThread {
     }
 }
 
+impl AutonomousWorkerThread {
+    fn spawn(
+        lane: AutonomousWorkerLane,
+        descriptor: DaemonDescriptor,
+        state_db_path: PathBuf,
+        artifact_root: PathBuf,
+        resource_arbiter: Arc<Mutex<ResourceArbiter>>,
+        restart_plan: RestartPlan,
+        cli: Cli,
+    ) -> Result<Self> {
+        let (stop_tx, stop_rx) = mpsc::channel();
+        let (startup_tx, startup_rx) = mpsc::sync_channel(1);
+        let thread_db_path = state_db_path;
+        let thread_name = lane.thread_name().to_owned();
+        let handle = thread::Builder::new()
+            .name(thread_name.clone())
+            .spawn(move || {
+                let mut runtime = match initialize_autonomous_worker_thread_runtime(
+                    lane,
+                    descriptor,
+                    thread_db_path,
+                    artifact_root,
+                    resource_arbiter,
+                    restart_plan,
+                ) {
+                    Ok(runtime) => runtime,
+                    Err(error) => {
+                        let message = error.to_string();
+                        let _ = startup_tx.send(Err(message.clone()));
+                        ::tracing::warn!(
+                            lane = lane.as_str(),
+                            error = %message,
+                            "failed to initialize autonomous worker thread"
+                        );
+                        return;
+                    }
+                };
+
+                let async_runtime = match tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                {
+                    Ok(async_runtime) => async_runtime,
+                    Err(error) => {
+                        let message = error.to_string();
+                        let _ = startup_tx.send(Err(message.clone()));
+                        ::tracing::warn!(
+                            lane = lane.as_str(),
+                            error = %message,
+                            "failed to create autonomous worker async runtime"
+                        );
+                        return;
+                    }
+                };
+
+                let _ = startup_tx.send(Ok(()));
+                run_autonomous_worker_loop(lane, &mut runtime, &cli, &async_runtime, &stop_rx);
+            })
+            .with_context(|| format!("spawning {thread_name} thread"))?;
+
+        match startup_rx.recv_timeout(Duration::from_secs(5)) {
+            Ok(Ok(())) => Ok(Self {
+                lane,
+                stop_tx: Some(stop_tx),
+                handle: Some(handle),
+            }),
+            Ok(Err(message)) => {
+                let _ = handle.join();
+                bail!(
+                    "autonomous {} worker startup failed: {message}",
+                    lane.as_str()
+                );
+            }
+            Err(error) => {
+                let _ = stop_tx.send(());
+                let _ = handle.join();
+                bail!(
+                    "autonomous {} worker startup timed out: {error}",
+                    lane.as_str()
+                );
+            }
+        }
+    }
+}
+
+fn initialize_autonomous_worker_thread_runtime(
+    lane: AutonomousWorkerLane,
+    descriptor: DaemonDescriptor,
+    state_db_path: PathBuf,
+    artifact_root: PathBuf,
+    resource_arbiter: Arc<Mutex<ResourceArbiter>>,
+    restart_plan: RestartPlan,
+) -> Result<RuntimeBootstrap> {
+    let state_db = open_state_db(&state_db_path, DEFAULT_SCHEMA_EPOCH).with_context(|| {
+        format!(
+            "opening state DB for autonomous {} worker at {}",
+            lane.as_str(),
+            state_db_path.display()
+        )
+    })?;
+    ensure_local_executor_registered(state_db.connection())?;
+    Ok(RuntimeBootstrap {
+        _lock: None,
+        listener: None,
+        descriptor,
+        state_db,
+        state_db_path,
+        artifact_root,
+        resource_arbiter,
+        restart_controller: RestartController::new(restart_plan),
+        scheduler_tick_thread: None,
+        autonomous_worker_threads: Vec::new(),
+        sync_lease_heartbeat: None,
+    })
+}
+
+fn run_autonomous_worker_loop(
+    lane: AutonomousWorkerLane,
+    runtime: &mut RuntimeBootstrap,
+    cli: &Cli,
+    async_runtime: &tokio::runtime::Runtime,
+    stop_rx: &mpsc::Receiver<()>,
+) {
+    let idle_backoff = Duration::from_millis(AUTONOMOUS_WORKER_IDLE_BACKOFF_MS);
+    loop {
+        match stop_rx.try_recv() {
+            Ok(()) | Err(mpsc::TryRecvError::Disconnected) => break,
+            Err(mpsc::TryRecvError::Empty) => {}
+        }
+
+        match async_runtime.block_on(run_shared_worker_iteration_for_lane(runtime, cli, lane)) {
+            Ok(Some(report)) => {
+                ::tracing::info!(
+                    lane = lane.as_str(),
+                    status = %report.status,
+                    summary = %report.summary_line,
+                    "autonomous worker completed one job"
+                );
+            }
+            Ok(None) => {
+                if autonomous_worker_wait_for_job_or_stop(stop_rx, idle_backoff) {
+                    break;
+                }
+            }
+            Err(error) => {
+                ::tracing::warn!(
+                    lane = lane.as_str(),
+                    error = %error,
+                    "autonomous worker iteration failed"
+                );
+                if autonomous_worker_wait_for_job_or_stop(stop_rx, idle_backoff) {
+                    break;
+                }
+            }
+        }
+    }
+}
+
+fn autonomous_worker_wait_for_job_or_stop(
+    stop_rx: &mpsc::Receiver<()>,
+    idle_backoff: Duration,
+) -> bool {
+    match stop_rx.recv_timeout(idle_backoff) {
+        Ok(()) | Err(mpsc::RecvTimeoutError::Disconnected) => true,
+        Err(mpsc::RecvTimeoutError::Timeout) => false,
+    }
+}
+
 impl Drop for SchedulerTickThread {
     fn drop(&mut self) {
         if let Some(stop_tx) = self.stop_tx.take() {
@@ -3519,6 +3743,22 @@ impl Drop for SchedulerTickThread {
             && handle.join().is_err()
         {
             ::tracing::warn!("autonomous scheduler tick thread panicked during shutdown");
+        }
+    }
+}
+
+impl Drop for AutonomousWorkerThread {
+    fn drop(&mut self) {
+        if let Some(stop_tx) = self.stop_tx.take() {
+            let _ = stop_tx.send(());
+        }
+        if let Some(handle) = self.handle.take()
+            && handle.join().is_err()
+        {
+            ::tracing::warn!(
+                lane = self.lane.as_str(),
+                "autonomous worker thread panicked during shutdown"
+            );
         }
     }
 }
@@ -4234,17 +4474,44 @@ fn ensure_local_executor_registered(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-fn serve_handshake_once(runtime: &RuntimeBootstrap) -> Result<()> {
-    let handshake_context = build_handshake_context(runtime, false)?;
-    ipc::handshake::serve_one(&runtime.listener, &handshake_context, None)
+fn spawn_autonomous_worker_threads(
+    runtime: &RuntimeBootstrap,
+    cli: &Cli,
+) -> Result<Vec<AutonomousWorkerThread>> {
+    let restart_plan = build_restart_plan(cli)?;
+    let mut threads = Vec::with_capacity(AUTONOMOUS_WORKER_LANES.len());
+    for lane in AUTONOMOUS_WORKER_LANES {
+        threads.push(AutonomousWorkerThread::spawn(
+            lane,
+            runtime.descriptor.clone(),
+            runtime.state_db_path.clone(),
+            runtime.artifact_root.clone(),
+            Arc::clone(&runtime.resource_arbiter),
+            restart_plan.clone(),
+            cli.clone(),
+        )?);
+    }
+    Ok(threads)
 }
 
-fn serve_handshake_service(runtime: &mut RuntimeBootstrap) -> Result<()> {
+fn serve_handshake_once(runtime: &RuntimeBootstrap) -> Result<()> {
+    let handshake_context = build_handshake_context(runtime, false)?;
+    let listener = runtime
+        .listener
+        .as_ref()
+        .ok_or_else(|| anyhow!("serve_once requires the daemon IPC listener"))?;
+    ipc::handshake::serve_one(listener, &handshake_context, None)
+}
+
+fn serve_handshake_service(runtime: &mut RuntimeBootstrap, cli: &Cli) -> Result<()> {
     if runtime.scheduler_tick_thread.is_none() {
         runtime.scheduler_tick_thread = Some(SchedulerTickThread::spawn(
             runtime.state_db_path.clone(),
             scheduler_tick_interval(),
         )?);
+    }
+    if runtime.autonomous_worker_threads.is_empty() {
+        runtime.autonomous_worker_threads = spawn_autonomous_worker_threads(runtime, cli)?;
     }
 
     ::tracing::info!(
@@ -4253,7 +4520,11 @@ fn serve_handshake_service(runtime: &mut RuntimeBootstrap) -> Result<()> {
     );
 
     loop {
-        let (stream, _) = match runtime.listener.accept() {
+        let listener = runtime
+            .listener
+            .as_ref()
+            .ok_or_else(|| anyhow!("serve requires the daemon IPC listener"))?;
+        let (stream, _) = match listener.accept() {
             Ok(connection) => connection,
             Err(error) if error.kind() == ErrorKind::Interrupted => continue,
             Err(error) => return Err(error).context("accepting persistent handshake connection"),
@@ -27315,6 +27586,43 @@ mod tests {
         )?;
         assert_eq!(count, 1);
 
+        Ok(())
+    }
+
+    #[test]
+    fn autonomous_worker_lane_kind_filters_are_disjoint_and_complete() {
+        let pty_kinds = super::AutonomousWorkerLane::PtyBrowser.claimable_kinds();
+        let coverage_kinds = super::AutonomousWorkerLane::CoverageDeterministic.claimable_kinds();
+
+        assert_eq!(pty_kinds, ["sync_source", "source_health", "auth_refresh"]);
+        assert_eq!(
+            coverage_kinds,
+            [
+                "commercial_sweep",
+                "validation_cross_model_audit",
+                "validation_calibration_readiness_sweep",
+            ]
+        );
+
+        let pty_set = pty_kinds.iter().copied().collect::<BTreeSet<_>>();
+        let coverage_set = coverage_kinds.iter().copied().collect::<BTreeSet<_>>();
+        assert!(pty_set.is_disjoint(&coverage_set));
+        assert_eq!(pty_set.len() + coverage_set.len(), 6);
+    }
+
+    #[test]
+    fn autonomous_worker_threads_spawn_both_lanes_and_shutdown_idle() -> Result<()> {
+        let (_temp, runtime, cli) = bootstrap_manifest_render_runtime()?;
+        let threads = super::spawn_autonomous_worker_threads(&runtime, &cli)?;
+        let lanes = threads
+            .iter()
+            .map(|thread| thread.lane)
+            .collect::<BTreeSet<_>>();
+
+        assert_eq!(threads.len(), 2);
+        assert!(lanes.contains(&super::AutonomousWorkerLane::PtyBrowser));
+        assert!(lanes.contains(&super::AutonomousWorkerLane::CoverageDeterministic));
+        drop(threads);
         Ok(())
     }
 

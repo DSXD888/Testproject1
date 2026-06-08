@@ -7,7 +7,9 @@ use std::time::Duration;
 
 use anyhow::{Context, Result, ensure};
 use chrono::{DateTime, TimeDelta, Utc};
-use rusqlite::{Connection, OptionalExtension, Transaction, TransactionBehavior, params};
+use rusqlite::{
+    Connection, OptionalExtension, Transaction, TransactionBehavior, params, params_from_iter,
+};
 use serde_json::Value;
 
 use crate::jobs::runner::ClaimedJob;
@@ -86,6 +88,37 @@ pub(super) fn claim_next_job(conn: &Connection, executor_id: &str) -> Result<Opt
     apply_claim(&tx, &claimed_job.id, executor_id, now)?;
 
     tx.commit().context("committing workflow job claim")?;
+
+    Ok(Some(claimed_job))
+}
+
+pub fn claim_next_job_for_kinds(
+    conn: &Connection,
+    executor_id: &str,
+    allowed_kinds: &[&str],
+) -> Result<Option<ClaimedJob>> {
+    ensure!(
+        !allowed_kinds.is_empty(),
+        "workflow job lane claim requires at least one allowed kind"
+    );
+
+    let now = Utc::now();
+    let tx = Transaction::new_unchecked(conn, TransactionBehavior::Immediate)
+        .context("starting immediate transaction for lane-filtered workflow job claim")?;
+
+    recycle_expired_leases(&tx, now)?;
+
+    let Some(row) = select_next_claimable_job_for_kinds(&tx, allowed_kinds)? else {
+        tx.commit()
+            .context("committing empty lane-filtered workflow job claim transaction")?;
+        return Ok(None);
+    };
+
+    let claimed_job = build_claimed_job(row)?;
+    apply_claim(&tx, &claimed_job.id, executor_id, now)?;
+
+    tx.commit()
+        .context("committing lane-filtered workflow job claim")?;
 
     Ok(Some(claimed_job))
 }
@@ -173,6 +206,7 @@ fn select_next_claimable_job(tx: &Transaction<'_>) -> Result<Option<ClaimableJob
         SELECT id, kind, process_id, scope_kind, scope_id, input_payload
         FROM workflow_jobs
         WHERE status IN ('pending', 'retry')
+        -- FR-G1.6: scheduled/overdue work must sort ahead of newer unscheduled manual work.
         ORDER BY COALESCE(scheduled_for, created_at), created_at
         LIMIT 1
         ",
@@ -191,6 +225,42 @@ fn select_next_claimable_job(tx: &Transaction<'_>) -> Result<Option<ClaimableJob
         })
         .optional()
         .context("selecting next claimable workflow job")
+}
+
+fn select_next_claimable_job_for_kinds(
+    tx: &Transaction<'_>,
+    allowed_kinds: &[&str],
+) -> Result<Option<ClaimableJobRow>> {
+    let placeholders = std::iter::repeat_n("?", allowed_kinds.len())
+        .collect::<Vec<_>>()
+        .join(", ");
+    let sql = format!(
+        "\
+        SELECT id, kind, process_id, scope_kind, scope_id, input_payload
+        FROM workflow_jobs
+        WHERE status IN ('pending', 'retry')
+          AND kind IN ({placeholders})
+        -- FR-G2.1: each autonomous worker lane claims only its job class.
+        -- FR-G1.6: scheduled/overdue work must sort ahead of newer unscheduled manual work.
+        ORDER BY COALESCE(scheduled_for, created_at), created_at
+        LIMIT 1
+        "
+    );
+    let mut statement = tx.prepare(&sql)?;
+
+    statement
+        .query_row(params_from_iter(allowed_kinds.iter().copied()), |row| {
+            Ok(ClaimableJobRow {
+                id: row.get(0)?,
+                kind: row.get(1)?,
+                process_id: row.get(2)?,
+                scope_kind: row.get(3)?,
+                scope_id: row.get(4)?,
+                input_payload: row.get(5)?,
+            })
+        })
+        .optional()
+        .context("selecting next lane-filtered claimable workflow job")
 }
 
 fn build_claimed_job(row: ClaimableJobRow) -> Result<ClaimedJob> {
@@ -282,7 +352,7 @@ mod tests {
     use rusqlite::{Connection, params};
     use serde_json::json;
 
-    use super::claim_job_by_id;
+    use super::{claim_job_by_id, claim_next_job_for_kinds};
 
     fn workflow_jobs_conn() -> Result<Connection> {
         let conn = Connection::open_in_memory()?;
@@ -328,6 +398,33 @@ mod tests {
                 job_id,
                 status,
                 json!({"job_id": job_id}).to_string(),
+                created_at
+            ],
+        )?;
+        Ok(())
+    }
+
+    fn insert_job_with_kind(
+        conn: &Connection,
+        job_id: &str,
+        kind: &str,
+        status: &str,
+        created_at: &str,
+        scheduled_for: Option<&str>,
+    ) -> Result<()> {
+        conn.execute(
+            "\
+            INSERT INTO workflow_jobs (
+              id, kind, process_id, scope_kind, scope_id, status,
+              scheduled_for, input_payload, created_at
+            ) VALUES (?1, ?2, 'process-test', 'pipeline', ?1, ?3, ?4, ?5, ?6)
+            ",
+            params![
+                job_id,
+                kind,
+                status,
+                scheduled_for,
+                json!({"job_id": job_id, "kind": kind}).to_string(),
                 created_at
             ],
         )?;
@@ -381,6 +478,88 @@ mod tests {
         )?;
         assert_eq!(status, "completed");
         assert_eq!(attempt_count, 0);
+        Ok(())
+    }
+
+    #[test]
+    fn claim_next_job_for_kinds_ignores_other_lanes_and_preserves_order() -> Result<()> {
+        let conn = workflow_jobs_conn()?;
+        insert_job_with_kind(
+            &conn,
+            "pty-old",
+            "sync_source",
+            "pending",
+            "2026-04-01T00:00:00Z",
+            None,
+        )?;
+        insert_job_with_kind(
+            &conn,
+            "coverage-new",
+            "commercial_sweep",
+            "pending",
+            "2026-04-03T00:00:00Z",
+            None,
+        )?;
+        insert_job_with_kind(
+            &conn,
+            "coverage-overdue",
+            "validation_cross_model_audit",
+            "pending",
+            "2026-04-04T00:00:00Z",
+            Some("2026-03-31T00:00:00Z"),
+        )?;
+
+        let coverage_kinds = [
+            "commercial_sweep",
+            "validation_cross_model_audit",
+            "validation_calibration_readiness_sweep",
+        ];
+        let claimed = claim_next_job_for_kinds(&conn, "coverage-executor", &coverage_kinds)?
+            .ok_or_else(|| anyhow::anyhow!("coverage job should be claimable"))?;
+        assert_eq!(claimed.id, "coverage-overdue");
+        assert_eq!(claimed.kind, "validation_cross_model_audit");
+
+        let claimed = claim_next_job_for_kinds(&conn, "coverage-executor", &coverage_kinds)?
+            .ok_or_else(|| anyhow::anyhow!("second coverage job should be claimable"))?;
+        assert_eq!(claimed.id, "coverage-new");
+        assert_eq!(claimed.kind, "commercial_sweep");
+
+        let pty_status: String = conn.query_row(
+            "SELECT status FROM workflow_jobs WHERE id = 'pty-old'",
+            [],
+            |row| row.get(0),
+        )?;
+        assert_eq!(pty_status, "pending");
+
+        let pty_kinds = ["sync_source", "source_health", "auth_refresh"];
+        let claimed = claim_next_job_for_kinds(&conn, "pty-executor", &pty_kinds)?
+            .ok_or_else(|| anyhow::anyhow!("pty job should be claimable"))?;
+        assert_eq!(claimed.id, "pty-old");
+        assert_eq!(claimed.kind, "sync_source");
+        Ok(())
+    }
+
+    #[test]
+    fn claim_next_job_for_kinds_returns_none_when_lane_has_no_matching_jobs() -> Result<()> {
+        let conn = workflow_jobs_conn()?;
+        insert_job_with_kind(
+            &conn,
+            "coverage-only",
+            "commercial_sweep",
+            "pending",
+            "2026-04-01T00:00:00Z",
+            None,
+        )?;
+
+        let pty_kinds = ["sync_source", "source_health", "auth_refresh"];
+        assert!(claim_next_job_for_kinds(&conn, "pty-executor", &pty_kinds)?.is_none());
+
+        let status: String = conn.query_row(
+            "SELECT status FROM workflow_jobs WHERE id = 'coverage-only'",
+            [],
+            |row| row.get(0),
+        )?;
+        assert_eq!(status, "pending");
         Ok(())
     }
 }
