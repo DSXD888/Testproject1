@@ -518,6 +518,10 @@ mod tests {
             .arg("--artifact-root")
             .arg(&artifact_root)
             .env("DAEMON_SCHEDULER_TICK_INTERVAL_SECS", "1")
+            .env_remove("SUPABASE_URL")
+            .env_remove("NEXT_PUBLIC_SUPABASE_URL")
+            .env_remove("SUPABASE_SERVICE_ROLE_KEY")
+            .env_remove("SUPABASE_SERVICE_KEY")
             .spawn()
             .map_err(|error| anyhow!("spawning daemon --serve: {error}"))?;
 
