@@ -45,7 +45,7 @@
 | Phase | Name | Prerequisites | Gate Type | Target Beads |
 |------|------|---------------|-----------|--------------|
 | 0 | Foundations, Q1, Clock Seam, And Live-Loop Refactor | Spec/TDD accepted, decisions ready to record | decision, harness, refactor regression | 12 |
-| 1 | Scheduler Tick And Registry Reload | Phase 0 harness and route surface | `tick_001..007`, M1 enqueue path | 10 |
+| 1 | Scheduler Tick And Registry Reload | Phase 0 harness and route surface | `tick_001..003`, `tick_005..007`, M1 enqueue path | 10 |
 | 2 | Worker Pump And Cron Kind Routing | Phase 0 refactor, Phase 1 tick body | `worker_001..005`, M1 drain path, M4 ingestion path | 14 |
 | 3 | Commercial Sweep Autonomy | Phases 1-2 | 07:00 cron slot, M2, commercial side effects | 11 |
 | 4 | ProContract Awaiting-Access Resumption | Phases 1-2; Phase 0 ProContract body extraction | M3 lifecycle, Q4 schema branch, skill contract | 13 |
@@ -161,7 +161,7 @@ Rows are routing labels, not miniature specifications. Beads in the same paralle
 | Phase | Routing Batches | Must Follow | Primary Gate IDs |
 |-------|-----------------|-------------|------------------|
 | 0 | operator-decision capture; Q1 runtime context; clock seam; one-shot entrypoint; drain-to-quiescence harness; source live-loop extraction; `(source_id, skill_id)` route keys; runtime parameter derivation; manual `--ingest` preservation | accepted spec/TDD | `decision_001`, `tick_004`, M1/M2 harness shape, `impact_ingestion_regression_001`, `impact_contracts_finder_live_loop_regression_001`, M4 |
-| 1 | scheduler thread; startup fold; idempotent slot enqueue; failed-slot reenqueue; catch-up; overdue-first scheduled drain; Q9 registry reload; live-serve spawn/poll/terminate | Phase 0 | `tick_001..007`, existing job-claim overdue-first assertion, M1 enqueue path |
+| 1 | scheduler thread; startup fold; idempotent slot enqueue; failed-slot reenqueue; catch-up; overdue-first scheduled drain; Q9 registry reload; live-serve spawn/poll/terminate | Phase 0 | `tick_001..003`, `tick_005..007`, existing job-claim overdue-first assertion, M1 enqueue path |
 | 2 | two worker lanes; idle backoff; claim filters; defer-on-denial; denial backoff; all `DenialReason` variants; route-table extension; source health; auth refresh; validation audit; validation readiness; `trigger_ingestion`; E1 branch | Phases 0-1 | `worker_001..005`, `impact_job_claim_new_kinds_claimable`, `shadow_health_auth_001`, M1, M4, `trigger_enrichment_001` |
 | 3 | 07:00 schedule key; cron scheduler anchors; commercial body; arbiter use for skill sub-passes; desktop rerun coexistence; Q8-residual branch | Phases 1-2 | `impact_cron_scheduler_001`, `impact_cron_scheduler_006`, `worker_001`, M2, M4, `commercial_nudge_001` |
 | 4 | Q4 schema branch; Q5 expiry branch; lifecycle transitions; work-list sweep; direct advert visit; skill contract extension; staleness sweep; Q7 awaiting count source | Phases 1-2 plus Phase 0 ProContract extraction | `M3_step_001..004`, M3, `skill_contract_001`, Q4 schema tests |
