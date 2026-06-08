@@ -71,6 +71,7 @@ mod pdf {
 #[allow(dead_code)]
 mod scheduler {
     pub mod cron;
+    pub mod tick;
 }
 
 #[allow(dead_code)]
@@ -201,6 +202,7 @@ use pty::health::{
 use pty::session::{PtyCommand, PtySession, RuntimeIds as PtyRuntimeIds, SpawnOptions, SpawnPath};
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
 use scheduler::cron::CronScheduler;
+use scheduler::tick::run_scheduler_tick;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 use sessions::reaper::{CrashRecoveryContext, SessionReaper};
@@ -3704,32 +3706,11 @@ fn enqueue_startup_cron_jobs(state_db: &mut StateDb, now: DateTime<Utc>) -> Resu
     seed_cron_scheduler_from_history(state_db.connection(), &mut cron_scheduler)
         .context("seeding cron scheduler from workflow history")?;
 
-    let dispatches = cron_scheduler
-        .dispatch_due_jobs(&source_registry, now)
-        .context("collecting due cron jobs during daemon bootstrap")?;
-    if dispatches.is_empty() {
-        return Ok(());
+    let enqueued = run_scheduler_tick(&mut cron_scheduler, &source_registry, state_db, now)
+        .context("running startup cron scheduler tick")?;
+    if enqueued > 0 {
+        ::tracing::info!(enqueued, "queued overdue cron jobs during daemon bootstrap");
     }
-
-    let runner = JobRunner::new(LOCAL_EXECUTOR_ID);
-    let mut enqueued = 0_usize;
-    for dispatch in dispatches {
-        let scheduled_for = dispatch.enqueue_request.scheduled_for.ok_or_else(|| {
-            anyhow!(
-                "cron dispatch {} missing scheduled_for",
-                dispatch.definition_key
-            )
-        })?;
-        runner
-            .enqueue_job(state_db, &dispatch.enqueue_request)
-            .with_context(|| format!("enqueuing cron root {}", dispatch.definition_key))?;
-        cron_scheduler
-            .record_enqueued(&dispatch.definition_key, scheduled_for)
-            .with_context(|| format!("recording cron enqueue for {}", dispatch.definition_key))?;
-        enqueued += 1;
-    }
-
-    ::tracing::info!(enqueued, "queued overdue cron jobs during daemon bootstrap");
     Ok(())
 }
 
