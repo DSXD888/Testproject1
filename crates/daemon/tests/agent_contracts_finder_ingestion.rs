@@ -8,8 +8,11 @@ use std::fs;
 use std::path::PathBuf;
 
 use anyhow::{Context, Result, ensure};
+use assert_cmd::Command;
+use rusqlite::Connection;
 use serde_json::{Value, json};
 use serde_yaml::Value as YamlValue;
+use tempfile::TempDir;
 
 use skills_support::{lint_skill_directory, repo_skill_dir};
 
@@ -39,6 +42,123 @@ const RUN_MANIFEST_TOKENS: &[&str] = &[
 
 fn contracts_finder_skill_dir() -> Result<PathBuf> {
     repo_skill_dir("procurement-ingestion/contracts-finder")
+}
+
+struct ContractsFinderRunHarness {
+    _temp: TempDir,
+    state_root: PathBuf,
+    runtime_root: PathBuf,
+    artifact_root: PathBuf,
+    db_path: PathBuf,
+}
+
+struct ContractsFinderRunResult {
+    stdout: String,
+    stderr: String,
+    success: bool,
+}
+
+struct ContractsFinderFakeClaude {
+    program: PathBuf,
+    result_path: PathBuf,
+    checkpoint_path: PathBuf,
+}
+
+impl ContractsFinderRunHarness {
+    fn new() -> Result<Self> {
+        let temp = tempfile::tempdir()?;
+        let root = temp.path().to_path_buf();
+        let state_root = root.join("state");
+        let runtime_root = root.join("runtime");
+        let artifact_root = root.join("artifacts");
+        fs::create_dir_all(&state_root)?;
+        fs::create_dir_all(&runtime_root)?;
+        fs::create_dir_all(&artifact_root)?;
+        Ok(Self {
+            _temp: temp,
+            db_path: state_root.join("state.db"),
+            state_root,
+            runtime_root,
+            artifact_root,
+        })
+    }
+
+    fn run(&self) -> Result<ContractsFinderRunResult> {
+        let fake_claude = self.prepare_fake_claude()?;
+        let output = Command::cargo_bin("daemon")?
+            .arg("--ingest")
+            .arg("contracts-finder")
+            .arg("--agent-cli")
+            .arg("claude")
+            .arg("--agent-cli-program")
+            .arg(&fake_claude.program)
+            .arg("--state-root")
+            .arg(&self.state_root)
+            .arg("--runtime-dir")
+            .arg(&self.runtime_root)
+            .arg("--artifact-root")
+            .arg(&self.artifact_root)
+            .env("DAEMON_TEST_CLAUDE_RESULT_PATH", &fake_claude.result_path)
+            .env(
+                "DAEMON_TEST_CLAUDE_CHECKPOINT_PATH",
+                &fake_claude.checkpoint_path,
+            )
+            .output()
+            .context("running daemon binary")?;
+
+        Ok(ContractsFinderRunResult {
+            stdout: String::from_utf8(output.stdout).context("decoding stdout")?,
+            stderr: String::from_utf8(output.stderr).context("decoding stderr")?,
+            success: output.status.success(),
+        })
+    }
+
+    fn connection(&self) -> Result<Connection> {
+        Connection::open(&self.db_path)
+            .with_context(|| format!("opening {}", self.db_path.display()))
+    }
+
+    fn prepare_fake_claude(&self) -> Result<ContractsFinderFakeClaude> {
+        let root = self
+            .state_root
+            .parent()
+            .ok_or_else(|| anyhow::anyhow!("state root missing parent"))?;
+        let state_dir = root.join("fake-claude");
+        fs::create_dir_all(&state_dir)?;
+        fs::write(
+            state_dir.join("probe.json"),
+            serde_json::to_vec_pretty(&json!({
+                "auth_healthy": true,
+                "structured_output": true,
+                "pty_viable": true,
+                "browser_tools": true
+            }))?,
+        )?;
+        fs::write(
+            state_dir.join("result-source.json"),
+            serde_json::to_vec_pretty(&contracts_finder_daemon_result_payload())?,
+        )?;
+        let program = state_dir.join("claude");
+        fs::write(
+            &program,
+            format!(
+                "#!/bin/sh\nset -eu\nstate_dir=\"{}\"\nif [ \"${{1-}}\" = \"--version\" ] || [ \"${{1-}}\" = \"-v\" ]; then\n  printf 'claude 1.2.3\\n'\n  exit 0\nfi\nif [ \"${{1-}}\" = \"probe\" ]; then\n  cat \"$state_dir/probe.json\"\n  exit 0\nfi\nmode=pty\nfor arg in \"$@\"; do\n  if [ \"$arg\" = \"--output-format\" ]; then\n    mode=contract\n    break\n  fi\ndone\nif [ \"$mode\" = contract ]; then\n  cp \"$state_dir/result-source.json\" \"$DAEMON_TEST_CLAUDE_RESULT_PATH\"\n  printf '{{\"event\":\"result\",\"path\":\"%s\"}}\\n' \"$DAEMON_TEST_CLAUDE_RESULT_PATH\"\nelse\n  cp \"$state_dir/result-source.json\" result.json\n  : > \"$DAEMON_TEST_CLAUDE_CHECKPOINT_PATH\"\n  printf '{{\"event\":\"checkpoint\",\"seq\":1,\"path\":\"%s\"}}\\n' \"$DAEMON_TEST_CLAUDE_CHECKPOINT_PATH\"\nfi\n",
+                state_dir.display()
+            ),
+        )?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = fs::metadata(&program)?.permissions();
+            perms.set_mode(0o755);
+            fs::set_permissions(&program, perms)?;
+        }
+        Ok(ContractsFinderFakeClaude {
+            program,
+            result_path: self.artifact_root.join("fake-claude-result.json"),
+            checkpoint_path: self.artifact_root.join("fake-claude-checkpoint.json"),
+        })
+    }
 }
 
 fn load_json(path: &std::path::Path) -> Result<Value> {
@@ -83,6 +203,43 @@ fn sample_result_payload(continuation_required: bool) -> Value {
         "notices": [
             sample_notice("cf-001", "cursor-001", "2026-03-28T10:00:00Z", "tender"),
             sample_notice("cf-002", "cursor-002", "2026-03-28T10:05:00Z", "award")
+        ]
+    })
+}
+
+fn contracts_finder_daemon_result_payload() -> Value {
+    json!({
+        "cursor": "cursor-daemon-002",
+        "continuation_required": false,
+        "notices": [
+            {
+                "notice_id": "cf-daemon-001",
+                "source_notice_id": "cf-daemon-source-001",
+                "source_url": "https://www.contractsfinder.service.gov.uk/Notice/cf-daemon-001",
+                "title": "Contracts Finder daemon fixture",
+                "summary": "A deterministic Contracts Finder daemon ingestion fixture.",
+                "buyer_name": "Daemon Borough Council",
+                "published_at": "2026-03-28T10:00:00Z",
+                "source_updated_at": "2026-03-28T10:05:00Z",
+                "ocid": "ocds-cf-daemon-001",
+                "procurement_stage": "tender",
+                "main_category": "goods",
+                "deadline_at": "2026-04-30T12:00:00Z",
+                "estimated_value_low_pence": 2_500_000,
+                "estimated_value_currency": "GBP",
+                "access_route": "public_web",
+                "raw_release_json": "{\"ocid\":\"ocds-cf-daemon-001\",\"id\":\"cf-daemon-001-release\"}",
+                "lots": [
+                    {
+                        "lot_id": "cf-daemon-lot-001",
+                        "source_lot_id": "cf-daemon-source-lot-001",
+                        "title": "Daemon lot",
+                        "description": "Deterministic goods lot",
+                        "estimated_value_pence": 2_500_000,
+                        "deadline_at": "2026-04-30T12:00:00Z"
+                    }
+                ]
+            }
         ]
     })
 }
@@ -162,6 +319,75 @@ fn render_sample_run_manifest() -> String {
 }
 
 #[test]
+fn impact_contracts_finder_live_loop_regression_001() -> Result<()> {
+    let harness = ContractsFinderRunHarness::new()?;
+    let result = harness.run()?;
+    ensure!(
+        result.success,
+        "daemon run should succeed: stdout={} stderr={}",
+        result.stdout,
+        result.stderr
+    );
+
+    let conn = harness.connection()?;
+    let (kind, status, output_payload): (String, String, String) = conn.query_row(
+        "SELECT kind, status, output_payload FROM workflow_jobs WHERE parent_job_id IS NULL ORDER BY created_at DESC LIMIT 1",
+        [],
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+    )?;
+    ensure!(kind == "sync_source");
+    ensure!(status == "completed");
+    let output_json: Value =
+        serde_json::from_str(&output_payload).context("parsing workflow job output payload")?;
+    ensure!(output_json["source_id"] == "contracts-finder");
+    ensure!(output_json["notices_ingested"] == 1);
+    ensure!(output_json["continuation_required"] == false);
+
+    let pty_session_count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM agent_session_logs WHERE execution_mode = 'pty'",
+        [],
+        |row| row.get(0),
+    )?;
+    ensure!(pty_session_count == 1);
+
+    let process_title: String = conn.query_row(
+        "SELECT title FROM procurement_processes WHERE id = 'proc-ocds-cf-daemon-001'",
+        [],
+        |row| row.get(0),
+    )?;
+    ensure!(process_title == "Contracts Finder daemon fixture");
+
+    let (notice_process_id, raw_document_id): (String, String) = conn.query_row(
+        "SELECT process_id, raw_document_id FROM contract_notices WHERE source_id = 'contracts-finder' AND source_notice_id = 'cf-daemon-source-001'",
+        [],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    )?;
+    ensure!(notice_process_id == "proc-ocds-cf-daemon-001");
+    ensure!(raw_document_id == "raw-cf-daemon-001");
+
+    let (raw_source_id, content_type): (String, String) = conn.query_row(
+        "SELECT source_id, content_type FROM raw_documents WHERE id = 'raw-cf-daemon-001'",
+        [],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    )?;
+    ensure!(raw_source_id == "contracts-finder");
+    ensure!(content_type == "application/json");
+
+    let cursor_value: String = conn.query_row(
+        "SELECT cursor_value FROM source_cursors WHERE source_id = 'contracts-finder' AND cursor_key = 'notice_cursor'",
+        [],
+        |row| row.get(0),
+    )?;
+    ensure!(cursor_value == "cursor-daemon-002");
+    ensure!(
+        result
+            .stdout
+            .contains("contracts-finder live loop completed")
+    );
+    Ok(())
+}
+
+#[test]
 fn ag_cf_001_skill_directory_contains_the_full_contracts_finder_skill_package() -> Result<()> {
     let linted = lint_skill_directory(&contracts_finder_skill_dir()?)?;
 
@@ -203,11 +429,13 @@ fn ag_cf_003_incremental_result_and_checkpoint_contracts_support_safe_continuati
     let result_payload = sample_result_payload(true);
     let checkpoint_payload = sample_checkpoint_payload();
 
-    let result_required = result_schema["properties"]
-        .as_object()
+    let result_required = result_schema
+        .get("properties")
+        .and_then(Value::as_object)
         .ok_or_else(|| anyhow::anyhow!("result schema properties missing"))?;
-    let checkpoint_required = checkpoint_schema["properties"]
-        .as_object()
+    let checkpoint_required = checkpoint_schema
+        .get("properties")
+        .and_then(Value::as_object)
         .ok_or_else(|| anyhow::anyhow!("checkpoint schema properties missing"))?;
 
     ensure!(result_required.contains_key("cursor"));
@@ -242,7 +470,13 @@ fn ag_cf_004_cursor_backtrack_overlap_prevents_skipped_or_duplicate_notice_ids()
     let unique_ids: BTreeSet<String> = first_batch
         .into_iter()
         .chain(resumed_batch)
-        .map(|notice| notice["notice_id"].as_str().unwrap_or_default().to_owned())
+        .map(|notice| {
+            notice
+                .get("notice_id")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_owned()
+        })
         .collect();
 
     ensure!(unique_ids.len() == 3);
