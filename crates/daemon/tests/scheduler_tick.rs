@@ -103,6 +103,25 @@ mod tests {
         )?)
     }
 
+    fn count_fts_jobs_at_status(
+        conn: &Connection,
+        scheduled_for: &str,
+        status: &str,
+    ) -> Result<i64> {
+        Ok(conn.query_row(
+            "\
+            SELECT COUNT(*)
+            FROM workflow_jobs
+            WHERE kind = 'sync_source'
+              AND scope_id = 'fts'
+              AND scheduled_for = ?1
+              AND status = ?2
+            ",
+            params![scheduled_for, status],
+            |row| row.get(0),
+        )?)
+    }
+
     fn query_single_fts_job(
         conn: &Connection,
         scheduled_for: &str,
@@ -270,6 +289,48 @@ mod tests {
         ensure!(
             !main_source.contains("cron_dedup") && !cron_source.contains("cron_dedup"),
             "tick_002 expected no auxiliary cron dedup table or flag"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn tick_006_failed_slot_reenqueueable() -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        let registry = SourceRegistry::load(state_db.connection())?;
+        let scheduled_for = ts(2026, 6, 5, 4, 15, 0)?;
+        let due_slot = scheduled_for.to_rfc3339();
+        enqueue_fts_history(state_db.db_path(), scheduled_for)?;
+        state_db.connection().execute(
+            "\
+            UPDATE workflow_jobs
+            SET status = 'failed'
+            WHERE kind = 'sync_source'
+              AND scope_id = 'fts'
+              AND scheduled_for = ?1
+            ",
+            params![due_slot],
+        )?;
+        ensure!(
+            count_fts_jobs_at_status(state_db.connection(), &due_slot, "failed")? == 1,
+            "tick_006 expected one failed seed row"
+        );
+
+        let mut scheduler = CronScheduler::from_registry(&registry);
+        scheduler.refresh_next_run_at(ts(2026, 6, 5, 4, 10, 0)?)?;
+        let mut tick_db = StateDb::open(state_db.db_path())?;
+        let enqueued = run_scheduler_tick(&mut scheduler, &registry, &mut tick_db, scheduled_for)?;
+        ensure!(enqueued == 1, "tick_006 expected failed slot to re-enqueue");
+        ensure!(
+            count_fts_jobs_at(state_db.connection(), &due_slot)? == 2,
+            "tick_006 expected failed row plus new pending row for same slot"
+        );
+        ensure!(
+            count_fts_jobs_at_status(state_db.connection(), &due_slot, "pending")? == 1,
+            "tick_006 expected one new pending retry row"
+        );
+        ensure!(
+            count_fts_jobs_at_status(state_db.connection(), &due_slot, "failed")? == 1,
+            "tick_006 expected original failed row to remain failed"
         );
         Ok(())
     }
