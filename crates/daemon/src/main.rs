@@ -27012,6 +27012,118 @@ mod tests {
         assert!(dispatch_body.contains("unsupported queued job kind"));
     }
 
+    fn source_section_between<'a>(source: &'a str, start: &str, end: &str) -> Result<&'a str> {
+        let Some(start_index) = source.find(start) else {
+            anyhow::bail!("missing {start}");
+        };
+        let Some(relative_end) = source[start_index..].find(end) else {
+            anyhow::bail!("missing {end} after {start}");
+        };
+        Ok(&source[start_index..start_index + relative_end])
+    }
+
+    fn assert_source_markers_in_order(section: &str, markers: &[&str]) -> Result<()> {
+        let mut cursor = 0_usize;
+        for marker in markers {
+            let Some(offset) = section[cursor..].find(marker) else {
+                anyhow::bail!("missing ordered marker {marker}");
+            };
+            cursor += offset + marker.len();
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn manual_ingest_wrappers_claim_sync_source_jobs_before_shared_bodies() -> Result<()> {
+        let source = include_str!("main.rs");
+        let ingest_dispatch = source_section_between(
+            source,
+            "if let Some(source_id) = &cli.ingest",
+            "if let Some(source_id) = &cli.pipeline",
+        )?;
+        for (source_id, wrapper_call) in [
+            (
+                "fts",
+                "run_fts_live_loop(&mut runtime, fixture, &cli).await?",
+            ),
+            (
+                "contracts-finder",
+                "run_contracts_finder_live_loop(&mut runtime, &cli).await?",
+            ),
+            (
+                "procontract",
+                "run_procontract_discover_live_loop(&mut runtime, &cli).await?",
+            ),
+            (
+                "procontract-interest",
+                "run_procontract_register_interest_live_loop(&mut runtime, &cli).await?",
+            ),
+            (
+                "procontract-enrich",
+                "run_procontract_enrich_tender_live_loop(&mut runtime, &cli).await?",
+            ),
+        ] {
+            anyhow::ensure!(
+                ingest_dispatch.contains(wrapper_call),
+                "{source_id} ingest dispatch must call its manual wrapper"
+            );
+        }
+
+        for (wrapper_start, claimed_start, create_call, claimed_call) in [
+            (
+                "async fn run_fts_live_loop",
+                "async fn run_fts_claimed_live_loop",
+                "create_sync_source_job(",
+                "run_fts_claimed_live_loop(",
+            ),
+            (
+                "async fn run_contracts_finder_live_loop",
+                "async fn run_contracts_finder_claimed_live_loop",
+                "create_source_sync_job_from_parameters(",
+                "run_contracts_finder_claimed_live_loop(",
+            ),
+            (
+                "async fn run_procontract_discover_live_loop",
+                "async fn run_procontract_discover_claimed_live_loop",
+                "create_source_sync_job_from_parameters(",
+                "run_procontract_discover_claimed_live_loop(",
+            ),
+            (
+                "async fn run_procontract_register_interest_live_loop",
+                "async fn run_procontract_register_interest_claimed_live_loop",
+                "create_source_sync_job_from_parameters(",
+                "run_procontract_register_interest_claimed_live_loop(",
+            ),
+            (
+                "async fn run_procontract_enrich_tender_live_loop",
+                "async fn run_procontract_enrich_tender_claimed_live_loop",
+                "create_source_sync_job_from_parameters(",
+                "run_procontract_enrich_tender_claimed_live_loop(",
+            ),
+        ] {
+            let wrapper = source_section_between(source, wrapper_start, claimed_start)?;
+            assert_source_markers_in_order(
+                wrapper,
+                &[create_call, ".claim_job_by_id(", claimed_call],
+            )?;
+        }
+
+        let pipeline_dispatch = source_section_between(
+            source,
+            "if let Some(source_id) = &cli.pipeline",
+            "if let Some(bid_job_id) = &cli.run_bid_workflow",
+        )?;
+        anyhow::ensure!(
+            pipeline_dispatch.contains("run_deterministic_pipeline"),
+            "manual pipeline dispatch must keep the deterministic pipeline path"
+        );
+        anyhow::ensure!(
+            !pipeline_dispatch.contains("trigger_pipeline_rerun"),
+            "manual pipeline dispatch must not use the desktop rerun affordance"
+        );
+        Ok(())
+    }
+
     #[test]
     fn existing_model_profile_resolution_remains_stable() {
         let mut skill = test_manifest_loaded_skill();
