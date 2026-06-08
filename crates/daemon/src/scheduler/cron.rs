@@ -21,6 +21,10 @@ pub const VALIDATION_CALIBRATION_READINESS_SWEEP_CRON: &str = "0 20 2 * * *";
 pub const VALIDATION_CROSS_MODEL_AUDIT_CRON: &str = "0 30 3 * * *";
 pub const VALIDATION_CROSS_MODEL_ALTERNATE_MODEL_FAMILY: &str = "alternate-validator";
 pub const VALIDATION_CROSS_MODEL_ACTIVE_TRAFFIC_WINDOW_DAYS: i64 = 30;
+pub const COMMERCIAL_SWEEP_SOURCE_ID: &str = "commercial-sweep";
+pub const COMMERCIAL_SWEEP_SKILL_ID: &str = "pipeline/commercial-sweep";
+pub const COMMERCIAL_SWEEP_SKILL_VERSION: &str = "2026.06.07-1";
+pub const COMMERCIAL_SWEEP_CRON: &str = "0 0 7 * * *";
 pub const L5_COMMERCIAL_INTELLIGENCE_SOURCE_ID: &str = "l5-commercial-intelligence";
 pub const L5_COMMERCIAL_INTELLIGENCE_SKILL_VERSION: &str = "2026.05.19-1";
 pub const HMRC_TARIFF_NEWS_WEEKLY_SKILL_ID: &str = "landed-cost/hmrc-tariff-news-watch";
@@ -55,6 +59,7 @@ pub enum CronJobClass {
     SourceHealth,
     AuthRefresh,
     ValidationCalibration,
+    CommercialSweep,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -220,6 +225,7 @@ impl CronScheduler {
 fn scheduler_owned_definitions() -> Vec<CronJobDefinition> {
     validation_calibration_definitions()
         .into_iter()
+        .chain(commercial_sweep_definitions())
         .chain(l5_commercial_intelligence_definitions())
         .collect()
 }
@@ -311,8 +317,21 @@ fn validation_calibration_definitions() -> Vec<CronJobDefinition> {
     .collect()
 }
 
+fn commercial_sweep_definitions() -> Vec<CronJobDefinition> {
+    vec![CronJobDefinition {
+        source_id: COMMERCIAL_SWEEP_SOURCE_ID.to_owned(),
+        skill_id: COMMERCIAL_SWEEP_SKILL_ID.to_owned(),
+        skill_version: COMMERCIAL_SWEEP_SKILL_VERSION.to_owned(),
+        cron_expression: COMMERCIAL_SWEEP_CRON.to_owned(),
+        enabled: true,
+        last_run_at: None,
+        next_run_at: None,
+    }]
+}
+
 fn requires_source_registry_lookup(source_id: &str) -> bool {
     source_id != VALIDATION_CALIBRATION_SOURCE_ID
+        && source_id != COMMERCIAL_SWEEP_SOURCE_ID
         && source_id != L5_COMMERCIAL_INTELLIGENCE_SOURCE_ID
 }
 
@@ -353,11 +372,17 @@ fn build_enqueue_request(
             "validation_cross_model_audit"
         }
         CronJobClass::ValidationCalibration => "validation_calibration_readiness_sweep",
+        CronJobClass::CommercialSweep => "commercial_sweep",
     };
-    let scope_kind = if job_class == CronJobClass::ValidationCalibration {
-        "validation_calibration"
-    } else {
-        "source"
+    let (scope_kind, scope_id) = match job_class {
+        CronJobClass::ValidationCalibration => (
+            "validation_calibration",
+            VALIDATION_CALIBRATION_SOURCE_ID.to_owned(),
+        ),
+        CronJobClass::CommercialSweep => ("pipeline", "commercial".to_owned()),
+        CronJobClass::Production | CronJobClass::SourceHealth | CronJobClass::AuthRefresh => {
+            ("source", definition.source_id.clone())
+        }
     };
     let schedule_key = definition_key(definition);
     EnqueueJobRequest {
@@ -366,7 +391,7 @@ fn build_enqueue_request(
         process_id: None,
         notice_id: None,
         scope_kind: Some(scope_kind.to_owned()),
-        scope_id: Some(definition.source_id.clone()),
+        scope_id: Some(scope_id),
         parent_job_id: None,
         continuation_chain_id: None,
         validation_required: definition.skill_id == VALIDATION_CROSS_MODEL_AUDIT_SKILL_ID,
@@ -399,7 +424,9 @@ fn build_enqueue_request(
 }
 
 fn admission_priority_for_skill(skill_id: &str) -> AdmissionPriority {
-    if skill_id.starts_with("validation/") {
+    if skill_id == COMMERCIAL_SWEEP_SKILL_ID {
+        AdmissionPriority::ManifestGeneration
+    } else if skill_id.starts_with("validation/") {
         AdmissionPriority::Qualification
     } else if skill_id.contains("auth-refresh") || skill_id.contains("source-health") {
         AdmissionPriority::AuthRefreshOrHealthProbe
@@ -427,6 +454,9 @@ fn source_job_class_for_skill(skill_id: &str) -> SourceJobClass {
 }
 
 fn job_class_for_skill(skill_id: &str) -> CronJobClass {
+    if skill_id == COMMERCIAL_SWEEP_SKILL_ID {
+        return CronJobClass::CommercialSweep;
+    }
     if skill_id.starts_with("validation/") {
         return CronJobClass::ValidationCalibration;
     }

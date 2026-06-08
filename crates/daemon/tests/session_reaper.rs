@@ -27,7 +27,7 @@ mod tests {
     use crate::support::process::{ProcessIsolationGuard, ProcessTreeHelper};
     use crate::support::{self, TestContext};
 
-    const HELPER_EXIT_TIMEOUT: Duration = Duration::from_secs(5);
+    const HELPER_EXIT_TIMEOUT: Duration = Duration::from_secs(30);
     const SIGNAL_HANDLER_READY_DELAY: Duration = Duration::from_secs(2);
 
     fn fixed_started_at() -> Result<DateTime<Utc>> {

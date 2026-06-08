@@ -57,13 +57,14 @@ mod tests {
     use serde_json::Value;
 
     use crate::cron_impl::{
-        CronScheduler, HMRC_FX_MONTHLY_ROLLOVER_CRON, HMRC_FX_MONTHLY_ROLLOVER_SKILL_ID,
-        HMRC_TARIFF_NEWS_WEEKLY_CRON, HMRC_TARIFF_NEWS_WEEKLY_SKILL_ID,
-        L5_COMMERCIAL_INTELLIGENCE_SKILL_VERSION, L5_COMMERCIAL_INTELLIGENCE_SOURCE_ID,
-        MARKETPLACE_SOURCE_HEALTH_CANARY_CRON, MARKETPLACE_SOURCE_HEALTH_CANARY_SKILL_ID,
-        TRA_CASE_REGISTER_DAILY_CRON, TRA_CASE_REGISTER_DAILY_SKILL_ID,
-        VALIDATION_CALIBRATION_READINESS_SWEEP_SKILL_ID, VALIDATION_CALIBRATION_SOURCE_ID,
-        VALIDATION_CROSS_MODEL_AUDIT_SKILL_ID,
+        COMMERCIAL_SWEEP_CRON, COMMERCIAL_SWEEP_SKILL_ID, COMMERCIAL_SWEEP_SKILL_VERSION,
+        COMMERCIAL_SWEEP_SOURCE_ID, CronScheduler, HMRC_FX_MONTHLY_ROLLOVER_CRON,
+        HMRC_FX_MONTHLY_ROLLOVER_SKILL_ID, HMRC_TARIFF_NEWS_WEEKLY_CRON,
+        HMRC_TARIFF_NEWS_WEEKLY_SKILL_ID, L5_COMMERCIAL_INTELLIGENCE_SKILL_VERSION,
+        L5_COMMERCIAL_INTELLIGENCE_SOURCE_ID, MARKETPLACE_SOURCE_HEALTH_CANARY_CRON,
+        MARKETPLACE_SOURCE_HEALTH_CANARY_SKILL_ID, TRA_CASE_REGISTER_DAILY_CRON,
+        TRA_CASE_REGISTER_DAILY_SKILL_ID, VALIDATION_CALIBRATION_READINESS_SWEEP_SKILL_ID,
+        VALIDATION_CALIBRATION_SOURCE_ID, VALIDATION_CROSS_MODEL_AUDIT_SKILL_ID,
     };
     use crate::db_support::{StateDb, TestStateDb};
     use crate::runner_impl::JobRunner;
@@ -141,11 +142,12 @@ mod tests {
         // procontract-* sources. The harness adds Alibaba on top. That gives
         // seven source-backed bindings (FTS production + canary, Contracts Finder
         // production, procontract production x3, Alibaba canary) plus two
-        // scheduler-owned validation calibration jobs and four scheduler-owned
-        // L5 commercial-intelligence watcher jobs.
+        // scheduler-owned validation calibration jobs, one scheduler-owned
+        // commercial sweep, and four scheduler-owned L5 commercial-intelligence
+        // watcher jobs.
         ensure!(
-            definitions.len() == 13,
-            "L3-T-cron_scheduler-001 expected thirteen cron-backed definitions, got {}: {:?}",
+            definitions.len() == 14,
+            "L3-T-cron_scheduler-001 expected fourteen cron-backed definitions, got {}: {:?}",
             definitions.len(),
             definitions.keys().collect::<Vec<_>>(),
         );
@@ -196,6 +198,18 @@ mod tests {
         ensure!(
             definitions[cross_model_key.as_str()].next_run_at == Some(ts(2026, 3, 26, 3, 30, 0)?),
             "L3-T-cron_scheduler-001 unexpected validation cross-model audit schedule"
+        );
+        let commercial_key = format!("{COMMERCIAL_SWEEP_SOURCE_ID}::{COMMERCIAL_SWEEP_SKILL_ID}");
+        let commercial_definition = definitions
+            .get(&commercial_key)
+            .ok_or_else(|| anyhow!("missing commercial sweep cron definition"))?;
+        ensure!(commercial_definition.source_id == COMMERCIAL_SWEEP_SOURCE_ID);
+        ensure!(commercial_definition.skill_id == COMMERCIAL_SWEEP_SKILL_ID);
+        ensure!(commercial_definition.skill_version == COMMERCIAL_SWEEP_SKILL_VERSION);
+        ensure!(commercial_definition.cron_expression == COMMERCIAL_SWEEP_CRON);
+        ensure!(
+            commercial_definition.next_run_at == Some(ts(2026, 3, 25, 7, 0, 0)?),
+            "L3-T-cron_scheduler-001 unexpected commercial sweep schedule"
         );
         Ok(())
     }
@@ -333,6 +347,46 @@ mod tests {
     }
 
     #[test]
+    fn commercial_sweep_cron_definition_builds_pipeline_enqueue_shape() -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        let registry = reload_registry(&state_db)?;
+        let mut scheduler = CronScheduler::from_registry(&registry);
+        scheduler.record_enqueued(
+            "commercial-sweep::pipeline/commercial-sweep",
+            ts(2026, 3, 24, 7, 0, 0)?,
+        )?;
+
+        let dispatch = scheduler
+            .dispatch_due_jobs(&registry, ts(2026, 3, 25, 7, 5, 0)?)?
+            .into_iter()
+            .find(|candidate| candidate.definition.skill_id == COMMERCIAL_SWEEP_SKILL_ID)
+            .ok_or_else(|| anyhow!("expected commercial_sweep dispatch"))?;
+
+        ensure!(dispatch.definition.source_id == COMMERCIAL_SWEEP_SOURCE_ID);
+        ensure!(dispatch.definition.skill_id == COMMERCIAL_SWEEP_SKILL_ID);
+        ensure!(dispatch.definition.skill_version == COMMERCIAL_SWEEP_SKILL_VERSION);
+        ensure!(dispatch.definition.cron_expression == COMMERCIAL_SWEEP_CRON);
+        ensure!(dispatch.enqueue_request.kind == "commercial_sweep");
+        ensure!(dispatch.enqueue_request.scope_kind.as_deref() == Some("pipeline"));
+        ensure!(dispatch.enqueue_request.scope_id.as_deref() == Some("commercial"));
+        ensure!(dispatch.enqueue_request.process_id.is_none());
+        ensure!(dispatch.enqueue_request.notice_id.is_none());
+        ensure!(!dispatch.enqueue_request.validation_required);
+        ensure!(dispatch.enqueue_request.scheduled_for == Some(ts(2026, 3, 25, 7, 0, 0)?));
+        ensure!(
+            dispatch.enqueue_request.idempotency_key
+                == "cron:commercial-sweep:pipeline/commercial-sweep:2026-03-25T07:00:00+00:00"
+        );
+        ensure!(dispatch.enqueue_request.input_payload["source_id"] == COMMERCIAL_SWEEP_SOURCE_ID);
+        ensure!(dispatch.enqueue_request.input_payload["skill_id"] == COMMERCIAL_SWEEP_SKILL_ID);
+        ensure!(
+            dispatch.enqueue_request.input_payload["schedule_key"]
+                == "commercial-sweep::pipeline/commercial-sweep"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn l3_t_cron_scheduler_004_scheduler_binding_matches_on_disk_frozen_frontmatter() -> Result<()>
     {
         let state_db = TestStateDb::new()?;
@@ -414,8 +468,12 @@ mod tests {
             "contracts-finder::procurement-ingestion/contracts-finder",
             ts(2026, 3, 24, 4, 45, 0)?,
         )?;
+        scheduler.record_enqueued(
+            "commercial-sweep::pipeline/commercial-sweep",
+            ts(2026, 3, 24, 7, 0, 0)?,
+        )?;
 
-        let dispatches = scheduler.dispatch_due_jobs(&registry, ts(2026, 3, 25, 5, 0, 0)?)?;
+        let dispatches = scheduler.dispatch_due_jobs(&registry, ts(2026, 3, 25, 7, 5, 0)?)?;
         let ordered_keys = dispatches
             .iter()
             .map(|dispatch| dispatch.definition_key.as_str())
@@ -427,6 +485,7 @@ mod tests {
                     "fts::procurement-ingestion/fts",
                     "contracts-finder::procurement-ingestion/contracts-finder",
                     "fts::source-health/fts",
+                    "commercial-sweep::pipeline/commercial-sweep",
                 ],
             "L3-T-cron_scheduler-006 unexpected catchup order: {ordered_keys:?}"
         );
@@ -574,7 +633,10 @@ mod tests {
             .get("fts")
             .ok_or_else(|| anyhow!("missing FTS source"))?;
         ensure!(
-            source.effective_circuit_state(recovery_at) == CircuitState::Open,
+            matches!(
+                source.effective_circuit_state(recovery_at),
+                CircuitState::Open
+            ),
             "L3-T-cron_scheduler-009 expected failed recovery canary to reopen circuit"
         );
         ensure!(
@@ -591,7 +653,7 @@ mod tests {
         ensure!(
             dispatches
                 .iter()
-                .all(|dispatch| dispatch.definition.source_id != "fts"),
+                .all(|dispatch| !matches!(dispatch.definition.source_id.as_str(), "fts")),
             "L3-T-cron_scheduler-009 expected reopened circuit to suppress all FTS dispatches during fresh cooldown"
         );
         Ok(())
