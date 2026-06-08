@@ -19366,6 +19366,31 @@ const fn execution_mode_label(mode: ExecutionMode) -> &'static str {
     }
 }
 
+fn claimed_source_request_payload(claimed: &ClaimedJob) -> &Value {
+    claimed
+        .input_payload
+        .get("request")
+        .unwrap_or(&claimed.input_payload)
+}
+
+fn claimed_source_job_parameters(claimed: &ClaimedJob, source_id: &str) -> Result<Value> {
+    let request_payload = claimed_source_request_payload(claimed);
+    if let Some(job_parameters) = request_payload.get("job_parameters") {
+        return Ok(job_parameters.clone());
+    }
+
+    let source_matches = request_payload
+        .get("source_id")
+        .and_then(Value::as_str)
+        .is_some_and(|job_source_id| job_source_id.eq(source_id));
+    ensure!(
+        source_matches,
+        "claimed sync_source job {} did not include job_parameters for source `{source_id}`",
+        claimed.id
+    );
+    Ok(request_payload.clone())
+}
+
 #[allow(clippy::too_many_lines, clippy::future_not_send)]
 async fn run_contracts_finder_live_loop(
     runtime: &mut RuntimeBootstrap,
@@ -19407,45 +19432,39 @@ async fn run_contracts_finder_live_loop(
 
     // Create sync_source job.
     let adapter_config = adapter_runtime_config(cli, &ingest_skill)?;
-    let job_id = format!(
-        "job-{}",
-        sha256_hex(&UuidSeed::from_time(Utc::now()).as_bytes())
-    );
-    runtime.state_db.with_write_transaction(|tx| {
-        tx.execute(
-            "\
-            INSERT INTO workflow_jobs (
-              id, kind, scope_kind, scope_id, status, input_payload, validation_required,
-              parent_job_id, validation_verdict_id
-            ) VALUES (?1, 'sync_source', 'source', 'contracts-finder', 'pending', ?2, 0, NULL, NULL)
-            ",
-            params![
-                job_id,
-                json!({
-                    "source_id": "contracts-finder",
-                    "trigger": "manual_cli",
-                    "skill_binding": skill_binding_payload(&ingest_skill),
-                    "agent_cli": adapter_config.kind.as_str(),
-                    "job_parameters": job_parameters,
-                    "durable_step_surfaces": live_loop_surfaces_json(),
-                })
-                .to_string(),
-            ],
-        )?;
-        Ok(())
-    })?;
+    let job_id = create_source_sync_job_from_parameters(
+        &mut runtime.state_db,
+        "contracts-finder",
+        &ingest_skill,
+        &job_parameters,
+        adapter_config.kind,
+    )?;
 
     // Claim job.
     let runner = JobRunner::new(LOCAL_EXECUTOR_ID);
-    let _claimed = runner
+    let claimed = runner
         .claim_job_by_id(runtime.state_db.connection(), &job_id)?
         .ok_or_else(|| anyhow!("expected claimed workflow job for contracts-finder"))?;
+
+    run_contracts_finder_claimed_live_loop(runtime, claimed, cli, &ingest_skill).await
+}
+
+#[allow(clippy::too_many_lines, clippy::future_not_send)]
+async fn run_contracts_finder_claimed_live_loop(
+    runtime: &mut RuntimeBootstrap,
+    claimed: ClaimedJob,
+    cli: &Cli,
+    ingest_skill: &LoadedSkill,
+) -> Result<LiveLoopReport> {
+    let job_id = claimed.id.clone();
+    let job_parameters = claimed_source_job_parameters(&claimed, "contracts-finder")?;
+    let adapter_config = adapter_runtime_config(cli, ingest_skill)?;
 
     // Execute PTY skill session.
     let session_id = format!("session-pty-{}", sha256_hex(job_id.as_bytes()));
     let executed = execute_skill_session(
         runtime,
-        &ingest_skill,
+        ingest_skill,
         &job_id,
         &session_id,
         &job_parameters,
@@ -19460,7 +19479,7 @@ async fn run_contracts_finder_live_loop(
 
     insert_executed_session_log(
         runtime.state_db.connection(),
-        &ingest_skill,
+        ingest_skill,
         &job_id,
         &executed,
     )?;
@@ -19477,10 +19496,7 @@ async fn run_contracts_finder_live_loop(
             );
         }
     };
-    let result_text = fs::read_to_string(&result_path)
-        .with_context(|| format!("reading result contract from {}", result_path.display()))?;
-    let result_json: Value =
-        serde_json::from_str(&result_text).context("parsing agent result contract JSON")?;
+    let result_json = read_result_contract(&result_path)?;
 
     // Persist ingestion data via the generic persistence function.
     let persisted_count = persist_ingestion_from_agent_output(
@@ -19520,7 +19536,7 @@ async fn run_contracts_finder_live_loop(
                     json!({
                         "source_id": "contracts-finder",
                         "trigger": "continuation",
-                        "skill_binding": skill_binding_payload(&ingest_skill),
+                        "skill_binding": skill_binding_payload(ingest_skill),
                         "agent_cli": adapter_config.kind.as_str(),
                         "job_parameters": {
                             "source_id": "contracts-finder",
@@ -19555,26 +19571,14 @@ async fn run_contracts_finder_live_loop(
         "durable_step_surfaces": live_loop_surfaces_json(),
     });
 
-    runtime.state_db.with_write_transaction(|tx| {
-        tx.execute(
-            "\
-            UPDATE workflow_jobs
-            SET status = 'completed',
-                completed_at = ?1,
-                output_payload = ?2
-            WHERE id = ?3
-            ",
-            params![Utc::now().to_rfc3339(), summary_payload.to_string(), job_id],
-        )?;
-        Ok(())
-    })?;
-
-    Ok(LiveLoopReport {
-        summary_line: format!(
+    complete_source_job(
+        runtime,
+        &job_id,
+        &summary_payload,
+        format!(
             "contracts-finder live loop completed: job_id={job_id} notices={persisted_count} continuation={continuation_required}",
         ),
-        status: "completed".to_owned(),
-    })
+    )
 }
 
 #[allow(clippy::future_not_send)]
@@ -20322,6 +20326,34 @@ async fn run_fts_live_loop(
     let claimed = runner
         .claim_job_by_id(runtime.state_db.connection(), &job_id)?
         .ok_or_else(|| anyhow!("expected claimed workflow job"))?;
+
+    run_fts_claimed_live_loop(
+        runtime,
+        claimed,
+        fixture,
+        cli,
+        &ingest_skill,
+        &manifest_skill,
+    )
+    .await
+}
+
+#[allow(
+    clippy::too_many_lines,
+    clippy::needless_pass_by_value,
+    clippy::future_not_send
+)]
+async fn run_fts_claimed_live_loop(
+    runtime: &mut RuntimeBootstrap,
+    claimed: ClaimedJob,
+    fixture: LiveLoopFixture,
+    cli: &Cli,
+    ingest_skill: &LoadedSkill,
+    manifest_skill: &LoadedSkill,
+) -> Result<LiveLoopReport> {
+    let job_id = claimed.id.clone();
+    let runner = JobRunner::new(LOCAL_EXECUTOR_ID);
+
     if fixture.capture_write_failure {
         return fail_job_with_code(
             runtime,
@@ -20335,12 +20367,13 @@ async fn run_fts_live_loop(
         );
     }
     let ingest_session_id = format!("session-pty-{}", sha256_hex(job_id.as_bytes()));
+    let ingest_job_payload = claimed_source_request_payload(&claimed).clone();
     let mut ingest_execution = execute_skill_session(
         runtime,
-        &ingest_skill,
+        ingest_skill,
         &job_id,
         &ingest_session_id,
-        &claimed.input_payload,
+        &ingest_job_payload,
         cli,
     )
     .await?;
@@ -20370,7 +20403,7 @@ async fn run_fts_live_loop(
     );
     insert_executed_session_log(
         runtime.state_db.connection(),
-        &ingest_skill,
+        ingest_skill,
         &job_id,
         &ingest_execution,
     )?;
@@ -20379,7 +20412,7 @@ async fn run_fts_live_loop(
         runtime,
         &job_id,
         &ingest_session_id,
-        &ingest_skill,
+        ingest_skill,
         execution_mode_label(ingest_execution.execution_mode),
         ingest_execution.started_at,
         &fixture,
@@ -20543,7 +20576,7 @@ async fn run_fts_live_loop(
 
     let mut contract_execution = execute_skill_session(
         runtime,
-        &manifest_skill,
+        manifest_skill,
         &job_id,
         &contract_session_id,
         &json!({"process_id": pipeline.process_id}),
@@ -20561,7 +20594,7 @@ async fn run_fts_live_loop(
     )?;
     insert_executed_session_log(
         runtime.state_db.connection(),
-        &manifest_skill,
+        manifest_skill,
         &job_id,
         &contract_execution,
     )?;
@@ -20616,7 +20649,7 @@ async fn run_fts_live_loop(
         runtime,
         &job_id,
         &contract_session_id,
-        &manifest_skill,
+        manifest_skill,
         execution_mode_label(contract_execution.execution_mode),
         contract_execution.started_at,
         &fixture,
@@ -20639,15 +20672,15 @@ async fn run_fts_live_loop(
         &job_id,
         &contract_session_id,
         &pipeline.process_id,
-        &manifest_skill,
+        manifest_skill,
         &contract_run_manifest,
         &fixture,
         manifest_computation.candidate_count,
     )?;
     let skill_telemetry = vec![
-        build_skill_run_telemetry(&ingest_skill, &ingest_execution, &fixture, None)?,
+        build_skill_run_telemetry(ingest_skill, &ingest_execution, &fixture, None)?,
         build_skill_run_telemetry(
-            &manifest_skill,
+            manifest_skill,
             &contract_execution,
             &fixture,
             Some(&live_validation),
