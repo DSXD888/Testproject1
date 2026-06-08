@@ -122,6 +122,17 @@ mod tests {
         )?)
     }
 
+    fn fts_schedule_state(scheduler: &CronScheduler) -> Result<(Option<String>, Option<String>)> {
+        let definition = scheduler
+            .definitions()
+            .get("fts::procurement-ingestion/fts")
+            .ok_or_else(|| anyhow!("missing FTS cron definition"))?;
+        Ok((
+            definition.last_run_at.as_ref().map(DateTime::to_rfc3339),
+            definition.next_run_at.as_ref().map(DateTime::to_rfc3339),
+        ))
+    }
+
     fn query_single_fts_job(
         conn: &Connection,
         scheduled_for: &str,
@@ -289,6 +300,96 @@ mod tests {
         ensure!(
             !main_source.contains("cron_dedup") && !cron_source.contains("cron_dedup"),
             "tick_002 expected no auxiliary cron dedup table or flag"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn tick_003_long_gap_catchup() -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        let registry = SourceRegistry::load(state_db.connection())?;
+        let mut scheduler = CronScheduler::from_registry(&registry);
+        scheduler.refresh_next_run_at(ts(2026, 6, 5, 4, 10, 0)?)?;
+        let mut tick_db = StateDb::open(state_db.db_path())?;
+
+        let first_slot = ts(2026, 6, 5, 4, 15, 0)?;
+        let first_enqueued =
+            run_scheduler_tick(&mut scheduler, &registry, &mut tick_db, first_slot)?;
+        ensure!(
+            first_enqueued == 1,
+            "tick_003 expected first normal FTS slot enqueue"
+        );
+        ensure!(
+            count_fts_jobs_at(state_db.connection(), "2026-06-05T04:15:00+00:00")? == 1,
+            "tick_003 expected first FTS row at the normal slot"
+        );
+        let (last_after_first, next_after_first) = fts_schedule_state(&scheduler)?;
+        ensure!(
+            last_after_first.as_deref() == Some("2026-06-05T04:15:00+00:00"),
+            "tick_003 expected record_enqueued to store first last_run_at"
+        );
+        ensure!(
+            next_after_first.as_deref() == Some("2026-06-06T04:15:00+00:00"),
+            "tick_003 expected next FTS run after first slot"
+        );
+
+        let gap_now = ts(2026, 6, 8, 6, 0, 0)?;
+        let due_dispatches = scheduler.dispatch_due_jobs(&registry, gap_now)?;
+        let due_keys = due_dispatches
+            .iter()
+            .map(|dispatch| dispatch.definition_key.as_str())
+            .collect::<Vec<_>>();
+        let fts_due = due_dispatches
+            .iter()
+            .find(|dispatch| dispatch.definition_key == "fts::procurement-ingestion/fts")
+            .ok_or_else(|| anyhow!("tick_003 expected FTS catch-up dispatch in {due_keys:?}"))?;
+        ensure!(
+            fts_due.enqueue_request.scheduled_for == Some(ts(2026, 6, 6, 4, 15, 0)?),
+            "tick_003 expected FTS catch-up slot to follow schedule.after(last_run_at); due keys: {due_keys:?}"
+        );
+
+        let gap_enqueued = run_scheduler_tick(&mut scheduler, &registry, &mut tick_db, gap_now)?;
+        ensure!(
+            gap_enqueued >= 1,
+            "tick_003 expected long-gap tick to enqueue overdue work"
+        );
+        ensure!(
+            count_fts_jobs_at(state_db.connection(), "2026-06-06T04:15:00+00:00")? == 1,
+            "tick_003 expected FTS catch-up row at the next missed slot"
+        );
+        ensure!(
+            count_fts_jobs_at(state_db.connection(), "2026-06-08T04:15:00+00:00")? == 0,
+            "tick_003 expected catch-up not to jump directly to the current-day slot"
+        );
+        let (last_after_gap, next_after_gap) = fts_schedule_state(&scheduler)?;
+        ensure!(
+            last_after_gap.as_deref() == Some("2026-06-06T04:15:00+00:00"),
+            "tick_003 expected record_enqueued to store catch-up last_run_at"
+        );
+        ensure!(
+            next_after_gap.as_deref() == Some("2026-06-07T04:15:00+00:00"),
+            "tick_003 expected record_enqueued to advance next_run_at in memory"
+        );
+
+        let main_source = include_str!("../src/main.rs");
+        let thread_tick_start = main_source
+            .find("fn run_scheduler_thread_tick(")
+            .ok_or_else(|| anyhow!("run_scheduler_thread_tick function missing"))?;
+        let thread_tick_source = main_source
+            .get(thread_tick_start..)
+            .ok_or_else(|| anyhow!("scheduler thread tick source slice out of bounds"))?;
+        let thread_tick_len = thread_tick_source
+            .find("fn seed_cron_scheduler_from_history(")
+            .ok_or_else(|| anyhow!("scheduler thread tick source slice out of bounds"))?;
+        let thread_tick_end = thread_tick_start
+            .checked_add(thread_tick_len)
+            .ok_or_else(|| anyhow!("scheduler thread tick source slice overflow"))?;
+        let thread_tick_body = main_source
+            .get(thread_tick_start..thread_tick_end)
+            .ok_or_else(|| anyhow!("scheduler thread tick source slice out of bounds"))?;
+        ensure!(
+            !thread_tick_body.contains("detect_host_sleep"),
+            "tick_003 expected host-sleep detection not to suppress scheduler ticks"
         );
         Ok(())
     }
