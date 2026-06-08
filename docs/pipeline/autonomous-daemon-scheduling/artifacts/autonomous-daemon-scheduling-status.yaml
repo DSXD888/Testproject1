@@ -1,0 +1,149 @@
+# Autonomous Daemon Scheduling & ProContract Resumption — Implementation Status
+# Created at step 07 (beads-from-sources), 2026-06-08.
+# This is the SOT pointer + decision-record artifact. `decision_001_operator_decisions_recorded`
+# asserts the operator answers below are recorded VERBATIM before any decision-dependent bead starts.
+
+feature: autonomous-daemon-scheduling
+title: "Autonomous Daemon Scheduling & ProContract Resumption"
+status: in_progress          # not_started | in_progress | blocked | complete
+
+paths:
+  spec: docs/pipeline/autonomous-daemon-scheduling/artifacts/autonomous-daemon-scheduling-spec.md
+  tdd: docs/pipeline/autonomous-daemon-scheduling/artifacts/autonomous-daemon-scheduling-tdd.md
+  strategy: docs/pipeline/autonomous-daemon-scheduling/artifacts/autonomous-daemon-scheduling-strategy.md
+  architecture: docs/pipeline/autonomous-daemon-scheduling/artifacts/autonomous-daemon-scheduling-architecture.md
+  bootstrap: docs/pipeline/autonomous-daemon-scheduling/artifacts/autonomous-daemon-scheduling-bootstrap.md
+  manifest: docs/pipeline/autonomous-daemon-scheduling/manifest.yaml
+  research: docs/research/2026-06-04-autonomous-daemon-scheduling-research.md
+
+execution_prompts:                          # generated step 10 (beads-to-execution)
+  kickoff: docs/pipeline/autonomous-daemon-scheduling/artifacts/autonomous-daemon-scheduling-kickoff.md
+  push: docs/pipeline/autonomous-daemon-scheduling/artifacts/autonomous-daemon-scheduling-push.md
+
+# ============================================================================
+# Bead graph (created step 07)
+# ============================================================================
+bead_cli: br
+bead_sync_cmd: bin/br-sync                 # NEVER raw `br sync`
+bead_label: autonomous-scheduling
+bead_id_prefix: testproject1
+implementation_epic: "testproject1-0c1g"   # root epic (set at step 07, 2026-06-08)
+
+phase_sub_epics:
+  phase_0_foundations:        "testproject1-0c1g.1"   # 12 task beads
+  phase_1_scheduler_tick:     "testproject1-0c1g.2"   # 10 task beads
+  phase_2_worker_pump:        "testproject1-0c1g.3"   # 14 task beads
+  phase_3_commercial_sweep:   "testproject1-0c1g.4"   # 11 task beads
+  phase_4_procontract:        "testproject1-0c1g.5"   # 13 task beads
+  phase_5_concurrency_soak:   "testproject1-0c1g.6"   # 10 task beads
+  phase_6_desktop_status:     "testproject1-0c1g.7"   # 6 task beads
+
+bead_counts:
+  root_epic: 1
+  phase_sub_epics: 7
+  task_beads: 76
+  total: 84
+total_beads: 84
+
+# ============================================================================
+# Schema epoch — 10 today; bumps to 11 ONLY IF Q4 selects the dedicated table.
+# If bumped, ALL FOUR constants below move 10 -> 11 in ONE commit (R6 coupling),
+# or every desktop read fails wholesale. Q4 = state-string => no bump.
+# ============================================================================
+schema_epoch: 10            # -> 11 only if Q4 = dedicated procontract_pending_enrichment table
+schema_epoch_constants:
+  - "crates/daemon/src/db/sqlite.rs DEFAULT_SCHEMA_EPOCH :89"
+  - "apps/desktop/src-tauri/src/main.rs EXPECTED_SCHEMA_EPOCH :51"
+  - "apps/desktop/src-tauri/src/daemon_bridge.rs DEFAULT_SCHEMA_EPOCH :16"
+  - "apps/desktop/src-tauri/src/query_service.rs EXPECTED_SCHEMA_EPOCH :14"
+q4_migration: "migrations/0015_procontract_pending_enrichment.sql   # only if Q4 = table (current max 0014_*)"
+
+# ============================================================================
+# Operator decisions (spec §1.4, §10).
+# decision_001 asserts VERBATIM operator answers are recorded here before the
+# decision-dependent beads start. Bead `testproject1-0c1g.1.1` finalized this
+# block from the operator kickoff prompt before decision-dependent execution.
+# ============================================================================
+recorded_decisions:
+  recorded_at: "2026-06-08T13:45:00Z"
+  recorded_by: "BronzeCove"
+  source: "Operator kickoff prompt, section 3 Core Contracts / Non-Negotiables: recommended defaults shown and explicitly designated as decisions to record into this artifact by bead testproject1-0c1g.1.1."
+  Q1_worker_exec_context:
+    status: RECORDED
+    chosen_branch: own_state_db_connection_per_lane
+    recommended: "Own StateDb connection per worker lane (matches SyncLeaseHeartbeat::spawn; avoids shared mutable runtime handles)."
+    operator_answer: "Q1 = own `StateDb` connection per lane."
+    blocks: ["testproject1-0c1g.1.2 (p0-q1-runtime)", "all Phase 0 live-loop + worker-runtime beads"]
+  Q4_awaiting_access_model:
+    status: RECORDED
+    chosen_branch: dedicated_table_epoch_11
+    recommended: "Dedicated procontract_pending_enrichment table; migration 0015_procontract_pending_enrichment.sql; schema epoch 10 -> 11 across daemon + all desktop constants in one commit."
+    operator_answer: "Q4 = dedicated table (epoch 10->11)."
+    blocks: ["testproject1-0c1g.5.1 (p4-q4-schema) and all Phase 4 lifecycle beads"]
+  Q5_awaiting_access_expiry:
+    status: RECORDED
+    chosen_branch: notice_deadline_else_max_age
+    recommended: "Both: expire on notice-level deadline_at when known, else max-age-since-interest. MUST NOT key off the RFx response deadline."
+    operator_answer: "Q5 = expire on notice `deadline_at` if known, else max-age since interest (NEVER the RFx response deadline - unknown for awaiting-access items)."
+    blocks: ["testproject1-0c1g.5.10 (p4-q5-expiry)"]
+  Q6_shadow_flag:
+    status: RECORDED
+    chosen_branch: shadow_flag_first
+    recommended: "Shadow flag first for source_health + auth_refresh, while still routing jobs and recording side effects."
+    operator_answer: "Q6 = shadow flag first for `source_health`/`auth_refresh`."
+    blocks: ["testproject1-0c1g.3.8 (p2-q6-shadow)"]
+  Q7_desktop_status_ux:
+    status: RECORDED
+    chosen_branch: minimal_read_only_desktop_status_fields
+    recommended: "Add minimal read-only fields: scheduler running, last tick, next run, awaiting-access count (daemon snapshot + desktop bridge + React)."
+    operator_answer: "Q7 = minimal read-only desktop status fields."
+    blocks: ["all Phase 6 beads (testproject1-0c1g.7.*)"]
+  Q8_residual_chained_nudge:
+    status: RECORDED
+    chosen_branch: scheduled_sweep_only
+    recommended: "Scheduled 07:00 coverage sweep only, unless operator wants lower latency."
+    operator_answer: "Q8-residual = scheduled sweep only."
+    blocks: ["testproject1-0c1g.4.8 (p3-q8-nudge)"]
+  Q9_registry_reload_trigger:
+    status: RECORDED
+    chosen_branch: registry_generation_counter
+    recommended: "AtomicU64 generation counter bumped by source-mutation IPC handlers; newly-enabled sources re-seed last-run history."
+    operator_answer: "Q9 = registry generation counter."
+    blocks: ["testproject1-0c1g.2.6 (p1-q9-reload)"]
+  E1_trigger_enrichment_routing:
+    status: RECORDED
+    chosen_branch: named_extension_not_cron_core
+    recommended: "Route enrich_process only if the operator wants this button fixed with G3 — it is not cron-core. Otherwise keep the named extension point."
+    operator_answer: "E1 = route `enrich_process` only if operator wants the button fixed now."
+    blocks: ["testproject1-0c1g.3.10 (p2-e1-enrich-process)"]
+
+# ============================================================================
+# Quality gate (spec §9 / TDD §3) — the per-file integration loop is the ONLY
+# green Rust stage claim. `cargo test -p daemon --bin daemon` ALONE silently
+# skips every integration target and is never green by itself.
+# ============================================================================
+quality_gate:
+  - "cargo fmt --check"
+  - "cargo check --all-targets"
+  - "cargo clippy --all-targets -- -D warnings"
+  - "cargo test -p daemon --bin daemon"
+  - "for t in crates/daemon/tests/*.rs; do cargo test --test \"$(basename \"$t\" .rs)\" || exit 1; done"
+  - "# Q7 only: bun run build/test/lint for apps/desktop (CI-ADS-006)"
+
+# ============================================================================
+# AgentMail coordination
+# ============================================================================
+agentmail:
+  enabled: true
+  project_key: /Users/alinaaitova/Desktop/Testproject1
+  liveness: http://127.0.0.1:8765/health/liveness
+  program: autonomous-daemon-scheduling-executor
+
+branch: main
+
+mandatory_stops:
+  - "After step 10 (kickoff generated) — human authorizes execution."
+  - "Before any decision-dependent bead — operator answers above must be recorded verbatim."
+  - "After execution complete — human triggers completion audit (step 12)."
+
+pipeline_stage: "Execution authorized by kickoff prompt; decision bead testproject1-0c1g.1.1 in progress."
