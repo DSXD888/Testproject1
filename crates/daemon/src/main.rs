@@ -1938,7 +1938,7 @@ async fn run_sync_source_workflow_job(
                 &repo_root.join("skills/manifest-generation"),
                 "skills/manifest-generation/SKILL.md",
             )?;
-            let fixture = claimed_fts_fixture(&claimed)?;
+            let fixture = claimed_fts_fixture(runtime, &claimed)?;
             run_fts_claimed_live_loop(runtime, claimed, fixture, cli, &skill, &manifest_skill).await
         }
         SyncSourceRoute::ContractsFinder => {
@@ -19549,49 +19549,138 @@ fn claimed_sync_source_route(claimed: &ClaimedJob) -> Result<SyncSourceRoute> {
     })
 }
 
-fn claimed_fts_fixture(claimed: &ClaimedJob) -> Result<LiveLoopFixture> {
+fn source_download_root(runtime: &RuntimeBootstrap, source_id: &str) -> PathBuf {
+    fs::canonicalize(&runtime.artifact_root)
+        .unwrap_or_else(|_| runtime.artifact_root.clone())
+        .join("downloads")
+        .join(source_id)
+}
+
+fn source_cursor_value(
+    conn: &Connection,
+    source_id: &str,
+    cursor_key: &str,
+) -> Result<Option<String>> {
+    conn.query_row(
+        "SELECT cursor_value FROM source_cursors WHERE source_id = ?1 AND cursor_key = ?2",
+        params![source_id, cursor_key],
+        |row| row.get(0),
+    )
+    .optional()
+    .with_context(|| format!("loading source cursor `{cursor_key}` for `{source_id}`"))
+}
+
+fn cursor_string_field(cursor: Option<&str>, field_name: &str) -> Option<String> {
+    cursor.and_then(|raw| {
+        serde_json::from_str::<Value>(raw).ok().and_then(|value| {
+            value
+                .get(field_name)
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+        })
+    })
+}
+
+fn sync_source_payload_is_scheduled(request_payload: &Value) -> bool {
+    ["scheduled_for", "schedule_key", "cron_expression"]
+        .iter()
+        .any(|field| request_payload.get(*field).is_some())
+}
+
+fn apply_fts_cursor_state(fixture: &mut LiveLoopFixture, cursor_value: &str) {
+    let Ok(cursor_json) = serde_json::from_str::<Value>(cursor_value) else {
+        return;
+    };
+    match cursor_json.get("cursor_before") {
+        Some(Value::Null) => fixture.cursor_before = None,
+        Some(Value::String(cursor)) => fixture.cursor_before = Some(cursor.clone()),
+        _ => {}
+    }
+    if let Some(cursor_after) = cursor_json.get("cursor_after").and_then(Value::as_str) {
+        cursor_after.clone_into(&mut fixture.cursor_after);
+    }
+}
+
+fn claimed_fts_fixture(
+    runtime: &RuntimeBootstrap,
+    claimed: &ClaimedJob,
+) -> Result<LiveLoopFixture> {
     let request_payload = claimed_source_request_payload(claimed);
-    if let Some(fixture_payload) = request_payload.get("fixture") {
+    let scheduled_payload = sync_source_payload_is_scheduled(request_payload);
+    if !scheduled_payload && let Some(fixture_payload) = request_payload.get("fixture") {
         return serde_json::from_value::<LiveLoopFixture>(fixture_payload.clone())
             .context("parsing queued FTS fixture payload");
     }
 
     let mut fixture = default_fixture();
-    if let Some(cursor_before) = request_payload.get("cursor_before") {
-        fixture.cursor_before = match cursor_before {
-            Value::Null => None,
-            Value::String(cursor) => Some(cursor.clone()),
-            _ => fixture.cursor_before,
-        };
+    if let Some(cursor_value) = source_cursor_value(
+        runtime.state_db.connection(),
+        FTS_SOURCE_ID,
+        "notice_cursor",
+    )? {
+        apply_fts_cursor_state(&mut fixture, &cursor_value);
     }
-    if let Some(cursor_after) = request_payload.get("cursor_after").and_then(Value::as_str) {
-        cursor_after.clone_into(&mut fixture.cursor_after);
-    }
-    if let Some(operator_requested) = request_payload
-        .get("operator_requested")
-        .and_then(Value::as_bool)
-    {
-        fixture.operator_requested = operator_requested;
+    if !scheduled_payload {
+        if let Some(cursor_before) = request_payload.get("cursor_before") {
+            fixture.cursor_before = match cursor_before {
+                Value::Null => None,
+                Value::String(cursor) => Some(cursor.clone()),
+                _ => fixture.cursor_before,
+            };
+        }
+        if let Some(cursor_after) = request_payload.get("cursor_after").and_then(Value::as_str) {
+            cursor_after.clone_into(&mut fixture.cursor_after);
+        }
+        if let Some(operator_requested) = request_payload
+            .get("operator_requested")
+            .and_then(Value::as_bool)
+        {
+            fixture.operator_requested = operator_requested;
+        }
     }
     Ok(fixture)
 }
 
-fn claimed_source_job_parameters(claimed: &ClaimedJob, source_id: &str) -> Result<Value> {
-    let request_payload = claimed_source_request_payload(claimed);
-    if let Some(job_parameters) = request_payload.get("job_parameters") {
-        return Ok(job_parameters.clone());
-    }
+fn fts_runtime_job_parameters(runtime: &RuntimeBootstrap, fixture: &LiveLoopFixture) -> Value {
+    json!({
+        "source_id": FTS_SOURCE_ID,
+        "download_root": source_download_root(runtime, FTS_SOURCE_ID).to_string_lossy(),
+        "cursor_before": fixture.cursor_before.as_deref(),
+        "cursor_after": fixture.cursor_after.as_str(),
+        "backtrack_window_seconds": BACKTRACK_WINDOW_SECONDS,
+        "operator_requested": fixture.operator_requested,
+    })
+}
 
-    let source_matches = request_payload
-        .get("source_id")
-        .and_then(Value::as_str)
-        .is_some_and(|job_source_id| job_source_id.eq(source_id));
-    ensure!(
-        source_matches,
-        "claimed sync_source job {} did not include job_parameters for source `{source_id}`",
-        claimed.id
-    );
-    Ok(request_payload.clone())
+fn contracts_finder_runtime_job_parameters(runtime: &RuntimeBootstrap) -> Result<Value> {
+    let existing_cursor = source_cursor_value(
+        runtime.state_db.connection(),
+        CONTRACTS_FINDER_SOURCE_ID,
+        "notice_cursor",
+    )?;
+    Ok(json!({
+        "source_id": CONTRACTS_FINDER_SOURCE_ID,
+        "download_root": source_download_root(runtime, CONTRACTS_FINDER_SOURCE_ID).to_string_lossy(),
+        "publishedFrom": cursor_string_field(existing_cursor.as_deref(), "cursor_after"),
+        "limit": 100,
+        "stages": "tender,award",
+    }))
+}
+
+fn procontract_discover_runtime_job_parameters(runtime: &RuntimeBootstrap) -> Result<Value> {
+    let existing_cursor = source_cursor_value(
+        runtime.state_db.connection(),
+        PROCONTRACT_DISCOVER_SOURCE_ID,
+        "notice_cursor",
+    )?;
+    Ok(json!({
+        "source_id": PROCONTRACT_DISCOVER_SOURCE_ID,
+        "download_root": source_download_root(runtime, PROCONTRACT_DISCOVER_SOURCE_ID).to_string_lossy(),
+        "cursor": existing_cursor,
+        "publishedFrom": cursor_string_field(existing_cursor.as_deref(), "last_published"),
+        "limit": 100,
+        "startPage": 1,
+    }))
 }
 
 fn procontract_enrich_download_root(runtime: &RuntimeBootstrap) -> PathBuf {
@@ -19599,6 +19688,70 @@ fn procontract_enrich_download_root(runtime: &RuntimeBootstrap) -> PathBuf {
         .unwrap_or_else(|_| runtime.artifact_root.clone())
         .join("downloads")
         .join("procontract")
+}
+
+fn procontract_pending_enrichment_table_exists(conn: &Connection) -> Result<bool> {
+    conn.query_row(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'procontract_pending_enrichment'",
+        [],
+        |row| row.get::<_, i64>(0),
+    )
+    .optional()
+    .map(|value| value.is_some())
+    .context("checking procontract_pending_enrichment table")
+}
+
+fn procontract_awaiting_access_targets(conn: &Connection) -> Result<Vec<Value>> {
+    if !procontract_pending_enrichment_table_exists(conn)? {
+        return Ok(Vec::new());
+    }
+    let mut statement = conn.prepare(
+        "\
+        SELECT advert_id,
+               COALESCE(source_notice_id, advert_id),
+               process_id
+        FROM procontract_pending_enrichment
+        WHERE state = 'awaiting_access'
+        ORDER BY updated_at, process_id, notice_id, advert_id
+        ",
+    )?;
+    statement
+        .query_map([], |row| {
+            let advert_id: String = row.get(0)?;
+            let source_notice_id: String = row.get(1)?;
+            let process_id: String = row.get(2)?;
+            Ok(json!({
+                "advertId": advert_id,
+                "sourceNoticeId": source_notice_id,
+                "processId": process_id,
+            }))
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .context("loading ProContract awaiting-access targets")
+}
+
+fn procontract_enrich_runtime_job_parameters(runtime: &RuntimeBootstrap) -> Result<Value> {
+    let existing_cursor = source_cursor_value(
+        runtime.state_db.connection(),
+        PROCONTRACT_ENRICH_SOURCE_ID,
+        "enrich_cursor",
+    )?;
+    let awaiting_access_targets =
+        procontract_awaiting_access_targets(runtime.state_db.connection())?;
+    let mut parameters = json!({
+        "source_id": PROCONTRACT_ENRICH_SOURCE_ID,
+        "cursor": existing_cursor,
+        "download_root": procontract_enrich_download_root(runtime).to_string_lossy(),
+    });
+    if !awaiting_access_targets.is_empty()
+        && let Some(object) = parameters.as_object_mut()
+    {
+        object.insert(
+            "awaitingAccessTargets".to_owned(),
+            Value::Array(awaiting_access_targets),
+        );
+    }
+    Ok(parameters)
 }
 
 #[allow(clippy::too_many_lines, clippy::future_not_send)]
@@ -19612,33 +19765,7 @@ async fn run_contracts_finder_live_loop(
         "skills/procurement-ingestion/contracts-finder/SKILL.md",
     )?;
 
-    // Read existing cursor from source_cursors table.
-    let existing_cursor: Option<String> = runtime
-        .state_db
-        .connection()
-        .query_row(
-            "SELECT cursor_value FROM source_cursors \
-             WHERE source_id = 'contracts-finder' AND cursor_key = 'notice_cursor'",
-            [],
-            |row| row.get(0),
-        )
-        .optional()?;
-
-    // Extract publishedFrom from cursor JSON if present.
-    let published_from: Option<String> = existing_cursor.as_deref().and_then(|raw| {
-        serde_json::from_str::<Value>(raw).ok().and_then(|v| {
-            v.get("cursor_after")
-                .and_then(Value::as_str)
-                .map(String::from)
-        })
-    });
-
-    let job_parameters = json!({
-        "source_id": "contracts-finder",
-        "publishedFrom": published_from,
-        "limit": 100,
-        "stages": "tender,award",
-    });
+    let job_parameters = contracts_finder_runtime_job_parameters(runtime)?;
 
     // Create sync_source job.
     let adapter_config = adapter_runtime_config(cli, &ingest_skill)?;
@@ -19667,7 +19794,7 @@ async fn run_contracts_finder_claimed_live_loop(
     ingest_skill: &LoadedSkill,
 ) -> Result<LiveLoopReport> {
     let job_id = claimed.id.clone();
-    let job_parameters = claimed_source_job_parameters(&claimed, "contracts-finder")?;
+    let job_parameters = contracts_finder_runtime_job_parameters(runtime)?;
     let adapter_config = adapter_runtime_config(cli, ingest_skill)?;
 
     // Execute PTY skill session.
@@ -19801,31 +19928,7 @@ async fn run_procontract_discover_live_loop(
         &repo_root.join("skills/procurement-ingestion/procontract-discover"),
         "skills/procurement-ingestion/procontract-discover/SKILL.md",
     )?;
-    let existing_cursor: Option<String> = runtime
-        .state_db
-        .connection()
-        .query_row(
-            "SELECT cursor_value FROM source_cursors \
-             WHERE source_id = 'procontract' AND cursor_key = 'notice_cursor'",
-            [],
-            |row| row.get(0),
-        )
-        .optional()?;
-    let published_from = existing_cursor.as_deref().and_then(|raw| {
-        serde_json::from_str::<Value>(raw).ok().and_then(|cursor| {
-            cursor
-                .get("last_published")
-                .and_then(Value::as_str)
-                .map(str::to_owned)
-        })
-    });
-    let job_parameters = json!({
-        "source_id": "procontract",
-        "cursor": existing_cursor,
-        "publishedFrom": published_from,
-        "limit": 100,
-        "startPage": 1,
-    });
+    let job_parameters = procontract_discover_runtime_job_parameters(runtime)?;
     let adapter_config = adapter_runtime_config(cli, &ingest_skill)?;
     let job_id = create_source_sync_job_from_parameters(
         &mut runtime.state_db,
@@ -19850,7 +19953,7 @@ async fn run_procontract_discover_claimed_live_loop(
     ingest_skill: &LoadedSkill,
 ) -> Result<LiveLoopReport> {
     let job_id = claimed.id.clone();
-    let job_parameters = claimed_source_job_parameters(&claimed, "procontract")?;
+    let job_parameters = procontract_discover_runtime_job_parameters(runtime)?;
     let session_id = format!("session-pty-{}", sha256_hex(job_id.as_bytes()));
     let executed = execute_skill_session(
         runtime,
@@ -20087,24 +20190,10 @@ async fn run_procontract_enrich_tender_live_loop(
         &repo_root.join("skills/procurement-ingestion/procontract-enrich-tender"),
         "skills/procurement-ingestion/procontract-enrich-tender/SKILL.md",
     )?;
-    let existing_cursor: Option<String> = runtime
-        .state_db
-        .connection()
-        .query_row(
-            "SELECT cursor_value FROM source_cursors \
-             WHERE source_id = 'procontract-enrich' AND cursor_key = 'enrich_cursor'",
-            [],
-            |row| row.get(0),
-        )
-        .optional()?;
+    let job_parameters = procontract_enrich_runtime_job_parameters(runtime)?;
     let download_root = procontract_enrich_download_root(runtime);
     fs::create_dir_all(&download_root)
         .with_context(|| format!("creating {}", download_root.display()))?;
-    let job_parameters = json!({
-        "source_id": "procontract-enrich",
-        "cursor": existing_cursor,
-        "download_root": download_root.to_string_lossy(),
-    });
     let adapter_config = adapter_runtime_config(cli, &skill)?;
     let job_id = create_source_sync_job_from_parameters(
         &mut runtime.state_db,
@@ -20133,12 +20222,8 @@ async fn run_procontract_enrich_tender_claimed_live_loop(
     skill: &LoadedSkill,
 ) -> Result<LiveLoopReport> {
     let job_id = claimed.id.clone();
-    let job_parameters = claimed_source_job_parameters(&claimed, "procontract-enrich")?;
-    let download_root = job_parameters
-        .get("download_root")
-        .and_then(Value::as_str)
-        .filter(|path| !path.is_empty())
-        .map_or_else(|| procontract_enrich_download_root(runtime), PathBuf::from);
+    let job_parameters = procontract_enrich_runtime_job_parameters(runtime)?;
+    let download_root = procontract_enrich_download_root(runtime);
     fs::create_dir_all(&download_root)
         .with_context(|| format!("creating {}", download_root.display()))?;
 
@@ -20639,7 +20724,7 @@ async fn run_fts_claimed_live_loop(
         );
     }
     let ingest_session_id = format!("session-pty-{}", sha256_hex(job_id.as_bytes()));
-    let ingest_job_payload = claimed_source_request_payload(&claimed).clone();
+    let ingest_job_payload = fts_runtime_job_parameters(runtime, &fixture);
     let mut ingest_execution = execute_skill_session(
         runtime,
         ingest_skill,
@@ -27226,6 +27311,25 @@ mod tests {
         }
     }
 
+    fn seed_sync_source_cursor(
+        conn: &Connection,
+        source_id: &str,
+        cursor_key: &str,
+        cursor_value: &Value,
+    ) -> Result<()> {
+        conn.execute(
+            "\
+            INSERT INTO source_cursors (source_id, cursor_key, cursor_value, updated_at)
+            VALUES (?1, ?2, ?3, CURRENT_TIMESTAMP)
+            ON CONFLICT(source_id, cursor_key) DO UPDATE SET
+              cursor_value = excluded.cursor_value,
+              updated_at = excluded.updated_at
+            ",
+            params![source_id, cursor_key, cursor_value.to_string()],
+        )?;
+        Ok(())
+    }
+
     #[test]
     fn sync_source_route_matrix_requires_source_and_skill_tuple() -> Result<()> {
         for (source_id, skill_id, expected_route) in [
@@ -27296,6 +27400,160 @@ mod tests {
             super::claimed_sync_source_route(&wrapped_cron_job)? == super::SyncSourceRoute::Fts,
             "runner-wrapped cron request did not resolve FTS"
         );
+        Ok(())
+    }
+
+    #[test]
+    #[allow(clippy::too_many_lines)]
+    fn scheduled_sync_source_params_derive_from_daemon_state_not_cron_payload() -> Result<()> {
+        let (_temp, runtime, _cli) = bootstrap_manifest_render_runtime()?;
+        let conn = runtime.state_db.connection();
+        seed_sync_source_cursor(
+            conn,
+            super::FTS_SOURCE_ID,
+            "notice_cursor",
+            &json!({"cursor_before": "state-fts-before", "cursor_after": "state-fts-after"}),
+        )?;
+        seed_sync_source_cursor(
+            conn,
+            super::CONTRACTS_FINDER_SOURCE_ID,
+            "notice_cursor",
+            &json!({"cursor_after": "state-cf-after"}),
+        )?;
+        seed_sync_source_cursor(
+            conn,
+            super::PROCONTRACT_DISCOVER_SOURCE_ID,
+            "notice_cursor",
+            &json!({"last_published": "2026-03-25T10:00:00Z"}),
+        )?;
+        seed_sync_source_cursor(
+            conn,
+            super::PROCONTRACT_ENRICH_SOURCE_ID,
+            "enrich_cursor",
+            &json!({"last_checked_at": "2026-03-25T11:00:00Z"}),
+        )?;
+        conn.execute(
+            "\
+            CREATE TABLE procontract_pending_enrichment (
+              advert_id TEXT NOT NULL,
+              source_notice_id TEXT,
+              process_id TEXT NOT NULL,
+              notice_id TEXT NOT NULL,
+              state TEXT NOT NULL,
+              updated_at TEXT NOT NULL
+            )
+            ",
+            [],
+        )?;
+        conn.execute(
+            "\
+            INSERT INTO procontract_pending_enrichment (
+              advert_id, source_notice_id, process_id, notice_id, state, updated_at
+            ) VALUES ('advert-state', 'source-notice-state', 'proc-state', 'notice-state',
+                      'awaiting_access', '2026-03-25T11:30:00Z')
+            ",
+            [],
+        )?;
+
+        let scheduled_fts_job = claimed_sync_source_route_job(
+            json!({
+                "request": {
+                    "source_id": super::FTS_SOURCE_ID,
+                    "skill_id": super::FTS_SKILL_ID,
+                    "skill_version": "1.0.0",
+                    "cron_expression": "15 4 * * *",
+                    "scheduled_for": "2026-03-25T04:15:00Z",
+                    "schedule_key": "fts::procurement-ingestion/fts",
+                    "cursor_before": "payload-fts-before",
+                    "cursor_after": "payload-fts-after",
+                },
+            }),
+            None,
+        );
+        let fts_fixture = super::claimed_fts_fixture(&runtime, &scheduled_fts_job)?;
+        anyhow::ensure!(
+            fts_fixture.cursor_before.as_deref() == Some("state-fts-before"),
+            "FTS cursor_before must come from source_cursors"
+        );
+        anyhow::ensure!(
+            fts_fixture.cursor_after == "state-fts-after",
+            "FTS cursor_after must come from source_cursors"
+        );
+        let fts_parameters = super::fts_runtime_job_parameters(&runtime, &fts_fixture);
+        anyhow::ensure!(fts_parameters["cursor_before"] == "state-fts-before");
+        anyhow::ensure!(fts_parameters["cursor_after"] == "state-fts-after");
+        anyhow::ensure!(
+            fts_parameters["download_root"]
+                .as_str()
+                .is_some_and(|path| path.ends_with("/downloads/fts")),
+            "FTS download_root must derive from artifact root"
+        );
+
+        let scheduled_cf_job = claimed_sync_source_route_job(
+            json!({
+                "request": {
+                    "source_id": super::CONTRACTS_FINDER_SOURCE_ID,
+                    "skill_id": super::CONTRACTS_FINDER_SKILL_ID,
+                    "skill_version": "1.0.0",
+                    "cron_expression": "30 4 * * *",
+                    "scheduled_for": "2026-03-25T04:30:00Z",
+                    "schedule_key": "contracts-finder::procurement-ingestion/contracts-finder",
+                    "job_parameters": {
+                        "publishedFrom": "payload-should-not-win",
+                        "limit": 1,
+                        "download_root": "/payload/root"
+                    }
+                },
+            }),
+            None,
+        );
+        anyhow::ensure!(
+            super::claimed_sync_source_route(&scheduled_cf_job)?
+                == super::SyncSourceRoute::ContractsFinder
+        );
+        let cf_parameters = super::contracts_finder_runtime_job_parameters(&runtime)?;
+        anyhow::ensure!(cf_parameters["publishedFrom"] == "state-cf-after");
+        anyhow::ensure!(cf_parameters["limit"] == 100);
+        anyhow::ensure!(
+            cf_parameters["download_root"]
+                .as_str()
+                .is_some_and(|path| path.ends_with("/downloads/contracts-finder")),
+            "Contracts Finder download_root must derive from artifact root"
+        );
+
+        let discover_parameters = super::procontract_discover_runtime_job_parameters(&runtime)?;
+        anyhow::ensure!(discover_parameters["publishedFrom"] == "2026-03-25T10:00:00Z");
+        anyhow::ensure!(discover_parameters["limit"] == 100);
+        anyhow::ensure!(discover_parameters["startPage"] == 1);
+        anyhow::ensure!(
+            discover_parameters["download_root"]
+                .as_str()
+                .is_some_and(|path| path.ends_with("/downloads/procontract")),
+            "ProContract discover download_root must derive from artifact root"
+        );
+
+        let enrich_parameters = super::procontract_enrich_runtime_job_parameters(&runtime)?;
+        anyhow::ensure!(
+            enrich_parameters["cursor"]
+                .as_str()
+                .is_some_and(|cursor| cursor.contains("2026-03-25T11:00:00Z")),
+            "ProContract enrich cursor must come from source_cursors"
+        );
+        anyhow::ensure!(
+            enrich_parameters["download_root"]
+                .as_str()
+                .is_some_and(|path| path.ends_with("/downloads/procontract")),
+            "ProContract enrich download_root must derive from artifact root"
+        );
+        let targets = enrich_parameters["awaitingAccessTargets"]
+            .as_array()
+            .ok_or_else(|| {
+                anyhow::anyhow!("awaitingAccessTargets must be injected when rows exist")
+            })?;
+        anyhow::ensure!(targets.len() == 1);
+        anyhow::ensure!(targets[0]["advertId"] == "advert-state");
+        anyhow::ensure!(targets[0]["sourceNoticeId"] == "source-notice-state");
+        anyhow::ensure!(targets[0]["processId"] == "proc-state");
         Ok(())
     }
 
