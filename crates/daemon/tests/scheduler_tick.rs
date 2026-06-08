@@ -53,13 +53,14 @@ mod support {
 }
 
 mod tests {
-    use anyhow::{Result, anyhow, ensure};
+    use anyhow::{Context, Result, anyhow, ensure};
     use chrono::{DateTime, TimeZone, Utc};
     use rusqlite::Connection;
     use rusqlite::params;
     use serde_json::{Value, json};
+    use sha2::{Digest, Sha256};
     use std::fs;
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
     use std::process::{Command, Stdio};
     use std::thread;
     use std::time::{Duration, Instant};
@@ -69,6 +70,183 @@ mod tests {
     use crate::runner_impl::{EnqueueJobRequest, JobRunner};
     use crate::sources_impl::SourceRegistry;
     use crate::tick_impl::run_scheduler_tick;
+
+    struct SchedulerOneShotHarness {
+        _temp: tempfile::TempDir,
+        state_root: PathBuf,
+        runtime_root: PathBuf,
+        artifact_root: PathBuf,
+        fixture_path: PathBuf,
+        db_path: PathBuf,
+    }
+
+    struct SchedulerOneShotResult {
+        stdout: String,
+        stderr: String,
+        success: bool,
+    }
+
+    struct FakeClaudeCli {
+        program: PathBuf,
+        result_path: PathBuf,
+        checkpoint_path: PathBuf,
+    }
+
+    impl SchedulerOneShotHarness {
+        fn new() -> Result<Self> {
+            let temp = tempfile::tempdir()?;
+            let root = temp.path().to_path_buf();
+            let state_root = root.join("state");
+            let runtime_root = root.join("runtime");
+            let artifact_root = root.join("artifacts");
+            fs::create_dir_all(&state_root)?;
+            fs::create_dir_all(&runtime_root)?;
+            fs::create_dir_all(&artifact_root)?;
+            Ok(Self {
+                _temp: temp,
+                db_path: state_root.join("state.db"),
+                fixture_path: root.join("fixture.json"),
+                state_root,
+                runtime_root,
+                artifact_root,
+            })
+        }
+
+        fn run_scheduler_once(&self, tick_now: &str) -> Result<SchedulerOneShotResult> {
+            let fixture = default_fixture();
+            fs::write(&self.fixture_path, serde_json::to_vec_pretty(&fixture)?)
+                .with_context(|| format!("writing {}", self.fixture_path.display()))?;
+            let fake_claude = self.prepare_fake_claude(&fixture)?;
+
+            let output = Command::new(env!("CARGO_BIN_EXE_daemon"))
+                .arg("--run-scheduler-once")
+                .arg("--tick-now")
+                .arg(tick_now)
+                .arg("--agent-cli")
+                .arg("claude")
+                .arg("--agent-cli-program")
+                .arg(&fake_claude.program)
+                .arg("--state-root")
+                .arg(&self.state_root)
+                .arg("--runtime-dir")
+                .arg(&self.runtime_root)
+                .arg("--artifact-root")
+                .arg(&self.artifact_root)
+                .arg("--fixture-path")
+                .arg(&self.fixture_path)
+                .env("DAEMON_TEST_CLAUDE_RESULT_PATH", &fake_claude.result_path)
+                .env(
+                    "DAEMON_TEST_CLAUDE_CHECKPOINT_PATH",
+                    &fake_claude.checkpoint_path,
+                )
+                .env_remove("SUPABASE_URL")
+                .env_remove("NEXT_PUBLIC_SUPABASE_URL")
+                .env_remove("SUPABASE_SERVICE_ROLE_KEY")
+                .env_remove("SUPABASE_SERVICE_KEY")
+                .output()
+                .context("running daemon scheduler one-shot")?;
+
+            Ok(SchedulerOneShotResult {
+                stdout: String::from_utf8(output.stdout).context("decoding stdout")?,
+                stderr: String::from_utf8(output.stderr).context("decoding stderr")?,
+                success: output.status.success(),
+            })
+        }
+
+        fn connection(&self) -> Result<Connection> {
+            Connection::open(&self.db_path)
+                .with_context(|| format!("opening {}", self.db_path.display()))
+        }
+
+        fn seed_completed_fts_source_health_slot(
+            &self,
+            scheduled_for: DateTime<Utc>,
+        ) -> Result<()> {
+            let mut state_db = StateDb::open(&self.db_path)?;
+            let job_id = "job-seeded-fts-source-health".to_owned();
+            JobRunner::new("scheduler-one-shot-history").enqueue_job(
+                &mut state_db,
+                &EnqueueJobRequest {
+                    job_id: job_id.clone(),
+                    kind: "source_health".to_owned(),
+                    process_id: None,
+                    notice_id: None,
+                    scope_kind: Some("source".to_owned()),
+                    scope_id: Some("fts".to_owned()),
+                    parent_job_id: None,
+                    continuation_chain_id: None,
+                    validation_required: false,
+                    scheduled_for: Some(scheduled_for),
+                    input_payload: json!({
+                        "source_id": "fts",
+                        "skill_id": "source-health/fts",
+                        "skill_version": "1.0.0",
+                        "cron_expression": "0 */30 * * * *",
+                        "scheduled_for": scheduled_for.to_rfc3339(),
+                        "schedule_key": "fts::source-health/fts",
+                    }),
+                    idempotency_key: format!(
+                        "cron:fts:source-health/fts:{}",
+                        scheduled_for.to_rfc3339()
+                    ),
+                },
+            )?;
+            state_db.connection().execute(
+                "\
+                UPDATE workflow_jobs
+                SET status = 'completed',
+                    completed_at = ?1
+                WHERE id = ?2
+                ",
+                params![Utc::now().to_rfc3339(), job_id],
+            )?;
+            Ok(())
+        }
+
+        fn prepare_fake_claude(&self, fixture: &Value) -> Result<FakeClaudeCli> {
+            let root = self
+                .state_root
+                .parent()
+                .ok_or_else(|| anyhow!("state root missing parent"))?;
+            let state_dir = root.join("fake-claude");
+            fs::create_dir_all(&state_dir)?;
+            let probe_json = state_dir.join("probe.json");
+            fs::write(
+                &probe_json,
+                serde_json::to_vec_pretty(&json!({
+                    "auth_healthy": true,
+                    "structured_output": true,
+                    "pty_viable": true,
+                    "browser_tools": true
+                }))?,
+            )?;
+            let result_source = state_dir.join("result-source.json");
+            fs::write(
+                &result_source,
+                serde_json::to_vec_pretty(&manifest_result_payload(fixture)?)?,
+            )?;
+            let program = state_dir.join("claude");
+            fs::write(
+                &program,
+                format!(
+                    "#!/bin/sh\nset -eu\nstate_dir=\"{}\"\nif [ \"${{1-}}\" = \"--version\" ] || [ \"${{1-}}\" = \"-v\" ]; then\n  printf 'claude 1.2.3\\n'\n  exit 0\nfi\nif [ \"${{1-}}\" = \"probe\" ]; then\n  cat \"$state_dir/probe.json\"\n  exit 0\nfi\nmode=pty\nfor arg in \"$@\"; do\n  if [ \"$arg\" = \"--output-format\" ]; then\n    mode=contract\n    break\n  fi\ndone\nif [ \"$mode\" = contract ]; then\n  cp \"$state_dir/result-source.json\" \"$DAEMON_TEST_CLAUDE_RESULT_PATH\"\n  printf '{{\"event\":\"result\",\"path\":\"%s\"}}\\n' \"$DAEMON_TEST_CLAUDE_RESULT_PATH\"\nelse\n  : > \"$DAEMON_TEST_CLAUDE_CHECKPOINT_PATH\"\n  printf '{{\"event\":\"checkpoint\",\"seq\":1,\"path\":\"%s\"}}\\n' \"$DAEMON_TEST_CLAUDE_CHECKPOINT_PATH\"\nfi\n",
+                    state_dir.display()
+                ),
+            )?;
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let mut perms = fs::metadata(&program)?.permissions();
+                perms.set_mode(0o755);
+                fs::set_permissions(&program, perms)?;
+            }
+            Ok(FakeClaudeCli {
+                program,
+                result_path: self.artifact_root.join("fake-claude-result.json"),
+                checkpoint_path: self.artifact_root.join("fake-claude-checkpoint.json"),
+            })
+        }
+    }
 
     fn ts(
         year: i32,
@@ -150,6 +328,28 @@ mod tests {
         )?)
     }
 
+    fn query_latest_root_job(conn: &Connection) -> Result<(String, String, String, String)> {
+        Ok(conn.query_row(
+            "\
+            SELECT kind, status, scheduled_for, input_payload
+            FROM workflow_jobs
+            WHERE parent_job_id IS NULL
+            ORDER BY created_at DESC
+            LIMIT 1
+            ",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+        )?)
+    }
+
+    fn count_root_jobs(conn: &Connection) -> Result<i64> {
+        Ok(conn.query_row(
+            "SELECT COUNT(*) FROM workflow_jobs WHERE parent_job_id IS NULL",
+            [],
+            |row| row.get(0),
+        )?)
+    }
+
     fn enqueue_fts_history(db_path: &Path, scheduled_for: DateTime<Utc>) -> Result<()> {
         let mut state_db = StateDb::open(db_path)?;
         JobRunner::new("scheduler-tick-test").enqueue_job(
@@ -180,6 +380,113 @@ mod tests {
             },
         )?;
         Ok(())
+    }
+
+    fn manifest_result_payload(fixture: &Value) -> Result<Value> {
+        let notices = fixture
+            .get("notices")
+            .and_then(Value::as_array)
+            .ok_or_else(|| anyhow!("fixture missing notices"))?;
+        if notices.is_empty() {
+            let markdown = "# Opportunity Manifest\n\n## Header\n\n- Process: process-empty\n- Title: Empty batch\n\n## Decision Summary\n\n## Per-Candidate Detail\n\n## Operator Input Requests\n\n## Evidence Trail\n\n## Coverage Metrics\n\n- Candidate count: 0\n";
+            return Ok(json!({
+                "process_id": "process-empty",
+                "decisionBasisHash": "empty",
+                "manifestMarkdown": format!(
+                    "---\nmanifest_version: v1.0-2026-05-01\nprocess_id: process-empty\nbasis_hash: empty\nstoplight: review\nsuggested_action: Operator review required\nclarification_prompts: []\n---\n{markdown}"
+                ),
+                "stoplight": "review",
+                "suggested_action": "Operator review required",
+                "suggested_action_reasoning": "process-empty has no Stage 12 candidates, so the manifest remains in review.",
+                "clarification_prompts": [],
+                "candidate_count": 0,
+                "priced_candidate_count": 0,
+                "clarification_prompt_count": 0,
+            }));
+        }
+        let first_notice = notices
+            .first()
+            .ok_or_else(|| anyhow!("fixture missing first notice"))?;
+        let process_id = first_notice
+            .get("processId")
+            .and_then(Value::as_str)
+            .ok_or_else(|| anyhow!("fixture missing processId"))?;
+        let title = first_notice
+            .get("title")
+            .and_then(Value::as_str)
+            .ok_or_else(|| anyhow!("fixture missing title"))?;
+        let candidate_count = first_notice
+            .get("lots")
+            .and_then(Value::as_array)
+            .ok_or_else(|| anyhow!("fixture missing lots"))?
+            .iter()
+            .filter_map(|lot| lot.get("candidateCount").and_then(Value::as_u64))
+            .sum::<u64>();
+        let body = format!(
+            "# Opportunity Manifest\n\n## Header\n\n- Process: {process_id}\n- Title: {title}\n\n## Decision Summary\n\n## Per-Candidate Detail\n\n## Operator Input Requests\n\n## Evidence Trail\n\n## Coverage Metrics\n\n- Candidate count: {candidate_count}\n"
+        );
+        let decision_basis_hash = format!("{:x}", Sha256::digest(body.as_bytes()));
+        let markdown = format!(
+            "---\nmanifest_version: v1.0-2026-05-01\nprocess_id: {process_id}\nbasis_hash: {decision_basis_hash}\nstoplight: review\nsuggested_action: Operator review required\nclarification_prompts: []\n---\n{body}"
+        );
+        Ok(json!({
+            "process_id": process_id,
+            "decisionBasisHash": decision_basis_hash,
+            "manifestMarkdown": markdown,
+            "stoplight": "review",
+            "suggested_action": "Operator review required",
+            "suggested_action_reasoning": format!("{title} requires operator review before the manifest can drive a decision."),
+            "clarification_prompts": [],
+            "candidate_count": candidate_count,
+            "priced_candidate_count": 0,
+            "clarification_prompt_count": 0,
+        }))
+    }
+
+    fn default_fixture() -> Value {
+        json!({
+          "cursorBefore": "cursor-000",
+          "cursorAfter": "cursor-001",
+          "continuationRequired": false,
+          "fingerprintState": "matched",
+          "localeState": "en-GB",
+          "currencyState": "GBP",
+          "ptyTranscriptLines": [
+            "fingerprint matched",
+            "transcript says 99 candidates",
+            "ingestion complete"
+          ],
+          "notices": [
+            {
+              "processId": "process-fts-001",
+              "noticeId": "notice-fts-001",
+              "sourceNoticeId": "ocds-001",
+              "sourceUrl": "https://www.find-tender.service.gov.uk/notice/001",
+              "title": "Supply of industrial widgets",
+              "buyerName": "Widgetshire Council",
+              "publishedAt": "2026-03-25T00:00:00Z",
+              "sourceUpdatedAt": "2026-03-25T00:30:00Z",
+              "ocid": "ocds-1234",
+              "procurementStage": "tender",
+              "lots": [
+                {
+                  "lotId": "lot-001",
+                  "sourceLotId": "source-lot-001",
+                  "title": "Widgets lot",
+                  "candidateCount": 2,
+                  "estimatedValuePence": 120_000
+                },
+                {
+                  "lotId": "lot-002",
+                  "sourceLotId": "source-lot-002",
+                  "title": "Replacement widgets",
+                  "candidateCount": 1,
+                  "estimatedValuePence": 120_000
+                }
+              ]
+            }
+          ]
+        })
     }
 
     fn child_output_text(output: &std::process::Output) -> String {
@@ -275,6 +582,80 @@ mod tests {
                 .and_then(Value::as_str),
             Some("cron:fts:procurement-ingestion/fts:2026-06-05T04:15:00+00:00")
         ));
+        Ok(())
+    }
+
+    #[test]
+    fn m1_one_shot_scheduler_enqueues_due_fts_slot_and_negative_control() -> Result<()> {
+        let early_harness = SchedulerOneShotHarness::new()?;
+        early_harness.seed_completed_fts_source_health_slot(ts(2026, 6, 5, 3, 0, 0)?)?;
+        let seeded_root_jobs = count_root_jobs(&early_harness.connection()?)?;
+        let early_result = early_harness.run_scheduler_once("2026-06-05T03:00:00Z")?;
+        ensure!(
+            early_result.success,
+            "M1 negative one-shot should succeed without work: stdout={} stderr={}",
+            early_result.stdout,
+            early_result.stderr
+        );
+        ensure!(
+            early_result.stdout.contains("enqueued=0") && early_result.stdout.contains("drained=0"),
+            "M1 negative one-shot expected no enqueued or drained jobs, got stdout={}",
+            early_result.stdout
+        );
+        let early_conn = early_harness.connection()?;
+        ensure!(
+            count_root_jobs(&early_conn)? == seeded_root_jobs,
+            "M1 negative one-shot expected no new root workflow jobs"
+        );
+        ensure!(
+            count_fts_jobs_at(&early_conn, "2026-06-05T04:15:00+00:00")? == 0,
+            "M1 negative one-shot expected no FTS production slot row"
+        );
+
+        let due_harness = SchedulerOneShotHarness::new()?;
+        let due_result = due_harness.run_scheduler_once("2026-06-05T04:15:00Z")?;
+        ensure!(
+            due_result.success,
+            "M1 due one-shot should succeed: stdout={} stderr={}",
+            due_result.stdout,
+            due_result.stderr
+        );
+        ensure!(
+            due_result.stdout.contains("enqueued=1"),
+            "M1 due one-shot expected one enqueued cron job, got stdout={}",
+            due_result.stdout
+        );
+
+        let due_conn = due_harness.connection()?;
+        let (kind, _status, scheduled_for, input_payload) = query_latest_root_job(&due_conn)?;
+        ensure!(
+            kind == "sync_source",
+            "M1 due one-shot expected latest root job kind sync_source, got {kind}"
+        );
+        ensure!(
+            scheduled_for == "2026-06-05T04:15:00+00:00",
+            "M1 due one-shot expected FTS scheduled_for to be preserved, got {scheduled_for}"
+        );
+        let payload: Value = serde_json::from_str(&input_payload)?;
+        ensure!(
+            payload
+                .pointer("/request/source_id")
+                .and_then(Value::as_str)
+                == Some("fts"),
+            "M1 due one-shot expected FTS source_id in cron request"
+        );
+        ensure!(
+            payload.pointer("/request/skill_id").and_then(Value::as_str)
+                == Some("procurement-ingestion/fts"),
+            "M1 due one-shot expected FTS skill_id in cron request"
+        );
+        ensure!(
+            payload
+                .pointer("/runner_meta/idempotency_key")
+                .and_then(Value::as_str)
+                == Some("cron:fts:procurement-ingestion/fts:2026-06-05T04:15:00+00:00"),
+            "M1 due one-shot expected per-slot cron idempotency key"
+        );
         Ok(())
     }
 
@@ -487,6 +868,7 @@ mod tests {
         let registry = SourceRegistry::load(state_db.connection())?;
         let mut scheduler = CronScheduler::from_registry(&registry);
         scheduler.refresh_next_run_at(ts(2026, 6, 5, 3, 0, 0)?)?;
+        scheduler.record_enqueued("fts::source-health/fts", ts(2026, 6, 5, 3, 0, 0)?)?;
 
         let mut tick_db = StateDb::open(state_db.db_path())?;
         let before_count = run_scheduler_tick(

@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::str::FromStr;
 
 use anyhow::{Context, Result, anyhow};
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 use cron::Schedule;
 use uuid::Uuid;
 
@@ -114,9 +114,10 @@ impl CronScheduler {
     }
 
     pub fn refresh_next_run_at(&mut self, now: DateTime<Utc>) -> Result<()> {
+        let cold_start_anchor = now.checked_sub_signed(Duration::seconds(1)).unwrap_or(now);
         for definition in self.definitions.values_mut() {
             let schedule = parse_schedule(definition)?;
-            let anchor = definition.last_run_at.unwrap_or(now);
+            let anchor = definition.last_run_at.unwrap_or(cold_start_anchor);
             definition.next_run_at = schedule.after(&anchor).next();
         }
         Ok(())

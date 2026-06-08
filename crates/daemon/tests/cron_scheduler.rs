@@ -215,6 +215,36 @@ mod tests {
     }
 
     #[test]
+    fn cron_scheduler_refresh_includes_exact_cold_start_slot() -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        seed_builtin_sources(&state_db)?;
+        let registry = reload_registry(&state_db)?;
+        let mut scheduler = CronScheduler::from_registry(&registry);
+        let now = ts(2026, 3, 25, 4, 15, 0)?;
+        scheduler.refresh_next_run_at(now)?;
+
+        let fts_definition = scheduler
+            .definitions()
+            .get("fts::procurement-ingestion/fts")
+            .ok_or_else(|| anyhow!("missing FTS cron definition"))?;
+        ensure!(
+            fts_definition.next_run_at == Some(now),
+            "exact cold-start refresh should include the current FTS slot"
+        );
+
+        let dispatches = scheduler.dispatch_due_jobs(&registry, now)?;
+        let dispatch = dispatches
+            .iter()
+            .find(|candidate| candidate.definition_key == "fts::procurement-ingestion/fts")
+            .ok_or_else(|| anyhow!("expected exact-slot FTS dispatch"))?;
+        ensure!(
+            dispatch.enqueue_request.scheduled_for == Some(now),
+            "exact-slot FTS dispatch should preserve scheduled_for"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn l5_t_fx_engine_009_freight_engine_016_customs_classification_023_024_cron_definitions()
     -> Result<()> {
         let state_db = TestStateDb::new()?;
