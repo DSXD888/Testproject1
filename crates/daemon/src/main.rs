@@ -129,7 +129,7 @@ use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::process;
 use std::process::Stdio;
-use std::sync::{Mutex, mpsc};
+use std::sync::{Arc, Mutex, mpsc};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -663,10 +663,95 @@ struct RuntimeBootstrap {
     state_db: StateDb,
     state_db_path: PathBuf,
     artifact_root: PathBuf,
-    resource_arbiter: Mutex<ResourceArbiter>,
+    resource_arbiter: Arc<Mutex<ResourceArbiter>>,
     restart_controller: RestartController,
     #[allow(dead_code)]
     sync_lease_heartbeat: Option<SyncLeaseHeartbeat>,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AutonomousWorkerLane {
+    PtyBrowser,
+    CoverageDeterministic,
+}
+
+impl AutonomousWorkerLane {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::PtyBrowser => "pty_browser",
+            Self::CoverageDeterministic => "coverage_deterministic",
+        }
+    }
+}
+
+#[allow(dead_code)]
+struct AutonomousWorkerRuntime {
+    lane: AutonomousWorkerLane,
+    descriptor: DaemonDescriptor,
+    state_db: StateDb,
+    state_db_path: PathBuf,
+    artifact_root: PathBuf,
+    adapter_overrides: AgentAdapterOverrides,
+    resource_arbiter: Arc<Mutex<ResourceArbiter>>,
+}
+
+#[allow(dead_code)]
+impl AutonomousWorkerRuntime {
+    const fn state_db_mut(&mut self) -> &mut StateDb {
+        &mut self.state_db
+    }
+
+    fn resource_arbiter(&self) -> &Mutex<ResourceArbiter> {
+        self.resource_arbiter.as_ref()
+    }
+
+    fn adapter_runtime_config(&self, skill: &LoadedSkill) -> Result<AdapterRuntimeConfig> {
+        self.adapter_overrides.adapter_runtime_config(skill)
+    }
+
+    fn log_status(&self, status: &'static str) {
+        ::tracing::debug!(
+            lane = self.lane.as_str(),
+            status,
+            state_db = %self.state_db_path.display(),
+            artifact_root = %self.artifact_root.display(),
+            "autonomous worker runtime status"
+        );
+    }
+}
+
+impl RuntimeBootstrap {
+    fn resource_arbiter(&self) -> &Mutex<ResourceArbiter> {
+        self.resource_arbiter.as_ref()
+    }
+
+    #[allow(dead_code)]
+    fn autonomous_worker_runtime(
+        &self,
+        lane: AutonomousWorkerLane,
+        cli: &Cli,
+    ) -> Result<AutonomousWorkerRuntime> {
+        let state_db =
+            open_state_db(&self.state_db_path, DEFAULT_SCHEMA_EPOCH).with_context(|| {
+                format!(
+                    "opening state DB for autonomous {} lane at {}",
+                    lane.as_str(),
+                    self.state_db_path.display()
+                )
+            })?;
+        let runtime = AutonomousWorkerRuntime {
+            lane,
+            descriptor: self.descriptor.clone(),
+            state_db,
+            state_db_path: self.state_db_path.clone(),
+            artifact_root: self.artifact_root.clone(),
+            adapter_overrides: AgentAdapterOverrides::from_cli(cli),
+            resource_arbiter: Arc::clone(&self.resource_arbiter),
+        };
+        runtime.log_status("ready");
+        Ok(runtime)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -705,6 +790,43 @@ struct PersistedSessionRow {
 struct AdapterRuntimeConfig {
     kind: AgentCliKind,
     program: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone)]
+struct AgentAdapterOverrides {
+    adapter_choice: Option<String>,
+    agent_cli_program: Option<PathBuf>,
+}
+
+impl AgentAdapterOverrides {
+    fn from_cli(cli: &Cli) -> Self {
+        Self {
+            adapter_choice: cli.adapter_choice.clone(),
+            agent_cli_program: cli.agent_cli_program.clone(),
+        }
+    }
+
+    fn adapter_runtime_config(&self, skill: &LoadedSkill) -> Result<AdapterRuntimeConfig> {
+        let selected = if let Some(raw) = self.adapter_choice.as_deref() {
+            AgentCliKind::parse(raw)?
+        } else if let Some(raw) = skill.metadata.agent_cli.as_deref() {
+            AgentCliKind::parse(raw)?
+        } else if let Ok(raw) = std::env::var("DAEMON_AGENT_CLI") {
+            AgentCliKind::parse(raw.trim())?
+        } else {
+            AgentCliKind::parse(DEFAULT_AGENT_CLI)?
+        };
+
+        let program = self
+            .agent_cli_program
+            .clone()
+            .or_else(|| std::env::var_os(selected.env_key()).map(PathBuf::from));
+
+        Ok(AdapterRuntimeConfig {
+            kind: selected,
+            program,
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -2951,7 +3073,7 @@ fn bootstrap_runtime(cli: &Cli) -> Result<RuntimeBootstrap> {
         state_db,
         state_db_path: runtime_paths.state_db_path(),
         artifact_root: cli.artifact_root.clone(),
-        resource_arbiter: Mutex::new(ResourceArbiter::new(ResourceBudgets::default())),
+        resource_arbiter: Arc::new(Mutex::new(ResourceArbiter::new(ResourceBudgets::default()))),
         restart_controller: RestartController::new(build_restart_plan(cli)?),
         sync_lease_heartbeat: None,
     })
@@ -3864,7 +3986,7 @@ fn build_operational_status_snapshot(
         cron: build_cron_status_snapshot(runtime.state_db.connection(), now)?,
         source_health: build_source_health_status_snapshot(runtime.state_db.connection(), now)?,
         validation: build_validation_status_snapshot(runtime.state_db.connection())?,
-        resource_arbiter: build_resource_arbiter_status_snapshot(&runtime.resource_arbiter)?,
+        resource_arbiter: build_resource_arbiter_status_snapshot(runtime.resource_arbiter())?,
     })
 }
 
@@ -4145,25 +4267,7 @@ fn maybe_delay_for_restart() {
 }
 
 fn adapter_runtime_config(cli: &Cli, skill: &LoadedSkill) -> Result<AdapterRuntimeConfig> {
-    let selected = if let Some(raw) = cli.adapter_choice.as_deref() {
-        AgentCliKind::parse(raw)?
-    } else if let Some(raw) = skill.metadata.agent_cli.as_deref() {
-        AgentCliKind::parse(raw)?
-    } else if let Ok(raw) = std::env::var("DAEMON_AGENT_CLI") {
-        AgentCliKind::parse(raw.trim())?
-    } else {
-        AgentCliKind::parse(DEFAULT_AGENT_CLI)?
-    };
-
-    let program = cli
-        .agent_cli_program
-        .clone()
-        .or_else(|| std::env::var_os(selected.env_key()).map(PathBuf::from));
-
-    Ok(AdapterRuntimeConfig {
-        kind: selected,
-        program,
-    })
+    AgentAdapterOverrides::from_cli(cli).adapter_runtime_config(skill)
 }
 
 fn build_adapter(config: &AdapterRuntimeConfig) -> Box<dyn AgentAdapter> {
@@ -17303,7 +17407,7 @@ async fn execute_skill_session(
             &executed.structured_trace,
             &runtime_trace_identity,
             executed.execution_mode,
-            &runtime.resource_arbiter,
+            runtime.resource_arbiter(),
             executed.runtime_ids,
             &executed.cleanup_verdict,
         )?;
@@ -18201,7 +18305,7 @@ fn claimed_job_resource_lease<'a>(
 
     let lease = {
         let mut arbiter = runtime
-            .resource_arbiter
+            .resource_arbiter()
             .lock()
             .map_err(|_| anyhow!("resource arbiter mutex poisoned"))?;
         match arbiter.admit(&request) {
@@ -18213,7 +18317,7 @@ fn claimed_job_resource_lease<'a>(
     };
 
     Ok(Some(ResourceLeaseGuard::new(
-        &runtime.resource_arbiter,
+        runtime.resource_arbiter(),
         lease,
         ReleaseCause::PreSpawnFailure,
     )))
@@ -26522,6 +26626,41 @@ mod tests {
         ]);
         let runtime = bootstrap_runtime(&cli)?;
         Ok((temp, runtime, cli))
+    }
+
+    #[test]
+    fn autonomous_worker_runtime_owns_state_db_connection_and_shares_arbiter() -> Result<()> {
+        let (_temp, runtime, cli) = bootstrap_manifest_render_runtime()?;
+        let mut worker_runtime =
+            runtime.autonomous_worker_runtime(super::AutonomousWorkerLane::PtyBrowser, &cli)?;
+
+        let serve_connection = std::ptr::from_ref::<Connection>(runtime.state_db.connection());
+        let worker_connection =
+            std::ptr::from_ref::<Connection>(worker_runtime.state_db.connection());
+        assert_ne!(serve_connection, worker_connection);
+        assert_eq!(worker_runtime.state_db_path, runtime.state_db_path);
+        assert_eq!(worker_runtime.artifact_root, runtime.artifact_root);
+        assert!(std::sync::Arc::ptr_eq(
+            &worker_runtime.resource_arbiter,
+            &runtime.resource_arbiter
+        ));
+
+        worker_runtime.state_db_mut().connection_mut().execute(
+            "CREATE TABLE autonomous_worker_runtime_probe (id TEXT PRIMARY KEY)",
+            [],
+        )?;
+        worker_runtime.state_db_mut().connection_mut().execute(
+            "INSERT INTO autonomous_worker_runtime_probe (id) VALUES ('worker-write')",
+            [],
+        )?;
+        let count: i64 = runtime.state_db.connection().query_row(
+            "SELECT COUNT(*) FROM autonomous_worker_runtime_probe",
+            [],
+            |row| row.get(0),
+        )?;
+        assert_eq!(count, 1);
+
+        Ok(())
     }
 
     struct FakeManifestSkillInvoker {
