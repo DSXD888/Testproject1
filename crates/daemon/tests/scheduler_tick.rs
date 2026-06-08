@@ -60,7 +60,7 @@ mod tests {
     use serde_json::{Value, json};
     use std::fs;
     use std::path::Path;
-    use std::process::Command;
+    use std::process::{Command, Stdio};
     use std::thread;
     use std::time::{Duration, Instant};
 
@@ -180,6 +180,51 @@ mod tests {
             },
         )?;
         Ok(())
+    }
+
+    fn child_output_text(output: &std::process::Output) -> String {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        format!(
+            "status: {}\nstdout:\n{stdout}\nstderr:\n{stderr}",
+            output.status
+        )
+    }
+
+    fn scheduler_tick_db_snapshot(db_path: &Path) -> String {
+        let Ok(conn) = Connection::open(db_path) else {
+            return "db: unavailable".to_owned();
+        };
+        let executor_count = conn
+            .query_row(
+                "SELECT COUNT(*) FROM executors WHERE id = 'local-daemon'",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .map_or_else(|error| format!("error: {error}"), |count| count.to_string());
+        let job_rows = match conn.prepare(
+            "\
+            SELECT job_id, kind, scope_id, scheduled_for, status
+            FROM workflow_jobs
+            ORDER BY created_at, job_id
+            ",
+        ) {
+            Ok(mut statement) => match statement.query_map([], |row| {
+                Ok(format!(
+                    "{}|{}|{}|{}|{}",
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, Option<String>>(2)?.unwrap_or_default(),
+                    row.get::<_, Option<String>>(3)?.unwrap_or_default(),
+                    row.get::<_, String>(4)?
+                ))
+            }) {
+                Ok(rows) => rows.filter_map(Result::ok).collect::<Vec<_>>().join("\n"),
+                Err(error) => format!("error: {error}"),
+            },
+            Err(error) => format!("error: {error}"),
+        };
+        format!("executors.local-daemon: {executor_count}\nworkflow_jobs:\n{job_rows}")
     }
 
     #[test]
@@ -522,14 +567,20 @@ mod tests {
             .env_remove("NEXT_PUBLIC_SUPABASE_URL")
             .env_remove("SUPABASE_SERVICE_ROLE_KEY")
             .env_remove("SUPABASE_SERVICE_KEY")
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
             .spawn()
             .map_err(|error| anyhow!("spawning daemon --serve: {error}"))?;
 
         let deadline = Instant::now() + Duration::from_secs(10);
         let mut observed_thread_tick = false;
         while Instant::now() < deadline {
-            if let Some(status) = child.try_wait()? {
-                anyhow::bail!("daemon --serve exited before scheduler tick: {status}");
+            if child.try_wait()?.is_some() {
+                let output = child.wait_with_output()?;
+                anyhow::bail!(
+                    "daemon --serve exited before scheduler tick:\n{}",
+                    child_output_text(&output)
+                );
             }
             if let Ok(conn) = Connection::open(&db_path)
                 && let Ok(count) = count_fts_jobs_at(&conn, "2026-06-06T04:15:00+00:00")
@@ -544,10 +595,12 @@ mod tests {
         if child.try_wait()?.is_none() {
             child.kill()?;
         }
-        let _ = child.wait()?;
+        let output = child.wait_with_output()?;
         ensure!(
             observed_thread_tick,
-            "tick_007 expected serve scheduler thread to enqueue cold-start catch-up"
+            "tick_007 expected serve scheduler thread to enqueue cold-start catch-up:\n{}\n{}",
+            child_output_text(&output),
+            scheduler_tick_db_snapshot(&db_path)
         );
 
         let source = include_str!("../src/main.rs");
@@ -556,12 +609,23 @@ mod tests {
             "tick_007 expected a dedicated scheduler thread owner"
         );
         ensure!(
+            source.contains("fn initialize_scheduler_tick_thread(")
+                && source.contains("open_state_db(state_db_path, DEFAULT_SCHEMA_EPOCH)"),
+            "tick_007 expected scheduler thread initialization to open its own StateDb connection"
+        );
+        ensure!(
             source.contains("recv_timeout(interval)"),
             "tick_007 expected scheduler thread to use recv_timeout loop"
         );
         ensure!(
             source.contains("SchedulerTickThread::spawn("),
             "tick_007 expected serve path to spawn the scheduler thread"
+        );
+        ensure!(
+            source.contains("impl Drop for SchedulerTickThread")
+                && source.contains("let _ = stop_tx.send(());")
+                && source.contains("handle.join()"),
+            "tick_007 expected scheduler thread shutdown to signal stop and join cleanly"
         );
         Ok(())
     }
