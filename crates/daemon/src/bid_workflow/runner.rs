@@ -592,6 +592,8 @@ fn default_bid_runner_cli(runtime: &RuntimeBootstrap) -> crate::Cli {
         agent_cli_program: None,
         fixture_path: None,
         pipeline: None,
+        run_scheduler_once: false,
+        tick_now: None,
         run_next_job: false,
         run_bid_workflow: None,
         capture_decision: None,

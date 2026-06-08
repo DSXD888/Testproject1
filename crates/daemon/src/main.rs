@@ -517,6 +517,39 @@ struct Cli {
     #[arg(long)]
     pipeline: Option<String>,
 
+    /// Run one deterministic scheduler tick, drain queued work, and exit.
+    #[arg(
+        long,
+        hide = true,
+        default_value_t = false,
+        requires = "tick_now",
+        conflicts_with_all = [
+            "serve",
+            "serve_once",
+            "ingest",
+            "skill_path",
+            "dry_run",
+            "pipeline",
+            "run_next_job",
+            "run_bid_workflow",
+            "capture_decision",
+            "capture_clarification",
+            "withdraw_clarification",
+            "withdraw_decision",
+            "list_decisions"
+        ]
+    )]
+    run_scheduler_once: bool,
+
+    /// RFC3339 instant supplied to `--run-scheduler-once`.
+    #[arg(
+        long,
+        hide = true,
+        value_name = "RFC3339",
+        requires = "run_scheduler_once"
+    )]
+    tick_now: Option<String>,
+
     /// Claim and execute exactly one pending workflow job. Hidden because it is
     /// currently only used by deterministic integration tests and PDF queue work.
     #[arg(
@@ -530,6 +563,7 @@ struct Cli {
             "skill_path",
             "dry_run",
             "pipeline",
+            "run_scheduler_once",
             "run_bid_workflow"
         ]
     )]
@@ -546,6 +580,7 @@ struct Cli {
             "skill_path",
             "dry_run",
             "pipeline",
+            "run_scheduler_once",
             "run_next_job",
             "capture_decision",
             "capture_clarification",
@@ -1480,6 +1515,13 @@ async fn main() -> Result<()> {
     let mut runtime = bootstrap_runtime(&cli)?;
     run_l4_startup_sync_cycle(&mut runtime).await?;
 
+    if cli.run_scheduler_once {
+        let tick_now = parse_tick_now(cli.tick_now.as_deref())?;
+        let report = run_scheduler_one_shot(&mut runtime, &cli, tick_now).await?;
+        println!("{}", report.summary_line);
+        return Ok(());
+    }
+
     if let Some(report) = dispatch_operator_action(&mut runtime, &cli)? {
         println!("{report}");
         return Ok(());
@@ -1850,6 +1892,66 @@ async fn run_next_workflow_job(
             json!({"error_code": "AGENT_RUN_FAILED", "job_kind": other}),
         ),
     }
+}
+
+fn parse_tick_now(raw: Option<&str>) -> Result<DateTime<Utc>> {
+    let raw = raw.ok_or_else(|| anyhow!("--tick-now is required with --run-scheduler-once"))?;
+    DateTime::parse_from_rfc3339(raw)
+        .with_context(|| format!("parsing --tick-now RFC3339 instant `{raw}`"))
+        .map(|timestamp| timestamp.with_timezone(&Utc))
+}
+
+#[allow(clippy::future_not_send)]
+async fn run_scheduler_one_shot(
+    runtime: &mut RuntimeBootstrap,
+    cli: &Cli,
+    now: DateTime<Utc>,
+) -> Result<LiveLoopReport> {
+    let enqueued = enqueue_due_cron_jobs(&mut runtime.state_db, now, "one-shot scheduler")?;
+    let drained = drain_one_shot_worker_queue(runtime, cli).await?;
+    Ok(LiveLoopReport {
+        summary_line: format!(
+            "scheduler one-shot completed: tick_now={} enqueued={} drained={}",
+            now.to_rfc3339(),
+            enqueued,
+            drained
+        ),
+        status: "completed".to_owned(),
+    })
+}
+
+#[allow(clippy::future_not_send)]
+async fn drain_one_shot_worker_queue(runtime: &mut RuntimeBootstrap, cli: &Cli) -> Result<usize> {
+    const MAX_ONE_SHOT_DRAINED_JOBS: usize = 10_000;
+
+    let mut drained = 0_usize;
+    while pending_claimable_workflow_jobs(runtime.state_db.connection())? > 0 {
+        ensure!(
+            drained < MAX_ONE_SHOT_DRAINED_JOBS,
+            "one-shot scheduler drain did not quiesce after {MAX_ONE_SHOT_DRAINED_JOBS} jobs"
+        );
+        let report = run_next_workflow_job(runtime, cli)
+            .await
+            .context("draining queued workflow job after scheduler tick")?;
+        if !matches!(report.status.as_str(), "completed") {
+            bail!(
+                "one-shot scheduler drain stopped on {} job: {}",
+                report.status,
+                report.summary_line
+            );
+        }
+        drained += 1;
+    }
+    Ok(drained)
+}
+
+fn pending_claimable_workflow_jobs(conn: &Connection) -> Result<i64> {
+    conn.query_row(
+        "SELECT COUNT(*) FROM workflow_jobs WHERE status IN ('pending', 'retry')",
+        [],
+        |row| row.get(0),
+    )
+    .context("counting pending workflow jobs for one-shot scheduler drain")
 }
 
 #[allow(clippy::future_not_send, clippy::too_many_lines)]
@@ -3056,7 +3158,9 @@ fn bootstrap_runtime(cli: &Cli) -> Result<RuntimeBootstrap> {
         .with_context(|| format!("creating {}", cli.artifact_root.display()))?;
     reconcile_interrupted_sessions(&state_db, &cli.artifact_root, &descriptor.instance_id)?;
     ensure_local_executor_registered(state_db.connection())?;
-    enqueue_startup_cron_jobs(&mut state_db, Utc::now())?;
+    if !cli.run_scheduler_once {
+        enqueue_startup_cron_jobs(&mut state_db, Utc::now())?;
+    }
     write_descriptor_atomic(runtime_paths.descriptor_path(), &descriptor)?;
 
     ::tracing::info!(
@@ -3818,22 +3922,32 @@ fn first_non_empty_env(keys: &[&str]) -> Option<String> {
     })
 }
 
-fn enqueue_startup_cron_jobs(state_db: &mut StateDb, now: DateTime<Utc>) -> Result<()> {
-    let source_registry = SourceRegistry::load(state_db.connection())
-        .context("loading source registry during daemon bootstrap")?;
-    let mut cron_scheduler = CronScheduler::from_registry(&source_registry);
-    cron_scheduler
-        .refresh_next_run_at(now)
-        .context("refreshing cron scheduler definitions during daemon bootstrap")?;
-    seed_cron_scheduler_from_history(state_db.connection(), &mut cron_scheduler)
-        .context("seeding cron scheduler from workflow history")?;
-
-    let enqueued = run_scheduler_tick(&mut cron_scheduler, &source_registry, state_db, now)
-        .context("running startup cron scheduler tick")?;
+fn enqueue_startup_cron_jobs(state_db: &mut StateDb, now: DateTime<Utc>) -> Result<usize> {
+    let enqueued = enqueue_due_cron_jobs(state_db, now, "daemon bootstrap")?;
     if enqueued > 0 {
         ::tracing::info!(enqueued, "queued overdue cron jobs during daemon bootstrap");
     }
-    Ok(())
+    Ok(enqueued)
+}
+
+fn enqueue_due_cron_jobs(
+    state_db: &mut StateDb,
+    now: DateTime<Utc>,
+    context_label: &str,
+) -> Result<usize> {
+    let source_registry = SourceRegistry::load(state_db.connection())
+        .with_context(|| format!("loading source registry during {context_label}"))?;
+    let mut cron_scheduler = CronScheduler::from_registry(&source_registry);
+    cron_scheduler
+        .refresh_next_run_at(now)
+        .with_context(|| format!("refreshing cron scheduler definitions during {context_label}"))?;
+    seed_cron_scheduler_from_history(state_db.connection(), &mut cron_scheduler).with_context(
+        || format!("seeding cron scheduler from workflow history during {context_label}"),
+    )?;
+
+    let enqueued = run_scheduler_tick(&mut cron_scheduler, &source_registry, state_db, now)
+        .with_context(|| format!("running {context_label} cron scheduler tick"))?;
+    Ok(enqueued)
 }
 
 fn seed_cron_scheduler_from_history(
@@ -29096,6 +29210,68 @@ mod tests {
     fn persistent_serve_mode_conflicts_with_one_shot_handshake_flag() {
         let parsed = super::Cli::try_parse_from(["daemon", "--serve", "--serve-once"]);
         assert!(parsed.is_err());
+    }
+
+    #[test]
+    fn scheduler_one_shot_cli_requires_tick_now() {
+        let missing_tick = super::Cli::try_parse_from(["daemon", "--run-scheduler-once"]);
+        assert!(missing_tick.is_err());
+
+        let tick_without_mode =
+            super::Cli::try_parse_from(["daemon", "--tick-now", "2026-06-05T04:15:00Z"]);
+        assert!(tick_without_mode.is_err());
+    }
+
+    #[test]
+    fn scheduler_one_shot_cli_parses_fixed_tick_instant() -> Result<()> {
+        let parsed = super::Cli::try_parse_from([
+            "daemon",
+            "--run-scheduler-once",
+            "--tick-now",
+            "2026-06-05T04:15:00Z",
+        ])?;
+
+        assert!(parsed.run_scheduler_once);
+        assert_eq!(
+            super::parse_tick_now(parsed.tick_now.as_deref())?.to_rfc3339(),
+            "2026-06-05T04:15:00+00:00"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn scheduler_one_shot_rejects_invalid_tick_now() {
+        let error =
+            super::parse_tick_now(Some("not-rfc3339")).expect_err("invalid --tick-now should fail");
+        assert!(error.to_string().contains("parsing --tick-now"));
+    }
+
+    #[test]
+    fn scheduler_one_shot_bootstrap_skips_wall_clock_startup_tick() -> Result<()> {
+        let temp = tempdir()?;
+        let state_root = temp.path().join("state");
+        let runtime_dir = temp.path().join("runtime");
+        let artifact_root = temp.path().join("artifacts");
+        let cli = Cli::parse_from([
+            "daemon",
+            "--run-scheduler-once",
+            "--tick-now",
+            "2026-06-05T03:00:00Z",
+            "--state-root",
+            state_root.to_str().expect("utf8 state root"),
+            "--runtime-dir",
+            runtime_dir.to_str().expect("utf8 runtime dir"),
+            "--artifact-root",
+            artifact_root.to_str().expect("utf8 artifact root"),
+        ]);
+        let runtime = bootstrap_runtime(&cli)?;
+        let jobs: i64 = runtime.state_db.connection().query_row(
+            "SELECT COUNT(*) FROM workflow_jobs",
+            [],
+            |row| row.get(0),
+        )?;
+        assert_eq!(jobs, 0);
+        Ok(())
     }
 
     #[test]
