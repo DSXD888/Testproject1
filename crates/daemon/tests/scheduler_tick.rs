@@ -204,6 +204,77 @@ mod tests {
     }
 
     #[test]
+    fn tick_002_repeated_ticks_same_slot_idempotent() -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        let registry = SourceRegistry::load(state_db.connection())?;
+        let due_slot = "2026-06-05T04:15:00+00:00";
+        let now = ts(2026, 6, 5, 4, 15, 0)?;
+
+        let mut first_scheduler = CronScheduler::from_registry(&registry);
+        first_scheduler.refresh_next_run_at(ts(2026, 6, 5, 4, 10, 0)?)?;
+        let mut tick_db = StateDb::open(state_db.db_path())?;
+        let first_count = run_scheduler_tick(&mut first_scheduler, &registry, &mut tick_db, now)?;
+        ensure!(first_count == 1, "tick_002 expected first tick to enqueue");
+        ensure!(
+            count_fts_jobs_at(state_db.connection(), due_slot)? == 1,
+            "tick_002 expected one pending FTS row after first tick"
+        );
+
+        let mut pending_scheduler = CronScheduler::from_registry(&registry);
+        pending_scheduler.refresh_next_run_at(ts(2026, 6, 5, 4, 10, 0)?)?;
+        let pending_count =
+            run_scheduler_tick(&mut pending_scheduler, &registry, &mut tick_db, now)?;
+        ensure!(
+            pending_count == 1,
+            "tick_002 expected pending duplicate to use the same dispatch tuple"
+        );
+        ensure!(
+            count_fts_jobs_at(state_db.connection(), due_slot)? == 1,
+            "tick_002 expected pending idempotency to keep one FTS row"
+        );
+
+        state_db.connection().execute(
+            "\
+            UPDATE workflow_jobs
+            SET status = 'completed'
+            WHERE kind = 'sync_source'
+              AND scope_id = 'fts'
+              AND scheduled_for = ?1
+            ",
+            params![due_slot],
+        )?;
+
+        let mut completed_scheduler = CronScheduler::from_registry(&registry);
+        completed_scheduler.refresh_next_run_at(ts(2026, 6, 5, 4, 10, 0)?)?;
+        let completed_count =
+            run_scheduler_tick(&mut completed_scheduler, &registry, &mut tick_db, now)?;
+        ensure!(
+            completed_count == 1,
+            "tick_002 expected completed duplicate to use the same dispatch tuple"
+        );
+        ensure!(
+            count_fts_jobs_at(state_db.connection(), due_slot)? == 1,
+            "tick_002 expected completed idempotency to keep one FTS row"
+        );
+
+        let main_source = include_str!("../src/main.rs");
+        ensure!(
+            !main_source.contains("enqueue_startup_cron_jobs"),
+            "tick_002 expected startup cron enqueue shim to be removed"
+        );
+        ensure!(
+            !main_source.contains("fn enqueue_due_cron_jobs("),
+            "tick_002 expected no second cron dispatch implementation in main.rs"
+        );
+        let cron_source = include_str!("../src/scheduler/cron.rs");
+        ensure!(
+            !main_source.contains("cron_dedup") && !cron_source.contains("cron_dedup"),
+            "tick_002 expected no auxiliary cron dedup table or flag"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn tick_004_clock_seam() -> Result<()> {
         let state_db = TestStateDb::new()?;
         let registry = SourceRegistry::load(state_db.connection())?;

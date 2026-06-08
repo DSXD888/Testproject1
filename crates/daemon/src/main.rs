@@ -1995,7 +1995,21 @@ async fn run_scheduler_one_shot(
     cli: &Cli,
     now: DateTime<Utc>,
 ) -> Result<LiveLoopReport> {
-    let enqueued = enqueue_due_cron_jobs(&mut runtime.state_db, now, "one-shot scheduler")?;
+    let source_registry = SourceRegistry::load(runtime.state_db.connection())
+        .context("loading source registry during one-shot scheduler")?;
+    let mut cron_scheduler = CronScheduler::from_registry(&source_registry);
+    cron_scheduler
+        .refresh_next_run_at(now)
+        .context("refreshing cron scheduler definitions during one-shot scheduler")?;
+    seed_cron_scheduler_from_history(runtime.state_db.connection(), &mut cron_scheduler)
+        .context("seeding cron scheduler from workflow history during one-shot scheduler")?;
+    let enqueued = run_scheduler_tick(
+        &mut cron_scheduler,
+        &source_registry,
+        &mut runtime.state_db,
+        now,
+    )
+    .context("running one-shot scheduler tick")?;
     let drained = drain_one_shot_worker_queue(runtime, cli).await?;
     Ok(LiveLoopReport {
         summary_line: format!(
@@ -3235,7 +3249,7 @@ fn enqueue_semantic_child_jobs(
 fn bootstrap_runtime(cli: &Cli) -> Result<RuntimeBootstrap> {
     let runtime_paths = RuntimePaths::new(cli.state_root.clone(), cli.runtime_dir.clone());
     let lock_guard = LockGuard::acquire(&runtime_paths)?;
-    let mut state_db = open_state_db(runtime_paths.state_db_path(), DEFAULT_SCHEMA_EPOCH)?;
+    let state_db = open_state_db(runtime_paths.state_db_path(), DEFAULT_SCHEMA_EPOCH)?;
     let listener = bind_listener(&runtime_paths)?;
     let descriptor = DaemonDescriptor::new(
         runtime_paths.socket_path(),
@@ -3246,9 +3260,6 @@ fn bootstrap_runtime(cli: &Cli) -> Result<RuntimeBootstrap> {
         .with_context(|| format!("creating {}", cli.artifact_root.display()))?;
     reconcile_interrupted_sessions(&state_db, &cli.artifact_root, &descriptor.instance_id)?;
     ensure_local_executor_registered(state_db.connection())?;
-    if !cli.run_scheduler_once && !cli.serve {
-        enqueue_startup_cron_jobs(&mut state_db, Utc::now())?;
-    }
     write_descriptor_atomic(runtime_paths.descriptor_path(), &descriptor)?;
 
     ::tracing::info!(
@@ -4087,34 +4098,6 @@ fn first_non_empty_env(keys: &[&str]) -> Option<String> {
             Some(trimmed.to_owned())
         }
     })
-}
-
-fn enqueue_startup_cron_jobs(state_db: &mut StateDb, now: DateTime<Utc>) -> Result<usize> {
-    let enqueued = enqueue_due_cron_jobs(state_db, now, "daemon bootstrap")?;
-    if enqueued > 0 {
-        ::tracing::info!(enqueued, "queued overdue cron jobs during daemon bootstrap");
-    }
-    Ok(enqueued)
-}
-
-fn enqueue_due_cron_jobs(
-    state_db: &mut StateDb,
-    now: DateTime<Utc>,
-    context_label: &str,
-) -> Result<usize> {
-    let source_registry = SourceRegistry::load(state_db.connection())
-        .with_context(|| format!("loading source registry during {context_label}"))?;
-    let mut cron_scheduler = CronScheduler::from_registry(&source_registry);
-    cron_scheduler
-        .refresh_next_run_at(now)
-        .with_context(|| format!("refreshing cron scheduler definitions during {context_label}"))?;
-    seed_cron_scheduler_from_history(state_db.connection(), &mut cron_scheduler).with_context(
-        || format!("seeding cron scheduler from workflow history during {context_label}"),
-    )?;
-
-    let enqueued = run_scheduler_tick(&mut cron_scheduler, &source_registry, state_db, now)
-        .with_context(|| format!("running {context_label} cron scheduler tick"))?;
-    Ok(enqueued)
 }
 
 fn scheduler_tick_interval() -> Duration {
