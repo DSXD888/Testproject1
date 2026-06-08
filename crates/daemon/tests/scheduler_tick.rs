@@ -55,10 +55,18 @@ mod support {
 mod tests {
     use anyhow::{Result, anyhow, ensure};
     use chrono::{DateTime, TimeZone, Utc};
+    use rusqlite::Connection;
     use rusqlite::params;
+    use serde_json::{Value, json};
+    use std::fs;
+    use std::path::Path;
+    use std::process::Command;
+    use std::thread;
+    use std::time::{Duration, Instant};
 
     use crate::cron_impl::CronScheduler;
     use crate::db_support::{StateDb, TestStateDb};
+    use crate::runner_impl::{EnqueueJobRequest, JobRunner};
     use crate::sources_impl::SourceRegistry;
     use crate::tick_impl::run_scheduler_tick;
 
@@ -79,6 +87,120 @@ mod tests {
         Ok(state_db
             .connection()
             .query_row("SELECT COUNT(*) FROM workflow_jobs", [], |row| row.get(0))?)
+    }
+
+    fn count_fts_jobs_at(conn: &Connection, scheduled_for: &str) -> Result<i64> {
+        Ok(conn.query_row(
+            "\
+            SELECT COUNT(*)
+            FROM workflow_jobs
+            WHERE kind = 'sync_source'
+              AND scope_id = 'fts'
+              AND scheduled_for = ?1
+            ",
+            params![scheduled_for],
+            |row| row.get(0),
+        )?)
+    }
+
+    fn query_single_fts_job(
+        conn: &Connection,
+        scheduled_for: &str,
+    ) -> Result<(String, String, String, String)> {
+        Ok(conn.query_row(
+            "\
+            SELECT kind, scope_id, scheduled_for, input_payload
+            FROM workflow_jobs
+            WHERE kind = 'sync_source'
+              AND scope_id = 'fts'
+              AND scheduled_for = ?1
+            ",
+            params![scheduled_for],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+        )?)
+    }
+
+    fn enqueue_fts_history(db_path: &Path, scheduled_for: DateTime<Utc>) -> Result<()> {
+        let mut state_db = StateDb::open(db_path)?;
+        JobRunner::new("scheduler-tick-test").enqueue_job(
+            &mut state_db,
+            &EnqueueJobRequest {
+                job_id: "job-scheduler-history".to_owned(),
+                kind: "sync_source".to_owned(),
+                process_id: None,
+                notice_id: None,
+                scope_kind: Some("source".to_owned()),
+                scope_id: Some("fts".to_owned()),
+                parent_job_id: None,
+                continuation_chain_id: None,
+                validation_required: false,
+                scheduled_for: Some(scheduled_for),
+                input_payload: json!({
+                    "source_id": "fts",
+                    "skill_id": "procurement-ingestion/fts",
+                    "skill_version": "1.0.0",
+                    "cron_expression": "0 15 4 * * *",
+                    "scheduled_for": scheduled_for.to_rfc3339(),
+                    "schedule_key": "fts::procurement-ingestion/fts",
+                }),
+                idempotency_key: format!(
+                    "cron:fts:procurement-ingestion/fts:{}",
+                    scheduled_for.to_rfc3339()
+                ),
+            },
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn tick_001_due_slot_enqueues_exactly_one_row() -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        let registry = SourceRegistry::load(state_db.connection())?;
+        let mut scheduler = CronScheduler::from_registry(&registry);
+        scheduler.refresh_next_run_at(ts(2026, 6, 5, 4, 10, 0)?)?;
+
+        let mut tick_db = StateDb::open(state_db.db_path())?;
+        let enqueued = run_scheduler_tick(
+            &mut scheduler,
+            &registry,
+            &mut tick_db,
+            ts(2026, 6, 5, 4, 15, 0)?,
+        )?;
+        ensure!(enqueued == 1, "tick_001 expected exactly one enqueue");
+
+        let (kind, scope_id, scheduled_for, input_payload) =
+            query_single_fts_job(state_db.connection(), "2026-06-05T04:15:00+00:00")?;
+        ensure!(matches!(kind.as_str(), "sync_source"));
+        ensure!(matches!(scope_id.as_str(), "fts"));
+        ensure!(matches!(
+            scheduled_for.as_str(),
+            "2026-06-05T04:15:00+00:00"
+        ));
+
+        let payload: Value = serde_json::from_str(&input_payload)?;
+        ensure!(matches!(
+            payload
+                .pointer("/request/source_id")
+                .and_then(Value::as_str),
+            Some("fts")
+        ));
+        ensure!(matches!(
+            payload.pointer("/request/skill_id").and_then(Value::as_str),
+            Some("procurement-ingestion/fts")
+        ));
+        ensure!(matches!(
+            payload
+                .pointer("/request/schedule_key")
+                .and_then(Value::as_str),
+            Some("fts::procurement-ingestion/fts")
+        ));
+        ensure!(matches!(
+            payload
+                .pointer("/runner_meta/idempotency_key")
+                .and_then(Value::as_str),
+            Some("cron:fts:procurement-ingestion/fts:2026-06-05T04:15:00+00:00")
+        ));
+        Ok(())
     }
 
     #[test]
@@ -138,6 +260,71 @@ mod tests {
         ensure!(
             !tick_body.contains("Utc::now()"),
             "tick_004 run_scheduler_tick must use injected time, not Utc::now()"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn tick_007_serve_scheduler_thread_spawn_poll_terminate() -> Result<()> {
+        let temp = tempfile::tempdir()?;
+        let state_root = temp.path().join("state");
+        let runtime_root = temp.path().join("runtime");
+        let artifact_root = temp.path().join("artifacts");
+        fs::create_dir_all(&state_root)?;
+        fs::create_dir_all(&runtime_root)?;
+        fs::create_dir_all(&artifact_root)?;
+        let db_path = state_root.join("state.db");
+        enqueue_fts_history(&db_path, ts(2026, 6, 5, 4, 15, 0)?)?;
+
+        let mut child = Command::new(env!("CARGO_BIN_EXE_daemon"))
+            .arg("--serve")
+            .arg("--state-root")
+            .arg(&state_root)
+            .arg("--runtime-dir")
+            .arg(&runtime_root)
+            .arg("--artifact-root")
+            .arg(&artifact_root)
+            .env("DAEMON_SCHEDULER_TICK_INTERVAL_SECS", "1")
+            .spawn()
+            .map_err(|error| anyhow!("spawning daemon --serve: {error}"))?;
+
+        let deadline = Instant::now() + Duration::from_secs(10);
+        let mut observed_thread_tick = false;
+        while Instant::now() < deadline {
+            if let Some(status) = child.try_wait()? {
+                anyhow::bail!("daemon --serve exited before scheduler tick: {status}");
+            }
+            if let Ok(conn) = Connection::open(&db_path)
+                && let Ok(count) = count_fts_jobs_at(&conn, "2026-06-06T04:15:00+00:00")
+                && count == 1
+            {
+                observed_thread_tick = true;
+                break;
+            }
+            thread::sleep(Duration::from_millis(100));
+        }
+
+        if child.try_wait()?.is_none() {
+            child.kill()?;
+        }
+        let _ = child.wait()?;
+        ensure!(
+            observed_thread_tick,
+            "tick_007 expected serve scheduler thread to enqueue cold-start catch-up"
+        );
+
+        let source = include_str!("../src/main.rs");
+        ensure!(
+            source.contains("struct SchedulerTickThread"),
+            "tick_007 expected a dedicated scheduler thread owner"
+        );
+        ensure!(
+            source.contains("recv_timeout(interval)"),
+            "tick_007 expected scheduler thread to use recv_timeout loop"
+        );
+        ensure!(
+            source.contains("SchedulerTickThread::spawn("),
+            "tick_007 expected serve path to spawn the scheduler thread"
         );
         Ok(())
     }

@@ -710,6 +710,7 @@ struct RuntimeBootstrap {
     artifact_root: PathBuf,
     resource_arbiter: Arc<Mutex<ResourceArbiter>>,
     restart_controller: RestartController,
+    scheduler_tick_thread: Option<SchedulerTickThread>,
     #[allow(dead_code)]
     sync_lease_heartbeat: Option<SyncLeaseHeartbeat>,
 }
@@ -817,6 +818,14 @@ struct SyncLeaseHeartbeat {
     state_db_path: PathBuf,
     writer_lease: WriterLease,
 }
+
+struct SchedulerTickThread {
+    stop_tx: Option<mpsc::Sender<()>>,
+    handle: Option<thread::JoinHandle<()>>,
+}
+
+const DEFAULT_SCHEDULER_TICK_INTERVAL_SECS: u64 = 30;
+const SCHEDULER_TICK_INTERVAL_ENV: &str = "DAEMON_SCHEDULER_TICK_INTERVAL_SECS";
 
 #[derive(Debug, Clone)]
 struct PersistedSessionRow {
@@ -3237,7 +3246,7 @@ fn bootstrap_runtime(cli: &Cli) -> Result<RuntimeBootstrap> {
         .with_context(|| format!("creating {}", cli.artifact_root.display()))?;
     reconcile_interrupted_sessions(&state_db, &cli.artifact_root, &descriptor.instance_id)?;
     ensure_local_executor_registered(state_db.connection())?;
-    if !cli.run_scheduler_once {
+    if !cli.run_scheduler_once && !cli.serve {
         enqueue_startup_cron_jobs(&mut state_db, Utc::now())?;
     }
     write_descriptor_atomic(runtime_paths.descriptor_path(), &descriptor)?;
@@ -3258,6 +3267,7 @@ fn bootstrap_runtime(cli: &Cli) -> Result<RuntimeBootstrap> {
         artifact_root: cli.artifact_root.clone(),
         resource_arbiter: Arc::new(Mutex::new(ResourceArbiter::new(ResourceBudgets::default()))),
         restart_controller: RestartController::new(build_restart_plan(cli)?),
+        scheduler_tick_thread: None,
         sync_lease_heartbeat: None,
     })
 }
@@ -3421,6 +3431,84 @@ impl SyncLeaseHeartbeat {
             state_db_path,
             writer_lease,
         })
+    }
+}
+
+impl SchedulerTickThread {
+    fn spawn(state_db_path: PathBuf, interval: Duration) -> Result<Self> {
+        let (stop_tx, stop_rx) = mpsc::channel();
+        let (startup_tx, startup_rx) = mpsc::sync_channel(1);
+        let thread_db_path = state_db_path;
+        let handle = thread::Builder::new()
+            .name("autonomous-scheduler-tick".to_owned())
+            .spawn(move || {
+                let (mut state_db, source_registry, mut scheduler) =
+                    match initialize_scheduler_tick_thread(&thread_db_path) {
+                        Ok(startup) => startup,
+                        Err(error) => {
+                            let message = error.to_string();
+                            let _ = startup_tx.send(Err(message.clone()));
+                            ::tracing::warn!(
+                                error = %message,
+                                state_db_path = %thread_db_path.display(),
+                                "failed to initialize autonomous scheduler tick thread"
+                            );
+                            return;
+                        }
+                    };
+
+                let _ = startup_tx.send(Ok(()));
+                run_scheduler_thread_tick(
+                    &mut scheduler,
+                    &source_registry,
+                    &mut state_db,
+                    "cold_start",
+                );
+
+                loop {
+                    match stop_rx.recv_timeout(interval) {
+                        Ok(()) | Err(mpsc::RecvTimeoutError::Disconnected) => break,
+                        Err(mpsc::RecvTimeoutError::Timeout) => {}
+                    }
+
+                    run_scheduler_thread_tick(
+                        &mut scheduler,
+                        &source_registry,
+                        &mut state_db,
+                        "interval",
+                    );
+                }
+            })
+            .context("spawning autonomous scheduler tick thread")?;
+
+        match startup_rx.recv_timeout(Duration::from_secs(5)) {
+            Ok(Ok(())) => Ok(Self {
+                stop_tx: Some(stop_tx),
+                handle: Some(handle),
+            }),
+            Ok(Err(message)) => {
+                let _ = handle.join();
+                bail!("autonomous scheduler tick thread startup failed: {message}");
+            }
+            Err(error) => {
+                let _ = stop_tx.send(());
+                let _ = handle.join();
+                bail!("autonomous scheduler tick thread startup timed out: {error}");
+            }
+        }
+    }
+}
+
+impl Drop for SchedulerTickThread {
+    fn drop(&mut self) {
+        if let Some(stop_tx) = self.stop_tx.take() {
+            let _ = stop_tx.send(());
+        }
+        if let Some(handle) = self.handle.take()
+            && handle.join().is_err()
+        {
+            ::tracing::warn!("autonomous scheduler tick thread panicked during shutdown");
+        }
     }
 }
 
@@ -4029,6 +4117,62 @@ fn enqueue_due_cron_jobs(
     Ok(enqueued)
 }
 
+fn scheduler_tick_interval() -> Duration {
+    let interval_secs = std::env::var(SCHEDULER_TICK_INTERVAL_ENV)
+        .ok()
+        .and_then(|raw| raw.parse::<u64>().ok())
+        .filter(|value| *value > 0)
+        .unwrap_or(DEFAULT_SCHEDULER_TICK_INTERVAL_SECS);
+    Duration::from_secs(interval_secs)
+}
+
+fn initialize_scheduler_tick_thread(
+    state_db_path: &Path,
+) -> Result<(StateDb, SourceRegistry, CronScheduler)> {
+    let state_db = open_state_db(state_db_path, DEFAULT_SCHEMA_EPOCH).with_context(|| {
+        format!(
+            "opening state DB for autonomous scheduler at {}",
+            state_db_path.display()
+        )
+    })?;
+    let source_registry = SourceRegistry::load(state_db.connection())
+        .context("loading source registry for autonomous scheduler")?;
+    let mut scheduler = CronScheduler::from_registry(&source_registry);
+    scheduler
+        .refresh_next_run_at(Utc::now())
+        .context("refreshing autonomous scheduler definitions")?;
+    seed_cron_scheduler_from_history(state_db.connection(), &mut scheduler)
+        .context("seeding autonomous scheduler from workflow history")?;
+    Ok((state_db, source_registry, scheduler))
+}
+
+fn run_scheduler_thread_tick(
+    scheduler: &mut CronScheduler,
+    source_registry: &SourceRegistry,
+    state_db: &mut StateDb,
+    phase: &'static str,
+) {
+    let now = Utc::now();
+    match run_scheduler_tick(scheduler, source_registry, state_db, now) {
+        Ok(enqueued) => {
+            ::tracing::debug!(
+                phase,
+                enqueued,
+                tick_now = %now.to_rfc3339(),
+                "autonomous scheduler tick completed"
+            );
+        }
+        Err(error) => {
+            ::tracing::warn!(
+                phase,
+                tick_now = %now.to_rfc3339(),
+                error = %error,
+                "autonomous scheduler tick failed"
+            );
+        }
+    }
+}
+
 fn seed_cron_scheduler_from_history(
     conn: &Connection,
     cron_scheduler: &mut CronScheduler,
@@ -4113,6 +4257,13 @@ fn serve_handshake_once(runtime: &RuntimeBootstrap) -> Result<()> {
 }
 
 fn serve_handshake_service(runtime: &mut RuntimeBootstrap) -> Result<()> {
+    if runtime.scheduler_tick_thread.is_none() {
+        runtime.scheduler_tick_thread = Some(SchedulerTickThread::spawn(
+            runtime.state_db_path.clone(),
+            scheduler_tick_interval(),
+        )?);
+    }
+
     ::tracing::info!(
         socket_path = %runtime.descriptor.socket_path,
         "daemon service accepting repeated desktop connections"
