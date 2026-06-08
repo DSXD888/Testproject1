@@ -126,6 +126,146 @@ fn l4_t_sqlite_schema_001_open_state_db_applies_l4_migration() -> Result<()> {
 }
 
 #[test]
+fn schema_0015_procontract_pending_enrichment() -> Result<()> {
+    let db = L4TestStateDb::new()?;
+    let conn = db.connection();
+
+    let user_version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
+    ensure!(
+        user_version == 11,
+        "expected PRAGMA user_version 11, got {user_version}"
+    );
+
+    let applied: Option<String> = conn
+        .query_row(
+            "SELECT id FROM schema_migrations WHERE id = '0015_procontract_pending_enrichment'",
+            [],
+            |row| row.get(0),
+        )
+        .optional()?;
+    ensure!(
+        applied.as_deref() == Some("0015_procontract_pending_enrichment"),
+        "schema_migrations did not record 0015_procontract_pending_enrichment"
+    );
+
+    let columns = sqlite_table_columns(conn, "procontract_pending_enrichment")?;
+    ensure_columns(
+        "procontract_pending_enrichment",
+        &columns,
+        &[
+            "id",
+            "process_id",
+            "notice_id",
+            "advert_id",
+            "source_notice_id",
+            "state",
+            "interest_registered_at",
+            "deadline_at",
+            "observation_count",
+            "last_checked_at",
+            "enriched_at",
+            "expiry_reason",
+            "owner_id",
+            "row_version",
+            "last_local_seq",
+            "stage_run_id",
+            "created_at",
+            "updated_at",
+        ],
+    )?;
+    for column in [
+        "source_notice_id",
+        "deadline_at",
+        "last_checked_at",
+        "enriched_at",
+        "expiry_reason",
+        "last_local_seq",
+        "stage_run_id",
+    ] {
+        ensure_column_nullable("procontract_pending_enrichment", &columns, column, true)?;
+    }
+    for column in [
+        "id",
+        "process_id",
+        "notice_id",
+        "advert_id",
+        "state",
+        "interest_registered_at",
+        "observation_count",
+        "owner_id",
+        "row_version",
+        "created_at",
+        "updated_at",
+    ] {
+        ensure_column_nullable("procontract_pending_enrichment", &columns, column, false)?;
+    }
+    ensure_column_type_contains(
+        "procontract_pending_enrichment",
+        &columns,
+        "observation_count",
+        "INT",
+    )?;
+    ensure_column_type_contains(
+        "procontract_pending_enrichment",
+        &columns,
+        "row_version",
+        "INT",
+    )?;
+
+    let table_sql = sqlite_table_sql(conn, "procontract_pending_enrichment")?;
+    assert_sql_contains_all(
+        &table_sql,
+        &[
+            "'awaiting_access'",
+            "'enriched'",
+            "'expired'",
+            "UNIQUE (process_id, notice_id, advert_id)",
+            "observation_count >= 0",
+            "row_version > 0",
+        ],
+    )?;
+
+    let indexes = index_names(conn, "procontract_pending_enrichment")?;
+    ensure!(
+        indexes.contains("idx_procontract_pending_enrichment_state"),
+        "procontract_pending_enrichment missing state index"
+    );
+    ensure!(
+        indexes.contains("idx_procontract_pending_enrichment_advert"),
+        "procontract_pending_enrichment missing advert index"
+    );
+
+    conn.execute(
+        "\
+        INSERT INTO procontract_pending_enrichment (
+          id, process_id, notice_id, advert_id, source_notice_id, state,
+          interest_registered_at
+        ) VALUES (
+          'pending-1', 'process-1', 'notice-1', 'advert-1', 'source-notice-1',
+          'awaiting_access', '2026-03-25T07:00:00Z'
+        )
+        ",
+        [],
+    )?;
+    let invalid_state = conn.execute(
+        "\
+        INSERT INTO procontract_pending_enrichment (
+          id, process_id, notice_id, advert_id, state, interest_registered_at
+        ) VALUES (
+          'pending-invalid', 'process-1', 'notice-2', 'advert-2', 'registered',
+          '2026-03-25T07:00:00Z'
+        )
+        ",
+        [],
+    );
+    ensure!(
+        invalid_state.is_err(),
+        "procontract_pending_enrichment accepted an invalid state"
+    );
+    Ok(())
+}
+
+#[test]
 #[doc = "L4-T-sqlite_schema-002"]
 fn l4_t_sqlite_schema_002_local_outbox_shape_and_monotonic_seq() -> Result<()> {
     let db = L4TestStateDb::new()?;

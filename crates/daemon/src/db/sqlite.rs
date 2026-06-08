@@ -28,6 +28,8 @@ const L5_PRODUCT_COMMODITY_CODES_MIGRATION_PATH: &str =
     "migrations/0013_l5_product_commodity_codes.sql";
 const INSTALLATION_LABOUR_FIELDS_MIGRATION_PATH: &str =
     "migrations/0014_installation_labour_fields.sql";
+const PROCONTRACT_PENDING_ENRICHMENT_MIGRATION_PATH: &str =
+    "migrations/0015_procontract_pending_enrichment.sql";
 const MIGRATION_LOG_TABLE: &str = "schema_migrations";
 const PRE_L3_SCHEMA_EPOCH: i64 = 1;
 const MIGRATIONS: &[(&str, i64, &str)] = &[
@@ -84,9 +86,14 @@ const MIGRATIONS: &[(&str, i64, &str)] = &[
         10,
         INSTALLATION_LABOUR_FIELDS_MIGRATION_PATH,
     ),
+    (
+        "0015_procontract_pending_enrichment",
+        11,
+        PROCONTRACT_PENDING_ENRICHMENT_MIGRATION_PATH,
+    ),
 ];
 
-pub const DEFAULT_SCHEMA_EPOCH: i64 = 10;
+pub const DEFAULT_SCHEMA_EPOCH: i64 = 11;
 pub const DEFAULT_OWNER_ID: &str = "local-owner";
 pub const FTS_SOURCE_ID: &str = "fts";
 
