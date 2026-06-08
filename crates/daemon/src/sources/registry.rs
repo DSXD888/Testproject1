@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 use std::collections::BTreeMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use anyhow::{Context, Result, bail};
 use chrono::{DateTime, Duration, NaiveDateTime, Utc};
@@ -30,6 +31,18 @@ const L6_BID_PORTAL_PROCONTRACT_VALIDATOR_OVERLAY_VERSION: &str =
     "validation/overlay-bid-portal-procontract@0.1.0";
 const L6_BID_PORTAL_PROCONTRACT_VALIDATOR_BEHAVIOR_VERSION: &str =
     "validation/overlay-bid-portal-procontract@0.1.0+1.0";
+
+static SOURCE_REGISTRY_GENERATION: AtomicU64 = AtomicU64::new(0);
+
+#[must_use]
+pub fn source_registry_generation() -> u64 {
+    SOURCE_REGISTRY_GENERATION.load(Ordering::Acquire)
+}
+
+#[must_use]
+pub fn bump_source_registry_generation() -> u64 {
+    SOURCE_REGISTRY_GENERATION.fetch_add(1, Ordering::AcqRel) + 1
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -485,6 +498,44 @@ pub fn persist_runtime_state(
     tx.commit()
         .context("committing source registry runtime-state transaction")?;
     Ok(true)
+}
+
+pub fn set_source_enabled(conn: &Connection, source_id: &str, enabled: bool) -> Result<bool> {
+    let enabled_value = i64::from(enabled);
+    let updated = conn
+        .execute(
+            "\
+            UPDATE sources
+            SET enabled = ?1
+            WHERE id = ?2
+              AND enabled != ?1
+            ",
+            params![enabled_value, source_id],
+        )
+        .with_context(|| format!("updating enabled state for source {source_id}"))?;
+    if updated > 0 {
+        let _ = bump_source_registry_generation();
+    }
+    Ok(updated > 0)
+}
+
+pub fn update_source_config(conn: &Connection, source_id: &str, config: &Value) -> Result<bool> {
+    let config_json = config.to_string();
+    let updated = conn
+        .execute(
+            "\
+            UPDATE sources
+            SET config = ?1
+            WHERE id = ?2
+              AND config != ?1
+            ",
+            params![config_json, source_id],
+        )
+        .with_context(|| format!("updating schedule-bearing config for source {source_id}"))?;
+    if updated > 0 {
+        let _ = bump_source_registry_generation();
+    }
+    Ok(updated > 0)
 }
 
 fn load_runtime_state(

@@ -207,7 +207,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 use sessions::reaper::{CrashRecoveryContext, SessionReaper};
 use sha2::{Digest, Sha256};
-use sources::registry::{HealthState as RuntimeHealthState, SourceRegistry};
+use sources::registry::{
+    HealthState as RuntimeHealthState, SourceRegistry, source_registry_generation,
+};
 use tracing::forensic::{
     ForensicCaptureSummary, ForensicIdentity, ForensicPtyCapture, capture_contract_output,
     summarize_contract_capture,
@@ -3509,26 +3511,31 @@ impl SchedulerTickThread {
         let handle = thread::Builder::new()
             .name("autonomous-scheduler-tick".to_owned())
             .spawn(move || {
-                let (mut state_db, source_registry, mut scheduler) =
-                    match initialize_scheduler_tick_thread(&thread_db_path) {
-                        Ok(startup) => startup,
-                        Err(error) => {
-                            let message = error.to_string();
-                            let _ = startup_tx.send(Err(message.clone()));
-                            ::tracing::warn!(
-                                error = %message,
-                                state_db_path = %thread_db_path.display(),
-                                "failed to initialize autonomous scheduler tick thread"
-                            );
-                            return;
-                        }
-                    };
+                let (
+                    mut state_db,
+                    mut source_registry,
+                    mut scheduler,
+                    mut observed_registry_generation,
+                ) = match initialize_scheduler_tick_thread(&thread_db_path) {
+                    Ok(startup) => startup,
+                    Err(error) => {
+                        let message = error.to_string();
+                        let _ = startup_tx.send(Err(message.clone()));
+                        ::tracing::warn!(
+                            error = %message,
+                            state_db_path = %thread_db_path.display(),
+                            "failed to initialize autonomous scheduler tick thread"
+                        );
+                        return;
+                    }
+                };
 
                 let _ = startup_tx.send(Ok(()));
                 run_scheduler_thread_tick(
                     &mut scheduler,
-                    &source_registry,
+                    &mut source_registry,
                     &mut state_db,
+                    &mut observed_registry_generation,
                     "cold_start",
                 );
 
@@ -3540,8 +3547,9 @@ impl SchedulerTickThread {
 
                     run_scheduler_thread_tick(
                         &mut scheduler,
-                        &source_registry,
+                        &mut source_registry,
                         &mut state_db,
+                        &mut observed_registry_generation,
                         "interval",
                     );
                 }
@@ -4351,7 +4359,7 @@ fn scheduler_tick_interval() -> Duration {
 
 fn initialize_scheduler_tick_thread(
     state_db_path: &Path,
-) -> Result<(StateDb, SourceRegistry, CronScheduler)> {
+) -> Result<(StateDb, SourceRegistry, CronScheduler, u64)> {
     let state_db = open_state_db(state_db_path, DEFAULT_SCHEMA_EPOCH).with_context(|| {
         format!(
             "opening state DB for autonomous scheduler at {}",
@@ -4366,16 +4374,50 @@ fn initialize_scheduler_tick_thread(
         .context("refreshing autonomous scheduler definitions")?;
     seed_cron_scheduler_from_history(state_db.connection(), &mut scheduler)
         .context("seeding autonomous scheduler from workflow history")?;
-    Ok((state_db, source_registry, scheduler))
+    let observed_registry_generation = source_registry_generation();
+    Ok((
+        state_db,
+        source_registry,
+        scheduler,
+        observed_registry_generation,
+    ))
 }
 
 fn run_scheduler_thread_tick(
     scheduler: &mut CronScheduler,
-    source_registry: &SourceRegistry,
+    source_registry: &mut SourceRegistry,
     state_db: &mut StateDb,
+    observed_registry_generation: &mut u64,
     phase: &'static str,
 ) {
     let now = Utc::now();
+    match refresh_scheduler_registry_if_generation_changed(
+        scheduler,
+        source_registry,
+        state_db,
+        observed_registry_generation,
+        now,
+    ) {
+        Ok(Some(registry_generation)) => {
+            ::tracing::debug!(
+                phase,
+                registry_generation,
+                tick_now = %now.to_rfc3339(),
+                "autonomous scheduler registry reloaded after source generation bump"
+            );
+        }
+        Ok(None) => {}
+        Err(error) => {
+            ::tracing::warn!(
+                phase,
+                tick_now = %now.to_rfc3339(),
+                error = %error,
+                "autonomous scheduler registry reload failed"
+            );
+            return;
+        }
+    }
+
     match run_scheduler_tick(scheduler, source_registry, state_db, now) {
         Ok(enqueued) => {
             ::tracing::debug!(
@@ -4394,6 +4436,37 @@ fn run_scheduler_thread_tick(
             );
         }
     }
+}
+
+fn refresh_scheduler_registry_if_generation_changed(
+    scheduler: &mut CronScheduler,
+    source_registry: &mut SourceRegistry,
+    state_db: &StateDb,
+    observed_registry_generation: &mut u64,
+    now: DateTime<Utc>,
+) -> Result<Option<u64>> {
+    let current_generation = source_registry_generation();
+    if current_generation == *observed_registry_generation {
+        return Ok(None);
+    }
+
+    let reloaded_registry = SourceRegistry::load(state_db.connection())
+        .context("reloading source registry after source generation bump")?;
+    let mut reloaded_scheduler = CronScheduler::from_registry(&reloaded_registry);
+    let reload_anchor = now
+        .checked_sub_signed(chrono::Duration::seconds(1))
+        .unwrap_or(now);
+    reloaded_scheduler
+        .refresh_next_run_at(reload_anchor)
+        .context("refreshing autonomous scheduler definitions after registry reload")?;
+    seed_cron_scheduler_from_history(state_db.connection(), &mut reloaded_scheduler)
+        .context("seeding reloaded autonomous scheduler from workflow history")?;
+
+    *source_registry = reloaded_registry;
+    *scheduler = reloaded_scheduler;
+    *observed_registry_generation = current_generation;
+
+    Ok(Some(current_generation))
 }
 
 fn seed_cron_scheduler_from_history(
