@@ -1880,20 +1880,37 @@ async fn run_next_workflow_job(
     runtime: &mut RuntimeBootstrap,
     cli: &Cli,
 ) -> Result<LiveLoopReport> {
+    run_shared_worker_iteration(runtime, cli).await
+}
+
+#[allow(clippy::future_not_send)]
+async fn run_shared_worker_iteration(
+    runtime: &mut RuntimeBootstrap,
+    cli: &Cli,
+) -> Result<LiveLoopReport> {
     let runner = JobRunner::new(LOCAL_EXECUTOR_ID);
     let claimed = runner
         .claim_next_job(runtime.state_db.connection())?
         .ok_or_else(|| anyhow!("expected a pending workflow job"))?;
+    execute_claimed_workflow_job(runtime, cli, &runner, claimed).await
+}
 
+#[allow(clippy::future_not_send)]
+async fn execute_claimed_workflow_job(
+    runtime: &mut RuntimeBootstrap,
+    cli: &Cli,
+    runner: &JobRunner,
+    claimed: ClaimedJob,
+) -> Result<LiveLoopReport> {
     match claimed.kind.as_str() {
         "extract_document_structure" => {
-            run_extract_document_structure_job(runtime, &runner, claimed).await
+            run_extract_document_structure_job(runtime, runner, claimed).await
         }
         "extract_document_semantics" => {
-            run_extract_document_semantics_job(runtime, &runner, claimed, cli).await
+            run_extract_document_semantics_job(runtime, runner, claimed, cli).await
         }
         "run_bid_workflow" => {
-            bid_workflow::runner::run_bid_workflow_job(runtime, &runner, claimed).await
+            bid_workflow::runner::run_bid_workflow_job(runtime, runner, claimed).await
         }
         "sync_source" => run_sync_source_workflow_job(runtime, claimed, cli).await,
         other => fail_job(
@@ -1992,7 +2009,7 @@ async fn drain_one_shot_worker_queue(runtime: &mut RuntimeBootstrap, cli: &Cli) 
             drained < MAX_ONE_SHOT_DRAINED_JOBS,
             "one-shot scheduler drain did not quiesce after {MAX_ONE_SHOT_DRAINED_JOBS} jobs"
         );
-        let report = run_next_workflow_job(runtime, cli)
+        let report = run_shared_worker_iteration(runtime, cli)
             .await
             .context("draining queued workflow job after scheduler tick")?;
         if !matches!(report.status.as_str(), "completed") {
@@ -27284,19 +27301,34 @@ mod tests {
     #[test]
     fn l6_t_daemon_runner_003_run_bid_workflow_dispatch_stays_in_main() {
         let source = include_str!("main.rs");
-        let dispatch_start = source
+        let run_next_start = source
             .find("async fn run_next_workflow_job")
             .expect("run_next_workflow_job remains in main.rs");
-        let extraction_start = source[dispatch_start..]
-            .find("async fn run_extract_document_structure_job")
-            .expect("extract_document_structure dispatch handler remains in main.rs");
-        let dispatch_body = &source[dispatch_start..dispatch_start + extraction_start];
+        let shared_iteration_start = source
+            .find("async fn run_shared_worker_iteration")
+            .expect("shared worker iteration remains in main.rs");
+        let dispatch_start = source
+            .find("async fn execute_claimed_workflow_job")
+            .expect("claimed worker route executor remains in main.rs");
+        let sync_source_start = source[dispatch_start..]
+            .find("async fn run_sync_source_workflow_job")
+            .expect("sync_source dispatch handler remains in main.rs");
+        let run_next_body = &source[run_next_start..shared_iteration_start];
+        let shared_iteration_body = &source[shared_iteration_start..dispatch_start];
+        let dispatch_body = &source[dispatch_start..dispatch_start + sync_source_start];
 
+        assert!(run_next_body.contains("run_shared_worker_iteration(runtime, cli).await"));
+        assert!(shared_iteration_body.contains(".claim_next_job(runtime.state_db.connection())?"));
+        assert!(
+            shared_iteration_body
+                .contains("execute_claimed_workflow_job(runtime, cli, &runner, claimed).await")
+        );
         assert!(dispatch_body.contains("\"extract_document_structure\""));
         assert!(dispatch_body.contains("\"extract_document_semantics\""));
         assert!(dispatch_body.contains(
-            "\"run_bid_workflow\" => {\n            bid_workflow::runner::run_bid_workflow_job(runtime, &runner, claimed).await\n        }"
+            "\"run_bid_workflow\" => {\n            bid_workflow::runner::run_bid_workflow_job(runtime, runner, claimed).await\n        }"
         ));
+        assert!(dispatch_body.contains("\"sync_source\""));
         assert!(dispatch_body.contains("unsupported queued job kind"));
     }
 
@@ -30028,6 +30060,21 @@ mod tests {
         let error =
             super::parse_tick_now(Some("not-rfc3339")).expect_err("invalid --tick-now should fail");
         assert!(error.to_string().contains("parsing --tick-now"));
+    }
+
+    #[test]
+    fn scheduler_one_shot_drain_uses_shared_worker_iteration() {
+        let source = include_str!("main.rs");
+        let drain_start = source
+            .find("async fn drain_one_shot_worker_queue")
+            .expect("one-shot drain remains in main.rs");
+        let pending_count_start = source[drain_start..]
+            .find("fn pending_claimable_workflow_jobs")
+            .expect("pending-count helper remains after one-shot drain");
+        let drain_body = &source[drain_start..drain_start + pending_count_start];
+
+        assert!(drain_body.contains("run_shared_worker_iteration(runtime, cli)"));
+        assert!(!drain_body.contains("run_next_workflow_job(runtime, cli)"));
     }
 
     #[test]
