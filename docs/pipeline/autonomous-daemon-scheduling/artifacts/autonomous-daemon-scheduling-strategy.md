@@ -16,11 +16,14 @@
 - The strategy routes work only. The spec owns feature content; the TDD owns test assertions.
 - Q1 is the first blocking decision because it shapes worker runtime context, live-loop extraction, and WAL pressure.
 - The clock seam and `--run-scheduler-once --tick-now` entrypoint land before downstream E2E work.
+- Phase gates are runnable TDD IDs or explicit quality-gate IDs. A phase-review statement is never a substitute gate.
 - The live-loop refactor is a foundation dependency for both `sync_source` worker routing and manual CLI preservation.
 - G4 ProContract resumption lands after G1/G2 because scheduled enrich must exist before the awaiting-access work-list can drain autonomously.
 - G6 commercial sweep is a full phase with its own cron slot, worker body, and M2 gate.
+- Existing source schedule values are frozen. This feature adds exactly one schedule slot: 07:00 UTC `commercial_sweep`.
 - G5 concurrency hardening runs after all writer surfaces exist, so M5 exercises the real contention shape.
 - Q7 desktop status surfacing is last because it reads scheduler, worker, and awaiting-access state produced earlier.
+- Operator-gated items are named in their owning phase and gate branch. None are silently dropped.
 - Bead content comes from the spec and TDD. This strategy supplies routing only.
 - Bead-tracked execution uses `bin/br-claim <bead-id>` and `bin/br-complete <bead-id>`, never raw status updates.
 
@@ -121,17 +124,35 @@ Expected total: `76` task beads plus `7` phase sub-epic/review beads.
 
 ## Phase Balance Audit
 
-| Phase | Primary Requirements | Manifest Surface Items | Target Beads | Balance Check |
-|-------|----------------------|------------------------|--------------|---------------|
-| 0 | 6 | 9 | 12 | Foundation carries Q1, clock seam, one-shot harness, and source refactor |
-| 1 | 5 | 5 | 10 | Scheduler tick is full-depth but narrower than worker and G4 |
-| 2 | 6 | 12 | 14 | Worker owns lanes, admission, all cron-kind executors, Q6, and E1 |
-| 3 | 5 | 7 | 11 | G6 is not thin: cron slot, route, body, rerun coexistence, Q8, M2 |
-| 4 | 5 | 7 | 13 | G4 is not thin: Q4/Q5, 5-state lifecycle, net-new M3 suite, skill contract |
-| 5 | 5 | 5 | 10 | G5 waits for all writers and then owns R1-R8 plus full gate |
-| 6 | 1 | 1 | 6 | Q7 is a bounded read-only surfacing branch with daemon/Rust/React gates |
+| Phase | Primary Requirements | Route Atoms | Gate Families | Target Beads | Balance Check |
+|-------|----------------------|-------------|---------------|--------------|---------------|
+| 0 | 6 primary, 4 support | 9 | decision, clock seam, one-shot harness, live-loop regressions, M4 foundation, guard, CI | 12 | Foundation carries Q1, clock seam, one-shot harness, and source refactor |
+| 1 | 5 primary, 1 support | 8 | `tick_001..003`, `tick_005..007`, overdue-first claim, M1 enqueue, CI | 10 | Scheduler tick is full-depth but narrower than worker and G4 |
+| 2 | 6 primary, 2 support | 14 | `worker_001..005`, new-kind claimability, Q6, E1, M1 drain, M4 trigger ingestion, CI | 14 | Worker owns lanes, admission, all cron-kind executors, Q6, and E1 |
+| 3 | 5 primary, 2 support | 10 | cron 001/006 impacts, commercial route/body, M2, M4/M5 coexistence, Q8, guard, CI | 11 | G6 is not thin: cron slot, route, body, rerun coexistence, Q8, M2 |
+| 4 | 5 primary, 1 support | 10 | Q4 branch, `M3_step_001..004`, full M3, skill contract, Q5, guard, skill canaries, CI | 13 | G4 is not thin: Q4/Q5, 5-state lifecycle, net-new M3 suite, skill contract |
+| 5 | 5 primary, 2 guardrails | 5 | M5, `worker_003`, lease tests, R1-R8 proof map, guard scopes, full Rust gate | 10 | G5 waits for all writers and then owns R1-R8 plus full gate |
+| 6 | 1 primary, 1 support | 1 | Q7 decision, `desktop_status_001`, daemon/desktop/React read-only proof, Bun gate branch | 6 | Q7 is a bounded read-only surfacing branch with daemon/Rust/React gates |
 
-Later phases are equal shipping phases. Phase 3 and Phase 4 both carry full implementation gates and bead fan-out at or above the scheduler-tick phase.
+Later phases are equal shipping phases. Phase 3 and Phase 4 both carry implementation gates and bead fan-out at or above the scheduler-tick phase, while Phase 5 owns the full contention proof after all writer surfaces exist.
+
+## Manifest Feature Surface Count Audit
+
+Counts below come from the current `manifest.yaml` `feature_surface`. Compound manifest bullets are split into route atoms only when a single bullet names multiple concrete deliverables; each atom has one primary phase home in the Feature Surface Routing table.
+
+| Manifest Surface | Manifest Bullets | Route Atoms | Primary Phase Home |
+|------------------|------------------|-------------|--------------------|
+| `scheduler_tick` | 9 | `S1..S9` | Phase 0 for `S4..S5`; Phase 1 for `S1..S3`, `S6..S9` |
+| `worker_pump` | 6 | `W1..W6` | Phase 2 |
+| `new_job_kind_handlers` | 5 | `H1..H5` | Phase 2 |
+| `live_loop_refactor` | 5 | `R1..R5` | Phase 0 |
+| `commercial_sweep` | 7 | `C1..C7` | Phase 3 |
+| `procontract_resumption` | 7 | `P1..P7` | Phase 4 |
+| `concurrency_correctness` | 5 | `K1..K5` | Phase 0 for `K1`; Phase 5 for `K2..K5` |
+| `desktop_status_surfacing` | 1 | `U1` | Phase 6 |
+| `tests` | 4 | `T1..T12` | Phases 0 through 5 by first closure gate |
+
+No manifest bullet is routed to more than one primary owner. Supporting gates may appear in earlier phases, but implementation ownership remains singular.
 
 ## Phase Bead Routing Batches
 
@@ -334,7 +355,7 @@ Rows are routing labels, not miniature specifications. Beads in the same paralle
 
 ## Phase 3: Commercial Sweep Autonomy
 
-**Target beads:** `9`
+**Target beads:** `11`
 
 ### Prerequisites
 
@@ -420,7 +441,7 @@ Rows are routing labels, not miniature specifications. Beads in the same paralle
 ### Ordering
 
 - Sequential: record Q4 -> schema branch first task -> lifecycle persistence.
-- Dedicated-table branch: migration `0015_*` -> epoch `10 -> 11` constants -> schema tests -> lifecycle work.
+- Dedicated-table branch: migration `0015_*` -> all four daemon/desktop epoch `10 -> 11` constants -> schema tests -> lifecycle work.
 - State-string branch: no epoch bump proof -> widened re-fire guard -> lifecycle work.
 - Sequential: record Q5 -> expiry policy -> staleness sweep -> M3 step 4.
 - Sequential: create -> keep/backfill -> clear via work-list -> expire.
@@ -431,7 +452,7 @@ Rows are routing labels, not miniature specifications. Beads in the same paralle
 ### Gate Criteria
 
 - The selected Q4 branch has its corresponding schema/refire guard test green before lifecycle beads depend on it.
-- Dedicated-table branch starts this phase with migration `0015_*` and all epoch `10 -> 11` constants in the same change.
+- Dedicated-table branch starts this phase with migration `0015_*` and all four daemon/desktop epoch `10 -> 11` constants in the same change.
 - State-string branch proves no migration and a widened re-registration guard.
 - `M3_step_001..004` pass individually.
 - `M3_procontract_resumption_full_lifecycle_g4` passes as the ordered lifecycle scenario.
@@ -480,6 +501,19 @@ Rows are routing labels, not miniature specifications. Beads in the same paralle
 - Sequential: R1-R8 map verification -> single-writer actor escalation decision only if M5 falsifies WAL assumptions.
 - Sequential: guardrail scans -> full per-file integration loop -> phase review.
 - M5 runs after all writer classes are present, not as a substitute for earlier focused tests.
+
+### R1-R8 Closure Map
+
+| Research Risk | Phase 5 Proof Home |
+|---------------|--------------------|
+| R1 write contention | M5 no lost writes / no permanent `SQLITE_BUSY`, with single-writer actor escalation recorded only if falsified |
+| R2 PTY starvation of tick | Scheduler/worker separation remains green through M1, `tick_007`, and M5 |
+| R3 double dispatch | `tick_002` remains green under final scheduler startup fold |
+| R4 arbiter accounting | `worker_005` remains green with every current `DenialReason` variant and release path |
+| R5 sleep/wake and leases | Existing lease tests plus M5 prove catch-up, retry recycle, and admission ordering |
+| R6 schema epoch coupling | Q4 branch proof remains green before soak closure |
+| R7 same-source overlap | `worker_003` and M5 prove the second same-source procurement job defers and never runs concurrently |
+| R8 heavy sweep writer pressure | M5 proves commercial sweep transactions are per-process scoped and do not starve IPC beyond `busy_timeout` |
 
 ### Gate Criteria
 
@@ -585,6 +619,8 @@ Rows are routing labels, not miniature specifications. Beads in the same paralle
 
 ## Test File Status
 
+Verified against `crates/daemon/tests/`: the three phase-owned suites below are net-new; the existing impact files named below are present and must be preserved or extended in place.
+
 | Test File Or Evidence | Status | Phase Home |
 |-----------------------|--------|------------|
 | `crates/daemon/tests/scheduler_tick.rs` | net-new | 1 |
@@ -674,7 +710,7 @@ Each functional requirement below has exactly one primary phase home. Supporting
 |-------------|-------|-------|
 | Section 1.1 Mission | 0 through 6 | Runtime autonomy closes across scheduler, worker, G4, G5, G6, and Q7 branch |
 | Section 1.2 Committed Goals | 1 through 5 | G1-G6 route to owning phases; G3 spans Phase 0/2/3/6 |
-| Section 1.3 Recorded Decisions | 1 + 2 + 3 | Q2 in Phase 1; Q3 in Phase 2; Q8 principal in Phase 3; clock seam in Phase 0 |
+| Section 1.3 Recorded Decisions | 0 + 1 + 2 + 3 | Clock seam in Phase 0; Q2 in Phase 1; Q3 in Phase 2; Q8 principal in Phase 3 |
 | Section 1.4 Operator Decisions Needed | 0 through 6 | Each decision routes to the first dependent phase |
 | Section 1.5 Guardrail Non-Goals | 0 + 3 + 4 + 5 | Guard IDs have explicit enforcement homes |
 | Section 2.1 G1 Scheduler Tick | 0 + 1 | Clock seam in Phase 0; recurring tick, dedup, reload, catch-up in Phase 1 |
@@ -830,6 +866,8 @@ Every manifest `feature_surface` item has exactly one phase home below. Compound
 - Requirement routing contains all `33 / 33` functional/runtime IDs with exactly one primary phase home.
 - Guardrail routing contains all `5 / 5` IDs with explicit enforcement homes.
 - Manifest `feature_surface` routing contains every route atom from scheduler, worker, refactor, handler, commercial, ProContract, concurrency, desktop, and test surfaces.
+- Manifest count check: current bullet counts are `9 / 6 / 5 / 5 / 7 / 7 / 5 / 1 / 4` across scheduler, worker, handlers, refactor, commercial, ProContract, concurrency, desktop, and tests; compound test bullets expand to `T1..T12`.
+- Phase balance check: target bead distribution is `12 / 10 / 14 / 11 / 13 / 10 / 6`; Phase 3 and Phase 4 are not thinner than scheduler-tick work.
 - Operator-gated items are named in phase homes: Q6 in Phase 2, Q7 in Phase 6, Q8-residual in Phase 3, and E1/enrich-process routing in Phase 2.
 - G4 depth check: Phase 4 owns schema branch, lifecycle, work-list sweep, skill contract, expiry, M3, and skill canaries.
 - G6 depth check: Phase 3 owns cron definition, scheduler impacts, coverage body, rerun coexistence, Q8 branch, and M2.
@@ -838,5 +876,8 @@ Every manifest `feature_surface` item has exactly one phase home below. Compound
 - Clock harness check: Phase 0 creates `--run-scheduler-once --tick-now` before every E2E phase consumes it.
 - Q1-first check: no live-loop or worker-runtime implementation starts before Q1 is recorded.
 - Research sequencing check: G4 lands after G1/G2, matching research section 4.4.
+- Slot check: the strategy adds only the 07:00 `commercial_sweep` slot and keeps existing source schedules unchanged.
 - Existing-test impact check: `cron_scheduler.rs` impacts land with G6; `job_claim.rs` impacts land with G1/G2; ingestion regressions land with Phase 0; Q4 schema impacts land with G4.
+- Test-file reality check: `scheduler_tick.rs`, `worker_pump.rs`, and `procontract_resumption.rs` are net-new; named existing daemon integration files already exist and remain in-place targets.
 - Full-gate check: Phase 5 requires the per-file daemon integration loop; `cargo test -p daemon --bin daemon` alone is never a green claim.
+- Scope-cut phrase scan: clean.
