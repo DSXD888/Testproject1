@@ -230,6 +230,16 @@ const CLI_VENDOR: &str = "fixture-cli";
 const CLI_VERSION: &str = "1.0.0";
 const DEFAULT_AGENT_CLI: &str = "claude";
 const LOCAL_EXECUTOR_ID: &str = "local-daemon";
+const FTS_SOURCE_ID: &str = "fts";
+const FTS_SKILL_ID: &str = "procurement-ingestion/fts";
+const CONTRACTS_FINDER_SOURCE_ID: &str = "contracts-finder";
+const CONTRACTS_FINDER_SKILL_ID: &str = "procurement-ingestion/contracts-finder";
+const PROCONTRACT_DISCOVER_SOURCE_ID: &str = "procontract";
+const PROCONTRACT_DISCOVER_SKILL_ID: &str = "procurement-ingestion/procontract-discover";
+const PROCONTRACT_INTEREST_SOURCE_ID: &str = "procontract-interest";
+const PROCONTRACT_INTEREST_SKILL_ID: &str = "procurement-ingestion/procontract-register-interest";
+const PROCONTRACT_ENRICH_SOURCE_ID: &str = "procontract-enrich";
+const PROCONTRACT_ENRICH_SKILL_ID: &str = "procurement-ingestion/procontract-enrich-tender";
 const L4_SYNC_ORG_ID: &str = "default";
 const L4_SYNC_STREAM_ID: &str = "l4-shared-visibility";
 const L4_SYNC_BATCH_MAX_ROWS: usize = 100;
@@ -1885,12 +1895,64 @@ async fn run_next_workflow_job(
         "run_bid_workflow" => {
             bid_workflow::runner::run_bid_workflow_job(runtime, &runner, claimed).await
         }
+        "sync_source" => run_sync_source_workflow_job(runtime, claimed, cli).await,
         other => fail_job(
             runtime,
             &claimed.id,
             &format!("unsupported queued job kind `{other}`"),
             json!({"error_code": "AGENT_RUN_FAILED", "job_kind": other}),
         ),
+    }
+}
+
+#[allow(clippy::future_not_send)]
+async fn run_sync_source_workflow_job(
+    runtime: &mut RuntimeBootstrap,
+    claimed: ClaimedJob,
+    cli: &Cli,
+) -> Result<LiveLoopReport> {
+    let route = match claimed_sync_source_route(&claimed) {
+        Ok(route) => route,
+        Err(error) => {
+            return fail_job(
+                runtime,
+                &claimed.id,
+                &format!("unsupported sync_source route: {error}"),
+                json!({
+                    "error_code": "AGENT_RUN_FAILED",
+                    "job_kind": "sync_source",
+                    "route_error": error.to_string(),
+                }),
+            );
+        }
+    };
+    let repo_root = repo_root()?;
+    let skill = load_skill(
+        &repo_root.join("skills").join(route.skill_id()),
+        &format!("skills/{}/SKILL.md", route.skill_id()),
+    )?;
+
+    match route {
+        SyncSourceRoute::Fts => {
+            let manifest_skill = load_skill(
+                &repo_root.join("skills/manifest-generation"),
+                "skills/manifest-generation/SKILL.md",
+            )?;
+            let fixture = claimed_fts_fixture(&claimed)?;
+            run_fts_claimed_live_loop(runtime, claimed, fixture, cli, &skill, &manifest_skill).await
+        }
+        SyncSourceRoute::ContractsFinder => {
+            run_contracts_finder_claimed_live_loop(runtime, claimed, cli, &skill).await
+        }
+        SyncSourceRoute::ProcontractDiscover => {
+            run_procontract_discover_claimed_live_loop(runtime, claimed, cli, &skill).await
+        }
+        SyncSourceRoute::ProcontractRegisterInterest => {
+            run_procontract_register_interest_claimed_live_loop(runtime, claimed, cli, &skill).await
+        }
+        SyncSourceRoute::ProcontractEnrichTender => {
+            run_procontract_enrich_tender_claimed_live_loop(runtime, claimed, cli, &skill).await
+        }
     }
 }
 
@@ -19373,6 +19435,147 @@ fn claimed_source_request_payload(claimed: &ClaimedJob) -> &Value {
         .unwrap_or(&claimed.input_payload)
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SyncSourceRoute {
+    Fts,
+    ContractsFinder,
+    ProcontractDiscover,
+    ProcontractRegisterInterest,
+    ProcontractEnrichTender,
+}
+
+impl SyncSourceRoute {
+    #[cfg(test)]
+    const fn source_id(self) -> &'static str {
+        match self {
+            Self::Fts => FTS_SOURCE_ID,
+            Self::ContractsFinder => CONTRACTS_FINDER_SOURCE_ID,
+            Self::ProcontractDiscover => PROCONTRACT_DISCOVER_SOURCE_ID,
+            Self::ProcontractRegisterInterest => PROCONTRACT_INTEREST_SOURCE_ID,
+            Self::ProcontractEnrichTender => PROCONTRACT_ENRICH_SOURCE_ID,
+        }
+    }
+
+    const fn skill_id(self) -> &'static str {
+        match self {
+            Self::Fts => FTS_SKILL_ID,
+            Self::ContractsFinder => CONTRACTS_FINDER_SKILL_ID,
+            Self::ProcontractDiscover => PROCONTRACT_DISCOVER_SKILL_ID,
+            Self::ProcontractRegisterInterest => PROCONTRACT_INTEREST_SKILL_ID,
+            Self::ProcontractEnrichTender => PROCONTRACT_ENRICH_SKILL_ID,
+        }
+    }
+
+    fn from_key(source_id: &str, skill_id: &str) -> Option<Self> {
+        match (source_id, skill_id) {
+            (FTS_SOURCE_ID, FTS_SKILL_ID) => Some(Self::Fts),
+            (CONTRACTS_FINDER_SOURCE_ID, CONTRACTS_FINDER_SKILL_ID) => Some(Self::ContractsFinder),
+            (PROCONTRACT_DISCOVER_SOURCE_ID, PROCONTRACT_DISCOVER_SKILL_ID) => {
+                Some(Self::ProcontractDiscover)
+            }
+            (PROCONTRACT_INTEREST_SOURCE_ID, PROCONTRACT_INTEREST_SKILL_ID) => {
+                Some(Self::ProcontractRegisterInterest)
+            }
+            (PROCONTRACT_ENRICH_SOURCE_ID, PROCONTRACT_ENRICH_SKILL_ID) => {
+                Some(Self::ProcontractEnrichTender)
+            }
+            _ => None,
+        }
+    }
+}
+
+fn sync_source_payload_source_id<'a>(
+    claimed: &'a ClaimedJob,
+    request_payload: &'a Value,
+) -> Option<&'a str> {
+    request_payload
+        .get("source_id")
+        .and_then(Value::as_str)
+        .or_else(|| {
+            request_payload
+                .get("job_parameters")
+                .and_then(|parameters| parameters.get("source_id"))
+                .and_then(Value::as_str)
+        })
+        .or(claimed.scope_id.as_deref())
+}
+
+fn skill_id_from_skill_path(path: &str) -> Option<&str> {
+    let relative_path = path
+        .rsplit_once("/skills/")
+        .map(|(_, relative)| relative)
+        .or_else(|| path.strip_prefix("skills/"))
+        .unwrap_or(path);
+    relative_path
+        .strip_suffix("/SKILL.md")
+        .filter(|skill_id| !skill_id.is_empty())
+}
+
+fn sync_source_payload_skill_id(request_payload: &Value) -> Option<&str> {
+    request_payload
+        .get("skill_id")
+        .and_then(Value::as_str)
+        .or_else(|| {
+            request_payload
+                .get("skill_binding")
+                .and_then(|binding| binding.get("skill_id"))
+                .and_then(Value::as_str)
+        })
+        .or_else(|| {
+            request_payload
+                .get("skill_binding")
+                .and_then(|binding| binding.get("path"))
+                .and_then(Value::as_str)
+                .and_then(skill_id_from_skill_path)
+        })
+}
+
+fn claimed_sync_source_route(claimed: &ClaimedJob) -> Result<SyncSourceRoute> {
+    ensure!(
+        claimed.kind == "sync_source",
+        "claimed job {} has kind `{}` instead of sync_source",
+        claimed.id,
+        claimed.kind
+    );
+    let request_payload = claimed_source_request_payload(claimed);
+    let source_id = sync_source_payload_source_id(claimed, request_payload)
+        .ok_or_else(|| anyhow!("sync_source job {} missing source_id", claimed.id))?;
+    let skill_id = sync_source_payload_skill_id(request_payload)
+        .ok_or_else(|| anyhow!("sync_source job {} missing skill_id", claimed.id))?;
+    SyncSourceRoute::from_key(source_id, skill_id).ok_or_else(|| {
+        anyhow!(
+            "unsupported sync_source route for source_id `{source_id}` and skill_id `{skill_id}`"
+        )
+    })
+}
+
+fn claimed_fts_fixture(claimed: &ClaimedJob) -> Result<LiveLoopFixture> {
+    let request_payload = claimed_source_request_payload(claimed);
+    if let Some(fixture_payload) = request_payload.get("fixture") {
+        return serde_json::from_value::<LiveLoopFixture>(fixture_payload.clone())
+            .context("parsing queued FTS fixture payload");
+    }
+
+    let mut fixture = default_fixture();
+    if let Some(cursor_before) = request_payload.get("cursor_before") {
+        fixture.cursor_before = match cursor_before {
+            Value::Null => None,
+            Value::String(cursor) => Some(cursor.clone()),
+            _ => fixture.cursor_before,
+        };
+    }
+    if let Some(cursor_after) = request_payload.get("cursor_after").and_then(Value::as_str) {
+        cursor_after.clone_into(&mut fixture.cursor_after);
+    }
+    if let Some(operator_requested) = request_payload
+        .get("operator_requested")
+        .and_then(Value::as_bool)
+    {
+        fixture.operator_requested = operator_requested;
+    }
+    Ok(fixture)
+}
+
 fn claimed_source_job_parameters(claimed: &ClaimedJob, source_id: &str) -> Result<Value> {
     let request_payload = claimed_source_request_payload(claimed);
     if let Some(job_parameters) = request_payload.get("job_parameters") {
@@ -26540,7 +26743,7 @@ mod tests {
     use super::agents::arbiter::{
         AdmissionPriority, AdmissionRequest, ArbiterDecision, ResourceArbiter, ResourceBudgets,
     };
-    use super::jobs::runner::{CANONICAL_SCOPE_KINDS, JobRunner};
+    use super::jobs::runner::{CANONICAL_SCOPE_KINDS, ClaimedJob, JobRunner};
     use super::tracing::structured::{StructuredControlEventKind, StructuredTrace, TraceIdentity};
     use super::{
         ACTIVE_STAGES, Cli, ControlEvent, DEFAULT_AGENT_CLI, ExecutedSession, LOCAL_EXECUTOR_ID,
@@ -27010,6 +27213,115 @@ mod tests {
             "\"run_bid_workflow\" => {\n            bid_workflow::runner::run_bid_workflow_job(runtime, &runner, claimed).await\n        }"
         ));
         assert!(dispatch_body.contains("unsupported queued job kind"));
+    }
+
+    fn claimed_sync_source_route_job(input_payload: Value, scope_id: Option<&str>) -> ClaimedJob {
+        ClaimedJob {
+            id: "job-route-matrix".to_owned(),
+            kind: "sync_source".to_owned(),
+            process_id: None,
+            scope_kind: Some("source".to_owned()),
+            scope_id: scope_id.map(str::to_owned),
+            input_payload,
+        }
+    }
+
+    #[test]
+    fn sync_source_route_matrix_requires_source_and_skill_tuple() -> Result<()> {
+        for (source_id, skill_id, expected_route) in [
+            (
+                super::FTS_SOURCE_ID,
+                super::FTS_SKILL_ID,
+                super::SyncSourceRoute::Fts,
+            ),
+            (
+                super::CONTRACTS_FINDER_SOURCE_ID,
+                super::CONTRACTS_FINDER_SKILL_ID,
+                super::SyncSourceRoute::ContractsFinder,
+            ),
+            (
+                super::PROCONTRACT_DISCOVER_SOURCE_ID,
+                super::PROCONTRACT_DISCOVER_SKILL_ID,
+                super::SyncSourceRoute::ProcontractDiscover,
+            ),
+            (
+                super::PROCONTRACT_INTEREST_SOURCE_ID,
+                super::PROCONTRACT_INTEREST_SKILL_ID,
+                super::SyncSourceRoute::ProcontractRegisterInterest,
+            ),
+            (
+                super::PROCONTRACT_ENRICH_SOURCE_ID,
+                super::PROCONTRACT_ENRICH_SKILL_ID,
+                super::SyncSourceRoute::ProcontractEnrichTender,
+            ),
+        ] {
+            let job = claimed_sync_source_route_job(
+                json!({"source_id": source_id, "skill_id": skill_id}),
+                None,
+            );
+            let route = super::claimed_sync_source_route(&job)?;
+            anyhow::ensure!(
+                route == expected_route,
+                "{source_id} + {skill_id} resolved to {route:?}"
+            );
+            anyhow::ensure!(route.source_id() == source_id, "route source changed");
+            anyhow::ensure!(route.skill_id() == skill_id, "route skill changed");
+        }
+
+        let manual_binding_job = claimed_sync_source_route_job(
+            json!({
+                "source_id": super::CONTRACTS_FINDER_SOURCE_ID,
+                "skill_binding": {
+                    "path": "skills/procurement-ingestion/contracts-finder/SKILL.md",
+                },
+            }),
+            None,
+        );
+        anyhow::ensure!(
+            super::claimed_sync_source_route(&manual_binding_job)?
+                == super::SyncSourceRoute::ContractsFinder,
+            "manual skill_binding.path did not resolve contracts-finder"
+        );
+
+        let wrapped_cron_job = claimed_sync_source_route_job(
+            json!({
+                "request": {
+                    "source_id": super::FTS_SOURCE_ID,
+                    "skill_id": super::FTS_SKILL_ID,
+                },
+            }),
+            None,
+        );
+        anyhow::ensure!(
+            super::claimed_sync_source_route(&wrapped_cron_job)? == super::SyncSourceRoute::Fts,
+            "runner-wrapped cron request did not resolve FTS"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn sync_source_route_rejects_source_only_marketplace_and_commercial_keys() -> Result<()> {
+        for payload in [
+            json!({
+                "source_id": super::PROCONTRACT_DISCOVER_SOURCE_ID,
+                "skill_id": super::PROCONTRACT_INTEREST_SKILL_ID,
+            }),
+            json!({
+                "source_id": "alibaba-search",
+                "skill_id": "marketplace-search/alibaba",
+            }),
+            json!({
+                "source_id": "l5-marketplace-commercial-intelligence",
+                "skill_id": "commercial_sweep",
+            }),
+        ] {
+            let job = claimed_sync_source_route_job(payload, None);
+            anyhow::ensure!(
+                super::claimed_sync_source_route(&job).is_err(),
+                "unsupported route unexpectedly resolved"
+            );
+        }
+        Ok(())
     }
 
     fn source_section_between<'a>(source: &'a str, start: &str, end: &str) -> Result<&'a str> {
