@@ -145,7 +145,11 @@ impl RunHarness {
 }
 
 fn manifest_result_payload(fixture: &Value) -> Result<Value> {
-    if fixture["notices"].as_array().is_some_and(Vec::is_empty) {
+    let notices = fixture
+        .get("notices")
+        .and_then(Value::as_array)
+        .ok_or_else(|| anyhow::anyhow!("fixture missing notices"))?;
+    if notices.is_empty() {
         let markdown = "# Opportunity Manifest\n\n## Header\n\n- Process: process-empty\n- Title: Empty batch\n\n## Decision Summary\n\n## Per-Candidate Detail\n\n## Operator Input Requests\n\n## Evidence Trail\n\n## Coverage Metrics\n\n- Candidate count: 0\n";
         return Ok(json!({
             "process_id": "process-empty",
@@ -162,17 +166,23 @@ fn manifest_result_payload(fixture: &Value) -> Result<Value> {
             "clarification_prompt_count": 0,
         }));
     }
-    let process_id = fixture["notices"][0]["processId"]
-        .as_str()
+    let first_notice = notices
+        .first()
+        .ok_or_else(|| anyhow::anyhow!("fixture missing first notice"))?;
+    let process_id = first_notice
+        .get("processId")
+        .and_then(Value::as_str)
         .ok_or_else(|| anyhow::anyhow!("fixture missing processId"))?;
-    let title = fixture["notices"][0]["title"]
-        .as_str()
+    let title = first_notice
+        .get("title")
+        .and_then(Value::as_str)
         .ok_or_else(|| anyhow::anyhow!("fixture missing title"))?;
-    let candidate_count = fixture["notices"][0]["lots"]
-        .as_array()
+    let candidate_count = first_notice
+        .get("lots")
+        .and_then(Value::as_array)
         .ok_or_else(|| anyhow::anyhow!("fixture missing lots"))?
         .iter()
-        .filter_map(|lot| lot["candidateCount"].as_u64())
+        .filter_map(|lot| lot.get("candidateCount").and_then(Value::as_u64))
         .sum::<u64>();
     let body = format!(
         "# Opportunity Manifest\n\n## Header\n\n- Process: {process_id}\n- Title: {title}\n\n## Decision Summary\n\n## Per-Candidate Detail\n\n## Operator Input Requests\n\n## Evidence Trail\n\n## Coverage Metrics\n\n- Candidate count: {candidate_count}\n"
@@ -193,7 +203,11 @@ fn manifest_result_payload(fixture: &Value) -> Result<Value> {
         "priced_candidate_count": 0,
         "clarification_prompt_count": 0,
     });
-    if fixture["manifestSchemaInvalid"] == json!(true) {
+    if fixture
+        .get("manifestSchemaInvalid")
+        .and_then(Value::as_bool)
+        .is_some_and(|value| value)
+    {
         payload
             .as_object_mut()
             .ok_or_else(|| anyhow::anyhow!("result payload must be object"))?
@@ -290,6 +304,164 @@ fn count_rows(conn: &Connection, table: &str) -> Result<i64> {
     .with_context(|| format!("counting rows in {table}"))
 }
 
+fn source_section_between<'a>(source: &'a str, start: &str, end: &str) -> Result<&'a str> {
+    let Some(start_index) = source.find(start) else {
+        anyhow::bail!("missing source marker {start}");
+    };
+    let source_from_start = source
+        .get(start_index..)
+        .ok_or_else(|| anyhow::anyhow!("source marker {start} has invalid boundary"))?;
+    let Some(relative_end) = source_from_start.find(end) else {
+        anyhow::bail!("missing source marker {end} after {start}");
+    };
+    source_from_start
+        .get(..relative_end)
+        .ok_or_else(|| anyhow::anyhow!("source section boundary invalid for {start}"))
+}
+
+fn ensure_source_markers_in_order(section: &str, markers: &[&str]) -> Result<()> {
+    let mut cursor = 0_usize;
+    for marker in markers {
+        let remaining = section
+            .get(cursor..)
+            .ok_or_else(|| anyhow::anyhow!("marker cursor out of bounds before {marker}"))?;
+        let Some(offset) = remaining.find(marker) else {
+            anyhow::bail!("missing ordered marker {marker}");
+        };
+        cursor += offset + marker.len();
+    }
+    Ok(())
+}
+
+fn ensure_manual_ingest_dispatch_uses_direct_wrappers(source: &str) -> Result<()> {
+    let ingest_dispatch = source_section_between(
+        source,
+        "if let Some(source_id) = &cli.ingest",
+        "if let Some(source_id) = &cli.pipeline",
+    )?;
+    for (source_id, wrapper_call) in [
+        (
+            "fts",
+            "run_fts_live_loop(&mut runtime, fixture, &cli).await?",
+        ),
+        (
+            "contracts-finder",
+            "run_contracts_finder_live_loop(&mut runtime, &cli).await?",
+        ),
+        (
+            "procontract",
+            "run_procontract_discover_live_loop(&mut runtime, &cli).await?",
+        ),
+        (
+            "procontract-interest",
+            "run_procontract_register_interest_live_loop(&mut runtime, &cli).await?",
+        ),
+        (
+            "procontract-enrich",
+            "run_procontract_enrich_tender_live_loop(&mut runtime, &cli).await?",
+        ),
+    ] {
+        ensure!(
+            ingest_dispatch.contains(wrapper_call),
+            "{source_id} manual ingest dispatch must call its direct live-loop wrapper"
+        );
+    }
+    Ok(())
+}
+
+fn ensure_manual_wrappers_claim_before_shared_bodies(source: &str) -> Result<()> {
+    for (wrapper_start, claimed_start, create_call, claimed_call) in [
+        (
+            "async fn run_fts_live_loop",
+            "async fn run_fts_claimed_live_loop",
+            "create_sync_source_job(",
+            "run_fts_claimed_live_loop(",
+        ),
+        (
+            "async fn run_contracts_finder_live_loop",
+            "async fn run_contracts_finder_claimed_live_loop",
+            "create_source_sync_job_from_parameters(",
+            "run_contracts_finder_claimed_live_loop(",
+        ),
+        (
+            "async fn run_procontract_discover_live_loop",
+            "async fn run_procontract_discover_claimed_live_loop",
+            "create_source_sync_job_from_parameters(",
+            "run_procontract_discover_claimed_live_loop(",
+        ),
+        (
+            "async fn run_procontract_register_interest_live_loop",
+            "async fn run_procontract_register_interest_claimed_live_loop",
+            "create_source_sync_job_from_parameters(",
+            "run_procontract_register_interest_claimed_live_loop(",
+        ),
+        (
+            "async fn run_procontract_enrich_tender_live_loop",
+            "async fn run_procontract_enrich_tender_claimed_live_loop",
+            "create_source_sync_job_from_parameters(",
+            "run_procontract_enrich_tender_claimed_live_loop(",
+        ),
+    ] {
+        let wrapper = source_section_between(source, wrapper_start, claimed_start)?;
+        ensure_source_markers_in_order(wrapper, &[create_call, ".claim_job_by_id(", claimed_call])?;
+    }
+    Ok(())
+}
+
+fn ensure_sync_source_worker_routes_to_claimed_bodies(source: &str) -> Result<()> {
+    let sync_source_dispatch = source_section_between(
+        source,
+        "async fn run_sync_source_workflow_job",
+        "fn parse_tick_now",
+    )?;
+    for claimed_call in [
+        "run_fts_claimed_live_loop(runtime, claimed, fixture, cli, &skill, &manifest_skill).await",
+        "run_contracts_finder_claimed_live_loop(runtime, claimed, cli, &skill).await",
+        "run_procontract_discover_claimed_live_loop(runtime, claimed, cli, &skill).await",
+        "run_procontract_register_interest_claimed_live_loop(runtime, claimed, cli, &skill).await",
+        "run_procontract_enrich_tender_claimed_live_loop(runtime, claimed, cli, &skill).await",
+    ] {
+        ensure!(
+            sync_source_dispatch.contains(claimed_call),
+            "sync_source worker route must call claimed body directly: {claimed_call}"
+        );
+    }
+    Ok(())
+}
+
+fn ensure_no_live_loop_compat_shim_markers(source: &str) -> Result<()> {
+    for forbidden_marker in [
+        "compatibility_shim",
+        "compat_live_loop",
+        "deprecated_live_loop",
+        "legacy_live_loop",
+        "shim_live_loop",
+        "run_legacy_fts_live_loop",
+        "run_fts_live_loop_compat",
+        "run_contracts_finder_live_loop_compat",
+        "run_procontract_discover_live_loop_compat",
+        "run_procontract_register_interest_live_loop_compat",
+        "run_procontract_enrich_tender_live_loop_compat",
+    ] {
+        ensure!(
+            !source.contains(forbidden_marker),
+            "live-loop refactor must not introduce compatibility shim marker {forbidden_marker}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn guard_scope_005_no_compat_shims() -> Result<()> {
+    let source = include_str!("../src/main.rs");
+    ensure_manual_ingest_dispatch_uses_direct_wrappers(source)?;
+    ensure_manual_wrappers_claim_before_shared_bodies(source)?;
+    ensure_sync_source_worker_routes_to_claimed_bodies(source)?;
+    ensure_no_live_loop_compat_shim_markers(source)?;
+
+    Ok(())
+}
+
 #[test]
 fn e2e_ing_001_manual_cli_trigger_creates_sync_source_job_under_daemon_control() -> Result<()> {
     let harness = RunHarness::new()?;
@@ -306,8 +478,8 @@ fn e2e_ing_001_manual_cli_trigger_creates_sync_source_job_under_daemon_control()
         [],
         |row| Ok((row.get(0)?, row.get(1)?)),
     )?;
-    ensure!(kind == "sync_source");
-    ensure!(status == "completed");
+    ensure!(matches!(kind.as_str(), "sync_source"));
+    ensure!(matches!(status.as_str(), "completed"));
     Ok(())
 }
 
@@ -319,9 +491,22 @@ fn e2e_ing_002_job_creation_persists_explicit_skill_binding_and_resolved_version
 
     let conn = harness.connection()?;
     let payload = job_input_payload(&conn)?;
-    ensure!(payload["skill_binding"]["path"] == "skills/procurement-ingestion/fts/SKILL.md");
-    ensure!(payload["skill_binding"]["version"] == "1.0.0");
-    ensure!(payload["agent_cli"] == "claude");
+    let skill_binding = payload
+        .get("skill_binding")
+        .and_then(Value::as_object)
+        .ok_or_else(|| anyhow::anyhow!("skill_binding missing"))?;
+    ensure!(matches!(
+        skill_binding.get("path").and_then(Value::as_str),
+        Some("skills/procurement-ingestion/fts/SKILL.md")
+    ));
+    ensure!(matches!(
+        skill_binding.get("version").and_then(Value::as_str),
+        Some("1.0.0")
+    ));
+    ensure!(matches!(
+        payload.get("agent_cli").and_then(Value::as_str),
+        Some("claude")
+    ));
     Ok(())
 }
 
@@ -337,7 +522,7 @@ fn e2e_ing_003_fts_skill_resolves_to_pty_execution() -> Result<()> {
         [],
         |row| row.get(0),
     )?;
-    ensure!(execution_mode == "pty");
+    ensure!(matches!(execution_mode.as_str(), "pty"));
     Ok(())
 }
 
@@ -375,7 +560,10 @@ fn e2e_ing_005_page_fingerprint_proven_before_extraction() -> Result<()> {
         |row| row.get(0),
     )?;
     let parsed: Value = serde_json::from_str(&trace)?;
-    ensure!(parsed["fingerprint_state"] == "matched");
+    ensure!(matches!(
+        parsed.get("fingerprint_state").and_then(Value::as_str),
+        Some("matched")
+    ));
     Ok(())
 }
 
@@ -392,9 +580,20 @@ fn e2e_ing_006_cursor_backtrack_and_batch_boundary_advancement_enforced() -> Res
         |row| row.get(0),
     )?;
     let cursor_json: Value = serde_json::from_str(&cursor_value)?;
-    ensure!(cursor_json["cursor_before"] == "cursor-000");
-    ensure!(cursor_json["cursor_after"] == "cursor-001");
-    ensure!(cursor_json["backtrack_window_seconds"] == 60);
+    ensure!(matches!(
+        cursor_json.get("cursor_before").and_then(Value::as_str),
+        Some("cursor-000")
+    ));
+    ensure!(matches!(
+        cursor_json.get("cursor_after").and_then(Value::as_str),
+        Some("cursor-001")
+    ));
+    ensure!(matches!(
+        cursor_json
+            .get("backtrack_window_seconds")
+            .and_then(Value::as_i64),
+        Some(60)
+    ));
     Ok(())
 }
 
@@ -408,15 +607,18 @@ fn e2e_ing_007_empty_fts_batch_completes_without_advancing_cursor() -> Result<()
     ensure!(result.success, "empty batch should still succeed");
 
     let conn = harness.connection()?;
-    ensure!(latest_job_status(&conn)? == "completed");
+    ensure!(matches!(latest_job_status(&conn)?.as_str(), "completed"));
     let cursor_value: String = conn.query_row(
         "SELECT cursor_value FROM source_cursors WHERE source_id = 'fts' AND cursor_key = 'notice_cursor'",
         [],
         |row| row.get(0),
     )?;
     let cursor_json: Value = serde_json::from_str(&cursor_value)?;
-    ensure!(cursor_json["cursor_before"] == "cursor-pre");
-    ensure!(cursor_json.get("cursor_after").is_none() || cursor_json["cursor_after"].is_null());
+    ensure!(matches!(
+        cursor_json.get("cursor_before").and_then(Value::as_str),
+        Some("cursor-pre")
+    ));
+    ensure!(cursor_json.get("cursor_after").is_none_or(Value::is_null));
     Ok(())
 }
 
@@ -429,7 +631,7 @@ fn e2e_ing_008_capture_write_failure_becomes_job_failure() -> Result<()> {
     ensure!(!result.success, "capture failure should fail the run");
 
     let conn = harness.connection()?;
-    ensure!(latest_job_status(&conn)? == "failed");
+    ensure!(matches!(latest_job_status(&conn)?.as_str(), "failed"));
     ensure!(count_rows(&conn, "manifests")? == 0);
     Ok(())
 }
@@ -442,7 +644,10 @@ fn e2e_ing_009_workflow_progression_uses_validated_contracts_not_transcripts() -
 
     let conn = harness.connection()?;
     let output = job_output_payload(&conn)?;
-    ensure!(output["candidate_count"] == 3);
+    ensure!(matches!(
+        output.get("candidate_count").and_then(Value::as_i64),
+        Some(3)
+    ));
     ensure!(!result.stdout.contains("99 candidates"));
     Ok(())
 }
@@ -472,14 +677,20 @@ fn e2e_ing_011_schema_and_oqg_jointly_gate_pipeline_advancement() -> Result<()> 
     let invalid = invalid_harness.run(&invalid_fixture)?;
     ensure!(!invalid.success);
     let invalid_conn = invalid_harness.connection()?;
-    ensure!(latest_job_status(&invalid_conn)? == "failed");
+    ensure!(matches!(
+        latest_job_status(&invalid_conn)?.as_str(),
+        "failed"
+    ));
     ensure!(count_rows(&invalid_conn, "manifests")? == 0);
     let invalid_error: String = invalid_conn.query_row(
         "SELECT error_type FROM error_manifests ORDER BY created_at DESC LIMIT 1",
         [],
         |row| row.get(0),
     )?;
-    ensure!(invalid_error == "AGENT_OUTPUT_CONTRACT_INVALID");
+    ensure!(matches!(
+        invalid_error.as_str(),
+        "AGENT_OUTPUT_CONTRACT_INVALID"
+    ));
 
     let suspect_harness = RunHarness::new()?;
     let mut suspect_fixture = default_fixture();
@@ -493,7 +704,7 @@ fn e2e_ing_011_schema_and_oqg_jointly_gate_pipeline_advancement() -> Result<()> 
         [],
         |row| row.get(0),
     )?;
-    ensure!(suspect_error == "AGENT_SUSPECT_OUTPUT");
+    ensure!(matches!(suspect_error.as_str(), "AGENT_SUSPECT_OUTPUT"));
     Ok(())
 }
 
@@ -639,7 +850,7 @@ fn e2e_ing_017_basis_hash_mismatch_marks_job_obsolete() -> Result<()> {
         [],
         |row| row.get(0),
     )?;
-    ensure!(original_status == "obsolete");
+    ensure!(matches!(original_status.as_str(), "obsolete"));
     let rerun_count: i64 = conn.query_row(
         "SELECT COUNT(*) FROM workflow_jobs WHERE kind = 'sync_source' AND status = 'pending'",
         [],
@@ -677,8 +888,8 @@ fn e2e_ing_018_soft_stale_vs_hard_invalid_follow_cascade_rules() -> Result<()> {
         [],
         |row| row.get(0),
     )?;
-    ensure!(soft == "soft_stale");
-    ensure!(hard == "hard_invalid");
+    ensure!(matches!(soft.as_str(), "soft_stale"));
+    ensure!(matches!(hard.as_str(), "hard_invalid"));
     Ok(())
 }
 
@@ -712,7 +923,7 @@ fn e2e_ing_019_live_validation_marks_worker_row_and_links_verdict() -> Result<()
     ensure!(parent_job_id.is_none());
     ensure!(validation_required == 1);
     ensure!(validation_verdict_id.is_some());
-    ensure!(validation_state == "validated");
+    ensure!(matches!(validation_state.as_str(), "validated"));
     ensure!(validator_job_count >= 1);
     Ok(())
 }
@@ -763,7 +974,7 @@ fn e2e_ing_021_source_changed_and_notice_parse_failed_preserve_evidence() -> Res
         [],
         |row| row.get(0),
     )?;
-    ensure!(source_error == "SOURCE_CHANGED");
+    ensure!(matches!(source_error.as_str(), "SOURCE_CHANGED"));
     ensure!(Path::new(&capture_path).exists());
 
     let parse_harness = RunHarness::new()?;
@@ -777,7 +988,7 @@ fn e2e_ing_021_source_changed_and_notice_parse_failed_preserve_evidence() -> Res
         [],
         |row| row.get(0),
     )?;
-    ensure!(parse_error == "NOTICE_PARSE_FAILED");
+    ensure!(matches!(parse_error.as_str(), "NOTICE_PARSE_FAILED"));
     ensure!(count_rows(&parse_conn, "raw_documents")? == 1);
     Ok(())
 }
@@ -845,14 +1056,41 @@ fn e2e_ing_024_live_loop_steps_write_only_declared_durable_surfaces() -> Result<
 
     let conn = harness.connection()?;
     let payload = job_output_payload(&conn)?;
-    let steps = payload["durable_step_surfaces"]
-        .as_array()
+    let steps = payload
+        .get("durable_step_surfaces")
+        .and_then(Value::as_array)
         .ok_or_else(|| anyhow::anyhow!("durable_step_surfaces missing"))?;
     ensure!(steps.len() == 14);
-    ensure!(steps[1]["step"] == "job_creation");
-    ensure!(steps[1]["sqliteWrites"][0] == "workflow_jobs");
-    ensure!(steps[13]["step"] == "verifiable_output");
-    ensure!(steps[13]["artifactWrites"][0] == "opportunity manifest markdown");
+    let job_creation_step = steps
+        .get(1)
+        .ok_or_else(|| anyhow::anyhow!("job creation step missing"))?;
+    let verifiable_output_step = steps
+        .get(13)
+        .ok_or_else(|| anyhow::anyhow!("verifiable output step missing"))?;
+    ensure!(matches!(
+        job_creation_step.get("step").and_then(Value::as_str),
+        Some("job_creation")
+    ));
+    ensure!(matches!(
+        job_creation_step
+            .get("sqliteWrites")
+            .and_then(Value::as_array)
+            .and_then(|writes| writes.first())
+            .and_then(Value::as_str),
+        Some("workflow_jobs")
+    ));
+    ensure!(matches!(
+        verifiable_output_step.get("step").and_then(Value::as_str),
+        Some("verifiable_output")
+    ));
+    ensure!(matches!(
+        verifiable_output_step
+            .get("artifactWrites")
+            .and_then(Value::as_array)
+            .and_then(|writes| writes.first())
+            .and_then(Value::as_str),
+        Some("opportunity manifest markdown")
+    ));
     Ok(())
 }
 
@@ -869,7 +1107,7 @@ fn e2e_ing_025_manifests_row_references_local_markdown_artifact() -> Result<()> 
         |row| Ok((row.get(0)?, row.get(1)?)),
     )?;
     let stored = fs::read_to_string(&locator)?;
-    ensure!(stored == markdown);
+    ensure!(stored.as_bytes().eq(markdown.as_bytes()));
     Ok(())
 }
 
@@ -970,11 +1208,14 @@ fn e2e_ing_027_validator_fail_open_keeps_worker_completed_and_queues_backlog() -
         |row| row.get(0),
     )?;
 
-    ensure!(status == "completed");
+    ensure!(matches!(status.as_str(), "completed"));
     ensure!(validation_required == 1);
     ensure!(validation_verdict_id.is_none());
-    ensure!(validation_state == "unverified");
-    ensure!(output["validation_marker"] == "VALIDATION_SKIPPED_VALIDATOR_ERROR");
+    ensure!(matches!(validation_state.as_str(), "unverified"));
+    ensure!(matches!(
+        output.get("validation_marker").and_then(Value::as_str),
+        Some("VALIDATION_SKIPPED_VALIDATOR_ERROR")
+    ));
     ensure!(failed_validator_jobs >= 1);
     ensure!(pending_backlog_jobs >= 1);
     Ok(())
