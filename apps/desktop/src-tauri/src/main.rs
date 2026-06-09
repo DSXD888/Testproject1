@@ -2950,6 +2950,35 @@ mod tests {
     }
 
     #[test]
+    fn p3_coexist_guard_keeps_autonomous_jobs_out_of_desktop_pipeline_rerun() -> Result<()> {
+        let manual_ingest_chain = ["landed-cost", "net-gate", "manifest"];
+        anyhow::ensure!(
+            PIPELINE_RERUN_INGEST_STAGES
+                .iter()
+                .copied()
+                .eq(manual_ingest_chain),
+            "manual desktop pipeline rerun must stay limited to the operator one-shot ingest chain"
+        );
+
+        let autonomous_job_kinds = [
+            "sync_source",
+            "source_health",
+            "auth_refresh",
+            "validation_cross_model_audit",
+            "validation_calibration_readiness_sweep",
+            "commercial_sweep",
+        ];
+        for job_kind in autonomous_job_kinds {
+            anyhow::ensure!(
+                !PIPELINE_RERUN_INGEST_STAGES.contains(&job_kind),
+                "autonomous job kind `{job_kind}` must not use the desktop PID-stop rerun path"
+            );
+        }
+
+        Ok(())
+    }
+
+    #[test]
     fn bug_pipeline_rerun_regression_releases_desktop_daemon_lock_before_ingest() -> Result<()> {
         let _guard = lock_test_runtime()?;
         reset_test_runtime_state()?;
