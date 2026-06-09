@@ -31,12 +31,15 @@ use serde_json::Value;
 
 use crate::jobs_handler_impl::{
     BidDocument, BidScopePayload, CompanyAddress, CompanyContact, CompanyProfile,
-    JobsHandlerContext, SideEffectClass, TriggerBidWorkflowParams, TriggerIngestionParams,
-    trigger_bid_workflow, trigger_ingestion,
+    JobsHandlerContext, SideEffectClass, TriggerBidWorkflowParams, TriggerEnrichmentParams,
+    TriggerIngestionParams, trigger_bid_workflow, trigger_enrichment, trigger_ingestion,
 };
 use crate::support::db::{FTS_SOURCE_ID, StateDb, TestStateDb, seed_process};
 
 const BASIS_HASH: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+const AUTONOMOUS_SCHEDULING_STATUS: &str = include_str!(
+    "../../../docs/pipeline/autonomous-daemon-scheduling/artifacts/autonomous-daemon-scheduling-status.yaml"
+);
 
 fn valid_scope(process_id: &str) -> BidScopePayload {
     BidScopePayload {
@@ -179,6 +182,77 @@ fn m4_trigger_ingestion_enqueues_routable_sync_source_job() -> Result<()> {
     assert_eq!(
         payload["runner_meta"]["idempotency_key"],
         "ingestion-trigger-key"
+    );
+    Ok(())
+}
+
+#[test]
+fn trigger_enrichment_001_preserves_named_extension_branch() -> Result<()> {
+    assert!(AUTONOMOUS_SCHEDULING_STATUS.contains("E1_trigger_enrichment_routing:"));
+    assert!(AUTONOMOUS_SCHEDULING_STATUS.contains("chosen_branch: named_extension_not_cron_core"));
+
+    let test_db = TestStateDb::new()?;
+    let mut state_db = open_state_db(&test_db)?;
+    seed_process(state_db.connection(), "process-enrich-001")?;
+    let params = TriggerEnrichmentParams {
+        process_id: "process-enrich-001".to_owned(),
+    };
+    let mut context = JobsHandlerContext {
+        state_db: &mut state_db,
+    };
+
+    let ack = trigger_enrichment(&mut context, &params, "enrichment-trigger-key")
+        .context("desktop enrichment trigger should remain a named extension")?;
+
+    assert!(ack.accepted);
+    let continuation_job_id = ack
+        .continuation_job_id
+        .as_deref()
+        .context("continuation job id missing")?;
+    assert_eq!(workflow_job_count(context.state_db)?, 1);
+
+    let row: (
+        String,
+        String,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        String,
+    ) = context
+        .state_db
+        .connection()
+        .query_row(
+            "\
+            SELECT kind, status, scope_kind, scope_id, process_id, input_payload
+            FROM workflow_jobs
+            WHERE id = ?1
+            ",
+            [continuation_job_id],
+            |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                    row.get(5)?,
+                ))
+            },
+        )
+        .optional()?
+        .context("enqueued enrichment extension job missing")?;
+    assert_eq!(row.0, "enrich_process");
+    assert_eq!(row.1, "pending");
+    assert_eq!(row.2.as_deref(), Some("process"));
+    assert_eq!(row.3.as_deref(), Some("process-enrich-001"));
+    assert_eq!(row.4.as_deref(), Some("process-enrich-001"));
+
+    let payload: Value = serde_json::from_str(&row.5)?;
+    assert_eq!(payload["request"]["process_id"], "process-enrich-001");
+    assert_eq!(payload["request"]["trigger"], "desktop_command");
+    assert_eq!(
+        payload["runner_meta"]["idempotency_key"],
+        "enrichment-trigger-key"
     );
     Ok(())
 }

@@ -23,6 +23,7 @@ pub use test_bid_workflow::{
 };
 
 const EXECUTOR_ID: &str = "local-daemon";
+const DESKTOP_COMMAND_TRIGGER: &str = "desktop_command";
 const FTS_SOURCE_ID: &str = "fts";
 const FTS_SKILL_ID: &str = "procurement-ingestion/fts";
 const CONTRACTS_FINDER_SOURCE_ID: &str = "contracts-finder";
@@ -33,6 +34,7 @@ const PROCONTRACT_INTEREST_SOURCE_ID: &str = "procontract-interest";
 const PROCONTRACT_INTEREST_SKILL_ID: &str = "procurement-ingestion/procontract-register-interest";
 const PROCONTRACT_ENRICH_SOURCE_ID: &str = "procontract-enrich";
 const PROCONTRACT_ENRICH_SKILL_ID: &str = "procurement-ingestion/procontract-enrich-tender";
+const ENRICH_PROCESS_KIND: &str = "enrich_process";
 
 #[cfg(test)]
 mod test_bid_workflow {
@@ -279,7 +281,7 @@ pub fn trigger_ingestion(
                 input_payload: json!({
                     "source_id": params.source_id,
                     "skill_id": skill_id,
-                    "trigger": "desktop_command",
+                    "trigger": DESKTOP_COMMAND_TRIGGER,
                 }),
                 idempotency_key: idempotency_key.to_owned(),
             },
@@ -312,7 +314,7 @@ pub fn trigger_enrichment(
             context.state_db,
             &EnqueueJobRequest {
                 job_id: job_id.clone(),
-                kind: "enrich_process".to_owned(),
+                kind: ENRICH_PROCESS_KIND.to_owned(),
                 process_id: Some(params.process_id.clone()),
                 notice_id: None,
                 scope_kind: Some("process".to_owned()),
@@ -323,7 +325,7 @@ pub fn trigger_enrichment(
                 scheduled_for: None,
                 input_payload: json!({
                     "process_id": params.process_id,
-                    "trigger": "desktop_command",
+                    "trigger": DESKTOP_COMMAND_TRIGGER,
                 }),
                 idempotency_key: idempotency_key.to_owned(),
             },
