@@ -2162,7 +2162,7 @@ async fn execute_claimed_workflow_job(
         "validation_calibration_readiness_sweep" => {
             run_validation_calibration_readiness_sweep_workflow_job(runtime, &claimed)
         }
-        "commercial_sweep" => run_commercial_sweep_workflow_job(runtime, &claimed),
+        "commercial_sweep" => run_commercial_sweep_workflow_job(runtime, cli, &claimed).await,
         other => fail_job(
             runtime,
             &claimed.id,
@@ -2982,8 +2982,10 @@ fn run_validation_calibration_readiness_sweep_workflow_job(
     )
 }
 
-fn run_commercial_sweep_workflow_job(
+#[allow(clippy::future_not_send)]
+async fn run_commercial_sweep_workflow_job(
     runtime: &mut RuntimeBootstrap,
+    cli: &Cli,
     claimed: &ClaimedJob,
 ) -> Result<LiveLoopReport> {
     ensure!(
@@ -2995,57 +2997,18 @@ fn run_commercial_sweep_workflow_job(
     let process_id = claimed_process_id_or_default(claimed);
     let stage_run_id = claimed_string_field(claimed, "stage_run_id")
         .unwrap_or_else(|| format!("commercial-sweep-{}", claimed.id));
-    let now = Utc::now().to_rfc3339();
-    runtime.state_db.with_write_transaction(|tx| {
-        tx.execute(
-            "\
-            INSERT INTO procurement_processes (
-              id, current_stage, title, latest_published_at,
-              latest_updated_at, owner_id, stage_run_id
-            ) VALUES (?1, 'commercial_sweep', ?2, ?3, ?3, ?4, ?5)
-            ON CONFLICT(id) DO UPDATE SET
-              current_stage = excluded.current_stage,
-              latest_updated_at = excluded.latest_updated_at,
-              stage_run_id = excluded.stage_run_id,
-              updated_at = excluded.latest_updated_at
-            ",
-            params![
-                &process_id,
-                format!("Autonomous commercial sweep {}", claimed.id),
-                &now,
-                DEFAULT_OWNER_ID,
-                &stage_run_id,
-            ],
-        )
-        .context("ensuring commercial sweep procurement process")?;
-        tx.execute(
-            "\
-            INSERT INTO pipeline_assessments (
-              process_id, pipeline_state, review_required, availability_status,
-              validation_state, decision_basis_hash, review_stage, review_reason,
-              assessed_at, owner_id, stage_run_id, updated_at
-            ) VALUES (?1, 'commercial_sweep_ready', 0, 'active', 'unverified',
-              ?2, 'commercial_sweep', 'autonomous coverage lane sweep', ?3, ?4, ?5, ?3)
-            ON CONFLICT(process_id) DO UPDATE SET
-              pipeline_state = excluded.pipeline_state,
-              decision_basis_hash = excluded.decision_basis_hash,
-              review_stage = excluded.review_stage,
-              review_reason = excluded.review_reason,
-              assessed_at = excluded.assessed_at,
-              stage_run_id = excluded.stage_run_id,
-              updated_at = excluded.updated_at
-            ",
-            params![
-                &process_id,
-                format!("commercial-sweep:{}", claimed.id),
-                &now,
-                DEFAULT_OWNER_ID,
-                &stage_run_id,
-            ],
-        )
-        .context("persisting commercial sweep pipeline assessment")?;
-        Ok(())
-    })?;
+    let net_margin_stage_run_id = format!("{stage_run_id}-net-margin");
+    let manifest_stage_run_id = format!("{stage_run_id}-manifest");
+    let landed_cost_report =
+        run_landed_cost_live_loop_with_stage_run_id(runtime, cli, Some(&stage_run_id)).await?;
+    let net_margin_summary =
+        run_net_margin_gate_once(&mut runtime.state_db, &net_margin_stage_run_id)?;
+    let manifest_report = run_manifest_generation_live_loop_with_stage_run_id(
+        runtime,
+        cli,
+        Some(&manifest_stage_run_id),
+    )
+    .await?;
 
     complete_claimed_job_after_side_effect(
         runtime,
@@ -3055,7 +3018,27 @@ fn run_commercial_sweep_workflow_job(
         json!({
             "process_id": process_id,
             "stage_run_id": stage_run_id,
+            "net_margin_stage_run_id": net_margin_stage_run_id,
+            "manifest_stage_run_id": manifest_stage_run_id,
             "sweep_mode": "coverage_lane",
+            "landed_cost": {
+                "summary_line": landed_cost_report.summary_line,
+                "status": landed_cost_report.status,
+            },
+            "net_margin": {
+                "attempted": net_margin_summary.attempted,
+                "candidates_assessed": net_margin_summary.candidates_assessed,
+                "pass": net_margin_summary.pass,
+                "review": net_margin_summary.review,
+                "reject": net_margin_summary.reject,
+                "no_pricing_signal": net_margin_summary.no_pricing_signal,
+                "processes_rolled_up": net_margin_summary.processes_rolled_up,
+                "skipped_unchanged": net_margin_summary.skipped_unchanged,
+            },
+            "manifest": {
+                "summary_line": manifest_report.summary_line,
+                "status": manifest_report.status,
+            },
         }),
     )
 }
@@ -12320,10 +12303,19 @@ fn landed_cost_live_loop_summary_line(
     )
 }
 
-#[allow(clippy::future_not_send, clippy::too_many_lines)]
+#[allow(clippy::future_not_send)]
 async fn run_landed_cost_live_loop(
     runtime: &mut RuntimeBootstrap,
     cli: &Cli,
+) -> Result<LiveLoopReport> {
+    run_landed_cost_live_loop_with_stage_run_id(runtime, cli, None).await
+}
+
+#[allow(clippy::future_not_send, clippy::too_many_lines)]
+async fn run_landed_cost_live_loop_with_stage_run_id(
+    runtime: &mut RuntimeBootstrap,
+    cli: &Cli,
+    stage_run_id_override: Option<&str>,
 ) -> Result<LiveLoopReport> {
     let repo_root = repo_root()?;
     let hmrc_skill = load_skill(
@@ -12384,7 +12376,7 @@ async fn run_landed_cost_live_loop(
 
     for row in &assessments {
         attempted += 1;
-        let stage_run_id = allocate_stage_run_id();
+        let stage_run_id = stage_run_id_override.map_or_else(allocate_stage_run_id, str::to_owned);
         let supplier_cost = compute_supplier_cost_basis(row);
         let order_quantity_basis = infer_order_quantity_basis(row);
         let installation_labour_invocation = installation_labour_invocation_for_row(row);
@@ -16831,10 +16823,19 @@ async fn execute_bounded_manifest_skill_session(
     })
 }
 
-#[allow(clippy::future_not_send, clippy::too_many_lines)]
+#[allow(clippy::future_not_send)]
 async fn run_manifest_generation_live_loop(
     runtime: &mut RuntimeBootstrap,
     cli: &Cli,
+) -> Result<LiveLoopReport> {
+    run_manifest_generation_live_loop_with_stage_run_id(runtime, cli, None).await
+}
+
+#[allow(clippy::future_not_send, clippy::too_many_lines)]
+async fn run_manifest_generation_live_loop_with_stage_run_id(
+    runtime: &mut RuntimeBootstrap,
+    cli: &Cli,
+    stage_run_id_override: Option<&str>,
 ) -> Result<LiveLoopReport> {
     let repo_root = repo_root()?;
     let manifest_skill = load_skill(
@@ -16852,7 +16853,7 @@ async fn run_manifest_generation_live_loop(
         });
     }
 
-    let stage_run_id = allocate_stage_run_id();
+    let stage_run_id = stage_run_id_override.map_or_else(allocate_stage_run_id, str::to_owned);
     let mut summary = ManifestGenerationSummary {
         attempted: process_ids.len(),
         ..ManifestGenerationSummary::default()
@@ -28828,6 +28829,7 @@ mod tests {
     }
 
     fn seed_running_cron_job(conn: &Connection, job_id: &str, kind: &str) -> Result<()> {
+        let lease_expires_at = (Utc::now() + chrono::Duration::minutes(5)).to_rfc3339();
         conn.execute(
             "\
             INSERT INTO workflow_jobs (
@@ -28838,7 +28840,7 @@ mod tests {
             params![
                 job_id,
                 kind,
-                "2026-06-08T12:05:00Z",
+                lease_expires_at,
                 json!({"job_id": job_id, "kind": kind}).to_string(),
                 "2026-06-08T12:00:00Z",
             ],
@@ -28864,6 +28866,7 @@ mod tests {
         }
     }
 
+    #[allow(clippy::too_many_lines)]
     fn assert_new_cron_handler_side_effects(conn: &Connection) -> Result<()> {
         let source_health_count: i64 = conn.query_row(
             "\
@@ -28949,18 +28952,45 @@ mod tests {
         )?;
         assert_eq!(readiness_count, 1);
 
-        let commercial_count: i64 = conn.query_row(
+        let landed_cost_stage_run_id: String = conn.query_row(
             "\
-            SELECT COUNT(*)
-            FROM pipeline_assessments
-            WHERE process_id = 'process-commercial-sweep'
-              AND pipeline_state = 'commercial_sweep_ready'
-              AND stage_run_id = 'stage-commercial-sweep'
+            SELECT stage_run_id
+            FROM landed_cost_estimates
+            WHERE process_id = 'process-stage11'
+              AND product_candidate_id = 'candidate-stage11'
+              AND supplier_quote_id = 'quote-stage11'
             ",
             [],
             |row| row.get(0),
         )?;
-        assert_eq!(commercial_count, 1);
+        assert_eq!(landed_cost_stage_run_id, "stage-commercial-sweep");
+
+        let net_margin_basis_hash: String = conn.query_row(
+            "\
+            SELECT basis_hash
+            FROM candidate_net_margin_assessments
+            WHERE process_id = 'process-stage11'
+              AND product_candidate_id = 'candidate-stage11'
+              AND stage_run_id = 'stage-commercial-sweep-net-margin'
+            ",
+            [],
+            |row| row.get(0),
+        )?;
+        assert!(!net_margin_basis_hash.trim().is_empty());
+
+        let manifest_row: (String, String, String) = conn.query_row(
+            "\
+            SELECT m.stage_run_id, pa.pipeline_state, pa.decision_basis_hash
+            FROM manifests m
+            JOIN pipeline_assessments pa ON pa.process_id = m.process_id
+            WHERE m.process_id = 'process-stage11'
+            ",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )?;
+        assert_eq!(manifest_row.0, "stage-commercial-sweep-manifest");
+        assert_eq!(manifest_row.1, "manifest_ready");
+        assert!(!manifest_row.2.trim().is_empty());
         Ok(())
     }
 
@@ -29062,6 +29092,7 @@ mod tests {
     async fn autonomous_worker_routes_cron_kinds_to_side_effect_handlers() -> Result<()> {
         let (temp, mut runtime, mut cli) = bootstrap_manifest_render_runtime()?;
         cli.agent_cli_program = Some(write_fake_cron_handler_claude(temp.path())?);
+        seed_stage11_minimal_graph(runtime.state_db.connection(), "GB")?;
         let runner = JobRunner::new(super::LOCAL_EXECUTOR_ID);
         let cron_jobs = [
             claimed_cron_job(
@@ -29106,9 +29137,9 @@ mod tests {
             claimed_cron_job(
                 "job-commercial-sweep",
                 "commercial_sweep",
-                Some("process-commercial-sweep"),
+                Some("process-stage11"),
                 Some("process"),
-                Some("process-commercial-sweep"),
+                Some("process-stage11"),
                 &json!({ "stage_run_id": "stage-commercial-sweep" }),
             ),
         ];
