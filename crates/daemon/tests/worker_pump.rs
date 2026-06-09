@@ -30,6 +30,34 @@ mod tests {
         }
     }
 
+    fn agent_request(job_id: &str) -> AdmissionRequest {
+        AdmissionRequest {
+            job_id: job_id.to_owned(),
+            session_id: Some(format!("session-{job_id}")),
+            priority: AdmissionPriority::AuthRefreshOrHealthProbe,
+            browser_session: false,
+            adapter_session: true,
+            source_lane: None,
+            validator_sub_job: false,
+            concurrency_key: None,
+            max_concurrency: None,
+        }
+    }
+
+    fn skill_cap_request(job_id: &str, key: &str) -> AdmissionRequest {
+        AdmissionRequest {
+            job_id: job_id.to_owned(),
+            session_id: Some(format!("session-{job_id}")),
+            priority: AdmissionPriority::Qualification,
+            browser_session: false,
+            adapter_session: false,
+            source_lane: None,
+            validator_sub_job: false,
+            concurrency_key: Some(key.to_owned()),
+            max_concurrency: Some(1),
+        }
+    }
+
     fn section_between<'a>(source: &'a str, start: &str, end: &str) -> Result<&'a str> {
         let start_index = source
             .find(start)
@@ -277,6 +305,228 @@ mod tests {
             "worker_003 must prove the source lane releases before the deferred run"
         );
         Ok(())
+    }
+
+    fn assert_worker_004_lane_split_markers(main_rs: &str) -> Result<()> {
+        let lane_constants = section_between(
+            main_rs,
+            "const AUTONOMOUS_WORKER_LANES",
+            "const AUTONOMOUS_WORKER_IDLE_BACKOFF_MS",
+        )?;
+        assert_contains_all(
+            lane_constants,
+            &[
+                "AutonomousWorkerLane::PtyBrowser",
+                "AutonomousWorkerLane::CoverageDeterministic",
+                "\"sync_source\"",
+                "\"source_health\"",
+                "\"auth_refresh\"",
+                "\"commercial_sweep\"",
+                "\"validation_cross_model_audit\"",
+                "\"validation_calibration_readiness_sweep\"",
+            ],
+        )?;
+
+        let worker_spawn = section_between(
+            main_rs,
+            "fn spawn_autonomous_worker_threads",
+            "fn serve_handshake_once",
+        )?;
+        assert_contains_all(
+            worker_spawn,
+            &[
+                "Vec::with_capacity(AUTONOMOUS_WORKER_LANES.len())",
+                "for lane in AUTONOMOUS_WORKER_LANES",
+                "AutonomousWorkerThread::spawn(",
+                "Arc::clone(&runtime.resource_arbiter)",
+            ],
+        )?;
+
+        let worker_loop = section_between(
+            main_rs,
+            "fn run_autonomous_worker_loop",
+            "fn autonomous_worker_wait_for_job_or_stop",
+        )?;
+        assert_contains_all(
+            worker_loop,
+            &[
+                "run_shared_worker_iteration_for_lane(",
+                "lane,",
+                "autonomous_worker_wait_for_job_or_stop(stop_rx, idle_backoff)",
+            ],
+        )?;
+
+        let worker_iteration = section_between(
+            main_rs,
+            "async fn run_shared_worker_iteration_for_lane",
+            "fn defer_claimed_job_without_attempt",
+        )?;
+        assert_contains_all(
+            worker_iteration,
+            &[
+                "claim_next_job_for_kinds",
+                "lane.claimable_kinds()",
+                "Ok(Some(report))",
+                "Ok(None)",
+            ],
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn worker_004_head_of_line() -> Result<()> {
+        let main_rs = include_str!("../src/main.rs");
+        assert_worker_004_lane_split_markers(main_rs)?;
+
+        let lane_filter_test = section_between(
+            main_rs,
+            "fn autonomous_worker_lane_kind_filters_are_disjoint_and_complete",
+            "#[test]\n    fn autonomous_worker_threads_spawn_both_lanes_and_shutdown_idle",
+        )?;
+        assert_contains_all(
+            lane_filter_test,
+            &[
+                "assert_eq!(pty_kinds, [\"sync_source\", \"source_health\", \"auth_refresh\"])",
+                "\"commercial_sweep\"",
+                "assert!(pty_set.is_disjoint(&coverage_set))",
+                "assert_eq!(pty_set.len() + coverage_set.len(), 6)",
+            ],
+        )?;
+        Ok(())
+    }
+
+    fn assert_browser_quota_caps_at_two() -> Result<()> {
+        let mut arbiter = ResourceArbiter::new(ResourceBudgets::default());
+        let first = match arbiter.admit(&browser_request("quota-browser-1", "fts-quota-a")) {
+            ArbiterDecision::Granted(lease) => lease,
+            ArbiterDecision::Denied(reason) => {
+                anyhow::bail!("first browser quota lease was denied: {reason:?}");
+            }
+        };
+        let second = match arbiter.admit(&browser_request("quota-browser-2", "fts-quota-b")) {
+            ArbiterDecision::Granted(lease) => lease,
+            ArbiterDecision::Denied(reason) => {
+                anyhow::bail!("second browser quota lease was denied: {reason:?}");
+            }
+        };
+
+        ensure!(
+            matches!(
+                arbiter.admit(&browser_request("quota-browser-3", "fts-quota-c")),
+                ArbiterDecision::Denied(DenialReason::BrowserSlotsExhausted {
+                    limit: 2,
+                    in_use: 2,
+                })
+            ),
+            "worker_005 must force BrowserSlotsExhausted at the two-slot cap"
+        );
+        let max_browser_slots = arbiter
+            .events()
+            .iter()
+            .map(|event| event.browser_slots_in_use)
+            .max()
+            .unwrap_or_default();
+        ensure!(max_browser_slots == 2);
+        ensure!(
+            arbiter
+                .events()
+                .iter()
+                .all(|event| event.browser_slots_in_use <= 2)
+        );
+
+        arbiter.release(&first, ReleaseCause::Archived);
+        arbiter.release(&second, ReleaseCause::Archived);
+        ensure!(arbiter.snapshot().browser_slots == 0);
+        Ok(())
+    }
+
+    fn assert_agent_slot_denial_and_release() -> Result<()> {
+        let mut arbiter = ResourceArbiter::new(ResourceBudgets::default());
+        let mut leases = Vec::new();
+        for index in 0..4 {
+            let request = agent_request(&format!("quota-agent-{index}"));
+            match arbiter.admit(&request) {
+                ArbiterDecision::Granted(lease) => leases.push(lease),
+                ArbiterDecision::Denied(reason) => {
+                    anyhow::bail!("agent lease {index} was denied: {reason:?}");
+                }
+            }
+        }
+
+        ensure!(
+            matches!(
+                arbiter.admit(&agent_request("quota-agent-denied")),
+                ArbiterDecision::Denied(DenialReason::AgentSlotsExhausted {
+                    limit: 4,
+                    in_use: 4,
+                })
+            ),
+            "worker_005 must force AgentSlotsExhausted at the four-slot cap"
+        );
+        for lease in &leases {
+            arbiter.release(lease, ReleaseCause::Reaped);
+        }
+        ensure!(arbiter.snapshot().agent_slots == 0);
+        Ok(())
+    }
+
+    fn assert_source_lane_denial_and_release() -> Result<()> {
+        let mut arbiter = ResourceArbiter::new(ResourceBudgets::default());
+        let held = match arbiter.admit(&browser_request("quota-source-held", "fts-quota")) {
+            ArbiterDecision::Granted(lease) => lease,
+            ArbiterDecision::Denied(reason) => {
+                anyhow::bail!("source-lane quota lease was denied: {reason:?}");
+            }
+        };
+
+        ensure!(
+            matches!(
+                arbiter.admit(&browser_request("quota-source-denied", "fts-quota")),
+                ArbiterDecision::Denied(DenialReason::SourceLaneExhausted {
+                    source_id,
+                    limit: 1,
+                    in_use: 1,
+                }) if source_id == "fts-quota"
+            ),
+            "worker_005 must force SourceLaneExhausted for same-source procurement"
+        );
+        arbiter.release(&held, ReleaseCause::Archived);
+        ensure!(arbiter.snapshot().source_lanes.is_empty());
+        Ok(())
+    }
+
+    fn assert_skill_concurrency_denial_and_release() -> Result<()> {
+        let mut arbiter = ResourceArbiter::new(ResourceBudgets::default());
+        let key = "coverage/skill-cap";
+        let held = match arbiter.admit(&skill_cap_request("quota-skill-held", key)) {
+            ArbiterDecision::Granted(lease) => lease,
+            ArbiterDecision::Denied(reason) => {
+                anyhow::bail!("skill concurrency quota lease was denied: {reason:?}");
+            }
+        };
+
+        ensure!(
+            matches!(
+                arbiter.admit(&skill_cap_request("quota-skill-denied", key)),
+                ArbiterDecision::Denied(DenialReason::SkillConcurrencyCapReached {
+                    key: denied_key,
+                    limit: 1,
+                    in_use: 1,
+                }) if denied_key == key
+            ),
+            "worker_005 must force SkillConcurrencyCapReached"
+        );
+        arbiter.release(&held, ReleaseCause::Archived);
+        ensure!(arbiter.snapshot().concurrency.is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn worker_005_arbiter_quota_respected() -> Result<()> {
+        assert_browser_quota_caps_at_two()?;
+        assert_agent_slot_denial_and_release()?;
+        assert_source_lane_denial_and_release()?;
+        assert_skill_concurrency_denial_and_release()
     }
 
     #[test]
