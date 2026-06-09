@@ -377,3 +377,97 @@ impl AdmissionRequest {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn source_request(job_id: &str, source_id: &str, source_kind: SourceKind) -> AdmissionRequest {
+        AdmissionRequest {
+            job_id: job_id.to_owned(),
+            session_id: Some(format!("session-{job_id}")),
+            priority: AdmissionPriority::ProcurementIngestion,
+            browser_session: true,
+            adapter_session: true,
+            source_lane: Some(SourceLaneRequest {
+                source_id: source_id.to_owned(),
+                source_kind,
+            }),
+            validator_sub_job: false,
+            concurrency_key: None,
+            max_concurrency: None,
+        }
+    }
+
+    #[test]
+    fn default_budgets_keep_procurement_serial_and_supplier_dual_lane_limits() {
+        let budgets = ResourceBudgets::default();
+
+        assert_eq!(budgets.browser_slots, 2);
+        assert_eq!(budgets.agent_slots, 4);
+        assert_eq!(SourceKind::Procurement.lane_limit(budgets), 1);
+        assert_eq!(SourceKind::Supplier.lane_limit(budgets), 2);
+    }
+
+    #[test]
+    fn procurement_same_source_second_job_is_denied_until_release() -> Result<(), String> {
+        let mut arbiter = ResourceArbiter::new(ResourceBudgets::default());
+        let first = source_request("held-fts", "fts", SourceKind::Procurement);
+        let second = source_request("deferred-fts", "fts", SourceKind::Procurement);
+
+        let held = match arbiter.admit(&first) {
+            ArbiterDecision::Granted(lease) => lease,
+            ArbiterDecision::Denied(reason) => {
+                return Err(format!(
+                    "first same-source procurement job should be admitted: {reason:?}"
+                ));
+            }
+        };
+        assert!(matches!(
+            arbiter.admit(&second),
+            ArbiterDecision::Denied(DenialReason::SourceLaneExhausted {
+                source_id,
+                limit: 1,
+                in_use: 1,
+            }) if source_id == "fts"
+        ));
+        assert_eq!(arbiter.snapshot().source_lanes.get("fts"), Some(&1));
+
+        arbiter.release(&held, ReleaseCause::Archived);
+
+        assert!(matches!(
+            arbiter.admit(&second),
+            ArbiterDecision::Granted(ResourceLease {
+                source_lane_key,
+                ..
+            }) if source_lane_key.as_deref() == Some("fts")
+        ));
+        Ok(())
+    }
+
+    #[test]
+    fn supplier_same_source_retains_two_lane_limit() {
+        let mut arbiter = ResourceArbiter::new(ResourceBudgets::default());
+        let mut first = source_request("supplier-one", "supplier-a", SourceKind::Supplier);
+        let mut second = source_request("supplier-two", "supplier-a", SourceKind::Supplier);
+        let mut third = source_request("supplier-three", "supplier-a", SourceKind::Supplier);
+        for request in [&mut first, &mut second, &mut third] {
+            request.browser_session = false;
+            request.adapter_session = false;
+        }
+
+        assert!(matches!(arbiter.admit(&first), ArbiterDecision::Granted(_)));
+        assert!(matches!(
+            arbiter.admit(&second),
+            ArbiterDecision::Granted(_)
+        ));
+        assert!(matches!(
+            arbiter.admit(&third),
+            ArbiterDecision::Denied(DenialReason::SourceLaneExhausted {
+                source_id,
+                limit: 2,
+                in_use: 2,
+            }) if source_id == "supplier-a"
+        ));
+    }
+}
