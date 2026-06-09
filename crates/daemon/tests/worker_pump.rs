@@ -1,7 +1,34 @@
 #![forbid(unsafe_code)]
+#![allow(clippy::duplicate_mod)]
+
+#[allow(dead_code)]
+#[path = "../src/agents/arbiter.rs"]
+mod arbiter_impl;
 
 mod tests {
     use anyhow::{Context, Result, ensure};
+
+    use crate::arbiter_impl::{
+        AdmissionPriority, AdmissionRequest, ArbiterDecision, ArbiterEventKind, DenialReason,
+        ReleaseCause, ResourceArbiter, ResourceBudgets, SourceKind, SourceLaneRequest,
+    };
+
+    fn browser_request(job_id: &str, source_id: &str) -> AdmissionRequest {
+        AdmissionRequest {
+            job_id: job_id.to_owned(),
+            session_id: Some(format!("session-{job_id}")),
+            priority: AdmissionPriority::ProcurementIngestion,
+            browser_session: true,
+            adapter_session: true,
+            source_lane: Some(SourceLaneRequest {
+                source_id: source_id.to_owned(),
+                source_kind: SourceKind::Procurement,
+            }),
+            validator_sub_job: false,
+            concurrency_key: Some("procurement-ingestion/fts".to_owned()),
+            max_concurrency: None,
+        }
+    }
 
     fn section_between<'a>(source: &'a str, start: &str, end: &str) -> Result<&'a str> {
         let start_index = source
@@ -25,6 +52,230 @@ mod tests {
         for marker in markers {
             ensure!(section.contains(marker), "missing `{marker}`");
         }
+        Ok(())
+    }
+
+    fn assert_worker_002_defer_path_markers(main_rs: &str) -> Result<()> {
+        let worker_iteration = section_between(
+            main_rs,
+            "async fn run_shared_worker_iteration_for_lane",
+            "fn defer_claimed_job_without_attempt",
+        )?;
+        assert_contains_all(
+            worker_iteration,
+            &[
+                "claim_next_job_for_kinds",
+                "lane.claimable_kinds()",
+                "denial_cooldowns.is_active_for_claimed(lane, &claimed)",
+                "defer_claimed_job_without_attempt(runtime, &claimed.id, \"active resource denial cooldown\")",
+                "denial_cooldowns.record(lane, &claimed_for_cooldown, &deferred.reason)",
+            ],
+        )?;
+
+        let defer_body = section_between(
+            main_rs,
+            "fn defer_claimed_job_without_attempt",
+            "#[allow(clippy::future_not_send)]\nasync fn execute_claimed_workflow_job",
+        )?;
+        assert_contains_all(
+            defer_body,
+            &[
+                "SET status = 'pending'",
+                "lease_owner = NULL",
+                "lease_expires_at = NULL",
+                "attempt_count = CASE",
+                "WHEN attempt_count > 0 THEN attempt_count - 1",
+                "AND status = 'running'",
+                "updated == 1",
+            ],
+        )?;
+
+        let resource_admission = section_between(
+            main_rs,
+            "fn claimed_job_resource_lease",
+            "fn admission_priority",
+        )?;
+        assert_contains_all(
+            resource_admission,
+            &[
+                "arbiter.admit(&request)",
+                "ArbiterDecision::Denied(reason)",
+                "defer_claimed_job_without_attempt(runtime, job_id, \"resource arbiter denial\")",
+                "ResourceAdmissionDeferred",
+                "reason,",
+            ],
+        )?;
+
+        let bin_test = section_between(
+            main_rs,
+            "fn autonomous_worker_denial_defer_clears_lease_and_restores_attempt_count",
+            "#[test]\n    fn autonomous_worker_denial_cooldown_handles_every_reason_variant",
+        )?;
+        assert_contains_all(
+            bin_test,
+            &[
+                "'job-denied', 'sync_source', 'running'",
+                "'local-daemon'",
+                "'2026-06-08T12:05:00Z'",
+                "1, '{}'",
+                "super::defer_claimed_job_without_attempt(&runtime, \"job-denied\", \"test resource denial\")",
+                "SELECT status, lease_owner, lease_expires_at, attempt_count",
+                "assert_eq!(row.0, \"pending\")",
+                "assert_eq!(row.1, None)",
+                "assert_eq!(row.2, None)",
+                "assert_eq!(row.3, 0)",
+            ],
+        )?;
+        Ok(())
+    }
+
+    fn assert_worker_002_browser_slot_denial() -> Result<()> {
+        let mut arbiter = ResourceArbiter::new(ResourceBudgets::default());
+        let first = match arbiter.admit(&browser_request("held-browser-1", "fts-a")) {
+            ArbiterDecision::Granted(lease) => lease,
+            ArbiterDecision::Denied(reason) => {
+                anyhow::bail!("first browser-backed lease was denied: {reason:?}");
+            }
+        };
+        let second = match arbiter.admit(&browser_request("held-browser-2", "fts-b")) {
+            ArbiterDecision::Granted(lease) => lease,
+            ArbiterDecision::Denied(reason) => {
+                anyhow::bail!("second browser-backed lease was denied: {reason:?}");
+            }
+        };
+
+        ensure!(
+            matches!(
+                arbiter.admit(&browser_request("denied-browser-3", "fts-c")),
+                ArbiterDecision::Denied(DenialReason::BrowserSlotsExhausted {
+                    limit: 2,
+                    in_use: 2,
+                })
+            ),
+            "worker_002 must force BrowserSlotsExhausted at the default 2-slot cap"
+        );
+        let denied_snapshot = arbiter.snapshot();
+        ensure!(denied_snapshot.browser_slots == 2);
+        ensure!(!denied_snapshot.source_lanes.contains_key("fts-c"));
+        ensure!(
+            arbiter.events().iter().any(|event| {
+                event.kind == ArbiterEventKind::Deny
+                    && event.job_id == "denied-browser-3"
+                    && matches!(
+                        event.denial_reason,
+                        Some(DenialReason::BrowserSlotsExhausted {
+                            limit: 2,
+                            in_use: 2,
+                        })
+                    )
+            }),
+            "worker_002 needs observable arbiter denial evidence"
+        );
+
+        arbiter.release(&first, ReleaseCause::Reaped);
+        arbiter.release(&second, ReleaseCause::Reaped);
+        ensure!(arbiter.snapshot().browser_slots == 0);
+        Ok(())
+    }
+
+    #[test]
+    fn worker_002_defer_on_denial_no_attempt_bump() -> Result<()> {
+        let main_rs = include_str!("../src/main.rs");
+        assert_worker_002_defer_path_markers(main_rs)?;
+        assert_worker_002_browser_slot_denial()
+    }
+
+    #[test]
+    fn worker_003_source_lane_serializes_same_source() -> Result<()> {
+        let main_rs = include_str!("../src/main.rs");
+        let cooldown_test = section_between(
+            main_rs,
+            "fn autonomous_worker_denial_cooldown_handles_every_reason_variant",
+            "fn assert_commercial_sweep_skill_subpasses_use_arbiter_without_browser_lane",
+        )?;
+        assert_contains_all(
+            cooldown_test,
+            &[
+                "DenialReason::SourceLaneExhausted",
+                "source_id: FTS_SOURCE_ID.to_owned()",
+                "limit: 1",
+                "in_use: 1",
+                "assert!(source_cooldowns.is_active_for_claimed(lane, &fts_job))",
+                "assert!(!source_cooldowns.is_active_for_claimed(lane, &contracts_finder_job))",
+            ],
+        )?;
+
+        let arbiter_defaults = section_between(
+            main_rs,
+            "fn build_resource_arbiter_status_snapshot",
+            "fn resource_arbiter_event_snapshot",
+        )?;
+        assert_contains_all(
+            arbiter_defaults,
+            &[
+                "procurement_source_lane_limit: budgets.procurement_source_lanes",
+                "supplier_source_lane_limit: budgets.supplier_source_lanes",
+                "source_lanes_in_use: snapshot.source_lanes",
+            ],
+        )?;
+
+        let mut arbiter = ResourceArbiter::new(ResourceBudgets::default());
+        ensure!(arbiter.budgets().procurement_source_lanes == 1);
+        ensure!(arbiter.budgets().supplier_source_lanes == 2);
+
+        let held_fts = match arbiter.admit(&browser_request("held-fts-sync", "fts")) {
+            ArbiterDecision::Granted(lease) => lease,
+            ArbiterDecision::Denied(reason) => {
+                anyhow::bail!("first FTS sync_source was denied: {reason:?}");
+            }
+        };
+        ensure!(
+            matches!(
+                arbiter.admit(&browser_request("deferred-fts-sync", "fts")),
+                ArbiterDecision::Denied(DenialReason::SourceLaneExhausted {
+                    source_id,
+                    limit: 1,
+                    in_use: 1,
+                }) if source_id == "fts"
+            ),
+            "worker_003 must deny the second same-source procurement sync_source"
+        );
+        let denied_snapshot = arbiter.snapshot();
+        ensure!(denied_snapshot.browser_slots == 1);
+        ensure!(denied_snapshot.source_lanes.get("fts") == Some(&1));
+
+        arbiter.release(&held_fts, ReleaseCause::Archived);
+        ensure!(arbiter.snapshot().source_lanes.is_empty());
+        ensure!(
+            matches!(
+                arbiter.admit(&browser_request("deferred-fts-sync", "fts")),
+                ArbiterDecision::Granted(_)
+            ),
+            "worker_003 must allow the deferred same-source job after release"
+        );
+        ensure!(
+            arbiter.events().iter().any(|event| {
+                event.kind == ArbiterEventKind::Deny
+                    && event.job_id == "deferred-fts-sync"
+                    && matches!(
+                        &event.denial_reason,
+                        Some(DenialReason::SourceLaneExhausted {
+                            source_id,
+                            limit: 1,
+                            in_use: 1,
+                        }) if source_id == "fts"
+                    )
+            }),
+            "worker_003 needs observable source-lane denial evidence"
+        );
+        ensure!(
+            arbiter.events().iter().any(|event| {
+                event.kind == ArbiterEventKind::Release
+                    && event.job_id == "held-fts-sync"
+                    && event.source_lane_key.as_deref() == Some("fts")
+            }),
+            "worker_003 must prove the source lane releases before the deferred run"
+        );
         Ok(())
     }
 
