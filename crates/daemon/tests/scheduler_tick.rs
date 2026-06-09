@@ -54,7 +54,7 @@ mod support {
 
 mod tests {
     use anyhow::{Context, Result, anyhow, ensure};
-    use chrono::{DateTime, TimeZone, Utc};
+    use chrono::{DateTime, Duration as ChronoDuration, TimeZone, Utc};
     use rusqlite::Connection;
     use rusqlite::params;
     use serde_json::{Value, json};
@@ -68,7 +68,7 @@ mod tests {
     use crate::cron_impl::CronScheduler;
     use crate::db_support::{StateDb, TestStateDb};
     use crate::runner_impl::{EnqueueJobRequest, JobRunner};
-    use crate::sources_impl::SourceRegistry;
+    use crate::sources_impl::{SourceRegistry, set_source_enabled, source_registry_generation};
     use crate::tick_impl::run_scheduler_tick;
 
     struct SchedulerOneShotHarness {
@@ -265,6 +265,10 @@ mod tests {
         Ok(state_db
             .connection()
             .query_row("SELECT COUNT(*) FROM workflow_jobs", [], |row| row.get(0))?)
+    }
+
+    fn set_fts_source_enabled(conn: &Connection, enabled: bool) -> Result<bool> {
+        set_source_enabled(conn, "fts", enabled)
     }
 
     fn count_fts_jobs_at(conn: &Connection, scheduled_for: &str) -> Result<i64> {
@@ -817,6 +821,99 @@ mod tests {
             !thread_tick_body.contains("detect_host_sleep"),
             "tick_003 expected host-sleep detection not to suppress scheduler ticks"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn tick_005_registry_reload_on_generation_bump() -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        let mut tick_db = StateDb::open(state_db.db_path())?;
+        let _ = set_fts_source_enabled(state_db.connection(), false)?;
+
+        let disabled_registry = SourceRegistry::load(state_db.connection())?;
+        let mut disabled_scheduler = CronScheduler::from_registry(&disabled_registry);
+        disabled_scheduler.refresh_next_run_at(ts(2026, 6, 5, 4, 10, 0)?)?;
+        let disabled_definition = disabled_scheduler
+            .definitions()
+            .get("fts::procurement-ingestion/fts")
+            .ok_or_else(|| anyhow!("missing disabled FTS cron definition"))?;
+        ensure!(
+            !disabled_definition.enabled,
+            "tick_005 expected FTS cron definition to start disabled"
+        );
+
+        let due_now = ts(2026, 6, 5, 4, 15, 0)?;
+        let disabled_count = run_scheduler_tick(
+            &mut disabled_scheduler,
+            &disabled_registry,
+            &mut tick_db,
+            due_now,
+        )?;
+        ensure!(
+            disabled_count == 0,
+            "tick_005 expected disabled source to enqueue nothing"
+        );
+        ensure!(
+            count_jobs(&state_db)? == 0,
+            "tick_005 expected no workflow rows before source enablement"
+        );
+
+        let observed_generation = source_registry_generation();
+        let enabled_source_changed = set_fts_source_enabled(state_db.connection(), true)?;
+        ensure!(
+            enabled_source_changed,
+            "tick_005 expected enabling FTS to mutate the source registry"
+        );
+        let bumped_generation = source_registry_generation();
+        ensure!(
+            bumped_generation > observed_generation,
+            "tick_005 expected source mutation path to bump Q9 generation"
+        );
+
+        let reloaded_registry = SourceRegistry::load(state_db.connection())?;
+        let mut reloaded_scheduler = CronScheduler::from_registry(&reloaded_registry);
+        let reload_anchor = due_now
+            .checked_sub_signed(ChronoDuration::seconds(1))
+            .ok_or_else(|| anyhow!("tick_005 reload anchor underflow"))?;
+        reloaded_scheduler.refresh_next_run_at(reload_anchor)?;
+        let enabled_definition = reloaded_scheduler
+            .definitions()
+            .get("fts::procurement-ingestion/fts")
+            .ok_or_else(|| anyhow!("missing reloaded FTS cron definition"))?;
+        ensure!(
+            enabled_definition.enabled,
+            "tick_005 expected reloaded FTS cron definition to be enabled"
+        );
+
+        let reloaded_count = run_scheduler_tick(
+            &mut reloaded_scheduler,
+            &reloaded_registry,
+            &mut tick_db,
+            due_now,
+        )?;
+        ensure!(
+            reloaded_count == 1,
+            "tick_005 expected reloaded source to enqueue exactly the due slot"
+        );
+        ensure!(
+            count_fts_jobs_at(state_db.connection(), "2026-06-05T04:15:00+00:00")? == 1,
+            "tick_005 expected one FTS job at the current due slot"
+        );
+        ensure!(
+            count_fts_jobs_at(state_db.connection(), "2026-06-04T04:15:00+00:00")? == 0,
+            "tick_005 expected reload reseed to avoid older catch-up rows"
+        );
+
+        let (last_run_at, next_run_at) = fts_schedule_state(&reloaded_scheduler)?;
+        ensure!(
+            last_run_at.as_deref() == Some("2026-06-05T04:15:00+00:00"),
+            "tick_005 expected record_enqueued to store the reloaded due slot"
+        );
+        ensure!(
+            next_run_at.as_deref() == Some("2026-06-06T04:15:00+00:00"),
+            "tick_005 expected next run to advance from the reloaded due slot"
+        );
+
         Ok(())
     }
 
