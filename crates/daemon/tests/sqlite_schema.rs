@@ -205,6 +205,18 @@ fn schema_0015_procontract_pending_enrichment() -> Result<()> {
         "observation_count",
         "INT",
     )?;
+    ensure!(
+        !columns.contains_key("attempt_count"),
+        "procontract_pending_enrichment must not mirror workflow_jobs.attempt_count"
+    );
+    let workflow_job_columns = sqlite_table_columns(conn, "workflow_jobs")?;
+    ensure_columns("workflow_jobs", &workflow_job_columns, &["attempt_count"])?;
+    ensure_column_type_contains(
+        "workflow_jobs",
+        &workflow_job_columns,
+        "attempt_count",
+        "INT",
+    )?;
     ensure_column_type_contains(
         "procontract_pending_enrichment",
         &columns,
@@ -1334,7 +1346,7 @@ fn l6_t_bid_workflow_states_034_schema_stable_without_sql_lifecycle_check() -> R
     .into_iter()
     .collect::<BTreeSet<_>>();
     ensure!(
-        actual_columns == expected_columns,
+        actual_columns.eq(&expected_columns),
         "bid_workflow_states columns changed: expected {expected_columns:?}, got {actual_columns:?}"
     );
 
@@ -1785,7 +1797,7 @@ fn l4_t_sqlite_schema_020_supabase_summary_tables_are_redacted_shape() -> Result
             .with_context(|| format!("missing summary table `{table}`"))?;
         for forbidden in forbidden_columns {
             ensure!(
-                !columns.iter().any(|column| column.name == forbidden),
+                columns.iter().all(|column| column.name.ne(forbidden)),
                 "summary table `{table}` exposes forbidden raw-context column `{forbidden}`"
             );
         }
@@ -2106,7 +2118,7 @@ fn ensure_column_nullable(
         .with_context(|| format!("table `{table}` missing column `{column}`"))?;
     let nullable = !actual.not_null && actual.primary_key_position == 0;
     ensure!(
-        nullable == expected_nullable,
+        nullable.eq(&expected_nullable),
         "{table}.{column} nullable={nullable}, expected {expected_nullable}"
     );
     Ok(())

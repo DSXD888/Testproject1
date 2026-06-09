@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS procontract_pending_enrichment (
   ),
   interest_registered_at TEXT NOT NULL,
   deadline_at TEXT,
+  -- Enrich observation counter only; workflow retry attempts stay on workflow_jobs.attempt_count.
   observation_count INTEGER NOT NULL DEFAULT 0 CHECK (
     observation_count >= 0
   ),
