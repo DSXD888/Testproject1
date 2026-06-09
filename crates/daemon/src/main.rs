@@ -28939,18 +28939,48 @@ mod tests {
         assert_eq!(incident_row.2, 0);
         assert!(incident_row.3.contains("job-cross-model"));
 
-        let readiness_count: i64 = conn.query_row(
+        let readiness_row: (
+            String,
+            String,
+            String,
+            String,
+            String,
+            String,
+            Option<String>,
+        ) = conn.query_row(
             "\
-            SELECT COUNT(*)
+            SELECT er.slice_id,
+                   er.worker_skill_id,
+                   er.source_id,
+                   er.enforcement_state,
+                   er.last_evaluated_at,
+                   vcc.worker_job_id,
+                   vcc.validation_verdict_id
             FROM enforcement_readiness er
             JOIN validation_calibration_cases vcc ON vcc.slice_id = er.slice_id
             WHERE er.slice_id = 'slice-readiness'
               AND vcc.worker_job_id = 'job-readiness'
             ",
             [],
-            |row| row.get(0),
+            |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                    row.get(5)?,
+                    row.get(6)?,
+                ))
+            },
         )?;
-        assert_eq!(readiness_count, 1);
+        assert_eq!(readiness_row.0, "slice-readiness");
+        assert_eq!(readiness_row.1, "procurement-ingestion/fts");
+        assert_eq!(readiness_row.2, FTS_SOURCE_ID);
+        assert_eq!(readiness_row.3, "dry_run");
+        assert!(!readiness_row.4.trim().is_empty());
+        assert_eq!(readiness_row.5, "job-readiness");
+        assert!(readiness_row.6.is_none());
 
         let landed_cost_stage_run_id: String = conn.query_row(
             "\
