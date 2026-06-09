@@ -1,4 +1,29 @@
 #![forbid(unsafe_code)]
+#![allow(clippy::duplicate_mod)]
+
+mod support;
+
+#[path = "../src/agents/contracts.rs"]
+#[allow(dead_code)]
+mod contracts_impl;
+#[path = "../src/ipc/handlers/jobs.rs"]
+#[allow(dead_code)]
+mod jobs_handler_impl;
+#[path = "../src/jobs/runner.rs"]
+#[allow(dead_code)]
+mod runner_impl;
+
+mod db {
+    pub mod sqlite {
+        pub use crate::support::db::StateDb;
+    }
+}
+
+mod jobs {
+    pub mod runner {
+        pub use crate::runner_impl::*;
+    }
+}
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -9,6 +34,9 @@ use rusqlite::{Connection, OptionalExtension};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use tempfile::TempDir;
+
+use crate::jobs_handler_impl::{JobsHandlerContext, TriggerIngestionParams, trigger_ingestion};
+use crate::support::db::StateDb;
 
 struct RunHarness {
     _temp: TempDir,
@@ -92,6 +120,54 @@ impl RunHarness {
             stderr: String::from_utf8(output.stderr).context("decoding stderr")?,
             success: output.status.success(),
         })
+    }
+
+    fn run_next_job(&self, fixture: &Value) -> Result<RunResult> {
+        fs::write(&self.fixture_path, serde_json::to_vec_pretty(fixture)?)
+            .with_context(|| format!("writing {}", self.fixture_path.display()))?;
+        let fake_claude = self.prepare_fake_claude(fixture)?;
+
+        let output = Command::cargo_bin("daemon")?
+            .arg("--run-next-job")
+            .arg("--agent-cli")
+            .arg("claude")
+            .arg("--agent-cli-program")
+            .arg(&fake_claude.program)
+            .arg("--state-root")
+            .arg(&self.state_root)
+            .arg("--runtime-dir")
+            .arg(&self.runtime_root)
+            .arg("--artifact-root")
+            .arg(&self.artifact_root)
+            .arg("--fixture-path")
+            .arg(&self.fixture_path)
+            .env("DAEMON_TEST_CLAUDE_RESULT_PATH", &fake_claude.result_path)
+            .env(
+                "DAEMON_TEST_CLAUDE_CHECKPOINT_PATH",
+                &fake_claude.checkpoint_path,
+            )
+            .output()
+            .context("running daemon --run-next-job")?;
+
+        Ok(RunResult {
+            stdout: String::from_utf8(output.stdout).context("decoding stdout")?,
+            stderr: String::from_utf8(output.stderr).context("decoding stderr")?,
+            success: output.status.success(),
+        })
+    }
+
+    fn enqueue_trigger_ingestion(&self, source_id: &str) -> Result<String> {
+        let mut state_db = StateDb::open(&self.db_path).context("opening IPC trigger state db")?;
+        let params = TriggerIngestionParams {
+            source_id: source_id.to_owned(),
+        };
+        let mut context = JobsHandlerContext {
+            state_db: &mut state_db,
+        };
+        let ack = trigger_ingestion(&mut context, &params, "m4-trigger-ingestion")
+            .context("trigger_ingestion should enqueue sync_source")?;
+        ack.continuation_job_id
+            .context("trigger_ingestion ack missing continuation job id")
     }
 
     fn connection(&self) -> Result<Connection> {
@@ -297,6 +373,15 @@ fn latest_job_status(conn: &Connection) -> Result<String> {
     .context("loading latest workflow status")
 }
 
+fn job_kind_status(conn: &Connection, job_id: &str) -> Result<(String, String)> {
+    conn.query_row(
+        "SELECT kind, status FROM workflow_jobs WHERE id = ?1",
+        [job_id],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    )
+    .with_context(|| format!("loading workflow job {job_id}"))
+}
+
 fn count_rows(conn: &Connection, table: &str) -> Result<i64> {
     conn.query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
         row.get(0)
@@ -480,6 +565,30 @@ fn e2e_ing_001_manual_cli_trigger_creates_sync_source_job_under_daemon_control()
     )?;
     ensure!(matches!(kind.as_str(), "sync_source"));
     ensure!(matches!(status.as_str(), "completed"));
+    Ok(())
+}
+
+#[test]
+fn m4_trigger_ingestion_executes_sync_source_with_run_next_job() -> Result<()> {
+    let harness = RunHarness::new()?;
+    let job_id = harness.enqueue_trigger_ingestion("fts")?;
+
+    let result = harness.run_next_job(&default_fixture())?;
+    ensure!(
+        result.success,
+        "daemon --run-next-job should drain trigger_ingestion job: stdout={} stderr={}",
+        result.stdout,
+        result.stderr
+    );
+
+    let conn = harness.connection()?;
+    let (kind, status) = job_kind_status(&conn, &job_id)?;
+    ensure!(matches!(kind.as_str(), "sync_source"));
+    ensure!(matches!(status.as_str(), "completed"));
+    ensure!(
+        count_rows(&conn, "procurement_processes")? > 0,
+        "trigger_ingestion drained through sync_source but persisted no procurement process rows"
+    );
     Ok(())
 }
 

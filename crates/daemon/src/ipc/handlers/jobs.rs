@@ -23,6 +23,16 @@ pub use test_bid_workflow::{
 };
 
 const EXECUTOR_ID: &str = "local-daemon";
+const FTS_SOURCE_ID: &str = "fts";
+const FTS_SKILL_ID: &str = "procurement-ingestion/fts";
+const CONTRACTS_FINDER_SOURCE_ID: &str = "contracts-finder";
+const CONTRACTS_FINDER_SKILL_ID: &str = "procurement-ingestion/contracts-finder";
+const PROCONTRACT_DISCOVER_SOURCE_ID: &str = "procontract";
+const PROCONTRACT_DISCOVER_SKILL_ID: &str = "procurement-ingestion/procontract-discover";
+const PROCONTRACT_INTEREST_SOURCE_ID: &str = "procontract-interest";
+const PROCONTRACT_INTEREST_SKILL_ID: &str = "procurement-ingestion/procontract-register-interest";
+const PROCONTRACT_ENRICH_SOURCE_ID: &str = "procontract-enrich";
+const PROCONTRACT_ENRICH_SKILL_ID: &str = "procurement-ingestion/procontract-enrich-tender";
 
 #[cfg(test)]
 mod test_bid_workflow {
@@ -241,6 +251,16 @@ pub fn trigger_ingestion(
             details: None,
         });
     }
+    let skill_id =
+        desktop_ingestion_skill_id(&params.source_id).ok_or_else(|| JobsHandlerError {
+            code: "conflict".to_owned(),
+            message: format!(
+                "source `{}` does not have a desktop ingestion skill binding",
+                params.source_id
+            ),
+            retryable: false,
+            details: None,
+        })?;
 
     let ack = JobRunner::new(EXECUTOR_ID)
         .enqueue_job(
@@ -258,6 +278,7 @@ pub fn trigger_ingestion(
                 scheduled_for: None,
                 input_payload: json!({
                     "source_id": params.source_id,
+                    "skill_id": skill_id,
                     "trigger": "desktop_command",
                 }),
                 idempotency_key: idempotency_key.to_owned(),
@@ -525,6 +546,17 @@ fn bid_readiness_failed(blockers: &[Value]) -> JobsHandlerError {
         message: "bid workflow readiness failed".to_owned(),
         retryable: false,
         details: Some(json!({ "blockers": blockers })),
+    }
+}
+
+fn desktop_ingestion_skill_id(source_id: &str) -> Option<&'static str> {
+    match source_id {
+        FTS_SOURCE_ID => Some(FTS_SKILL_ID),
+        CONTRACTS_FINDER_SOURCE_ID => Some(CONTRACTS_FINDER_SKILL_ID),
+        PROCONTRACT_DISCOVER_SOURCE_ID => Some(PROCONTRACT_DISCOVER_SKILL_ID),
+        PROCONTRACT_INTEREST_SOURCE_ID => Some(PROCONTRACT_INTEREST_SKILL_ID),
+        PROCONTRACT_ENRICH_SOURCE_ID => Some(PROCONTRACT_ENRICH_SKILL_ID),
+        _ => None,
     }
 }
 

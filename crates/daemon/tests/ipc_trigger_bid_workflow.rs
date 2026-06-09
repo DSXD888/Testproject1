@@ -31,9 +31,10 @@ use serde_json::Value;
 
 use crate::jobs_handler_impl::{
     BidDocument, BidScopePayload, CompanyAddress, CompanyContact, CompanyProfile,
-    JobsHandlerContext, SideEffectClass, TriggerBidWorkflowParams, trigger_bid_workflow,
+    JobsHandlerContext, SideEffectClass, TriggerBidWorkflowParams, TriggerIngestionParams,
+    trigger_bid_workflow, trigger_ingestion,
 };
-use crate::support::db::{StateDb, TestStateDb, seed_process};
+use crate::support::db::{FTS_SOURCE_ID, StateDb, TestStateDb, seed_process};
 
 const BASIS_HASH: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
@@ -117,6 +118,69 @@ fn workflow_job_count(state_db: &StateDb) -> Result<i64> {
         .connection()
         .query_row("SELECT COUNT(*) FROM workflow_jobs", [], |row| row.get(0))
         .context("counting workflow jobs")
+}
+
+#[test]
+fn m4_trigger_ingestion_enqueues_routable_sync_source_job() -> Result<()> {
+    let test_db = TestStateDb::new()?;
+    let mut state_db = open_state_db(&test_db)?;
+    let params = TriggerIngestionParams {
+        source_id: FTS_SOURCE_ID.to_owned(),
+    };
+    let mut context = JobsHandlerContext {
+        state_db: &mut state_db,
+    };
+
+    let ack = trigger_ingestion(&mut context, &params, "ingestion-trigger-key")
+        .context("desktop ingestion trigger should enqueue")?;
+
+    assert!(ack.accepted);
+    let continuation_job_id = ack
+        .continuation_job_id
+        .as_deref()
+        .context("continuation job id missing")?;
+    ensure!(
+        continuation_job_id.starts_with("job-"),
+        "continuation job id should use job prefix"
+    );
+    assert_eq!(workflow_job_count(context.state_db)?, 1);
+
+    let row: (String, String, Option<String>, Option<String>, String) = context
+        .state_db
+        .connection()
+        .query_row(
+            "\
+            SELECT kind, status, scope_kind, scope_id, input_payload
+            FROM workflow_jobs
+            WHERE id = ?1
+            ",
+            [continuation_job_id],
+            |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                ))
+            },
+        )
+        .optional()?
+        .context("enqueued ingestion job missing")?;
+    assert_eq!(row.0, "sync_source");
+    assert_eq!(row.1, "pending");
+    assert_eq!(row.2.as_deref(), Some("source"));
+    assert_eq!(row.3.as_deref(), Some(FTS_SOURCE_ID));
+
+    let payload: Value = serde_json::from_str(&row.4)?;
+    assert_eq!(payload["request"]["source_id"], FTS_SOURCE_ID);
+    assert_eq!(payload["request"]["skill_id"], "procurement-ingestion/fts");
+    assert_eq!(payload["request"]["trigger"], "desktop_command");
+    assert_eq!(
+        payload["runner_meta"]["idempotency_key"],
+        "ingestion-trigger-key"
+    );
+    Ok(())
 }
 
 #[test]
