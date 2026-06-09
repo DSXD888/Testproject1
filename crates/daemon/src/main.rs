@@ -729,6 +729,8 @@ const COVERAGE_DETERMINISTIC_WORKFLOW_KINDS: &[&str] = &[
     "validation_calibration_readiness_sweep",
 ];
 const AUTONOMOUS_WORKER_IDLE_BACKOFF_MS: u64 = 250;
+const AUTONOMOUS_WORKER_DENIAL_BACKOFF_BASE_MS: u64 = 500;
+const AUTONOMOUS_WORKER_DENIAL_BACKOFF_JITTER_MS: u64 = 250;
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -857,6 +859,139 @@ struct AutonomousWorkerThread {
     lane: AutonomousWorkerLane,
     stop_tx: Option<mpsc::Sender<()>>,
     handle: Option<thread::JoinHandle<()>>,
+}
+
+#[derive(Debug)]
+struct ResourceAdmissionDeferred {
+    job_id: String,
+    reason: DenialReason,
+}
+
+impl std::fmt::Display for ResourceAdmissionDeferred {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            formatter,
+            "resource admission deferred for job {}: {:?}",
+            self.job_id, self.reason
+        )
+    }
+}
+
+impl std::error::Error for ResourceAdmissionDeferred {}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+enum DenialCooldownKey {
+    BrowserSlots {
+        lane: AutonomousWorkerLane,
+        job_kind: String,
+    },
+    AgentSlots {
+        lane: AutonomousWorkerLane,
+        job_kind: String,
+    },
+    SourceLane {
+        lane: AutonomousWorkerLane,
+        job_kind: String,
+        source_id: String,
+    },
+    SkillConcurrency {
+        lane: AutonomousWorkerLane,
+        job_kind: String,
+        skill_key: String,
+    },
+}
+
+impl DenialCooldownKey {
+    fn from_denial(
+        lane: AutonomousWorkerLane,
+        claimed: &ClaimedJob,
+        reason: &DenialReason,
+    ) -> Self {
+        match reason {
+            DenialReason::BrowserSlotsExhausted { .. } => Self::BrowserSlots {
+                lane,
+                job_kind: claimed.kind.clone(),
+            },
+            DenialReason::AgentSlotsExhausted { .. } => Self::AgentSlots {
+                lane,
+                job_kind: claimed.kind.clone(),
+            },
+            DenialReason::SourceLaneExhausted { source_id, .. } => Self::SourceLane {
+                lane,
+                job_kind: claimed.kind.clone(),
+                source_id: source_id.clone(),
+            },
+            DenialReason::SkillConcurrencyCapReached { key, .. } => Self::SkillConcurrency {
+                lane,
+                job_kind: claimed.kind.clone(),
+                skill_key: key.clone(),
+            },
+        }
+    }
+
+    fn matches_claimed(&self, lane: AutonomousWorkerLane, claimed: &ClaimedJob) -> bool {
+        match self {
+            Self::BrowserSlots {
+                lane: key_lane,
+                job_kind,
+            }
+            | Self::AgentSlots {
+                lane: key_lane,
+                job_kind,
+            } => key_lane.eq(&lane) && job_kind.eq(&claimed.kind),
+            Self::SourceLane {
+                lane: key_lane,
+                job_kind,
+                source_id,
+            } => {
+                key_lane.eq(&lane)
+                    && job_kind.eq(&claimed.kind)
+                    && claimed_cooldown_source_id(claimed)
+                        .as_deref()
+                        .is_some_and(|candidate| candidate.eq(source_id.as_str()))
+            }
+            Self::SkillConcurrency {
+                lane: key_lane,
+                job_kind,
+                skill_key,
+            } => {
+                key_lane.eq(&lane)
+                    && job_kind.eq(&claimed.kind)
+                    && claimed_cooldown_skill_key(claimed)
+                        .as_deref()
+                        .is_some_and(|candidate| candidate.eq(skill_key.as_str()))
+            }
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+struct DenialCooldowns {
+    expires_at: BTreeMap<DenialCooldownKey, Instant>,
+}
+
+impl DenialCooldowns {
+    fn is_active_for_claimed(&mut self, lane: AutonomousWorkerLane, claimed: &ClaimedJob) -> bool {
+        self.prune_expired();
+        self.expires_at
+            .keys()
+            .any(|key| key.matches_claimed(lane, claimed))
+    }
+
+    fn record(&mut self, lane: AutonomousWorkerLane, claimed: &ClaimedJob, reason: &DenialReason) {
+        let cooldown_key = DenialCooldownKey::from_denial(lane, claimed, reason);
+        let jitter_ms = claimed.id.bytes().fold(0_u64, |acc, byte| {
+            (acc + u64::from(byte)) % AUTONOMOUS_WORKER_DENIAL_BACKOFF_JITTER_MS
+        });
+        let backoff = Duration::from_millis(AUTONOMOUS_WORKER_DENIAL_BACKOFF_BASE_MS + jitter_ms);
+        self.expires_at
+            .insert(cooldown_key, Instant::now() + backoff);
+    }
+
+    fn prune_expired(&mut self) {
+        let now = Instant::now();
+        self.expires_at.retain(|_, expires_at| *expires_at > now);
+    }
 }
 
 const DEFAULT_SCHEDULER_TICK_INTERVAL_SECS: u64 = 30;
@@ -1944,6 +2079,7 @@ async fn run_shared_worker_iteration_for_lane(
     runtime: &mut RuntimeBootstrap,
     cli: &Cli,
     lane: AutonomousWorkerLane,
+    denial_cooldowns: &mut DenialCooldowns,
 ) -> Result<Option<LiveLoopReport>> {
     let runner = JobRunner::new(LOCAL_EXECUTOR_ID);
     ensure_local_executor_registered(runtime.state_db.connection())?;
@@ -1956,9 +2092,48 @@ async fn run_shared_worker_iteration_for_lane(
     else {
         return Ok(None);
     };
-    execute_claimed_workflow_job(runtime, cli, &runner, claimed)
-        .await
-        .map(Some)
+    if denial_cooldowns.is_active_for_claimed(lane, &claimed) {
+        defer_claimed_job_without_attempt(runtime, &claimed.id, "active resource denial cooldown")?;
+        return Ok(None);
+    }
+    let claimed_for_cooldown = claimed.clone();
+    match execute_claimed_workflow_job(runtime, cli, &runner, claimed).await {
+        Ok(report) => Ok(Some(report)),
+        Err(error) => {
+            if let Some(deferred) = error.downcast_ref::<ResourceAdmissionDeferred>() {
+                denial_cooldowns.record(lane, &claimed_for_cooldown, &deferred.reason);
+            }
+            Err(error)
+        }
+    }
+}
+
+fn defer_claimed_job_without_attempt(
+    runtime: &RuntimeBootstrap,
+    job_id: &str,
+    reason: &str,
+) -> Result<()> {
+    let updated = runtime.state_db.connection().execute(
+        "\
+        UPDATE workflow_jobs
+        SET status = 'pending',
+            lease_owner = NULL,
+            lease_expires_at = NULL,
+            attempt_count = CASE
+                WHEN attempt_count > 0 THEN attempt_count - 1
+                ELSE attempt_count
+            END
+        WHERE id = ?1
+          AND status = 'running'
+          AND completed_at IS NULL
+        ",
+        params![job_id],
+    )?;
+    ensure!(
+        updated == 1,
+        "workflow job {job_id} could not be deferred after {reason}"
+    );
+    Ok(())
 }
 
 #[allow(clippy::future_not_send)]
@@ -3698,13 +3873,19 @@ fn run_autonomous_worker_loop(
     stop_rx: &mpsc::Receiver<()>,
 ) {
     let idle_backoff = Duration::from_millis(AUTONOMOUS_WORKER_IDLE_BACKOFF_MS);
+    let mut denial_cooldowns = DenialCooldowns::default();
     loop {
         match stop_rx.try_recv() {
             Ok(()) | Err(mpsc::TryRecvError::Disconnected) => break,
             Err(mpsc::TryRecvError::Empty) => {}
         }
 
-        match async_runtime.block_on(run_shared_worker_iteration_for_lane(runtime, cli, lane)) {
+        match async_runtime.block_on(run_shared_worker_iteration_for_lane(
+            runtime,
+            cli,
+            lane,
+            &mut denial_cooldowns,
+        )) {
             Ok(Some(report)) => {
                 ::tracing::info!(
                     lane = lane.as_str(),
@@ -3719,11 +3900,20 @@ fn run_autonomous_worker_loop(
                 }
             }
             Err(error) => {
-                ::tracing::warn!(
-                    lane = lane.as_str(),
-                    error = %error,
-                    "autonomous worker iteration failed"
-                );
+                if let Some(deferred) = error.downcast_ref::<ResourceAdmissionDeferred>() {
+                    ::tracing::debug!(
+                        lane = lane.as_str(),
+                        job_id = %deferred.job_id,
+                        reason = ?deferred.reason,
+                        "autonomous worker deferred job after resource admission denial"
+                    );
+                } else {
+                    ::tracing::warn!(
+                        lane = lane.as_str(),
+                        error = %error,
+                        "autonomous worker iteration failed"
+                    );
+                }
                 if autonomous_worker_wait_for_job_or_stop(stop_rx, idle_backoff) {
                     break;
                 }
@@ -18982,7 +19172,12 @@ fn claimed_job_resource_lease<'a>(
         match arbiter.admit(&request) {
             ArbiterDecision::Granted(lease) => lease,
             ArbiterDecision::Denied(reason) => {
-                bail!("resource arbiter denied admission for job {job_id}: {reason:?}");
+                defer_claimed_job_without_attempt(runtime, job_id, "resource arbiter denial")?;
+                return Err(ResourceAdmissionDeferred {
+                    job_id: job_id.to_owned(),
+                    reason,
+                }
+                .into());
             }
         }
     };
@@ -19928,6 +20123,16 @@ fn claimed_source_request_payload(claimed: &ClaimedJob) -> &Value {
         .input_payload
         .get("request")
         .unwrap_or(&claimed.input_payload)
+}
+
+fn claimed_cooldown_source_id(claimed: &ClaimedJob) -> Option<String> {
+    let request_payload = claimed_source_request_payload(claimed);
+    sync_source_payload_source_id(claimed, request_payload).map(str::to_owned)
+}
+
+fn claimed_cooldown_skill_key(claimed: &ClaimedJob) -> Option<String> {
+    let request_payload = claimed_source_request_payload(claimed);
+    sync_source_payload_skill_id(request_payload).map(str::to_owned)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -27321,12 +27526,14 @@ mod tests {
 
     use super::agents::adapter::ExecutionMode;
     use super::agents::arbiter::{
-        AdmissionPriority, AdmissionRequest, ArbiterDecision, ResourceArbiter, ResourceBudgets,
+        AdmissionPriority, AdmissionRequest, ArbiterDecision, DenialReason, ResourceArbiter,
+        ResourceBudgets,
     };
     use super::jobs::runner::{CANONICAL_SCOPE_KINDS, ClaimedJob, JobRunner};
     use super::tracing::structured::{StructuredControlEventKind, StructuredTrace, TraceIdentity};
     use super::{
-        ACTIVE_STAGES, Cli, ControlEvent, DEFAULT_AGENT_CLI, ExecutedSession, LOCAL_EXECUTOR_ID,
+        ACTIVE_STAGES, CONTRACTS_FINDER_SKILL_ID, CONTRACTS_FINDER_SOURCE_ID, Cli, ControlEvent,
+        DEFAULT_AGENT_CLI, ExecutedSession, FTS_SKILL_ID, FTS_SOURCE_ID, LOCAL_EXECUTOR_ID,
         LifecyclePhase, LiveLoopFixture, LiveValidationExecution, LoadedSkill,
         MAX_PROCONTRACT_INTEREST_REGISTRATIONS_PER_RUN, PolicyBasisSufficiency,
         ProcessValidationState, ProcontractInterestEvaluation, PtyRuntimeIds,
@@ -27697,6 +27904,116 @@ mod tests {
         assert!(lanes.contains(&super::AutonomousWorkerLane::CoverageDeterministic));
         drop(threads);
         Ok(())
+    }
+
+    fn claimed_sync_source_job(job_id: &str, source_id: &str, skill_id: &str) -> ClaimedJob {
+        ClaimedJob {
+            id: job_id.to_owned(),
+            kind: "sync_source".to_owned(),
+            process_id: Some(format!("process-{job_id}")),
+            scope_kind: Some("source".to_owned()),
+            scope_id: Some(source_id.to_owned()),
+            input_payload: json!({
+                "request": {
+                    "source_id": source_id,
+                    "skill_id": skill_id,
+                }
+            }),
+        }
+    }
+
+    #[test]
+    fn autonomous_worker_denial_defer_clears_lease_and_restores_attempt_count() -> Result<()> {
+        let (_temp, runtime, _cli) = bootstrap_manifest_render_runtime()?;
+        runtime.state_db.connection().execute(
+            "\
+            INSERT INTO workflow_jobs (
+              id, kind, status, lease_owner, lease_expires_at, attempt_count,
+              input_payload, created_at
+            ) VALUES (
+              'job-denied', 'sync_source', 'running', 'local-daemon',
+              '2026-06-08T12:05:00Z', 1, '{}', '2026-06-08T12:00:00Z'
+            )
+            ",
+            [],
+        )?;
+
+        super::defer_claimed_job_without_attempt(&runtime, "job-denied", "test resource denial")?;
+
+        let row: (String, Option<String>, Option<String>, i64) =
+            runtime.state_db.connection().query_row(
+                "\
+                SELECT status, lease_owner, lease_expires_at, attempt_count
+                FROM workflow_jobs
+                WHERE id = 'job-denied'
+                ",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )?;
+        assert_eq!(row.0, "pending");
+        assert_eq!(row.1, None);
+        assert_eq!(row.2, None);
+        assert_eq!(row.3, 0);
+        Ok(())
+    }
+
+    #[test]
+    fn autonomous_worker_denial_cooldown_handles_every_reason_variant() {
+        let lane = super::AutonomousWorkerLane::PtyBrowser;
+        let fts_job = claimed_sync_source_job("job-fts", FTS_SOURCE_ID, FTS_SKILL_ID);
+        let contracts_finder_job = claimed_sync_source_job(
+            "job-contracts-finder",
+            CONTRACTS_FINDER_SOURCE_ID,
+            CONTRACTS_FINDER_SKILL_ID,
+        );
+
+        let mut browser_cooldowns = super::DenialCooldowns::default();
+        browser_cooldowns.record(
+            lane,
+            &fts_job,
+            &DenialReason::BrowserSlotsExhausted {
+                limit: 2,
+                in_use: 2,
+            },
+        );
+        assert!(browser_cooldowns.is_active_for_claimed(lane, &fts_job));
+
+        let mut agent_cooldowns = super::DenialCooldowns::default();
+        agent_cooldowns.record(
+            lane,
+            &fts_job,
+            &DenialReason::AgentSlotsExhausted {
+                limit: 4,
+                in_use: 4,
+            },
+        );
+        assert!(agent_cooldowns.is_active_for_claimed(lane, &fts_job));
+
+        let mut source_cooldowns = super::DenialCooldowns::default();
+        source_cooldowns.record(
+            lane,
+            &fts_job,
+            &DenialReason::SourceLaneExhausted {
+                source_id: FTS_SOURCE_ID.to_owned(),
+                limit: 1,
+                in_use: 1,
+            },
+        );
+        assert!(source_cooldowns.is_active_for_claimed(lane, &fts_job));
+        assert!(!source_cooldowns.is_active_for_claimed(lane, &contracts_finder_job));
+
+        let mut skill_cooldowns = super::DenialCooldowns::default();
+        skill_cooldowns.record(
+            lane,
+            &fts_job,
+            &DenialReason::SkillConcurrencyCapReached {
+                key: FTS_SKILL_ID.to_owned(),
+                limit: 1,
+                in_use: 1,
+            },
+        );
+        assert!(skill_cooldowns.is_active_for_claimed(lane, &fts_job));
+        assert!(!skill_cooldowns.is_active_for_claimed(lane, &contracts_finder_job));
     }
 
     struct FakeManifestSkillInvoker {
