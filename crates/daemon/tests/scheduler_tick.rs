@@ -354,6 +354,26 @@ mod tests {
         )?)
     }
 
+    fn count_materialized_fts_notice_rows(conn: &Connection) -> Result<i64> {
+        Ok(conn.query_row(
+            "\
+            SELECT COUNT(*)
+            FROM procurement_processes pp
+            JOIN contract_notices cn
+              ON cn.process_id = pp.id
+             AND cn.id = pp.primary_notice_id
+            JOIN raw_documents rd
+              ON rd.id = cn.raw_document_id
+            WHERE pp.id = 'process-fts-001'
+              AND cn.id = 'notice-fts-001'
+              AND cn.source_id = 'fts'
+              AND cn.source_notice_id = 'ocds-001'
+            ",
+            [],
+            |row| row.get(0),
+        )?)
+    }
+
     fn enqueue_fts_history(db_path: &Path, scheduled_for: DateTime<Utc>) -> Result<()> {
         let mut state_db = StateDb::open(db_path)?;
         JobRunner::new("scheduler-tick-test").enqueue_job(
@@ -625,16 +645,20 @@ mod tests {
             due_result.stderr
         );
         ensure!(
-            due_result.stdout.contains("enqueued=1"),
-            "M1 due one-shot expected one enqueued cron job, got stdout={}",
+            due_result.stdout.contains("enqueued=1") && due_result.stdout.contains("drained=1"),
+            "M1 due one-shot expected one enqueued and drained cron job, got stdout={}",
             due_result.stdout
         );
 
         let due_conn = due_harness.connection()?;
-        let (kind, _status, scheduled_for, input_payload) = query_latest_root_job(&due_conn)?;
+        let (kind, status, scheduled_for, input_payload) = query_latest_root_job(&due_conn)?;
         ensure!(
             kind == "sync_source",
             "M1 due one-shot expected latest root job kind sync_source, got {kind}"
+        );
+        ensure!(
+            status == "completed",
+            "M1 due one-shot expected latest root sync_source job to be completed, got {status}"
         );
         ensure!(
             scheduled_for == "2026-06-05T04:15:00+00:00",
@@ -659,6 +683,10 @@ mod tests {
                 .and_then(Value::as_str)
                 == Some("cron:fts:procurement-ingestion/fts:2026-06-05T04:15:00+00:00"),
             "M1 due one-shot expected per-slot cron idempotency key"
+        );
+        ensure!(
+            count_materialized_fts_notice_rows(&due_conn)? > 0,
+            "M1 due one-shot expected FTS rows in procurement_processes, contract_notices, and raw_documents"
         );
         Ok(())
     }
