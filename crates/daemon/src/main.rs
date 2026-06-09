@@ -17307,13 +17307,6 @@ fn load_procontract_interest_candidates(
               AND pss.stage = 'interest_registration'
               AND pss.state IN ('completed', 'succeeded', 'skipped')
           )
-          AND NOT EXISTS (
-            SELECT 1
-            FROM procontract_pending_enrichment ppe
-            WHERE ppe.process_id = cn.process_id
-              AND ppe.notice_id = cn.id
-              AND ppe.state IN ('awaiting_access', 'enriched', 'expired')
-          )
         ORDER BY cn.source_updated_at DESC, COALESCE(cn.deadline_at, '9999-12-31T23:59:59Z'), cn.id
         ",
     )?;
@@ -17601,82 +17594,6 @@ fn resolve_process_id_for_notice(
     .with_context(|| format!("loading process_id for notice {notice_id}"))
 }
 
-fn persist_procontract_pending_enrichment(
-    tx: &Transaction<'_>,
-    process_id: &str,
-    registration: &ProcontractRegistrationRecord,
-    stage_run_id: &str,
-    visible_after_seq: i64,
-) -> Result<()> {
-    let (notice_id, advert_id, source_notice_id, deadline_at): (
-        String,
-        String,
-        Option<String>,
-        Option<String>,
-    ) = tx
-        .query_row(
-            "\
-            SELECT cn.id,
-                   COALESCE(NULLIF(cn.source_notice_id, ''), cn.id),
-                   NULLIF(cn.source_notice_id, ''),
-                   cn.deadline_at
-            FROM contract_notices cn
-            WHERE cn.id = ?1
-            ",
-            params![registration.notice_id],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
-        )
-        .with_context(|| {
-            format!(
-                "loading ProContract notice identity for pending enrichment {}",
-                registration.notice_id
-            )
-        })?;
-    let interest_registered_at = registration
-        .registered_at
-        .as_deref()
-        .filter(|value| !value.trim().is_empty())
-        .map_or_else(|| Utc::now().to_rfc3339(), str::to_owned);
-    let pending_id = format!(
-        "pending-{}-{}-{}",
-        slug_token(process_id),
-        slug_token(&notice_id),
-        slug_token(&advert_id)
-    );
-
-    tx.execute(
-        "\
-        INSERT INTO procontract_pending_enrichment (
-          id, process_id, notice_id, advert_id, source_notice_id, state,
-          interest_registered_at, deadline_at, observation_count, owner_id,
-          row_version, last_local_seq, stage_run_id
-        ) VALUES (
-          ?1, ?2, ?3, ?4, ?5, 'awaiting_access', ?6, ?7, 0, ?8, 1, ?9, ?10
-        )
-        ON CONFLICT(process_id, notice_id, advert_id) DO UPDATE SET
-          source_notice_id = COALESCE(excluded.source_notice_id, procontract_pending_enrichment.source_notice_id),
-          deadline_at = COALESCE(excluded.deadline_at, procontract_pending_enrichment.deadline_at),
-          last_local_seq = excluded.last_local_seq,
-          stage_run_id = excluded.stage_run_id,
-          row_version = procontract_pending_enrichment.row_version + 1,
-          updated_at = CURRENT_TIMESTAMP
-        ",
-        params![
-            pending_id,
-            process_id,
-            notice_id,
-            advert_id,
-            source_notice_id,
-            interest_registered_at,
-            deadline_at,
-            DEFAULT_OWNER_ID,
-            visible_after_seq,
-            stage_run_id,
-        ],
-    )?;
-    Ok(())
-}
-
 /// Resolve `notice_id` and `process_id` for enrichment results that may use
 /// portal reference numbers instead of the canonical `pc-{advertId}` format.
 /// Falls back to a title-based lookup within the procontract source when the
@@ -17916,18 +17833,6 @@ fn persist_interest_registrations(
                 state,
                 visible_after_seq,
             )?;
-            if matches!(
-                registration.action.as_str(),
-                "registered" | "already_registered"
-            ) {
-                persist_procontract_pending_enrichment(
-                    tx,
-                    &process_id,
-                    registration,
-                    &scoped_run_id,
-                    visible_after_seq,
-                )?;
-            }
         }
         persist_source_cursor(tx, source_id, "interest_cursor", &contract.cursor)?;
         Ok(contract.registrations.len())
@@ -32890,44 +32795,6 @@ mod tests {
         Ok(())
     }
 
-    fn assert_pending_enrichment_created(conn: &Connection) -> Result<()> {
-        let pending: (
-            String,
-            i64,
-            String,
-            Option<String>,
-            Option<String>,
-            Option<String>,
-        ) = conn.query_row(
-            "\
-            SELECT state, observation_count, interest_registered_at, deadline_at,
-                   last_checked_at, enriched_at
-            FROM procontract_pending_enrichment
-            WHERE process_id = 'proc-pc-test-001'
-              AND notice_id = 'pc-test-001'
-              AND advert_id = 'pc-test-001'
-            ",
-            [],
-            |row| {
-                Ok((
-                    row.get(0)?,
-                    row.get(1)?,
-                    row.get(2)?,
-                    row.get(3)?,
-                    row.get(4)?,
-                    row.get(5)?,
-                ))
-            },
-        )?;
-        assert_eq!(pending.0, "awaiting_access");
-        assert_eq!(pending.1, 0);
-        assert_eq!(pending.2, "2026-04-13T15:02:30Z");
-        assert_eq!(pending.3.as_deref(), Some("2026-05-31T12:00:00Z"));
-        assert!(pending.4.is_none());
-        assert!(pending.5.is_none());
-        Ok(())
-    }
-
     #[test]
     fn persist_interest_registrations_writes_stage_tracking_rows() -> Result<()> {
         let temp = tempdir()?;
@@ -32995,48 +32862,6 @@ mod tests {
             |row| row.get(0),
         )?;
         assert!(head.contains("stage-run-"));
-        assert_pending_enrichment_created(state_db.connection())?;
-        Ok(())
-    }
-
-    #[test]
-    fn pending_enrichment_rows_exclude_interest_candidates() -> Result<()> {
-        let temp = tempdir()?;
-        let db_path = temp.path().join("state.db");
-        let state_db = open_state_db(&db_path, DEFAULT_SCHEMA_EPOCH)?;
-        seed_minimal_procontract_notice(
-            state_db.connection(),
-            "proc-pc-awaiting",
-            "pc-awaiting",
-            "Supply of awaiting access cameras",
-        )?;
-        seed_minimal_procontract_notice(
-            state_db.connection(),
-            "proc-pc-fresh",
-            "pc-fresh",
-            "Supply of fresh cameras",
-        )?;
-        state_db.connection().execute(
-            "\
-            INSERT INTO procontract_pending_enrichment (
-              id, process_id, notice_id, advert_id, source_notice_id, state,
-              interest_registered_at
-            ) VALUES (
-              'pending-pc-awaiting', 'proc-pc-awaiting', 'pc-awaiting',
-              'pc-awaiting', 'pc-awaiting', 'awaiting_access',
-              '2026-04-13T15:02:30Z'
-            )
-            ",
-            [],
-        )?;
-
-        let process_ids = load_procontract_interest_candidates(state_db.connection())?
-            .into_iter()
-            .map(|candidate| candidate.process_id)
-            .collect::<Vec<_>>();
-
-        assert!(!process_ids.iter().any(|id| id == "proc-pc-awaiting"));
-        assert!(process_ids.iter().any(|id| id == "proc-pc-fresh"));
         Ok(())
     }
 
