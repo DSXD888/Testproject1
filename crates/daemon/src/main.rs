@@ -363,6 +363,8 @@ const STAGE13_CLAUDE_MODEL_DEFAULT: &str = "haiku";
 const STAGE13_RENDERER_MODE_SKILL: &str = "skill";
 const STAGE13_RENDERER_MODE_DAEMON: &str = "daemon";
 const STAGE13_RENDERER_MODE_AUTO_FALLBACK: &str = "auto_fallback_to_daemon";
+const COVERAGE_SKILL_RESOURCE_PROFILE_FIELD: &str = "resource_profile";
+const COVERAGE_SKILL_RESOURCE_PROFILE: &str = "coverage_skill_subpass";
 #[cfg(test)]
 const ACTIVE_STAGES: [&str; 12] = [
     "Normalize",
@@ -2434,13 +2436,16 @@ fn complete_claimed_job_after_side_effect(
     if !output_payload.is_object() {
         output_payload = json!({ "payload": output_payload });
     }
-    let payload_object = output_payload
-        .as_object_mut()
-        .ok_or_else(|| anyhow!("job completion payload must be a JSON object"))?;
-    payload_object.insert("job_id".to_owned(), json!(job_id));
-    payload_object.insert("job_kind".to_owned(), json!(kind));
-    payload_object.insert("side_effect_table".to_owned(), json!(side_effect_table));
-    payload_object.insert("completed_at".to_owned(), json!(completed_at));
+    let shadow_summary = {
+        let payload_object = output_payload
+            .as_object_mut()
+            .ok_or_else(|| anyhow!("job completion payload must be a JSON object"))?;
+        payload_object.insert("job_id".to_owned(), json!(job_id));
+        payload_object.insert("job_kind".to_owned(), json!(kind));
+        payload_object.insert("side_effect_table".to_owned(), json!(side_effect_table));
+        payload_object.insert("completed_at".to_owned(), json!(completed_at));
+        health_auth_shadow_summary(&output_payload)
+    };
     runtime.state_db.with_write_transaction(|tx| {
         let updated = tx
             .execute(
@@ -2461,10 +2466,35 @@ fn complete_claimed_job_after_side_effect(
 
     Ok(LiveLoopReport {
         summary_line: format!(
-            "{kind} completed: job_id={job_id} side_effect_table={side_effect_table}"
+            "{kind} completed: job_id={job_id} side_effect_table={side_effect_table}{shadow_summary}"
         ),
         status: "completed".to_owned(),
     })
+}
+
+const HEALTH_AUTH_SHADOW_MODE: &str = "shadow";
+const HEALTH_AUTH_SHADOW_ENFORCEMENT_ACTION: &str = "recorded_only";
+
+fn health_auth_shadow_outcome(side_effect_persisted: bool) -> Value {
+    json!({
+        "mode": HEALTH_AUTH_SHADOW_MODE,
+        "handler_executed": true,
+        "side_effect_persisted": side_effect_persisted,
+        "enforcement_action": HEALTH_AUTH_SHADOW_ENFORCEMENT_ACTION,
+        "production_gate_applied": false,
+    })
+}
+
+fn health_auth_shadow_summary(output_payload: &Value) -> String {
+    let Some(mode) = output_payload.get("autonomy_mode").and_then(Value::as_str) else {
+        return String::new();
+    };
+    let enforcement_action = output_payload
+        .get("shadow_outcome")
+        .and_then(|value| value.get("enforcement_action"))
+        .and_then(Value::as_str)
+        .unwrap_or("unknown");
+    format!(" autonomy_mode={mode} enforcement_action={enforcement_action}")
 }
 
 struct SourceHealthFailure<'a> {
@@ -2489,6 +2519,8 @@ fn fail_source_health_workflow_job(
             "source_id": failure.source_id,
             "skill_id": failure.skill_id,
             "session_id": failure.session_id,
+            "autonomy_mode": HEALTH_AUTH_SHADOW_MODE,
+            "shadow_outcome": health_auth_shadow_outcome(false),
         }),
     )
 }
@@ -2508,6 +2540,8 @@ fn fail_auth_refresh_workflow_job(
             "portal_id": failure.portal_id,
             "skill_id": failure.skill_id,
             "session_id": failure.session_id,
+            "autonomy_mode": HEALTH_AUTH_SHADOW_MODE,
+            "shadow_outcome": health_auth_shadow_outcome(false),
         }),
     )
 }
@@ -2654,6 +2688,8 @@ async fn run_source_health_workflow_job(
             "sample_item_count": result_json
                 .get("sample_item_count")
                 .and_then(Value::as_i64),
+            "autonomy_mode": HEALTH_AUTH_SHADOW_MODE,
+            "shadow_outcome": health_auth_shadow_outcome(true),
         }),
     )
 }
@@ -2841,6 +2877,8 @@ async fn run_auth_refresh_workflow_job(
             "refresh_status": refresh_status,
             "cdp_state": cdp_state,
             "checked_at": now,
+            "autonomy_mode": HEALTH_AUTH_SHADOW_MODE,
+            "shadow_outcome": health_auth_shadow_outcome(true),
         }),
     )
 }
@@ -3000,13 +3038,15 @@ async fn run_commercial_sweep_workflow_job(
     let net_margin_stage_run_id = format!("{stage_run_id}-net-margin");
     let manifest_stage_run_id = format!("{stage_run_id}-manifest");
     let landed_cost_report =
-        run_landed_cost_live_loop_with_stage_run_id(runtime, cli, Some(&stage_run_id)).await?;
+        run_landed_cost_live_loop_with_stage_run_id(runtime, cli, Some(&stage_run_id), true)
+            .await?;
     let net_margin_summary =
         run_net_margin_gate_once(&mut runtime.state_db, &net_margin_stage_run_id)?;
     let manifest_report = run_manifest_generation_live_loop_with_stage_run_id(
         runtime,
         cli,
         Some(&manifest_stage_run_id),
+        true,
     )
     .await?;
 
@@ -5982,7 +6022,7 @@ fn build_adapter(config: &AdapterRuntimeConfig) -> Box<dyn AgentAdapter> {
 fn skill_manifest(skill: &LoadedSkill) -> Result<SkillManifest> {
     let interaction_profile = match skill.metadata.interaction_profile.as_str() {
         "pty_interactive" => InteractionProfile::PtyRequired,
-        "headless_contract" => InteractionProfile::ContractRequired,
+        "headless_contract" | "http_public" => InteractionProfile::ContractRequired,
         other => bail!("unsupported interaction_profile `{other}`"),
     };
     Ok(SkillManifest {
@@ -10592,6 +10632,9 @@ async fn run_landed_cost_skill(
     {
         Ok(executed) => executed,
         Err(error) => {
+            if error.downcast_ref::<ResourceAdmissionDeferred>().is_some() {
+                return Err(error);
+            }
             mark_landed_cost_skill_job_failed(runtime, &job_id, &error.to_string())?;
             return Ok(LandedCostSkillRunOutcome {
                 job_id,
@@ -10693,6 +10736,8 @@ async fn execute_landed_cost_skill_session(
     };
     let caps = adapter.probe(&probe_ctx).await?;
     let mode = adapter.resolve_mode(&skill_manifest(skill)?, &caps)?;
+    let mut resource_lease =
+        claimed_job_resource_lease(runtime, skill, job_id, session_id, mode, job_parameters)?;
     let started_at = Utc::now();
     let session_dir =
         ArtifactStore::new(&runtime.artifact_root)?.session_dir(session_id, started_at)?;
@@ -10895,6 +10940,10 @@ async fn execute_landed_cost_skill_session(
         "recovered_result_after_protocol_error": outcome_decision.recovered_result_after_protocol_error
     })
     .to_string();
+
+    if let Some(resource_lease) = resource_lease.as_mut() {
+        resource_lease.set_release_cause(ReleaseCause::Archived);
+    }
 
     Ok(ExecutedSession {
         session_id: session_id.to_owned(),
@@ -11772,6 +11821,7 @@ async fn freight_scenario_from_searates(
     fx_skill: &LoadedSkill,
     row: &LandedCostAssessmentRow,
     freight_result: Option<&SeaRatesFreightResult>,
+    coverage_skill_resource_profile: bool,
 ) -> Result<FreightScenarioGbp> {
     let Some(result) = freight_result else {
         return Ok(FreightScenarioGbp {
@@ -11878,18 +11928,21 @@ async fn freight_scenario_from_searates(
         });
     }
 
-    let fx_parameters = json!({
-        "product_candidate_id": row.product_candidate_id,
-        "selected_quote_id": row.selected_quote_id,
-        "source_currency": currency,
-        "target_currency": "GBP",
-        "amount_minor": base_minor,
-        "source_amounts_minor": {
-            "low": low_minor,
-            "base": base_minor,
-            "high": high_minor,
-        },
-    });
+    let fx_parameters = coverage_skill_job_parameters(
+        json!({
+            "product_candidate_id": row.product_candidate_id,
+            "selected_quote_id": row.selected_quote_id,
+            "source_currency": currency,
+            "target_currency": "GBP",
+            "amount_minor": base_minor,
+            "source_amounts_minor": {
+                "low": low_minor,
+                "base": base_minor,
+                "high": high_minor,
+            },
+        }),
+        coverage_skill_resource_profile,
+    );
     let fx_outcome = run_landed_cost_skill(
         runtime,
         cli,
@@ -12308,7 +12361,7 @@ async fn run_landed_cost_live_loop(
     runtime: &mut RuntimeBootstrap,
     cli: &Cli,
 ) -> Result<LiveLoopReport> {
-    run_landed_cost_live_loop_with_stage_run_id(runtime, cli, None).await
+    run_landed_cost_live_loop_with_stage_run_id(runtime, cli, None, false).await
 }
 
 #[allow(clippy::future_not_send, clippy::too_many_lines)]
@@ -12316,6 +12369,7 @@ async fn run_landed_cost_live_loop_with_stage_run_id(
     runtime: &mut RuntimeBootstrap,
     cli: &Cli,
     stage_run_id_override: Option<&str>,
+    coverage_skill_resource_profile: bool,
 ) -> Result<LiveLoopReport> {
     let repo_root = repo_root()?;
     let hmrc_skill = load_skill(
@@ -12380,8 +12434,10 @@ async fn run_landed_cost_live_loop_with_stage_run_id(
         let supplier_cost = compute_supplier_cost_basis(row);
         let order_quantity_basis = infer_order_quantity_basis(row);
         let installation_labour_invocation = installation_labour_invocation_for_row(row);
-        let base_parameters =
-            base_landed_cost_job_parameters(row, &supplier_cost, &order_quantity_basis);
+        let base_parameters = coverage_skill_job_parameters(
+            base_landed_cost_job_parameters(row, &supplier_cost, &order_quantity_basis),
+            coverage_skill_resource_profile,
+        );
         let skill_versions = json!({
             "hmrc_customs": hmrc_skill.metadata.skill_version,
             "shipment_sizing": sizing_skill.metadata.skill_version,
@@ -12534,29 +12590,32 @@ async fn run_landed_cost_live_loop_with_stage_run_id(
             .filter(|result| result.sizing_status == "sized")
         {
             searates_skill_runs += 1;
-            let freight_parameters = json!({
-                "product_candidate_id": row.product_candidate_id,
-                "selected_quote_id": row.selected_quote_id,
-                "origin": {
-                    "country": row.ship_from_country,
-                    "city_or_port": default_origin_port(row),
-                    "basis": "stage11_mvp_country_default_or_quote_context",
-                },
-                "destination": {
-                    "country": "GB",
-                    "city_or_postcode_or_port": "London, GB",
-                    "basis": "stage11_mvp_uk_default_when_buyer_delivery_location_missing",
-                },
-                "ship_date": (Utc::now() + chrono::Duration::days(45))
-                    .date_naive()
-                    .to_string(),
-                "shipment": {
-                    "total_weight_kg": sizing_result.total_weight_kg,
-                    "total_volume_cbm": sizing_result.total_volume_cbm,
-                    "container_plan": sizing_result.container_plan,
-                },
-                "source_quote_url": row.source_url,
-            });
+            let freight_parameters = coverage_skill_job_parameters(
+                json!({
+                    "product_candidate_id": row.product_candidate_id,
+                    "selected_quote_id": row.selected_quote_id,
+                    "origin": {
+                        "country": row.ship_from_country,
+                        "city_or_port": default_origin_port(row),
+                        "basis": "stage11_mvp_country_default_or_quote_context",
+                    },
+                    "destination": {
+                        "country": "GB",
+                        "city_or_postcode_or_port": "London, GB",
+                        "basis": "stage11_mvp_uk_default_when_buyer_delivery_location_missing",
+                    },
+                    "ship_date": (Utc::now() + chrono::Duration::days(45))
+                        .date_naive()
+                        .to_string(),
+                    "shipment": {
+                        "total_weight_kg": sizing_result.total_weight_kg,
+                        "total_volume_cbm": sizing_result.total_volume_cbm,
+                        "container_plan": sizing_result.container_plan,
+                    },
+                    "source_quote_url": row.source_url,
+                }),
+                coverage_skill_resource_profile,
+            );
             let retry_outcome = run_searates_with_retries(
                 runtime,
                 cli,
@@ -12582,9 +12641,15 @@ async fn run_landed_cost_live_loop_with_stage_run_id(
             }
         }
 
-        let mut freight =
-            freight_scenario_from_searates(runtime, cli, &fx_skill, row, searates_result.as_ref())
-                .await?;
+        let mut freight = freight_scenario_from_searates(
+            runtime,
+            cli,
+            &fx_skill,
+            row,
+            searates_result.as_ref(),
+            coverage_skill_resource_profile,
+        )
+        .await?;
         if freight.fx_status == "converted" {
             fx_skill_runs += 1;
         }
@@ -13297,7 +13362,9 @@ trait ManifestSkillInvoker {
     ) -> ManifestSkillInvocationFuture<'a>;
 }
 
-struct LiveManifestSkillInvoker;
+struct LiveManifestSkillInvoker {
+    coverage_skill_resource_profile: bool,
+}
 
 impl ManifestSkillInvoker for LiveManifestSkillInvoker {
     fn invoke_manifest_skill<'a>(
@@ -13314,6 +13381,7 @@ impl ManifestSkillInvoker for LiveManifestSkillInvoker {
             bundle,
             cli,
             timeout_seconds,
+            self.coverage_skill_resource_profile,
         ))
     }
 }
@@ -16063,6 +16131,9 @@ async fn render_manifest_output_for_mode<I: ManifestSkillInvoker>(
                     renderer_mode: STAGE13_RENDERER_MODE_SKILL,
                 }),
                 Err(error) => {
+                    if error.downcast_ref::<ResourceAdmissionDeferred>().is_some() {
+                        return Err(error);
+                    }
                     ::tracing::warn!(
                         error = %error,
                         process_id = %bundle.process_id,
@@ -16090,9 +16161,10 @@ async fn execute_manifest_skill_session(
     bundle: &ManifestSkillBundle,
     cli: &Cli,
     timeout_seconds: u64,
+    coverage_skill_resource_profile: bool,
 ) -> Result<ManifestSkillInvocation> {
     let adapter_config = adapter_runtime_config(cli, skill)?;
-    let job_parameters = manifest_skill_job_parameters(bundle)?;
+    let job_parameters = manifest_skill_job_parameters(bundle, coverage_skill_resource_profile)?;
     let job_id = format!("job-stage13-manifest-{}", Uuid::new_v4().simple());
     let session_id = format!("session-pty-{}", sha256_hex(job_id.as_bytes()));
     let input_payload = json!({
@@ -16128,8 +16200,10 @@ async fn execute_manifest_skill_session(
         .claim_job_by_id(runtime.state_db.connection(), &job_id)?
         .ok_or_else(|| anyhow!("expected claimed Stage 13 workflow job `{job_id}`"))?;
 
+    let artifact_root = runtime.artifact_root.clone();
     let execution = match execute_bounded_manifest_skill_session(
-        &runtime.artifact_root,
+        Some(runtime),
+        &artifact_root,
         skill,
         &job_id,
         &session_id,
@@ -16141,6 +16215,9 @@ async fn execute_manifest_skill_session(
     {
         Ok(executed) => executed,
         Err(error) => {
+            if error.downcast_ref::<ResourceAdmissionDeferred>().is_some() {
+                return Err(error);
+            }
             mark_manifest_skill_job_failed(runtime, &job_id, &error.to_string())?;
             return Err(error);
         }
@@ -16185,7 +16262,10 @@ async fn execute_manifest_skill_session(
     })
 }
 
-fn manifest_skill_job_parameters(bundle: &ManifestSkillBundle) -> Result<Value> {
+fn manifest_skill_job_parameters(
+    bundle: &ManifestSkillBundle,
+    coverage_skill_resource_profile: bool,
+) -> Result<Value> {
     let mut job_parameters =
         serde_json::to_value(bundle).context("serializing manifest skill bundle")?;
     if let Some(parameters) = job_parameters.as_object_mut() {
@@ -16193,6 +16273,9 @@ fn manifest_skill_job_parameters(bundle: &ManifestSkillBundle) -> Result<Value> 
             "required_reasoning_anchor".to_owned(),
             Value::String(manifest_required_reasoning_anchor(bundle)),
         );
+    }
+    if coverage_skill_resource_profile {
+        mark_coverage_skill_resource_profile(&mut job_parameters);
     }
     Ok(job_parameters)
 }
@@ -16224,7 +16307,7 @@ fn mark_manifest_skill_job_failed_in_state_db(
     Ok(())
 }
 
-#[allow(clippy::too_many_lines)]
+#[allow(clippy::future_not_send, clippy::too_many_lines)]
 async fn execute_manifest_skill_session_owned(
     state_db_path: PathBuf,
     artifact_root: PathBuf,
@@ -16234,7 +16317,7 @@ async fn execute_manifest_skill_session_owned(
     timeout_seconds: u64,
 ) -> Result<(ManifestSkillBundle, ManifestSkillInvocation)> {
     let adapter_config = adapter_runtime_config(&cli, &skill)?;
-    let job_parameters = manifest_skill_job_parameters(&bundle)?;
+    let job_parameters = manifest_skill_job_parameters(&bundle, false)?;
     let job_id = format!("job-stage13-manifest-{}", Uuid::new_v4().simple());
     let session_id = format!("session-pty-{}", sha256_hex(job_id.as_bytes()));
     let input_payload = json!({
@@ -16275,6 +16358,7 @@ async fn execute_manifest_skill_session_owned(
     }
 
     let execution = match execute_bounded_manifest_skill_session(
+        None,
         &artifact_root,
         &skill,
         &job_id,
@@ -16514,8 +16598,13 @@ fn claude_model_for_skill_profile(skill: &LoadedSkill) -> Option<String> {
     }
 }
 
-#[allow(clippy::future_not_send, clippy::too_many_lines)]
+#[allow(
+    clippy::future_not_send,
+    clippy::too_many_arguments,
+    clippy::too_many_lines
+)]
 async fn execute_bounded_manifest_skill_session(
+    resource_runtime: Option<&RuntimeBootstrap>,
     artifact_root: &Path,
     skill: &LoadedSkill,
     job_id: &str,
@@ -16535,6 +16624,11 @@ async fn execute_bounded_manifest_skill_session(
         mode == ExecutionMode::Contract,
         "Stage 13 manifest skill must resolve to contract mode"
     );
+    let mut resource_lease = if let Some(runtime) = resource_runtime {
+        claimed_job_resource_lease(runtime, skill, job_id, session_id, mode, job_parameters)?
+    } else {
+        None
+    };
     let started_at = Utc::now();
     let session_dir = ArtifactStore::new(artifact_root)?.session_dir(session_id, started_at)?;
     let workdir = session_dir.join("workdir");
@@ -16791,6 +16885,10 @@ async fn execute_bounded_manifest_skill_session(
     })
     .to_string();
 
+    if let Some(resource_lease) = resource_lease.as_mut() {
+        resource_lease.set_release_cause(ReleaseCause::Archived);
+    }
+
     Ok(ExecutedSession {
         session_id: session_id.to_owned(),
         started_at,
@@ -16828,7 +16926,7 @@ async fn run_manifest_generation_live_loop(
     runtime: &mut RuntimeBootstrap,
     cli: &Cli,
 ) -> Result<LiveLoopReport> {
-    run_manifest_generation_live_loop_with_stage_run_id(runtime, cli, None).await
+    run_manifest_generation_live_loop_with_stage_run_id(runtime, cli, None, false).await
 }
 
 #[allow(clippy::future_not_send, clippy::too_many_lines)]
@@ -16836,6 +16934,7 @@ async fn run_manifest_generation_live_loop_with_stage_run_id(
     runtime: &mut RuntimeBootstrap,
     cli: &Cli,
     stage_run_id_override: Option<&str>,
+    coverage_skill_resource_profile: bool,
 ) -> Result<LiveLoopReport> {
     let repo_root = repo_root()?;
     let manifest_skill = load_skill(
@@ -16874,6 +16973,7 @@ async fn run_manifest_generation_live_loop_with_stage_run_id(
 
     let render_outcomes = if renderer_mode == Stage13RendererMode::Skill
         && pending_bundles.len() > 1
+        && !coverage_skill_resource_profile
     {
         let state_db_path = Path::new(&runtime.descriptor.state_root).join("state.db");
         let invocations = invoke_manifest_skills_concurrently(
@@ -16940,7 +17040,9 @@ async fn run_manifest_generation_live_loop_with_stage_run_id(
         }
         validated
     } else {
-        let mut invoker = LiveManifestSkillInvoker;
+        let mut invoker = LiveManifestSkillInvoker {
+            coverage_skill_resource_profile,
+        };
         let mut validated = Vec::new();
         for bundle in pending_bundles {
             let render_outcome = render_manifest_output_for_mode(
@@ -19998,12 +20100,17 @@ fn claimed_job_resource_lease<'a>(
     mode: ExecutionMode,
     job_parameters: &Value,
 ) -> Result<Option<ResourceLeaseGuard<'a>>> {
-    let source_lane = source_lane_request(skill, job_parameters);
+    let coverage_skill_subpass = uses_coverage_skill_resource_profile(job_parameters);
+    let source_lane = if coverage_skill_subpass {
+        None
+    } else {
+        source_lane_request(skill, job_parameters)
+    };
     let request = AdmissionRequest {
         job_id: job_id.to_owned(),
         session_id: Some(session_id.to_owned()),
         priority: admission_priority(skill),
-        browser_session: matches!(mode, ExecutionMode::Pty),
+        browser_session: matches!(mode, ExecutionMode::Pty) && !coverage_skill_subpass,
         adapter_session: true,
         source_lane,
         validator_sub_job: false,
@@ -20051,6 +20158,29 @@ fn admission_priority(skill: &LoadedSkill) -> AdmissionPriority {
     } else {
         AdmissionPriority::ProcurementIngestion
     }
+}
+
+fn coverage_skill_job_parameters(mut job_parameters: Value, enabled: bool) -> Value {
+    if enabled {
+        mark_coverage_skill_resource_profile(&mut job_parameters);
+    }
+    job_parameters
+}
+
+fn mark_coverage_skill_resource_profile(job_parameters: &mut Value) {
+    if let Value::Object(parameters) = job_parameters {
+        parameters.insert(
+            COVERAGE_SKILL_RESOURCE_PROFILE_FIELD.to_owned(),
+            Value::String(COVERAGE_SKILL_RESOURCE_PROFILE.to_owned()),
+        );
+    }
+}
+
+fn uses_coverage_skill_resource_profile(job_parameters: &Value) -> bool {
+    job_parameters
+        .get(COVERAGE_SKILL_RESOURCE_PROFILE_FIELD)
+        .and_then(Value::as_str)
+        == Some(COVERAGE_SKILL_RESOURCE_PROFILE)
 }
 
 fn source_lane_request(skill: &LoadedSkill, job_parameters: &Value) -> Option<SourceLaneRequest> {
@@ -28373,8 +28503,8 @@ mod tests {
 
     use super::agents::adapter::ExecutionMode;
     use super::agents::arbiter::{
-        AdmissionPriority, AdmissionRequest, ArbiterDecision, DenialReason, ResourceArbiter,
-        ResourceBudgets,
+        AdmissionPriority, AdmissionRequest, ArbiterDecision, ArbiterEventKind, DenialReason,
+        ResourceArbiter, ResourceBudgets,
     };
     use super::jobs::runner::{CANONICAL_SCOPE_KINDS, ClaimedJob, JobRunner};
     use super::tracing::structured::{StructuredControlEventKind, StructuredTrace, TraceIdentity};
@@ -29024,6 +29154,53 @@ mod tests {
         Ok(())
     }
 
+    fn assert_health_auth_shadow_payload(output_payload: &Value) {
+        assert_eq!(
+            output_payload.get("autonomy_mode").and_then(Value::as_str),
+            Some(super::HEALTH_AUTH_SHADOW_MODE)
+        );
+        let shadow_outcome = output_payload.get("shadow_outcome").unwrap_or(&Value::Null);
+        assert_eq!(
+            shadow_outcome.get("mode").and_then(Value::as_str),
+            Some(super::HEALTH_AUTH_SHADOW_MODE)
+        );
+        assert_eq!(
+            shadow_outcome
+                .get("handler_executed")
+                .and_then(Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            shadow_outcome
+                .get("side_effect_persisted")
+                .and_then(Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            shadow_outcome
+                .get("enforcement_action")
+                .and_then(Value::as_str),
+            Some(super::HEALTH_AUTH_SHADOW_ENFORCEMENT_ACTION)
+        );
+        assert_eq!(
+            shadow_outcome
+                .get("production_gate_applied")
+                .and_then(Value::as_bool),
+            Some(false)
+        );
+    }
+
+    fn assert_not_health_auth_shadow_gated(output_payload: &Value) {
+        assert!(
+            output_payload.get("autonomy_mode").is_none(),
+            "non-health/auth cron jobs must not inherit Q6 shadow mode"
+        );
+        assert!(
+            output_payload.get("shadow_outcome").is_none(),
+            "non-health/auth cron jobs must not emit Q6 shadow outcome fields"
+        );
+    }
+
     #[test]
     fn autonomous_worker_denial_defer_clears_lease_and_restores_attempt_count() -> Result<()> {
         let (_temp, runtime, _cli) = bootstrap_manifest_render_runtime()?;
@@ -29118,11 +29295,109 @@ mod tests {
         assert!(!skill_cooldowns.is_active_for_claimed(lane, &contracts_finder_job));
     }
 
+    fn assert_commercial_sweep_skill_subpasses_use_arbiter_without_browser_lane(
+        runtime: &super::RuntimeBootstrap,
+    ) -> Result<()> {
+        let (events, snapshot) = {
+            let arbiter = runtime
+                .resource_arbiter()
+                .lock()
+                .map_err(|_| anyhow::anyhow!("resource arbiter mutex poisoned"))?;
+            (arbiter.events().to_vec(), arbiter.snapshot())
+        };
+        let commercial_skill_grants = events
+            .iter()
+            .filter(|event| {
+                event.kind == ArbiterEventKind::Grant
+                    && (event.job_id.starts_with("job-stage11-")
+                        || event.job_id.starts_with("job-stage13-manifest-"))
+            })
+            .collect::<Vec<_>>();
+
+        assert!(
+            commercial_skill_grants
+                .iter()
+                .any(|event| event.job_id.starts_with("job-stage11-")),
+            "commercial sweep must admit Stage 11 skill sub-passes through ResourceArbiter"
+        );
+        assert!(
+            commercial_skill_grants
+                .iter()
+                .any(|event| event.job_id.starts_with("job-stage13-manifest-")),
+            "commercial sweep must admit Stage 13 skill sub-passes through ResourceArbiter"
+        );
+        for event in &commercial_skill_grants {
+            assert!(
+                event.agent_slots_in_use > 0,
+                "commercial sub-pass {} did not consume an agent slot",
+                event.job_id
+            );
+            assert_eq!(
+                event.browser_slots_in_use, 0,
+                "commercial sub-pass {} consumed a browser slot",
+                event.job_id
+            );
+            assert_eq!(
+                event.source_lane_key, None,
+                "commercial sub-pass {} consumed a source lane",
+                event.job_id
+            );
+        }
+
+        assert!(
+            events.iter().any(|event| {
+                event.kind == ArbiterEventKind::Release
+                    && event.job_id.starts_with("job-stage11-")
+                    && event.source_lane_key.is_none()
+            }),
+            "commercial Stage 11 skill sub-pass lease was not released"
+        );
+        assert!(
+            events.iter().any(|event| {
+                event.kind == ArbiterEventKind::Release
+                    && event.job_id.starts_with("job-stage13-manifest-")
+                    && event.source_lane_key.is_none()
+            }),
+            "commercial Stage 13 skill sub-pass lease was not released"
+        );
+        assert_eq!(snapshot.browser_slots, 0);
+        assert_eq!(snapshot.agent_slots, 0);
+        assert!(
+            snapshot.source_lanes.is_empty(),
+            "commercial sweep left source lane usage behind: {:?}",
+            snapshot.source_lanes
+        );
+        Ok(())
+    }
+
+    #[allow(clippy::too_many_lines)]
     #[tokio::test]
     async fn autonomous_worker_routes_cron_kinds_to_side_effect_handlers() -> Result<()> {
         let (temp, mut runtime, mut cli) = bootstrap_manifest_render_runtime()?;
         cli.agent_cli_program = Some(write_fake_cron_handler_claude(temp.path())?);
         seed_stage11_minimal_graph(runtime.state_db.connection(), "GB")?;
+        runtime.state_db.connection().execute(
+            "\
+            UPDATE product_candidates
+            SET critical_attributes_json = ?1
+            WHERE id = 'candidate-stage11'
+            ",
+            [json!({
+                "installation_requirement": {
+                    "requires_installation": true,
+                    "requires_maintenance": false,
+                    "installation_scope": "fixture_install",
+                    "destination_postcode": "SW1A 1AA"
+                }
+            })
+            .to_string()],
+        )?;
+        let stage11_rows = super::load_landed_cost_assessments(runtime.state_db.connection(), 10)?;
+        assert_eq!(stage11_rows.len(), 1);
+        assert!(
+            super::installation_requirement_from_critical_attributes(&stage11_rows[0]).is_some(),
+            "worker commercial fixture must exercise the Stage 11 installation labour skill"
+        );
         let runner = JobRunner::new(super::LOCAL_EXECUTOR_ID);
         let cron_jobs = [
             claimed_cron_job(
@@ -29189,9 +29464,42 @@ mod tests {
             let output_payload: Value = serde_json::from_str(&row.1)?;
             assert_eq!(output_payload["job_kind"], claimed.kind);
             assert!(output_payload["side_effect_table"].as_str().is_some());
+            match claimed.kind.as_str() {
+                "source_health" | "auth_refresh" => {
+                    assert_health_auth_shadow_payload(&output_payload);
+                    assert!(report.summary_line.contains("autonomy_mode=shadow"));
+                    assert!(
+                        report
+                            .summary_line
+                            .contains("enforcement_action=recorded_only"),
+                        "health/auth report summary must identify shadow enforcement outcome"
+                    );
+                }
+                "validation_cross_model_audit"
+                | "validation_calibration_readiness_sweep"
+                | "commercial_sweep" => {
+                    assert_not_health_auth_shadow_gated(&output_payload);
+                    assert!(
+                        !report.summary_line.contains("autonomy_mode=shadow"),
+                        "validation and commercial jobs must not be gated by Q6 shadow mode"
+                    );
+                }
+                other => assert!(
+                    matches!(
+                        other,
+                        "source_health"
+                            | "auth_refresh"
+                            | "validation_cross_model_audit"
+                            | "validation_calibration_readiness_sweep"
+                            | "commercial_sweep"
+                    ),
+                    "unexpected cron handler kind `{other}`"
+                ),
+            }
         }
 
         assert_new_cron_handler_side_effects(runtime.state_db.connection())?;
+        assert_commercial_sweep_skill_subpasses_use_arbiter_without_browser_lane(&runtime)?;
         Ok(())
     }
 
