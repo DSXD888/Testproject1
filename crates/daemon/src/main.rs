@@ -2154,7 +2154,7 @@ async fn execute_claimed_workflow_job(
             bid_workflow::runner::run_bid_workflow_job(runtime, runner, claimed).await
         }
         "sync_source" => run_sync_source_workflow_job(runtime, claimed, cli).await,
-        "source_health" => run_source_health_workflow_job(runtime, &claimed),
+        "source_health" => run_source_health_workflow_job(runtime, &claimed, cli).await,
         "auth_refresh" => run_auth_refresh_workflow_job(runtime, &claimed),
         "validation_cross_model_audit" => {
             run_validation_cross_model_audit_workflow_job(runtime, &claimed)
@@ -2272,22 +2272,136 @@ fn ensure_source_row(tx: &Transaction<'_>, source_id: &str, kind: &str) -> Resul
     Ok(())
 }
 
+const fn source_kind_label(kind: sources::registry::SourceKind) -> &'static str {
+    match kind {
+        sources::registry::SourceKind::Procurement => "procurement",
+        sources::registry::SourceKind::Supplier => "supplier",
+        sources::registry::SourceKind::Worker => "worker",
+        sources::registry::SourceKind::ValidatorOverlay => "validator_overlay",
+    }
+}
+
+fn load_source_health_skill(source_id: &str) -> Result<(LoadedSkill, &'static str)> {
+    let definition = SourceRegistry::builtin_definition(source_id)
+        .ok_or_else(|| anyhow!("source_health job references unknown source `{source_id}`"))?;
+    let binding = definition
+        .canary_binding
+        .ok_or_else(|| anyhow!("source `{source_id}` has no source-health canary binding"))?;
+    let skill_root = repo_root()?.join("skills").join(&binding.skill_id);
+    let skill = load_skill(&skill_root, &binding.skill_id)?;
+    ensure!(
+        skill.metadata.skill_id == binding.skill_id,
+        "source `{source_id}` canary binding `{}` loaded mismatched skill `{}`",
+        binding.skill_id,
+        skill.metadata.skill_id
+    );
+    Ok((skill, source_kind_label(definition.kind)))
+}
+
+fn merge_json_object_fields(target: &mut Map<String, Value>, source: Value) {
+    if let Value::Object(fields) = source {
+        target.extend(fields);
+    }
+}
+
+fn load_first_canary_input(skill_id: &str) -> Result<Option<Value>> {
+    let path = repo_root()?
+        .join("skills")
+        .join(skill_id)
+        .join("canary.inputs.jsonl");
+    let text = match fs::read_to_string(&path) {
+        Ok(text) => text,
+        Err(error) if error.kind() == ErrorKind::NotFound => return Ok(None),
+        Err(error) => {
+            return Err(error).with_context(|| format!("reading {}", path.display()));
+        }
+    };
+    let Some(line) = text.lines().find(|line| !line.trim().is_empty()) else {
+        return Ok(None);
+    };
+    serde_json::from_str(line)
+        .with_context(|| format!("parsing first canary input from {}", path.display()))
+        .map(Some)
+}
+
+fn source_health_job_parameters(
+    claimed: &ClaimedJob,
+    skill: &LoadedSkill,
+    source_id: &str,
+) -> Result<Value> {
+    let mut parameters = Map::new();
+    if let Some(canary_input) = load_first_canary_input(&skill.metadata.skill_id)? {
+        merge_json_object_fields(&mut parameters, canary_input);
+    }
+    merge_json_object_fields(
+        &mut parameters,
+        claimed_source_request_payload(claimed).clone(),
+    );
+    parameters.insert("source_id".to_owned(), json!(source_id));
+    parameters.insert("worker_job_id".to_owned(), json!(claimed.id));
+    parameters.insert("trigger".to_owned(), json!("autonomous_worker"));
+    parameters.insert("skill_binding".to_owned(), skill_binding_payload(skill));
+    Ok(Value::Object(parameters))
+}
+
+fn source_health_result_fields(result_json: &Value) -> (String, String, String, Option<String>) {
+    let health_state = result_json
+        .get("health_state")
+        .and_then(Value::as_str)
+        .map_or_else(|| "red".to_owned(), str::to_ascii_lowercase);
+    let failure_classification = result_json
+        .get("failure_classification")
+        .and_then(Value::as_str)
+        .map(str::to_owned);
+    let timed_out = failure_classification
+        .as_deref()
+        .map(str::to_ascii_lowercase)
+        .is_some_and(|classification| {
+            classification.contains("timeout")
+                || classification.contains("timed_out")
+                || classification.contains("stalled")
+        });
+    let canary_result = if timed_out {
+        "timed_out"
+    } else if health_state == "green" {
+        "passed"
+    } else {
+        "failed"
+    };
+    let circuit_state = match health_state.as_str() {
+        "green" => "closed",
+        "amber" => "half_open",
+        _ => "open",
+    };
+    (
+        health_state,
+        circuit_state.to_owned(),
+        canary_result.to_owned(),
+        failure_classification,
+    )
+}
+
+struct SourceRuntimeCanaryUpdate<'a> {
+    source_id: &'a str,
+    kind: &'a str,
+    health_state: &'a str,
+    circuit_state: &'a str,
+    canary_result: &'a str,
+    error_code: Option<&'a str>,
+    now: &'a str,
+}
+
 fn persist_source_runtime_canary(
     tx: &Transaction<'_>,
-    source_id: &str,
-    kind: &str,
-    health_state: &str,
-    canary_result: &str,
-    error_code: Option<&str>,
-    now: &str,
+    update: &SourceRuntimeCanaryUpdate<'_>,
 ) -> Result<()> {
-    ensure_source_row(tx, source_id, kind)?;
+    ensure_source_row(tx, update.source_id, update.kind)?;
     tx.execute(
         "\
         INSERT INTO source_runtime_state (
           source_id, last_health_state, circuit_state, last_canary_at,
           last_canary_result, last_error_code, updated_at
-        ) VALUES (?1, ?2, 'closed', ?3, ?4, ?5, ?3)
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?4)
         ON CONFLICT(source_id) DO UPDATE SET
           last_health_state = excluded.last_health_state,
           circuit_state = excluded.circuit_state,
@@ -2296,9 +2410,16 @@ fn persist_source_runtime_canary(
           last_error_code = excluded.last_error_code,
           updated_at = excluded.updated_at
         ",
-        params![source_id, health_state, now, canary_result, error_code],
+        params![
+            update.source_id,
+            update.health_state,
+            update.circuit_state,
+            update.now,
+            update.canary_result,
+            update.error_code
+        ],
     )
-    .with_context(|| format!("persisting runtime canary state for `{source_id}`"))?;
+    .with_context(|| format!("persisting runtime canary state for `{}`", update.source_id))?;
     Ok(())
 }
 
@@ -2346,9 +2467,44 @@ fn complete_claimed_job_after_side_effect(
     })
 }
 
-fn run_source_health_workflow_job(
+struct SourceHealthFailure<'a> {
+    source_id: &'a str,
+    skill_id: &'a str,
+    session_id: Option<&'a str>,
+    error_code: &'a str,
+    message: String,
+}
+
+fn fail_source_health_workflow_job(
     runtime: &mut RuntimeBootstrap,
     claimed: &ClaimedJob,
+    failure: &SourceHealthFailure<'_>,
+) -> Result<LiveLoopReport> {
+    fail_job(
+        runtime,
+        &claimed.id,
+        &failure.message,
+        json!({
+            "error_code": failure.error_code,
+            "source_id": failure.source_id,
+            "skill_id": failure.skill_id,
+            "session_id": failure.session_id,
+        }),
+    )
+}
+
+fn read_validated_skill_result(skill: &LoadedSkill, result_path: &Path) -> Result<Value> {
+    read_result_contract(result_path).and_then(|payload| {
+        validate_result_schema(&skill.result_schema, &payload)?;
+        Ok(payload)
+    })
+}
+
+#[allow(clippy::future_not_send, clippy::too_many_lines)]
+async fn run_source_health_workflow_job(
+    runtime: &mut RuntimeBootstrap,
+    claimed: &ClaimedJob,
+    cli: &Cli,
 ) -> Result<LiveLoopReport> {
     ensure!(
         claimed.kind == "source_health",
@@ -2357,9 +2513,100 @@ fn run_source_health_workflow_job(
         claimed.kind
     );
     let source_id = claimed_source_id_or_default(claimed, FTS_SOURCE_ID);
+    let (skill, source_kind) = load_source_health_skill(&source_id)?;
+    let job_parameters = source_health_job_parameters(claimed, &skill, &source_id)?;
+    let session_id = format!(
+        "session-source-health-{}",
+        sha256_hex(claimed.id.as_bytes())
+    );
+    let executed = match execute_skill_session(
+        runtime,
+        &skill,
+        &claimed.id,
+        &session_id,
+        &job_parameters,
+        cli,
+    )
+    .await
+    {
+        Ok(executed) => executed,
+        Err(error) => {
+            if error.downcast_ref::<ResourceAdmissionDeferred>().is_some() {
+                return Err(error);
+            }
+            return fail_source_health_workflow_job(
+                runtime,
+                claimed,
+                &SourceHealthFailure {
+                    source_id: &source_id,
+                    skill_id: &skill.metadata.skill_id,
+                    session_id: None,
+                    error_code: "AGENT_SKILL_FAILED",
+                    message: format!(
+                        "source-health skill `{}` failed: {error:#}",
+                        skill.metadata.skill_id
+                    ),
+                },
+            );
+        }
+    };
+    insert_executed_session_log(
+        runtime.state_db.connection(),
+        &skill,
+        &claimed.id,
+        &executed,
+    )?;
+    let Some(result_path) = executed.result_path.as_ref() else {
+        return fail_source_health_workflow_job(
+            runtime,
+            claimed,
+            &SourceHealthFailure {
+                source_id: &source_id,
+                skill_id: &skill.metadata.skill_id,
+                session_id: Some(&session_id),
+                error_code: "AGENT_RUN_FAILED",
+                message: format!(
+                    "source-health skill `{}` did not produce a result contract",
+                    skill.metadata.skill_id
+                ),
+            },
+        );
+    };
+    let result_json = match read_validated_skill_result(&skill, result_path) {
+        Ok(payload) => payload,
+        Err(error) => {
+            return fail_source_health_workflow_job(
+                runtime,
+                claimed,
+                &SourceHealthFailure {
+                    source_id: &source_id,
+                    skill_id: &skill.metadata.skill_id,
+                    session_id: Some(&session_id),
+                    error_code: "AGENT_SKILL_FAILED",
+                    message: format!(
+                        "source-health skill `{}` produced invalid result contract: {error:#}",
+                        skill.metadata.skill_id
+                    ),
+                },
+            );
+        }
+    };
+    let (health_state, circuit_state, canary_result, failure_classification) =
+        source_health_result_fields(&result_json);
     let now = Utc::now().to_rfc3339();
     runtime.state_db.with_write_transaction(|tx| {
-        persist_source_runtime_canary(tx, &source_id, "procurement", "green", "passed", None, &now)
+        persist_source_runtime_canary(
+            tx,
+            &SourceRuntimeCanaryUpdate {
+                source_id: &source_id,
+                kind: source_kind,
+                health_state: &health_state,
+                circuit_state: &circuit_state,
+                canary_result: &canary_result,
+                error_code: failure_classification.as_deref(),
+                now: &now,
+            },
+        )
     })?;
 
     complete_claimed_job_after_side_effect(
@@ -2369,8 +2616,16 @@ fn run_source_health_workflow_job(
         "source_runtime_state",
         json!({
             "source_id": source_id,
-            "health_state": "green",
-            "canary_result": "passed",
+            "skill_id": skill.metadata.skill_id,
+            "session_id": session_id,
+            "result_path": result_path,
+            "health_state": health_state,
+            "circuit_state": circuit_state,
+            "canary_result": canary_result,
+            "failure_classification": failure_classification,
+            "sample_item_count": result_json
+                .get("sample_item_count")
+                .and_then(Value::as_i64),
         }),
     )
 }
@@ -2391,12 +2646,15 @@ fn run_auth_refresh_workflow_job(
     runtime.state_db.with_write_transaction(|tx| {
         persist_source_runtime_canary(
             tx,
-            &source_id,
-            "procurement",
-            "green",
-            "passed",
-            Some("AUTH_REFRESH_OK"),
-            &now,
+            &SourceRuntimeCanaryUpdate {
+                source_id: &source_id,
+                kind: "procurement",
+                health_state: "green",
+                circuit_state: "closed",
+                canary_result: "passed",
+                error_code: Some("AUTH_REFRESH_OK"),
+                now: &now,
+            },
         )
     })?;
 
@@ -28337,6 +28595,52 @@ mod tests {
         }
     }
 
+    fn write_fake_source_health_claude(root: &Path) -> Result<std::path::PathBuf> {
+        let state_dir = root.join("fake-source-health-claude");
+        fs::create_dir_all(&state_dir)?;
+        fs::write(
+            state_dir.join("probe.json"),
+            serde_json::to_vec_pretty(&json!({
+                "auth_healthy": true,
+                "structured_output": true,
+                "pty_viable": true,
+                "browser_tools": true,
+            }))?,
+        )?;
+        fs::write(
+            state_dir.join("result-source-health.json"),
+            serde_json::to_vec_pretty(&json!({
+                "source_id": FTS_SOURCE_ID,
+                "health_state": "green",
+                "checks": {
+                    "reachability": "passed",
+                    "fingerprint": "passed",
+                    "auth_state": "anonymous_ok",
+                    "locale": "passed",
+                    "challenge_rate": "passed",
+                    "minimal_extraction": "passed",
+                },
+                "sample_item_count": 1,
+            }))?,
+        )?;
+        let program = state_dir.join("claude");
+        fs::write(
+            &program,
+            format!(
+                "#!/bin/sh\nset -eu\nstate_dir=\"{}\"\ncase \"${{1-}}\" in\n  --version|-v)\n    printf 'claude 1.2.3\\n'\n    exit 0\n    ;;\n  probe)\n    cat \"$state_dir/probe.json\"\n    exit 0\n    ;;\nesac\ncp \"$state_dir/result-source-health.json\" result.json\nprintf '{{\"event\":\"checkpoint\",\"seq\":1,\"path\":\"result.json\"}}\\n'\n",
+                state_dir.display()
+            ),
+        )?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut permissions = fs::metadata(&program)?.permissions();
+            permissions.set_mode(0o755);
+            fs::set_permissions(&program, permissions)?;
+        }
+        Ok(program)
+    }
+
     fn seed_running_cron_job(conn: &Connection, job_id: &str, kind: &str) -> Result<()> {
         conn.execute(
             "\
@@ -28388,6 +28692,18 @@ mod tests {
             |row| row.get(0),
         )?;
         assert_eq!(source_health_count, 1);
+
+        let source_health_session_count: i64 = conn.query_row(
+            "\
+            SELECT COUNT(*)
+            FROM agent_session_logs
+            WHERE job_id = 'job-source-health'
+              AND skill_path LIKE '%source-health/fts%'
+            ",
+            [],
+            |row| row.get(0),
+        )?;
+        assert_eq!(source_health_session_count, 1);
 
         let auth_refresh_count: i64 = conn.query_row(
             "\
@@ -28537,7 +28853,8 @@ mod tests {
 
     #[tokio::test]
     async fn autonomous_worker_routes_cron_kinds_to_side_effect_handlers() -> Result<()> {
-        let (_temp, mut runtime, cli) = bootstrap_manifest_render_runtime()?;
+        let (temp, mut runtime, mut cli) = bootstrap_manifest_render_runtime()?;
+        cli.agent_cli_program = Some(write_fake_source_health_claude(temp.path())?);
         let runner = JobRunner::new(super::LOCAL_EXECUTOR_ID);
         let cron_jobs = [
             claimed_cron_job(
