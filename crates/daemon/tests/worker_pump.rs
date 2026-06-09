@@ -621,6 +621,51 @@ mod tests {
     }
 
     #[test]
+    fn worker_001_commercial_sweep_asserts_required_side_effect_rows() -> Result<()> {
+        let main_rs = include_str!("../src/main.rs");
+        let worker_001 = section_between(
+            main_rs,
+            "async fn autonomous_worker_routes_cron_kinds_to_side_effect_handlers",
+            "assert_new_cron_handler_side_effects(runtime.state_db.connection())",
+        )?;
+        assert_contains_all(
+            worker_001,
+            &[
+                "seed_stage11_minimal_graph(runtime.state_db.connection(), \"GB\")",
+                "load_stage11_rows_for_manual_retry(runtime.state_db.connection())",
+                "\"job-commercial-sweep\"",
+                "\"commercial_sweep\"",
+                "\"stage_run_id\": \"stage-commercial-sweep\"",
+            ],
+        )?;
+
+        let commercial_assertions = section_between(
+            main_rs,
+            "let landed_cost_stage_run_id",
+            "fn assert_health_auth_shadow_payload",
+        )?;
+        assert_contains_all(
+            commercial_assertions,
+            &[
+                "FROM landed_cost_estimates",
+                "process_id = 'process-stage11'",
+                "product_candidate_id = 'candidate-stage11'",
+                "supplier_quote_id = 'quote-stage11'",
+                "assert_eq!(landed_cost_stage_run_id, \"stage-commercial-sweep\")",
+                "FROM candidate_net_margin_assessments",
+                "stage_run_id = 'stage-commercial-sweep-net-margin'",
+                "assert!(!net_margin_basis_hash.trim().is_empty())",
+                "FROM manifests m",
+                "JOIN pipeline_assessments pa ON pa.process_id = m.process_id",
+                "assert_eq!(manifest_row.0, \"stage-commercial-sweep-manifest\")",
+                "assert_eq!(manifest_row.1, \"manifest_ready\")",
+                "assert!(!manifest_row.2.trim().is_empty())",
+            ],
+        )?;
+        Ok(())
+    }
+
+    #[test]
     fn worker_001_readiness_sweep_asserts_required_side_effect_columns() -> Result<()> {
         let main_rs = include_str!("../src/main.rs");
         let readiness_assertions = section_between(
