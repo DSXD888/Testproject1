@@ -58,6 +58,28 @@ mod tests {
         Ok(())
     }
 
+    fn seed_job_with_kind(
+        conn: &rusqlite::Connection,
+        job_id: &str,
+        kind: &str,
+        created_at: &str,
+    ) -> Result<()> {
+        conn.execute(
+            "\
+            INSERT INTO workflow_jobs (
+              id, kind, status, scheduled_for, input_payload, created_at
+            ) VALUES (?1, ?2, 'pending', NULL, ?3, ?4)
+            ",
+            params![
+                job_id,
+                kind,
+                json!({ "job_id": job_id, "kind": kind }).to_string(),
+                created_at,
+            ],
+        )?;
+        Ok(())
+    }
+
     fn seed_running_job(
         conn: &rusqlite::Connection,
         job_id: &str,
@@ -104,16 +126,16 @@ mod tests {
             "2026-03-25T00:00:00Z",
         )?;
 
-        let db_path = state_db.db_path().to_path_buf();
+        let db_path = Arc::new(state_db.db_path().to_path_buf());
         let barrier = Arc::new(Barrier::new(4));
         let mut handles = Vec::new();
-        for index in 0..4 {
-            let db_path = db_path.clone();
+        for claimer_name in ["claimer-0", "claimer-1", "claimer-2", "claimer-3"] {
+            let db_path = Arc::clone(&db_path);
             let barrier = Arc::clone(&barrier);
             handles.push(thread::spawn(move || -> Result<Option<String>> {
-                let state_db = StateDb::open(&db_path)?;
+                let state_db = StateDb::open(db_path.as_path())?;
                 barrier.wait();
-                Ok(JobRunner::new(format!("claimer-{index}"))
+                Ok(JobRunner::new(claimer_name)
                     .claim_next_job(state_db.connection())?
                     .map(|job| job.id))
             }));
@@ -384,6 +406,79 @@ mod tests {
         ensure!(
             claim_source.contains("attempt_count = attempt_count + 1"),
             "L3-T-job_claim-005 expected claim.rs to own attempt-count mutation"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn impact_job_claim_new_kinds_claimable_without_mutating_lease_contract() -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        let expected_jobs = [
+            ("impact-job-kind-0", "sync_source", "2026-03-25T00:00:00Z"),
+            ("impact-job-kind-1", "source_health", "2026-03-25T00:01:00Z"),
+            ("impact-job-kind-2", "auth_refresh", "2026-03-25T00:02:00Z"),
+            (
+                "impact-job-kind-3",
+                "validation_cross_model_audit",
+                "2026-03-25T00:03:00Z",
+            ),
+            (
+                "impact-job-kind-4",
+                "validation_calibration_readiness_sweep",
+                "2026-03-25T00:04:00Z",
+            ),
+            (
+                "impact-job-kind-5",
+                "commercial_sweep",
+                "2026-03-25T00:05:00Z",
+            ),
+        ];
+
+        for (job_id, kind, created_at) in expected_jobs {
+            seed_job_with_kind(state_db.connection(), job_id, kind, created_at)?;
+        }
+
+        for (expected_id, expected_kind, _) in expected_jobs {
+            let claimed = JobRunner::new("autonomous-kind-claimer")
+                .claim_next_job(state_db.connection())?
+                .ok_or_else(|| anyhow!("impact_job_claim expected claim for {expected_kind}"))?;
+            ensure!(
+                claimed.kind == *expected_kind,
+                "impact_job_claim expected kind {expected_kind}, got {}",
+                claimed.kind
+            );
+            ensure!(
+                claimed.id == expected_id,
+                "impact_job_claim expected FIFO claim for {expected_kind}, got {}",
+                claimed.id
+            );
+        }
+
+        let claimed_count: i64 = state_db.connection().query_row(
+            "\
+            SELECT COUNT(*)
+            FROM workflow_jobs
+            WHERE kind IN (
+              'sync_source',
+              'source_health',
+              'auth_refresh',
+              'validation_cross_model_audit',
+              'validation_calibration_readiness_sweep',
+              'commercial_sweep'
+            )
+              AND status = 'running'
+              AND lease_owner = 'autonomous-kind-claimer'
+              AND lease_expires_at IS NOT NULL
+              AND attempt_count = 1
+            ",
+            [],
+            |row| row.get(0),
+        )?;
+        let expected_count =
+            i64::try_from(expected_jobs.len()).context("counting autonomous job kinds")?;
+        ensure!(
+            claimed_count == expected_count,
+            "impact_job_claim expected every autonomous kind to claim with lease metadata"
         );
         Ok(())
     }
