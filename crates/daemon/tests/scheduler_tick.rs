@@ -389,16 +389,19 @@ mod tests {
 
     fn query_completed_commercial_sweep_job(
         conn: &Connection,
+        scheduled_for: &str,
     ) -> Result<(String, String, String, String)> {
         Ok(conn.query_row(
             "\
             SELECT id, status, scheduled_for, output_payload
             FROM workflow_jobs
             WHERE kind = 'commercial_sweep'
+              AND scheduled_for = ?1
+              AND status = 'completed'
             ORDER BY created_at DESC
             LIMIT 1
             ",
-            [],
+            params![scheduled_for],
             |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
         )?)
     }
@@ -412,6 +415,24 @@ mod tests {
               AND scheduled_for = ?1
             ",
             params![scheduled_for],
+            |row| row.get(0),
+        )?)
+    }
+
+    fn count_commercial_sweep_jobs_at_status(
+        conn: &Connection,
+        scheduled_for: &str,
+        status: &str,
+    ) -> Result<i64> {
+        Ok(conn.query_row(
+            "\
+            SELECT COUNT(*)
+            FROM workflow_jobs
+            WHERE kind = 'commercial_sweep'
+              AND scheduled_for = ?1
+              AND status = ?2
+            ",
+            params![scheduled_for, status],
             |row| row.get(0),
         )?)
     }
@@ -484,63 +505,76 @@ mod tests {
         )?)
     }
 
-    fn assert_m2_commercial_sweep_side_effects(conn: &Connection) -> Result<()> {
-        let scheduled_for = "2026-06-05T07:00:00+00:00";
+    fn assert_commercial_sweep_side_effects_for_slot(
+        conn: &Connection,
+        scheduled_for: &str,
+        case_name: &str,
+    ) -> Result<()> {
         ensure!(
             count_commercial_sweep_jobs_at(conn, scheduled_for)? == 1,
-            "M2 expected exactly one commercial_sweep job at the 07:00 slot"
+            "{case_name} expected exactly one commercial_sweep job at slot {scheduled_for}"
         );
+        let expected_idempotency_key =
+            format!("cron:commercial-sweep:pipeline/commercial-sweep:{scheduled_for}");
         ensure!(
             completed_commercial_sweep_idempotency_key(conn, scheduled_for)?
-                == "cron:commercial-sweep:pipeline/commercial-sweep:2026-06-05T07:00:00+00:00",
-            "M2 expected the commercial sweep to use the shared per-slot cron dedup key"
+                == expected_idempotency_key,
+            "{case_name} expected the commercial sweep to use the shared per-slot cron dedup key"
         );
 
         let (_job_id, status, job_scheduled_for, output_payload) =
-            query_completed_commercial_sweep_job(conn)?;
+            query_completed_commercial_sweep_job(conn, scheduled_for)?;
         ensure!(
             status == "completed",
-            "M2 commercial_sweep did not complete"
+            "{case_name} commercial_sweep did not complete"
         );
         ensure!(
             job_scheduled_for == scheduled_for,
-            "M2 commercial_sweep scheduled_for drifted: {job_scheduled_for}"
+            "{case_name} commercial_sweep scheduled_for drifted: {job_scheduled_for}"
         );
         let output_payload: Value = serde_json::from_str(&output_payload)?;
         let stage_run_id = output_payload
             .get("stage_run_id")
             .and_then(Value::as_str)
-            .ok_or_else(|| anyhow!("M2 commercial_sweep output missing stage_run_id"))?;
+            .ok_or_else(|| anyhow!("{case_name} commercial_sweep output missing stage_run_id"))?;
         let net_margin_stage_run_id = output_payload
             .get("net_margin_stage_run_id")
             .and_then(Value::as_str)
-            .ok_or_else(|| anyhow!("M2 commercial_sweep output missing net_margin_stage_run_id"))?;
+            .ok_or_else(|| {
+                anyhow!("{case_name} commercial_sweep output missing net_margin_stage_run_id")
+            })?;
         let manifest_stage_run_id = output_payload
             .get("manifest_stage_run_id")
             .and_then(Value::as_str)
-            .ok_or_else(|| anyhow!("M2 commercial_sweep output missing manifest_stage_run_id"))?;
+            .ok_or_else(|| {
+                anyhow!("{case_name} commercial_sweep output missing manifest_stage_run_id")
+            })?;
 
         ensure!(
             count_landed_cost_rows_for_stage(conn, stage_run_id)? > 0,
-            "M2 expected landed_cost_estimates row for commercial sweep stage {stage_run_id}"
+            "{case_name} expected landed_cost_estimates row for commercial sweep stage {stage_run_id}"
         );
         ensure!(
             !net_margin_basis_hash_for_stage(conn, net_margin_stage_run_id)?
                 .trim()
                 .is_empty(),
-            "M2 expected non-empty net-margin basis_hash"
+            "{case_name} expected non-empty net-margin basis_hash"
         );
         let (pipeline_state, decision_basis_hash) =
             manifest_state_for_stage(conn, manifest_stage_run_id)?;
         ensure!(
             pipeline_state == "manifest_ready",
-            "M2 expected manifest_ready pipeline state, got {pipeline_state}"
+            "{case_name} expected manifest_ready pipeline state, got {pipeline_state}"
         );
         ensure!(
             !decision_basis_hash.trim().is_empty(),
-            "M2 expected non-empty pipeline decision_basis_hash"
+            "{case_name} expected non-empty pipeline decision_basis_hash"
         );
         Ok(())
+    }
+
+    fn assert_m2_commercial_sweep_side_effects(conn: &Connection) -> Result<()> {
+        assert_commercial_sweep_side_effects_for_slot(conn, "2026-06-05T07:00:00+00:00", "M2")
     }
 
     fn assert_commercial_sweep_body_avoids_manual_rerun() -> Result<()> {
@@ -571,6 +605,140 @@ mod tests {
             );
         }
         Ok(())
+    }
+
+    fn assert_desktop_manual_rerun_remains_operator_one_shot() -> Result<()> {
+        let desktop_source = include_str!("../../../apps/desktop/src-tauri/src/main.rs");
+        ensure!(
+            desktop_source.contains(
+                "const PIPELINE_RERUN_INGEST_STAGES: [&str; 3] = [\"landed-cost\", \"net-gate\", \"manifest\"];"
+            ),
+            "M4 expected manual desktop rerun to stay limited to landed-cost, net-gate, manifest"
+        );
+
+        let command_start = desktop_source
+            .find("fn trigger_pipeline_rerun<R: tauri::Runtime>(")
+            .ok_or_else(|| anyhow!("trigger_pipeline_rerun command missing"))?;
+        let command_source = desktop_source
+            .get(command_start..)
+            .ok_or_else(|| anyhow!("trigger_pipeline_rerun command slice out of bounds"))?;
+        let command_len = command_source
+            .find("fn trigger_pipeline_rerun_impl(")
+            .ok_or_else(|| anyhow!("trigger_pipeline_rerun_impl missing"))?;
+        let command_body = command_source
+            .get(..command_len)
+            .ok_or_else(|| anyhow!("trigger_pipeline_rerun command body slice out of bounds"))?;
+        ensure!(
+            command_body.contains("stop_daemon_for_exclusive_pipeline_rerun(&paths)"),
+            "M4 expected manual desktop rerun to remain the PID-stop operator path"
+        );
+
+        let impl_start = command_start
+            .checked_add(command_len)
+            .ok_or_else(|| anyhow!("trigger_pipeline_rerun implementation slice overflow"))?;
+        let impl_source = desktop_source
+            .get(impl_start..)
+            .ok_or_else(|| anyhow!("trigger_pipeline_rerun implementation slice out of bounds"))?;
+        let impl_len = impl_source
+            .find("fn list_manifests<R: tauri::Runtime>(")
+            .ok_or_else(|| anyhow!("list_manifests terminator missing"))?;
+        let impl_body = impl_source.get(..impl_len).ok_or_else(|| {
+            anyhow!("trigger_pipeline_rerun implementation body slice out of bounds")
+        })?;
+        ensure!(
+            impl_body.contains("PIPELINE_RERUN_INGEST_STAGES")
+                && impl_body.contains("run_daemon_ingest_stage(paths, stage)"),
+            "M4 expected manual rerun implementation to keep using the desktop one-shot ingest chain"
+        );
+        ensure!(
+            !impl_body.contains("commercial_sweep"),
+            "M4 manual desktop rerun must not include autonomous commercial_sweep jobs"
+        );
+        Ok(())
+    }
+
+    fn assert_guard_scope_004_no_remote_http_trigger() -> Result<()> {
+        let daemon_source = include_str!("../src/main.rs");
+        let desktop_source = include_str!("../../../apps/desktop/src-tauri/src/main.rs");
+        let daemon_production_source = daemon_source
+            .split("#[cfg(test)]")
+            .next()
+            .ok_or_else(|| anyhow!("daemon production source slice missing"))?;
+        ensure!(
+            !daemon_production_source.contains("trigger_pipeline_rerun"),
+            "guard_scope_004 expected no daemon-side trigger_pipeline_rerun surface"
+        );
+        ensure!(
+            desktop_source.contains("#[tauri::command]")
+                && desktop_source.contains("fn trigger_pipeline_rerun<R: tauri::Runtime>"),
+            "guard_scope_004 expected trigger_pipeline_rerun to remain a local Tauri command"
+        );
+
+        for forbidden in [
+            "\"/trigger_pipeline_rerun\"",
+            "\"/trigger-pipeline-rerun\"",
+            "\"/api/trigger_pipeline_rerun\"",
+            "\"/api/trigger-pipeline-rerun\"",
+            "trigger_pipeline_rerun_route",
+            "trigger_pipeline_rerun_endpoint",
+            "remote_trigger_pipeline_rerun",
+            "http_trigger_pipeline_rerun",
+        ] {
+            ensure!(
+                !daemon_production_source.contains(forbidden)
+                    && !desktop_source.contains(forbidden),
+                "guard_scope_004 found forbidden remote trigger marker `{forbidden}`"
+            );
+        }
+        Ok(())
+    }
+
+    fn seed_interrupted_commercial_sweep_job(
+        db_path: &Path,
+        scheduled_for: DateTime<Utc>,
+    ) -> Result<String> {
+        let mut state_db = StateDb::open(db_path)?;
+        let scheduled_for_raw = scheduled_for.to_rfc3339();
+        let job_id = format!(
+            "job-interrupted-commercial-sweep-{}",
+            scheduled_for.timestamp()
+        );
+        JobRunner::new("scheduler-commercial-interrupt").enqueue_job(
+            &mut state_db,
+            &EnqueueJobRequest {
+                job_id: job_id.clone(),
+                kind: "commercial_sweep".to_owned(),
+                process_id: None,
+                notice_id: None,
+                scope_kind: Some("pipeline".to_owned()),
+                scope_id: Some("commercial-sweep".to_owned()),
+                parent_job_id: None,
+                continuation_chain_id: None,
+                validation_required: false,
+                scheduled_for: Some(scheduled_for),
+                input_payload: json!({
+                    "source_id": "commercial-sweep",
+                    "skill_id": "pipeline/commercial-sweep",
+                    "skill_version": "1.0.0",
+                    "cron_expression": "0 0 7 * * *",
+                    "scheduled_for": scheduled_for_raw,
+                    "schedule_key": "commercial-sweep::pipeline/commercial-sweep",
+                }),
+                idempotency_key: format!(
+                    "cron:commercial-sweep:pipeline/commercial-sweep:{scheduled_for_raw}"
+                ),
+            },
+        )?;
+        state_db.connection().execute(
+            "\
+            UPDATE workflow_jobs
+            SET status = 'running',
+                started_at = ?1
+            WHERE id = ?2
+            ",
+            params![Utc::now().to_rfc3339(), job_id],
+        )?;
+        Ok(job_id)
     }
 
     fn enqueue_fts_history(db_path: &Path, scheduled_for: DateTime<Utc>) -> Result<()> {
@@ -1061,6 +1229,47 @@ mod tests {
         assert_m2_commercial_sweep_side_effects(&conn)?;
         assert_commercial_sweep_body_avoids_manual_rerun()?;
         Ok(())
+    }
+
+    #[test]
+    fn m4_manual_rerun_coexistence_recovers_after_interrupted_commercial_sweep() -> Result<()> {
+        let harness = SchedulerOneShotHarness::new()?;
+        harness.seed_commercial_stage11_graph()?;
+        let interrupted_slot = ts(2026, 6, 5, 7, 0, 0)?;
+        let recovery_slot = "2026-06-06T07:00:00+00:00";
+        let interrupted_job_id =
+            seed_interrupted_commercial_sweep_job(&harness.db_path, interrupted_slot)?;
+        harness.seed_completed_fts_source_health_slot(ts(2026, 6, 6, 7, 0, 0)?)?;
+
+        let fixture = commercial_stage_fixture();
+        let result = harness.run_scheduler_once_with_fixture("2026-06-06T07:00:00Z", &fixture)?;
+        ensure!(
+            result.success,
+            "M4 recovery one-shot should succeed after interrupted commercial sweep: stdout={} stderr={}",
+            result.stdout,
+            result.stderr
+        );
+        ensure!(
+            result.stdout.contains("enqueued=1") && result.stdout.contains("drained=1"),
+            "M4 expected next scheduled commercial_sweep slot to enqueue and drain once, got stdout={}",
+            result.stdout
+        );
+
+        let conn = harness.connection()?;
+        ensure!(
+            count_commercial_sweep_jobs_at_status(&conn, "2026-06-05T07:00:00+00:00", "running",)?
+                == 1,
+            "M4 expected interrupted job {interrupted_job_id} to remain an isolated running row"
+        );
+        assert_commercial_sweep_side_effects_for_slot(&conn, recovery_slot, "M4 recovery")?;
+        assert_commercial_sweep_body_avoids_manual_rerun()?;
+        assert_desktop_manual_rerun_remains_operator_one_shot()?;
+        Ok(())
+    }
+
+    #[test]
+    fn guard_scope_004_no_remote_http_trigger() -> Result<()> {
+        assert_guard_scope_004_no_remote_http_trigger()
     }
 
     #[test]
