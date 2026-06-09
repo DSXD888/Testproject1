@@ -103,6 +103,7 @@ recorded_decisions:
     chosen_branch: scheduled_sweep_only
     recommended: "Scheduled 07:00 coverage sweep only, unless operator wants lower latency."
     operator_answer: "Q8-residual = scheduled sweep only."
+    implementation_note: "Bead testproject1-0c1g.4.8 resolves this branch as scheduled-only: no successful sync_source completion hook enqueues commercial_sweep; the 07:00 scheduled coverage sweep remains the correctness path. commercial_nudge_001 is not activated because the chained nudge was not selected."
     blocks: ["testproject1-0c1g.4.8 (p3-q8-nudge)"]
   Q9_registry_reload_trigger:
     status: RECORDED
