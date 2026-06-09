@@ -27,6 +27,7 @@ mod tests {
         BrowserViewport, PtyCommand, PtyGeometry, PtyPairHandle, PtySession, SpawnOptions,
         SpawnPath, spawn_policy_steps,
     };
+    use crate::support::process::ProcessTreeHelper;
 
     #[derive(Debug, Deserialize)]
     struct PtyReport {
@@ -85,9 +86,7 @@ mod tests {
     fn l3_t_fault_pty_edge_cases_005_helper_path_is_selected_when_pre_exec_safety_is_unavailable()
     -> Result<()> {
         let mut session = PtySession::spawn(
-            PtyCommand::new("/bin/sh")
-                .arg("-lc")
-                .arg("printf 'helper-path\\n'"),
+            PtyCommand::new(ProcessTreeHelper::binary_path()?).arg("print-helper-path-and-sleep"),
             SpawnOptions {
                 spawn_path: SpawnPath::HelperBinary,
                 ..SpawnOptions::default()
@@ -142,9 +141,7 @@ mod tests {
     }
 
     fn report_command() -> Result<PtyCommand> {
-        Ok(
-            PtyCommand::new(crate::support::process::ProcessTreeHelper::binary_path()?)
-                .arg("report-session-semantics"),
-        )
+        Ok(PtyCommand::new(ProcessTreeHelper::binary_path()?)
+            .arg("report-session-semantics-and-sleep"))
     }
 }

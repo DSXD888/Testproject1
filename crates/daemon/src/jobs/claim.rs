@@ -349,6 +349,7 @@ fn lease_deadline(now: DateTime<Utc>) -> DateTime<Utc> {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
+    use chrono::{DateTime, Utc};
     use rusqlite::{Connection, params};
     use serde_json::json;
 
@@ -429,6 +430,52 @@ mod tests {
             ],
         )?;
         Ok(())
+    }
+
+    fn insert_running_job_with_kind(
+        conn: &Connection,
+        job_id: &str,
+        kind: &str,
+        lease_owner: &str,
+        lease_expires_at: &str,
+        attempt_count: i64,
+        created_at: &str,
+    ) -> Result<()> {
+        conn.execute(
+            "\
+            INSERT INTO workflow_jobs (
+              id, kind, process_id, scope_kind, scope_id, status, lease_owner,
+              lease_expires_at, attempt_count, input_payload, started_at, created_at
+            ) VALUES (
+              ?1, ?2, 'process-test', 'pipeline', ?1, 'running', ?3, ?4, ?5, ?6,
+              '2026-04-01T00:00:00Z', ?7
+            )
+            ",
+            params![
+                job_id,
+                kind,
+                lease_owner,
+                lease_expires_at,
+                attempt_count,
+                json!({"job_id": job_id, "kind": kind}).to_string(),
+                created_at
+            ],
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn lease_deadline_uses_existing_three_hundred_second_model() -> Result<()> {
+        let now = DateTime::parse_from_rfc3339("2026-04-01T12:00:00Z")?.with_timezone(&Utc);
+        let deadline = super::lease_deadline(now);
+
+        assert_eq!((deadline - now).num_seconds(), 300);
+        Ok(())
+    }
+
+    #[test]
+    fn heartbeat_interval_uses_existing_sixty_second_model() {
+        assert_eq!(super::DEFAULT_WORKFLOW_JOB_HEARTBEAT_SECONDS, 60);
     }
 
     #[test]
@@ -560,6 +607,47 @@ mod tests {
             |row| row.get(0),
         )?;
         assert_eq!(status, "pending");
+        Ok(())
+    }
+
+    #[test]
+    fn claim_next_job_for_kinds_recycles_expired_lease_before_lane_claim() -> Result<()> {
+        let conn = workflow_jobs_conn()?;
+        insert_running_job_with_kind(
+            &conn,
+            "expired-sync-source",
+            "sync_source",
+            "stale-executor",
+            "2026-04-01T00:00:00Z",
+            1,
+            "2026-04-01T00:00:00Z",
+        )?;
+        insert_job_with_kind(
+            &conn,
+            "newer-sync-source",
+            "sync_source",
+            "pending",
+            "2026-04-03T00:00:00Z",
+            None,
+        )?;
+
+        let pty_kinds = ["sync_source", "source_health", "auth_refresh"];
+        let reclaimed = claim_next_job_for_kinds(&conn, "pty-executor", &pty_kinds)?
+            .ok_or_else(|| anyhow::anyhow!("expired lane job should be claimable"))?;
+
+        assert_eq!(reclaimed.id, "expired-sync-source");
+        let (status, lease_owner, attempt_count): (String, Option<String>, i64) = conn.query_row(
+            "\
+                SELECT status, lease_owner, attempt_count
+                FROM workflow_jobs
+                WHERE id = 'expired-sync-source'
+                ",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )?;
+        assert_eq!(status, "running");
+        assert_eq!(lease_owner.as_deref(), Some("pty-executor"));
+        assert_eq!(attempt_count, 2);
         Ok(())
     }
 }

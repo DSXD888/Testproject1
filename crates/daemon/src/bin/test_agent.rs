@@ -3,13 +3,16 @@
 use std::io::{IsTerminal, Write};
 use std::os::unix::process::CommandExt;
 use std::process::{self, Command, Stdio};
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use std::thread;
 use std::time::Duration;
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
-use nix::unistd::{Pid, getpgid, getsid};
+use nix::unistd::{getpgid, getpid, getsid};
 use serde::Serialize;
+use signal_hook::consts::{SIGINT, SIGTERM};
 
 #[derive(Parser)]
 struct Cli {
@@ -21,6 +24,8 @@ struct Cli {
 enum CommandKind {
     PtyEcho { message: String },
     ReportSessionSemantics,
+    ReportSessionSemanticsAndSleep,
+    PrintHelperPathAndSleep,
     Sleep { seconds: u64 },
     SilentStall { seconds: u64 },
     IgnoreIntTerm { seconds: u64 },
@@ -54,6 +59,12 @@ fn main() -> Result<()> {
     match cli.cmd {
         CommandKind::PtyEcho { message } => pty_echo(&message),
         CommandKind::ReportSessionSemantics => report_session_semantics(),
+        CommandKind::ReportSessionSemanticsAndSleep => {
+            report_session_semantics()?;
+            sleep_for(1);
+            Ok(())
+        }
+        CommandKind::PrintHelperPathAndSleep => print_helper_path_and_sleep(),
         CommandKind::Sleep { seconds } | CommandKind::SilentStall { seconds } => {
             sleep_for(seconds);
             Ok(())
@@ -82,9 +93,18 @@ fn pty_echo(message: &str) -> Result<()> {
     Ok(())
 }
 
+fn print_helper_path_and_sleep() -> Result<()> {
+    println!("helper-path");
+    std::io::stdout()
+        .flush()
+        .context("flushing helper path marker")?;
+    sleep_for(1);
+    Ok(())
+}
+
 fn report_session_semantics() -> Result<()> {
-    let pid = process::id();
-    let pid_raw = Pid::from_raw(pid.cast_signed());
+    let pid_raw = getpid();
+    let pid = pid_raw.as_raw().cast_unsigned();
     let report = SessionSemantics {
         isatty_stdin: std::io::stdin().is_terminal(),
         isatty_stdout: std::io::stdout().is_terminal(),
@@ -130,13 +150,16 @@ fn sleep_for(seconds: u64) {
 }
 
 fn ignore_int_term(seconds: u64) -> Result<()> {
-    let error = Command::new("python3")
-        .arg("-c")
-        .arg(format!(
-            "import signal, sys, time; signal.signal(signal.SIGINT, signal.SIG_IGN); signal.signal(signal.SIGTERM, signal.SIG_IGN); sys.stdout.write('ready\\n'); sys.stdout.flush(); time.sleep({seconds})"
-        ))
-        .exec();
-    Err(anyhow!("exec python for ignore-int-term failed: {error}"))
+    let ignored = Arc::new(AtomicBool::new(false));
+    signal_hook::flag::register(SIGINT, Arc::clone(&ignored))
+        .context("registering SIGINT ignore helper")?;
+    signal_hook::flag::register(SIGTERM, ignored).context("registering SIGTERM ignore helper")?;
+    println!("ready");
+    std::io::stdout()
+        .flush()
+        .context("flushing ignore-int-term readiness")?;
+    sleep_for(seconds);
+    Ok(())
 }
 
 fn emit_jsonl_good() -> Result<()> {
@@ -202,8 +225,8 @@ fn checkpoint_then_crash() -> Result<()> {
 }
 
 fn fork_grandchild(seconds: u64) -> Result<()> {
-    let current_exe = std::env::current_exe().context("locating current executable")?;
-    let _child = Command::new(current_exe)
+    let image = std::env::current_exe().context("locating helper image")?;
+    let _child = Command::new(image)
         .arg("sleep")
         .arg(seconds.to_string())
         .spawn()
@@ -213,8 +236,8 @@ fn fork_grandchild(seconds: u64) -> Result<()> {
 }
 
 fn double_fork_escape(seconds: u64) -> Result<()> {
-    let current_exe = std::env::current_exe().context("locating current executable")?;
-    let _detached = Command::new(current_exe)
+    let image = std::env::current_exe().context("locating helper image")?;
+    let _detached = Command::new(image)
         .arg("sleep")
         .arg(seconds.to_string())
         .stdout(Stdio::null())
