@@ -30388,6 +30388,75 @@ mod tests {
     }
 
     #[test]
+    fn procontract_enrich_params_omit_awaiting_targets_when_worklist_empty() -> Result<()> {
+        let (_temp, runtime, _cli) = bootstrap_manifest_render_runtime()?;
+
+        let parameters = super::procontract_enrich_runtime_job_parameters(&runtime)?;
+
+        anyhow::ensure!(
+            parameters.get("awaitingAccessTargets").is_none(),
+            "empty awaiting-access work-list must preserve scan-only enrich input"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn procontract_enrich_params_include_only_awaiting_access_direct_targets() -> Result<()> {
+        let (_temp, runtime, _cli) = bootstrap_manifest_render_runtime()?;
+        let conn = runtime.state_db.connection();
+        conn.execute(
+            "\
+            INSERT INTO procontract_pending_enrichment (
+              id, process_id, notice_id, advert_id, source_notice_id, state,
+              interest_registered_at, updated_at
+            ) VALUES
+              (
+                'pending-direct', 'proc-direct', 'notice-direct', 'advert-direct',
+                'source-direct', 'awaiting_access', '2026-03-25T11:00:00Z',
+                '2026-03-25T11:01:00Z'
+              ),
+              (
+                'pending-fallback', 'proc-fallback', 'notice-fallback',
+                'advert-fallback', NULL, 'awaiting_access',
+                '2026-03-25T11:00:00Z', '2026-03-25T11:02:00Z'
+              ),
+              (
+                'pending-enriched', 'proc-enriched', 'notice-enriched',
+                'advert-enriched', 'source-enriched', 'enriched',
+                '2026-03-25T11:00:00Z', '2026-03-25T11:03:00Z'
+              ),
+              (
+                'pending-expired', 'proc-expired', 'notice-expired',
+                'advert-expired', 'source-expired', 'expired',
+                '2026-03-25T11:00:00Z', '2026-03-25T11:04:00Z'
+              )
+            ",
+            [],
+        )?;
+
+        let parameters = super::procontract_enrich_runtime_job_parameters(&runtime)?;
+        let targets = parameters["awaitingAccessTargets"]
+            .as_array()
+            .ok_or_else(|| anyhow::anyhow!("awaitingAccessTargets must be injected"))?;
+
+        anyhow::ensure!(targets.len() == 2);
+        anyhow::ensure!(targets[0]["advertId"] == "advert-direct");
+        anyhow::ensure!(targets[0]["sourceNoticeId"] == "source-direct");
+        anyhow::ensure!(targets[0]["processId"] == "proc-direct");
+        anyhow::ensure!(targets[1]["advertId"] == "advert-fallback");
+        anyhow::ensure!(targets[1]["sourceNoticeId"] == "advert-fallback");
+        anyhow::ensure!(targets[1]["processId"] == "proc-fallback");
+        anyhow::ensure!(
+            targets.iter().all(|target| !matches!(
+                target["processId"].as_str(),
+                Some("proc-enriched" | "proc-expired")
+            )),
+            "terminal rows must not be direct enrich targets"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn sync_source_route_rejects_source_only_marketplace_and_commercial_keys() -> Result<()> {
         for payload in [
             json!({
