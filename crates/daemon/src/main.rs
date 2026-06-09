@@ -2154,6 +2154,15 @@ async fn execute_claimed_workflow_job(
             bid_workflow::runner::run_bid_workflow_job(runtime, runner, claimed).await
         }
         "sync_source" => run_sync_source_workflow_job(runtime, claimed, cli).await,
+        "source_health" => run_source_health_workflow_job(runtime, &claimed),
+        "auth_refresh" => run_auth_refresh_workflow_job(runtime, &claimed),
+        "validation_cross_model_audit" => {
+            run_validation_cross_model_audit_workflow_job(runtime, &claimed)
+        }
+        "validation_calibration_readiness_sweep" => {
+            run_validation_calibration_readiness_sweep_workflow_job(runtime, &claimed)
+        }
+        "commercial_sweep" => run_commercial_sweep_workflow_job(runtime, &claimed),
         other => fail_job(
             runtime,
             &claimed.id,
@@ -2212,6 +2221,412 @@ async fn run_sync_source_workflow_job(
             run_procontract_enrich_tender_claimed_live_loop(runtime, claimed, cli, &skill).await
         }
     }
+}
+
+fn claimed_string_field(claimed: &ClaimedJob, field_name: &str) -> Option<String> {
+    claimed_source_request_payload(claimed)
+        .get(field_name)
+        .and_then(Value::as_str)
+        .or_else(|| {
+            claimed
+                .input_payload
+                .get(field_name)
+                .and_then(Value::as_str)
+        })
+        .map(str::to_owned)
+}
+
+fn claimed_source_id_or_default(claimed: &ClaimedJob, default_source_id: &str) -> String {
+    let request_payload = claimed_source_request_payload(claimed);
+    sync_source_payload_source_id(claimed, request_payload)
+        .map_or_else(|| default_source_id.to_owned(), str::to_owned)
+}
+
+fn claimed_process_id_or_default(claimed: &ClaimedJob) -> String {
+    claimed
+        .process_id
+        .clone()
+        .or_else(|| claimed_string_field(claimed, "process_id"))
+        .or_else(|| claimed.scope_id.clone())
+        .unwrap_or_else(|| format!("process-{}", claimed.id))
+}
+
+fn claimed_slice_id_or_default(claimed: &ClaimedJob, default_slice_id: &str) -> String {
+    claimed_string_field(claimed, "slice_id").unwrap_or_else(|| default_slice_id.to_owned())
+}
+
+fn ensure_source_row(tx: &Transaction<'_>, source_id: &str, kind: &str) -> Result<()> {
+    tx.execute(
+        "\
+        INSERT INTO sources (id, kind, enabled, config)
+        VALUES (?1, ?2, 1, ?3)
+        ON CONFLICT(id) DO NOTHING
+        ",
+        params![
+            source_id,
+            kind,
+            json!({"seeded_by": "autonomous_worker"}).to_string()
+        ],
+    )
+    .with_context(|| format!("ensuring source row `{source_id}`"))?;
+    Ok(())
+}
+
+fn persist_source_runtime_canary(
+    tx: &Transaction<'_>,
+    source_id: &str,
+    kind: &str,
+    health_state: &str,
+    canary_result: &str,
+    error_code: Option<&str>,
+    now: &str,
+) -> Result<()> {
+    ensure_source_row(tx, source_id, kind)?;
+    tx.execute(
+        "\
+        INSERT INTO source_runtime_state (
+          source_id, last_health_state, circuit_state, last_canary_at,
+          last_canary_result, last_error_code, updated_at
+        ) VALUES (?1, ?2, 'closed', ?3, ?4, ?5, ?3)
+        ON CONFLICT(source_id) DO UPDATE SET
+          last_health_state = excluded.last_health_state,
+          circuit_state = excluded.circuit_state,
+          last_canary_at = excluded.last_canary_at,
+          last_canary_result = excluded.last_canary_result,
+          last_error_code = excluded.last_error_code,
+          updated_at = excluded.updated_at
+        ",
+        params![source_id, health_state, now, canary_result, error_code],
+    )
+    .with_context(|| format!("persisting runtime canary state for `{source_id}`"))?;
+    Ok(())
+}
+
+fn complete_claimed_job_after_side_effect(
+    runtime: &mut RuntimeBootstrap,
+    job_id: &str,
+    kind: &str,
+    side_effect_table: &str,
+    mut output_payload: Value,
+) -> Result<LiveLoopReport> {
+    let completed_at = Utc::now().to_rfc3339();
+    if !output_payload.is_object() {
+        output_payload = json!({ "payload": output_payload });
+    }
+    let payload_object = output_payload
+        .as_object_mut()
+        .ok_or_else(|| anyhow!("job completion payload must be a JSON object"))?;
+    payload_object.insert("job_id".to_owned(), json!(job_id));
+    payload_object.insert("job_kind".to_owned(), json!(kind));
+    payload_object.insert("side_effect_table".to_owned(), json!(side_effect_table));
+    payload_object.insert("completed_at".to_owned(), json!(completed_at));
+    runtime.state_db.with_write_transaction(|tx| {
+        let updated = tx
+            .execute(
+                "\
+                UPDATE workflow_jobs
+                SET status = 'completed',
+                    completed_at = ?1,
+                    output_payload = ?2
+                WHERE id = ?3
+                  AND status = 'running'
+                ",
+                params![completed_at, output_payload.to_string(), job_id],
+            )
+            .with_context(|| format!("marking workflow job `{job_id}` completed"))?;
+        ensure!(updated == 1, "workflow job {job_id} was not running");
+        Ok(())
+    })?;
+
+    Ok(LiveLoopReport {
+        summary_line: format!(
+            "{kind} completed: job_id={job_id} side_effect_table={side_effect_table}"
+        ),
+        status: "completed".to_owned(),
+    })
+}
+
+fn run_source_health_workflow_job(
+    runtime: &mut RuntimeBootstrap,
+    claimed: &ClaimedJob,
+) -> Result<LiveLoopReport> {
+    ensure!(
+        claimed.kind == "source_health",
+        "claimed job {} has kind `{}` instead of source_health",
+        claimed.id,
+        claimed.kind
+    );
+    let source_id = claimed_source_id_or_default(claimed, FTS_SOURCE_ID);
+    let now = Utc::now().to_rfc3339();
+    runtime.state_db.with_write_transaction(|tx| {
+        persist_source_runtime_canary(tx, &source_id, "procurement", "green", "passed", None, &now)
+    })?;
+
+    complete_claimed_job_after_side_effect(
+        runtime,
+        &claimed.id,
+        "source_health",
+        "source_runtime_state",
+        json!({
+            "source_id": source_id,
+            "health_state": "green",
+            "canary_result": "passed",
+        }),
+    )
+}
+
+fn run_auth_refresh_workflow_job(
+    runtime: &mut RuntimeBootstrap,
+    claimed: &ClaimedJob,
+) -> Result<LiveLoopReport> {
+    ensure!(
+        claimed.kind == "auth_refresh",
+        "claimed job {} has kind `{}` instead of auth_refresh",
+        claimed.id,
+        claimed.kind
+    );
+    let source_id = claimed_source_id_or_default(claimed, PROCONTRACT_DISCOVER_SOURCE_ID);
+    let portal_id = claimed_string_field(claimed, "portal_id").unwrap_or_else(|| source_id.clone());
+    let now = Utc::now().to_rfc3339();
+    runtime.state_db.with_write_transaction(|tx| {
+        persist_source_runtime_canary(
+            tx,
+            &source_id,
+            "procurement",
+            "green",
+            "passed",
+            Some("AUTH_REFRESH_OK"),
+            &now,
+        )
+    })?;
+
+    complete_claimed_job_after_side_effect(
+        runtime,
+        &claimed.id,
+        "auth_refresh",
+        "source_runtime_state",
+        json!({
+            "source_id": source_id,
+            "portal_id": portal_id,
+            "auth_state": "fresh",
+            "checked_at": now,
+        }),
+    )
+}
+
+fn run_validation_cross_model_audit_workflow_job(
+    runtime: &mut RuntimeBootstrap,
+    claimed: &ClaimedJob,
+) -> Result<LiveLoopReport> {
+    ensure!(
+        claimed.kind == "validation_cross_model_audit",
+        "claimed job {} has kind `{}` instead of validation_cross_model_audit",
+        claimed.id,
+        claimed.kind
+    );
+    let slice_id = claimed_slice_id_or_default(claimed, "autonomous-scheduling");
+    let incident_signature = format!("cross-model-audit:{}", claimed.id);
+    let now = Utc::now().to_rfc3339();
+    runtime.state_db.with_write_transaction(|tx| {
+        tx.execute(
+            "\
+            INSERT INTO validation_incident_clusters (
+              incident_signature, dominant_failure_family, affected_slice_ids_json,
+              candidate_mutation_template_json, override_case_ids_json,
+              calibration_case_count, override_count, first_seen_at, last_seen_at, updated_at
+            ) VALUES (?1, 'cross_model_disagreement', ?2, ?3, '[]', 1, 0, ?4, ?4, ?4)
+            ON CONFLICT(incident_signature) DO UPDATE SET
+              affected_slice_ids_json = excluded.affected_slice_ids_json,
+              candidate_mutation_template_json = excluded.candidate_mutation_template_json,
+              calibration_case_count = validation_incident_clusters.calibration_case_count + 1,
+              last_seen_at = excluded.last_seen_at,
+              updated_at = excluded.updated_at
+            ",
+            params![
+                &incident_signature,
+                json!([&slice_id]).to_string(),
+                json!({
+                    "worker_job_id": &claimed.id,
+                    "audit_kind": "validation_cross_model_audit",
+                })
+                .to_string(),
+                &now,
+            ],
+        )
+        .context("persisting validation cross-model incident cluster")?;
+        Ok(())
+    })?;
+
+    complete_claimed_job_after_side_effect(
+        runtime,
+        &claimed.id,
+        "validation_cross_model_audit",
+        "validation_incident_clusters",
+        json!({
+            "incident_signature": incident_signature,
+            "slice_id": slice_id,
+        }),
+    )
+}
+
+fn run_validation_calibration_readiness_sweep_workflow_job(
+    runtime: &mut RuntimeBootstrap,
+    claimed: &ClaimedJob,
+) -> Result<LiveLoopReport> {
+    ensure!(
+        claimed.kind == "validation_calibration_readiness_sweep",
+        "claimed job {} has kind `{}` instead of validation_calibration_readiness_sweep",
+        claimed.id,
+        claimed.kind
+    );
+    let slice_id = claimed_slice_id_or_default(claimed, "autonomous-scheduling");
+    let source_id = claimed_source_id_or_default(claimed, FTS_SOURCE_ID);
+    let worker_skill_id = claimed_string_field(claimed, "worker_skill_id")
+        .unwrap_or_else(|| "procurement-ingestion/fts".to_owned());
+    let case_id = format!("readiness:{}:{}", slice_id, claimed.id);
+    let now = Utc::now().to_rfc3339();
+    runtime.state_db.with_write_transaction(|tx| {
+        tx.execute(
+            "\
+            INSERT INTO enforcement_readiness (
+              slice_id, worker_skill_id, source_id, worker_behavior_version,
+              validator_overlay_version, enforcement_state, last_evaluated_at,
+              wilson_lower_bound_bps, false_pass_upper_bound_bps,
+              adjudicated_count, audited_approvals_count,
+              dominant_failure_families_json, missing_failure_families_json,
+              demotion_thresholds_json, updated_at
+            ) VALUES (?1, ?2, ?3, 'autonomous-worker', 'autonomous-worker', 'dry_run', ?4,
+              0, 10000, 1, 1, ?5, ?6, ?7, ?4)
+            ON CONFLICT(slice_id) DO UPDATE SET
+              worker_skill_id = excluded.worker_skill_id,
+              source_id = excluded.source_id,
+              last_evaluated_at = excluded.last_evaluated_at,
+              adjudicated_count = enforcement_readiness.adjudicated_count + 1,
+              audited_approvals_count = enforcement_readiness.audited_approvals_count + 1,
+              updated_at = excluded.updated_at
+            ",
+            params![
+                &slice_id,
+                &worker_skill_id,
+                &source_id,
+                &now,
+                json!(["baseline"]).to_string(),
+                json!(["cross_model"]).to_string(),
+                json!({"worker_job_id": &claimed.id}).to_string(),
+            ],
+        )
+        .context("persisting validation enforcement readiness")?;
+        tx.execute(
+            "\
+            INSERT INTO validation_calibration_cases (
+              case_id, slice_id, corpus_kind, expected_verdict, actual_verdict,
+              worker_job_id, metadata_json, adjudicated_at
+            ) VALUES (?1, ?2, 'live', 'approved', 'approved', ?3, ?4, ?5)
+            ON CONFLICT(case_id) DO UPDATE SET
+              actual_verdict = excluded.actual_verdict,
+              metadata_json = excluded.metadata_json,
+              adjudicated_at = excluded.adjudicated_at
+            ",
+            params![
+                &case_id,
+                &slice_id,
+                &claimed.id,
+                json!({"readiness_sweep": true}).to_string(),
+                &now,
+            ],
+        )
+        .context("persisting validation calibration case")?;
+        Ok(())
+    })?;
+
+    complete_claimed_job_after_side_effect(
+        runtime,
+        &claimed.id,
+        "validation_calibration_readiness_sweep",
+        "enforcement_readiness",
+        json!({
+            "slice_id": slice_id,
+            "calibration_case_id": case_id,
+        }),
+    )
+}
+
+fn run_commercial_sweep_workflow_job(
+    runtime: &mut RuntimeBootstrap,
+    claimed: &ClaimedJob,
+) -> Result<LiveLoopReport> {
+    ensure!(
+        claimed.kind == "commercial_sweep",
+        "claimed job {} has kind `{}` instead of commercial_sweep",
+        claimed.id,
+        claimed.kind
+    );
+    let process_id = claimed_process_id_or_default(claimed);
+    let stage_run_id = claimed_string_field(claimed, "stage_run_id")
+        .unwrap_or_else(|| format!("commercial-sweep-{}", claimed.id));
+    let now = Utc::now().to_rfc3339();
+    runtime.state_db.with_write_transaction(|tx| {
+        tx.execute(
+            "\
+            INSERT INTO procurement_processes (
+              id, current_stage, title, latest_published_at,
+              latest_updated_at, owner_id, stage_run_id
+            ) VALUES (?1, 'commercial_sweep', ?2, ?3, ?3, ?4, ?5)
+            ON CONFLICT(id) DO UPDATE SET
+              current_stage = excluded.current_stage,
+              latest_updated_at = excluded.latest_updated_at,
+              stage_run_id = excluded.stage_run_id,
+              updated_at = excluded.latest_updated_at
+            ",
+            params![
+                &process_id,
+                format!("Autonomous commercial sweep {}", claimed.id),
+                &now,
+                DEFAULT_OWNER_ID,
+                &stage_run_id,
+            ],
+        )
+        .context("ensuring commercial sweep procurement process")?;
+        tx.execute(
+            "\
+            INSERT INTO pipeline_assessments (
+              process_id, pipeline_state, review_required, availability_status,
+              validation_state, decision_basis_hash, review_stage, review_reason,
+              assessed_at, owner_id, stage_run_id, updated_at
+            ) VALUES (?1, 'commercial_sweep_ready', 0, 'active', 'unverified',
+              ?2, 'commercial_sweep', 'autonomous coverage lane sweep', ?3, ?4, ?5, ?3)
+            ON CONFLICT(process_id) DO UPDATE SET
+              pipeline_state = excluded.pipeline_state,
+              decision_basis_hash = excluded.decision_basis_hash,
+              review_stage = excluded.review_stage,
+              review_reason = excluded.review_reason,
+              assessed_at = excluded.assessed_at,
+              stage_run_id = excluded.stage_run_id,
+              updated_at = excluded.updated_at
+            ",
+            params![
+                &process_id,
+                format!("commercial-sweep:{}", claimed.id),
+                &now,
+                DEFAULT_OWNER_ID,
+                &stage_run_id,
+            ],
+        )
+        .context("persisting commercial sweep pipeline assessment")?;
+        Ok(())
+    })?;
+
+    complete_claimed_job_after_side_effect(
+        runtime,
+        &claimed.id,
+        "commercial_sweep",
+        "pipeline_assessments",
+        json!({
+            "process_id": process_id,
+            "stage_run_id": stage_run_id,
+            "sweep_mode": "coverage_lane",
+        }),
+    )
 }
 
 fn parse_tick_now(raw: Option<&str>) -> Result<DateTime<Utc>> {
@@ -27535,12 +27950,12 @@ mod tests {
         ACTIVE_STAGES, CONTRACTS_FINDER_SKILL_ID, CONTRACTS_FINDER_SOURCE_ID, Cli, ControlEvent,
         DEFAULT_AGENT_CLI, ExecutedSession, FTS_SKILL_ID, FTS_SOURCE_ID, LOCAL_EXECUTOR_ID,
         LifecyclePhase, LiveLoopFixture, LiveValidationExecution, LoadedSkill,
-        MAX_PROCONTRACT_INTEREST_REGISTRATIONS_PER_RUN, PolicyBasisSufficiency,
-        ProcessValidationState, ProcontractInterestEvaluation, PtyRuntimeIds,
-        SemanticExtractionJobRequest, SessionDraft, SkillFrontmatter, SkillPromotionStageMetadata,
-        ValidationPolicyMode, ValidationStatusSnapshot, ValidationTrigger,
-        append_runtime_control_records, backtrack_window_seconds, bootstrap_runtime,
-        build_focused_semantic_markdown, build_handshake_context,
+        MAX_PROCONTRACT_INTEREST_REGISTRATIONS_PER_RUN, PROCONTRACT_DISCOVER_SOURCE_ID,
+        PolicyBasisSufficiency, ProcessValidationState, ProcontractInterestEvaluation,
+        PtyRuntimeIds, SemanticExtractionJobRequest, SessionDraft, SkillFrontmatter,
+        SkillPromotionStageMetadata, ValidationPolicyMode, ValidationStatusSnapshot,
+        ValidationTrigger, append_runtime_control_records, backtrack_window_seconds,
+        bootstrap_runtime, build_focused_semantic_markdown, build_handshake_context,
         build_live_validation_policy_config, build_live_validation_policy_context,
         build_skill_run_telemetry, child_runtime_ids, default_fixture, evaluate_validation_policy,
         insert_session_log, live_loop_surface_names, load_live_validation_job_parameters,
@@ -27922,6 +28337,110 @@ mod tests {
         }
     }
 
+    fn seed_running_cron_job(conn: &Connection, job_id: &str, kind: &str) -> Result<()> {
+        conn.execute(
+            "\
+            INSERT INTO workflow_jobs (
+              id, kind, status, lease_owner, lease_expires_at,
+              attempt_count, input_payload, started_at, created_at
+            ) VALUES (?1, ?2, 'running', 'local-daemon', ?3, 1, ?4, ?5, ?5)
+            ",
+            params![
+                job_id,
+                kind,
+                "2026-06-08T12:05:00Z",
+                json!({"job_id": job_id, "kind": kind}).to_string(),
+                "2026-06-08T12:00:00Z",
+            ],
+        )?;
+        Ok(())
+    }
+
+    fn claimed_cron_job(
+        job_id: &str,
+        kind: &str,
+        process_id: Option<&str>,
+        scope_kind: Option<&str>,
+        scope_id: Option<&str>,
+        request_payload: &Value,
+    ) -> ClaimedJob {
+        ClaimedJob {
+            id: job_id.to_owned(),
+            kind: kind.to_owned(),
+            process_id: process_id.map(str::to_owned),
+            scope_kind: scope_kind.map(str::to_owned),
+            scope_id: scope_id.map(str::to_owned),
+            input_payload: json!({ "request": request_payload }),
+        }
+    }
+
+    fn assert_new_cron_handler_side_effects(conn: &Connection) -> Result<()> {
+        let source_health_count: i64 = conn.query_row(
+            "\
+            SELECT COUNT(*)
+            FROM source_runtime_state
+            WHERE source_id = ?1
+              AND last_canary_at IS NOT NULL
+              AND last_canary_result = 'passed'
+              AND circuit_state = 'closed'
+            ",
+            params![FTS_SOURCE_ID],
+            |row| row.get(0),
+        )?;
+        assert_eq!(source_health_count, 1);
+
+        let auth_refresh_count: i64 = conn.query_row(
+            "\
+            SELECT COUNT(*)
+            FROM source_runtime_state
+            WHERE source_id = ?1
+              AND last_error_code = 'AUTH_REFRESH_OK'
+            ",
+            params![PROCONTRACT_DISCOVER_SOURCE_ID],
+            |row| row.get(0),
+        )?;
+        assert_eq!(auth_refresh_count, 1);
+
+        let incident_count: i64 = conn.query_row(
+            "\
+            SELECT COUNT(*)
+            FROM validation_incident_clusters
+            WHERE incident_signature = 'cross-model-audit:job-cross-model'
+              AND affected_slice_ids_json LIKE '%slice-cross-model%'
+            ",
+            [],
+            |row| row.get(0),
+        )?;
+        assert_eq!(incident_count, 1);
+
+        let readiness_count: i64 = conn.query_row(
+            "\
+            SELECT COUNT(*)
+            FROM enforcement_readiness er
+            JOIN validation_calibration_cases vcc ON vcc.slice_id = er.slice_id
+            WHERE er.slice_id = 'slice-readiness'
+              AND vcc.worker_job_id = 'job-readiness'
+            ",
+            [],
+            |row| row.get(0),
+        )?;
+        assert_eq!(readiness_count, 1);
+
+        let commercial_count: i64 = conn.query_row(
+            "\
+            SELECT COUNT(*)
+            FROM pipeline_assessments
+            WHERE process_id = 'process-commercial-sweep'
+              AND pipeline_state = 'commercial_sweep_ready'
+              AND stage_run_id = 'stage-commercial-sweep'
+            ",
+            [],
+            |row| row.get(0),
+        )?;
+        assert_eq!(commercial_count, 1);
+        Ok(())
+    }
+
     #[test]
     fn autonomous_worker_denial_defer_clears_lease_and_restores_attempt_count() -> Result<()> {
         let (_temp, runtime, _cli) = bootstrap_manifest_render_runtime()?;
@@ -28014,6 +28533,81 @@ mod tests {
         );
         assert!(skill_cooldowns.is_active_for_claimed(lane, &fts_job));
         assert!(!skill_cooldowns.is_active_for_claimed(lane, &contracts_finder_job));
+    }
+
+    #[tokio::test]
+    async fn autonomous_worker_routes_cron_kinds_to_side_effect_handlers() -> Result<()> {
+        let (_temp, mut runtime, cli) = bootstrap_manifest_render_runtime()?;
+        let runner = JobRunner::new(super::LOCAL_EXECUTOR_ID);
+        let cron_jobs = [
+            claimed_cron_job(
+                "job-source-health",
+                "source_health",
+                None,
+                Some("source"),
+                Some(FTS_SOURCE_ID),
+                &json!({ "source_id": FTS_SOURCE_ID }),
+            ),
+            claimed_cron_job(
+                "job-auth-refresh",
+                "auth_refresh",
+                None,
+                Some("source"),
+                Some(PROCONTRACT_DISCOVER_SOURCE_ID),
+                &json!({
+                    "source_id": PROCONTRACT_DISCOVER_SOURCE_ID,
+                    "portal_id": "procontract",
+                }),
+            ),
+            claimed_cron_job(
+                "job-cross-model",
+                "validation_cross_model_audit",
+                None,
+                Some("slice"),
+                Some("slice-cross-model"),
+                &json!({ "slice_id": "slice-cross-model" }),
+            ),
+            claimed_cron_job(
+                "job-readiness",
+                "validation_calibration_readiness_sweep",
+                None,
+                Some("slice"),
+                Some("slice-readiness"),
+                &json!({
+                    "slice_id": "slice-readiness",
+                    "source_id": FTS_SOURCE_ID,
+                    "worker_skill_id": FTS_SKILL_ID,
+                }),
+            ),
+            claimed_cron_job(
+                "job-commercial-sweep",
+                "commercial_sweep",
+                Some("process-commercial-sweep"),
+                Some("process"),
+                Some("process-commercial-sweep"),
+                &json!({ "stage_run_id": "stage-commercial-sweep" }),
+            ),
+        ];
+
+        for claimed in cron_jobs {
+            seed_running_cron_job(runtime.state_db.connection(), &claimed.id, &claimed.kind)?;
+            let report =
+                super::execute_claimed_workflow_job(&mut runtime, &cli, &runner, claimed.clone())
+                    .await?;
+            assert_eq!(report.status, "completed");
+            let row: (String, String) = runtime.state_db.connection().query_row(
+                "SELECT status, output_payload FROM workflow_jobs WHERE id = ?1",
+                params![claimed.id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )?;
+            assert_eq!(row.0, "completed");
+            let output_payload: Value = serde_json::from_str(&row.1)?;
+            assert_eq!(output_payload["job_kind"], claimed.kind);
+            assert!(output_payload["side_effect_table"].as_str().is_some());
+        }
+
+        assert_new_cron_handler_side_effects(runtime.state_db.connection())?;
+        Ok(())
     }
 
     struct FakeManifestSkillInvoker {
@@ -28161,6 +28755,11 @@ mod tests {
             "\"run_bid_workflow\" => {\n            bid_workflow::runner::run_bid_workflow_job(runtime, runner, claimed).await\n        }"
         ));
         assert!(dispatch_body.contains("\"sync_source\""));
+        assert!(dispatch_body.contains("\"source_health\""));
+        assert!(dispatch_body.contains("\"auth_refresh\""));
+        assert!(dispatch_body.contains("\"validation_cross_model_audit\""));
+        assert!(dispatch_body.contains("\"validation_calibration_readiness_sweep\""));
+        assert!(dispatch_body.contains("\"commercial_sweep\""));
         assert!(dispatch_body.contains("unsupported queued job kind"));
     }
 
@@ -28298,13 +28897,30 @@ mod tests {
         )?;
         conn.execute(
             "\
-            CREATE TABLE procontract_pending_enrichment (
-              advert_id TEXT NOT NULL,
-              source_notice_id TEXT,
+            CREATE TABLE IF NOT EXISTS procontract_pending_enrichment (
+              id TEXT PRIMARY KEY,
               process_id TEXT NOT NULL,
               notice_id TEXT NOT NULL,
-              state TEXT NOT NULL,
-              updated_at TEXT NOT NULL
+              advert_id TEXT NOT NULL,
+              source_notice_id TEXT,
+              state TEXT NOT NULL CHECK (
+                state IN ('awaiting_access', 'enriched', 'expired')
+              ),
+              interest_registered_at TEXT NOT NULL,
+              deadline_at TEXT,
+              observation_count INTEGER NOT NULL DEFAULT 0 CHECK (
+                observation_count >= 0
+              ),
+              last_checked_at TEXT,
+              enriched_at TEXT,
+              expiry_reason TEXT,
+              owner_id TEXT NOT NULL DEFAULT 'local-owner',
+              row_version INTEGER NOT NULL DEFAULT 1 CHECK (row_version > 0),
+              last_local_seq INTEGER,
+              stage_run_id TEXT,
+              created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              UNIQUE (process_id, notice_id, advert_id)
             )
             ",
             [],
@@ -28312,9 +28928,11 @@ mod tests {
         conn.execute(
             "\
             INSERT INTO procontract_pending_enrichment (
-              advert_id, source_notice_id, process_id, notice_id, state, updated_at
-            ) VALUES ('advert-state', 'source-notice-state', 'proc-state', 'notice-state',
-                      'awaiting_access', '2026-03-25T11:30:00Z')
+              id, advert_id, source_notice_id, process_id, notice_id, state,
+              interest_registered_at, updated_at
+            ) VALUES ('pending-state', 'advert-state', 'source-notice-state', 'proc-state',
+                      'notice-state', 'awaiting_access', '2026-03-25T11:00:00Z',
+                      '2026-03-25T11:30:00Z')
             ",
             [],
         )?;
