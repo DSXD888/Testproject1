@@ -266,6 +266,126 @@ fn schema_0015_procontract_pending_enrichment() -> Result<()> {
 }
 
 #[test]
+fn autonomous_auth_refresh_results_schema() -> Result<()> {
+    let db = L4TestStateDb::new()?;
+    let conn = db.connection();
+    let columns = sqlite_table_columns(conn, "auth_refresh_results")?;
+
+    ensure_columns(
+        "auth_refresh_results",
+        &columns,
+        &[
+            "id",
+            "workflow_job_id",
+            "source_id",
+            "portal_id",
+            "auth_skill_id",
+            "signin_status",
+            "refresh_status",
+            "cdp_state",
+            "checked_at",
+            "result_json",
+            "owner_id",
+            "row_version",
+            "last_local_seq",
+            "stage_run_id",
+            "created_at",
+            "updated_at",
+        ],
+    )?;
+    for column in [
+        "id",
+        "workflow_job_id",
+        "source_id",
+        "portal_id",
+        "auth_skill_id",
+        "signin_status",
+        "refresh_status",
+        "cdp_state",
+        "checked_at",
+        "result_json",
+        "owner_id",
+        "row_version",
+        "created_at",
+        "updated_at",
+    ] {
+        ensure_column_nullable("auth_refresh_results", &columns, column, false)?;
+    }
+    for column in ["last_local_seq", "stage_run_id"] {
+        ensure_column_nullable("auth_refresh_results", &columns, column, true)?;
+    }
+    ensure_column_type_contains("auth_refresh_results", &columns, "row_version", "INT")?;
+
+    let table_sql = sqlite_table_sql(conn, "auth_refresh_results")?;
+    assert_sql_contains_all(
+        &table_sql,
+        &[
+            "REFERENCES workflow_jobs(id)",
+            "REFERENCES sources(id)",
+            "'signed_in'",
+            "'manual_required'",
+            "'blocked'",
+            "'connected'",
+            "'unreachable'",
+            "'captcha_blocked'",
+            "'session_expired'",
+            "UNIQUE (workflow_job_id)",
+            "row_version > 0",
+        ],
+    )?;
+
+    let indexes = index_names(conn, "auth_refresh_results")?;
+    ensure!(
+        indexes.contains("idx_auth_refresh_results_source_checked"),
+        "auth_refresh_results missing source/checked index"
+    );
+    ensure!(
+        indexes.contains("idx_auth_refresh_results_portal_checked"),
+        "auth_refresh_results missing portal/checked index"
+    );
+
+    conn.execute(
+        "\
+        INSERT INTO workflow_jobs (id, kind, status, input_payload)
+        VALUES ('auth-refresh-job', 'auth_refresh', 'running', '{}')
+        ",
+        [],
+    )?;
+    conn.execute(
+        "\
+        INSERT INTO auth_refresh_results (
+          id, workflow_job_id, source_id, portal_id, auth_skill_id,
+          signin_status, refresh_status, cdp_state, checked_at, result_json
+        ) VALUES (
+          'auth-refresh-result-1', 'auth-refresh-job', 'procontract',
+          'procontract', 'auth-signin/procontract', 'signed_in',
+          'succeeded', 'connected', '2026-06-05T04:15:00Z',
+          '{\"evidence\":\"fake-claude\"}'
+        )
+        ",
+        [],
+    )?;
+    let invalid_status = conn.execute(
+        "\
+        INSERT INTO auth_refresh_results (
+          id, workflow_job_id, source_id, portal_id, auth_skill_id,
+          signin_status, refresh_status, cdp_state, checked_at, result_json
+        ) VALUES (
+          'auth-refresh-result-invalid', 'auth-refresh-job', 'procontract',
+          'procontract', 'auth-signin/procontract', 'stale',
+          'succeeded', 'connected', '2026-06-05T04:16:00Z', '{}'
+        )
+        ",
+        [],
+    );
+    ensure!(
+        invalid_status.is_err(),
+        "auth_refresh_results accepted an invalid signin_status"
+    );
+    Ok(())
+}
+
+#[test]
 #[doc = "L4-T-sqlite_schema-002"]
 fn l4_t_sqlite_schema_002_local_outbox_shape_and_monotonic_seq() -> Result<()> {
     let db = L4TestStateDb::new()?;

@@ -294,7 +294,57 @@ fn ensure_runtime_schema(conn: &Connection) -> Result<()> {
             ),
         ],
     )?;
+    ensure_auth_refresh_results_table(conn)?;
     ensure_l4_pipeline_provenance_columns(conn)?;
+    Ok(())
+}
+
+fn ensure_auth_refresh_results_table(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        "\
+        CREATE TABLE IF NOT EXISTS auth_refresh_results (
+          id TEXT PRIMARY KEY,
+          workflow_job_id TEXT NOT NULL REFERENCES workflow_jobs(id),
+          source_id TEXT NOT NULL REFERENCES sources(id),
+          portal_id TEXT NOT NULL,
+          auth_skill_id TEXT NOT NULL,
+          signin_status TEXT NOT NULL CHECK (
+            signin_status IN ('signed_in', 'manual_required', 'blocked')
+          ),
+          refresh_status TEXT NOT NULL CHECK (
+            refresh_status IN ('succeeded', 'manual_required', 'blocked')
+          ),
+          cdp_state TEXT NOT NULL CHECK (
+            cdp_state IN ('connected', 'unreachable', 'captcha_blocked', 'session_expired')
+          ),
+          checked_at TEXT NOT NULL,
+          result_json TEXT NOT NULL,
+          owner_id TEXT NOT NULL DEFAULT 'local-owner',
+          row_version INTEGER NOT NULL DEFAULT 1 CHECK (row_version > 0),
+          last_local_seq INTEGER,
+          stage_run_id TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE (workflow_job_id),
+          CHECK (length(trim(id)) > 0),
+          CHECK (length(trim(workflow_job_id)) > 0),
+          CHECK (length(trim(source_id)) > 0),
+          CHECK (length(trim(portal_id)) > 0),
+          CHECK (length(trim(auth_skill_id)) > 0),
+          CHECK (length(trim(checked_at)) > 0),
+          CHECK (length(trim(result_json)) > 0),
+          CHECK (length(trim(owner_id)) > 0),
+          CHECK (stage_run_id IS NULL OR length(trim(stage_run_id)) > 0)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_auth_refresh_results_source_checked
+          ON auth_refresh_results(source_id, checked_at);
+
+        CREATE INDEX IF NOT EXISTS idx_auth_refresh_results_portal_checked
+          ON auth_refresh_results(portal_id, checked_at);
+        ",
+    )
+    .context("ensuring auth_refresh_results table")?;
     Ok(())
 }
 

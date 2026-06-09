@@ -2155,7 +2155,7 @@ async fn execute_claimed_workflow_job(
         }
         "sync_source" => run_sync_source_workflow_job(runtime, claimed, cli).await,
         "source_health" => run_source_health_workflow_job(runtime, &claimed, cli).await,
-        "auth_refresh" => run_auth_refresh_workflow_job(runtime, &claimed),
+        "auth_refresh" => run_auth_refresh_workflow_job(runtime, &claimed, cli).await,
         "validation_cross_model_audit" => {
             run_validation_cross_model_audit_workflow_job(runtime, &claimed)
         }
@@ -2493,6 +2493,34 @@ fn fail_source_health_workflow_job(
     )
 }
 
+fn fail_auth_refresh_workflow_job(
+    runtime: &mut RuntimeBootstrap,
+    claimed: &ClaimedJob,
+    failure: &AuthRefreshFailure<'_>,
+) -> Result<LiveLoopReport> {
+    fail_job(
+        runtime,
+        &claimed.id,
+        &failure.message,
+        json!({
+            "error_code": failure.error_code,
+            "source_id": failure.source_id,
+            "portal_id": failure.portal_id,
+            "skill_id": failure.skill_id,
+            "session_id": failure.session_id,
+        }),
+    )
+}
+
+struct AuthRefreshFailure<'a> {
+    source_id: &'a str,
+    portal_id: &'a str,
+    skill_id: &'a str,
+    session_id: Option<&'a str>,
+    error_code: &'a str,
+    message: String,
+}
+
 fn read_validated_skill_result(skill: &LoadedSkill, result_path: &Path) -> Result<Value> {
     read_result_contract(result_path).and_then(|payload| {
         validate_result_schema(&skill.result_schema, &payload)?;
@@ -2630,9 +2658,11 @@ async fn run_source_health_workflow_job(
     )
 }
 
-fn run_auth_refresh_workflow_job(
+#[allow(clippy::future_not_send, clippy::too_many_lines)]
+async fn run_auth_refresh_workflow_job(
     runtime: &mut RuntimeBootstrap,
     claimed: &ClaimedJob,
+    cli: &Cli,
 ) -> Result<LiveLoopReport> {
     ensure!(
         claimed.kind == "auth_refresh",
@@ -2642,6 +2672,111 @@ fn run_auth_refresh_workflow_job(
     );
     let source_id = claimed_source_id_or_default(claimed, PROCONTRACT_DISCOVER_SOURCE_ID);
     let portal_id = claimed_string_field(claimed, "portal_id").unwrap_or_else(|| source_id.clone());
+    let skill_id = claimed_string_field(claimed, "auth_skill_id")
+        .unwrap_or_else(|| "auth-signin/procontract".to_owned());
+    let skill_root = repo_root()?.join("skills").join(&skill_id);
+    let skill = load_skill(&skill_root, &skill_id)?;
+    ensure!(
+        skill.metadata.skill_id == skill_id,
+        "auth_refresh skill `{skill_id}` loaded mismatched skill `{}`",
+        skill.metadata.skill_id
+    );
+    let session_id = format!("session-auth-refresh-{}", sha256_hex(claimed.id.as_bytes()));
+    let job_parameters = json!({
+        "source_id": source_id,
+        "portal_id": portal_id,
+        "worker_job_id": claimed.id,
+        "trigger": "autonomous_worker",
+        "skill_binding": skill_binding_payload(&skill),
+    });
+    let executed = match execute_skill_session(
+        runtime,
+        &skill,
+        &claimed.id,
+        &session_id,
+        &job_parameters,
+        cli,
+    )
+    .await
+    {
+        Ok(executed) => executed,
+        Err(error) => {
+            if error.downcast_ref::<ResourceAdmissionDeferred>().is_some() {
+                return Err(error);
+            }
+            return fail_auth_refresh_workflow_job(
+                runtime,
+                claimed,
+                &AuthRefreshFailure {
+                    source_id: &source_id,
+                    portal_id: &portal_id,
+                    skill_id: &skill.metadata.skill_id,
+                    session_id: None,
+                    error_code: "AGENT_SKILL_FAILED",
+                    message: format!(
+                        "auth-refresh skill `{}` failed: {error:#}",
+                        skill.metadata.skill_id
+                    ),
+                },
+            );
+        }
+    };
+    insert_executed_session_log(
+        runtime.state_db.connection(),
+        &skill,
+        &claimed.id,
+        &executed,
+    )?;
+    let Some(result_path) = executed.result_path.as_ref() else {
+        return fail_auth_refresh_workflow_job(
+            runtime,
+            claimed,
+            &AuthRefreshFailure {
+                source_id: &source_id,
+                portal_id: &portal_id,
+                skill_id: &skill.metadata.skill_id,
+                session_id: Some(&session_id),
+                error_code: "AGENT_RUN_FAILED",
+                message: format!(
+                    "auth-refresh skill `{}` did not produce a result contract",
+                    skill.metadata.skill_id
+                ),
+            },
+        );
+    };
+    let result_json = match read_validated_skill_result(&skill, result_path) {
+        Ok(payload) => payload,
+        Err(error) => {
+            return fail_auth_refresh_workflow_job(
+                runtime,
+                claimed,
+                &AuthRefreshFailure {
+                    source_id: &source_id,
+                    portal_id: &portal_id,
+                    skill_id: &skill.metadata.skill_id,
+                    session_id: Some(&session_id),
+                    error_code: "AGENT_SKILL_FAILED",
+                    message: format!(
+                        "auth-refresh skill `{}` produced invalid result contract: {error:#}",
+                        skill.metadata.skill_id
+                    ),
+                },
+            );
+        }
+    };
+    let signin_status = result_json
+        .get("signin_status")
+        .and_then(Value::as_str)
+        .unwrap_or("blocked");
+    let cdp_state = result_json
+        .get("cdp_state")
+        .and_then(Value::as_str)
+        .unwrap_or("unreachable");
+    let refresh_status = match signin_status {
+        "signed_in" => "succeeded",
+        "manual_required" => "manual_required",
+        _ => "blocked",
+    };
     let now = Utc::now().to_rfc3339();
     runtime.state_db.with_write_transaction(|tx| {
         persist_source_runtime_canary(
@@ -2655,18 +2790,56 @@ fn run_auth_refresh_workflow_job(
                 error_code: Some("AUTH_REFRESH_OK"),
                 now: &now,
             },
+        )?;
+        tx.execute(
+            "\
+            INSERT INTO auth_refresh_results (
+              id, workflow_job_id, source_id, portal_id, auth_skill_id,
+              signin_status, refresh_status, cdp_state, checked_at, result_json,
+              updated_at
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?9)
+            ON CONFLICT(workflow_job_id) DO UPDATE SET
+              source_id = excluded.source_id,
+              portal_id = excluded.portal_id,
+              auth_skill_id = excluded.auth_skill_id,
+              signin_status = excluded.signin_status,
+              refresh_status = excluded.refresh_status,
+              cdp_state = excluded.cdp_state,
+              checked_at = excluded.checked_at,
+              result_json = excluded.result_json,
+              updated_at = excluded.updated_at
+            ",
+            params![
+                format!("auth-refresh-result-{}", claimed.id),
+                &claimed.id,
+                &source_id,
+                &portal_id,
+                &skill.metadata.skill_id,
+                signin_status,
+                refresh_status,
+                cdp_state,
+                &now,
+                result_json.to_string(),
+            ],
         )
+        .context("persisting auth refresh result")?;
+        Ok(())
     })?;
 
     complete_claimed_job_after_side_effect(
         runtime,
         &claimed.id,
         "auth_refresh",
-        "source_runtime_state",
+        "auth_refresh_results",
         json!({
             "source_id": source_id,
             "portal_id": portal_id,
-            "auth_state": "fresh",
+            "skill_id": skill.metadata.skill_id,
+            "session_id": session_id,
+            "result_path": result_path,
+            "signin_status": signin_status,
+            "refresh_status": refresh_status,
+            "cdp_state": cdp_state,
             "checked_at": now,
         }),
     )
@@ -28595,7 +28768,7 @@ mod tests {
         }
     }
 
-    fn write_fake_source_health_claude(root: &Path) -> Result<std::path::PathBuf> {
+    fn write_fake_cron_handler_claude(root: &Path) -> Result<std::path::PathBuf> {
         let state_dir = root.join("fake-source-health-claude");
         fs::create_dir_all(&state_dir)?;
         fs::write(
@@ -28623,11 +28796,24 @@ mod tests {
                 "sample_item_count": 1,
             }))?,
         )?;
+        fs::write(
+            state_dir.join("result-auth-signin-procontract.json"),
+            serde_json::to_vec_pretty(&json!({
+                "signin_status": "signed_in",
+                "autofill_fired": true,
+                "submit_outcome": "signed_in",
+                "redirected_to": "https://procontract.due-north.com/",
+                "cdp_state": "connected",
+                "captcha_intercepted": false,
+                "warnings": ["fake-claude auth-refresh evidence"],
+                "blockers": [],
+            }))?,
+        )?;
         let program = state_dir.join("claude");
         fs::write(
             &program,
             format!(
-                "#!/bin/sh\nset -eu\nstate_dir=\"{}\"\ncase \"${{1-}}\" in\n  --version|-v)\n    printf 'claude 1.2.3\\n'\n    exit 0\n    ;;\n  probe)\n    cat \"$state_dir/probe.json\"\n    exit 0\n    ;;\nesac\ncp \"$state_dir/result-source-health.json\" result.json\nprintf '{{\"event\":\"checkpoint\",\"seq\":1,\"path\":\"result.json\"}}\\n'\n",
+                "#!/bin/sh\nset -eu\nstate_dir=\"{}\"\ncase \"${{1-}}\" in\n  --version|-v)\n    printf 'claude 1.2.3\\n'\n    exit 0\n    ;;\n  probe)\n    cat \"$state_dir/probe.json\"\n    exit 0\n    ;;\nesac\ncase \"$*\" in\n  *auth-signin/procontract*)\n    cp \"$state_dir/result-auth-signin-procontract.json\" result.json\n    ;;\n  *)\n    cp \"$state_dir/result-source-health.json\" result.json\n    ;;\nesac\nprintf '{{\"event\":\"checkpoint\",\"seq\":1,\"path\":\"result.json\"}}\\n'\n",
                 state_dir.display()
             ),
         )?;
@@ -28705,29 +28891,50 @@ mod tests {
         )?;
         assert_eq!(source_health_session_count, 1);
 
-        let auth_refresh_count: i64 = conn.query_row(
+        let auth_refresh_row: (String, String, String, String) = conn.query_row(
             "\
-            SELECT COUNT(*)
-            FROM source_runtime_state
-            WHERE source_id = ?1
-              AND last_error_code = 'AUTH_REFRESH_OK'
+            SELECT source_id, signin_status, cdp_state, result_json
+            FROM auth_refresh_results
+            WHERE workflow_job_id = 'job-auth-refresh'
             ",
-            params![PROCONTRACT_DISCOVER_SOURCE_ID],
-            |row| row.get(0),
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
         )?;
-        assert_eq!(auth_refresh_count, 1);
+        assert_eq!(auth_refresh_row.0, PROCONTRACT_DISCOVER_SOURCE_ID);
+        assert_eq!(auth_refresh_row.1, "signed_in");
+        assert_eq!(auth_refresh_row.2, "connected");
+        assert!(
+            auth_refresh_row
+                .3
+                .contains("fake-claude auth-refresh evidence")
+        );
 
-        let incident_count: i64 = conn.query_row(
+        let auth_refresh_session_count: i64 = conn.query_row(
             "\
             SELECT COUNT(*)
-            FROM validation_incident_clusters
-            WHERE incident_signature = 'cross-model-audit:job-cross-model'
-              AND affected_slice_ids_json LIKE '%slice-cross-model%'
+            FROM agent_session_logs
+            WHERE job_id = 'job-auth-refresh'
+              AND skill_path LIKE '%auth-signin/procontract%'
             ",
             [],
             |row| row.get(0),
         )?;
-        assert_eq!(incident_count, 1);
+        assert_eq!(auth_refresh_session_count, 1);
+
+        let incident_row: (String, i64, i64, String) = conn.query_row(
+            "\
+            SELECT affected_slice_ids_json, calibration_case_count, override_count,
+                   candidate_mutation_template_json
+            FROM validation_incident_clusters
+            WHERE incident_signature = 'cross-model-audit:job-cross-model'
+            ",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+        )?;
+        assert!(incident_row.0.contains("slice-cross-model"));
+        assert_eq!(incident_row.1, 1);
+        assert_eq!(incident_row.2, 0);
+        assert!(incident_row.3.contains("job-cross-model"));
 
         let readiness_count: i64 = conn.query_row(
             "\
@@ -28854,7 +29061,7 @@ mod tests {
     #[tokio::test]
     async fn autonomous_worker_routes_cron_kinds_to_side_effect_handlers() -> Result<()> {
         let (temp, mut runtime, mut cli) = bootstrap_manifest_render_runtime()?;
-        cli.agent_cli_program = Some(write_fake_source_health_claude(temp.path())?);
+        cli.agent_cli_program = Some(write_fake_cron_handler_claude(temp.path())?);
         let runner = JobRunner::new(super::LOCAL_EXECUTOR_ID);
         let cron_jobs = [
             claimed_cron_job(
