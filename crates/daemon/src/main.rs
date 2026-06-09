@@ -10381,10 +10381,23 @@ async fn run_uk_installation_labour_skill(
     ))
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LandedCostAssessmentSelection {
+    ManualRetryBlocked,
+    CoverageCurrentOnly,
+}
+
+impl LandedCostAssessmentSelection {
+    const fn retry_blocked_estimates(self) -> bool {
+        matches!(self, Self::ManualRetryBlocked)
+    }
+}
+
 #[allow(clippy::too_many_lines)]
 fn load_landed_cost_assessments(
     conn: &Connection,
     limit: i64,
+    selection: LandedCostAssessmentSelection,
 ) -> Result<Vec<LandedCostAssessmentRow>> {
     let mut stmt = conn.prepare(
         "\
@@ -10476,7 +10489,7 @@ fn load_landed_cost_assessments(
                      AS INTEGER),
                 -1
               ) != sq.row_version
-           OR COALESCE(lce.blockers, '[]') != '[]'
+           OR (?2 != 0 AND COALESCE(lce.blockers, '[]') != '[]')
            OR EXISTS (
                 SELECT 1
                 FROM operator_input_overrides oio
@@ -10493,8 +10506,9 @@ fn load_landed_cost_assessments(
         LIMIT ?1
         ",
     )?;
+    let retry_blocked_estimates = i64::from(selection.retry_blocked_estimates());
 
-    let rows = stmt.query_map(params![limit], |row| {
+    let rows = stmt.query_map(params![limit, retry_blocked_estimates], |row| {
         Ok(LandedCostAssessmentRow {
             pricing_assessment_id: row.get(0)?,
             process_id: row.get(1)?,
@@ -12395,8 +12409,16 @@ async fn run_landed_cost_live_loop_with_stage_run_id(
     let job_parameters = parse_job_parameters(cli.job_parameters_json.as_deref())?;
     let landed_cost_path_mode = read_landed_cost_mode_from_env();
 
-    let assessments =
-        load_landed_cost_assessments(runtime.state_db.connection(), LANDED_COST_BATCH_SIZE)?;
+    let selection = if coverage_skill_resource_profile {
+        LandedCostAssessmentSelection::CoverageCurrentOnly
+    } else {
+        LandedCostAssessmentSelection::ManualRetryBlocked
+    };
+    let assessments = load_landed_cost_assessments(
+        runtime.state_db.connection(),
+        LANDED_COST_BATCH_SIZE,
+        selection,
+    )?;
     if assessments.is_empty() {
         return Ok(LiveLoopReport {
             summary_line: "landed-cost live loop found no Stage 10 assessments needing Stage 11"
@@ -29392,7 +29414,7 @@ mod tests {
             })
             .to_string()],
         )?;
-        let stage11_rows = super::load_landed_cost_assessments(runtime.state_db.connection(), 10)?;
+        let stage11_rows = load_stage11_rows_for_manual_retry(runtime.state_db.connection())?;
         assert_eq!(stage11_rows.len(), 1);
         assert!(
             super::installation_requirement_from_critical_attributes(&stage11_rows[0]).is_some(),
@@ -30910,6 +30932,16 @@ mod tests {
         Ok(())
     }
 
+    fn load_stage11_rows_for_manual_retry(
+        conn: &Connection,
+    ) -> Result<Vec<super::LandedCostAssessmentRow>> {
+        super::load_landed_cost_assessments(
+            conn,
+            10,
+            super::LandedCostAssessmentSelection::ManualRetryBlocked,
+        )
+    }
+
     fn stage11_row_fixture() -> super::LandedCostAssessmentRow {
         super::LandedCostAssessmentRow {
             pricing_assessment_id: "pricing-fixture".to_owned(),
@@ -31108,6 +31140,73 @@ mod tests {
             warnings: Vec::new(),
             blockers: Vec::new(),
         }
+    }
+
+    fn blocked_import_landed_cost_estimate_for(
+        row: &super::LandedCostAssessmentRow,
+        stage_run_id: &str,
+    ) -> Result<super::LandedCostEstimateWrite> {
+        let supplier_cost = super::compute_supplier_cost_basis(row);
+        let sizing = super::ShipmentSizingResult {
+            product_candidate_id: row.product_candidate_id.clone(),
+            selected_quote_id: row.selected_quote_id.clone(),
+            sizing_status: "blocked".to_owned(),
+            units_required: None,
+            unit_basis: None,
+            unit_weight_kg: None,
+            unit_volume_cbm: None,
+            total_weight_kg: None,
+            total_volume_cbm: None,
+            package_count: None,
+            container_plan: None,
+            evidence: Vec::new(),
+            confidence_bps: Some(0),
+            warnings: Vec::new(),
+            blockers: vec![super::Stage11Issue::blocked(
+                "SHIPMENT_DIMENSIONS_MISSING",
+                "No reliable dimensions were available in the quote evidence.",
+            )],
+        };
+        let freight = super::FreightScenarioGbp {
+            low_gbp_pence: 0,
+            base_gbp_pence: 0,
+            high_gbp_pence: 0,
+            fx_rate: 1.0,
+            fx_checked_at: Some("2026-04-28T00:00:00Z".to_owned()),
+            fx_status: "blocked".to_owned(),
+            fx_session_id: None,
+            fx_job_id: None,
+            warnings: Vec::new(),
+            blockers: vec![super::Stage11Issue::blocked(
+                "SEARATES_NOT_RUN_SHIPMENT_SIZING_BLOCKED",
+                "SeaRates was not run because shipment sizing blocked first.",
+            )],
+        };
+        super::build_import_landed_cost_estimate(
+            row,
+            &supplier_cost,
+            stage_run_id,
+            None,
+            Some(&sizing),
+            &freight,
+            None,
+            "not_required",
+            &super::infer_order_quantity_basis(row),
+            &json!({
+                "hmrc_customs": "1.0.0",
+                "shipment_sizing": "1.0.0",
+                "searates_freight": "1.0.0",
+                "simple_fx": "1.0.0",
+                "uk_installation_labour": "1.0.0",
+            }),
+            &json!({
+                "hmrc_customs": "session-customs",
+                "shipment_sizing": "session-sizing",
+                "searates_freight": null,
+                "simple_fx": null,
+                "uk_installation_labour": null,
+            }),
+        )
     }
 
     fn labour_skill_run_outcome(
@@ -34132,7 +34231,7 @@ mod tests {
     fn domestic_landed_cost_row_persists_with_stage_head() -> Result<()> {
         let (_temp, mut runtime) = bootstrap_validation_runtime()?;
         seed_stage11_minimal_graph(runtime.state_db.connection(), "GB")?;
-        let rows = super::load_landed_cost_assessments(runtime.state_db.connection(), 10)?;
+        let rows = load_stage11_rows_for_manual_retry(runtime.state_db.connection())?;
         assert_eq!(rows.len(), 1);
         let supplier_cost = super::compute_supplier_cost_basis(&rows[0]);
         let order_quantity_basis = super::infer_order_quantity_basis(&rows[0]);
@@ -34205,7 +34304,7 @@ mod tests {
             })
             .to_string()],
         )?;
-        let rows = super::load_landed_cost_assessments(runtime.state_db.connection(), 10)?;
+        let rows = load_stage11_rows_for_manual_retry(runtime.state_db.connection())?;
         assert_eq!(rows.len(), 1);
         let supplier_cost = super::compute_supplier_cost_basis(&rows[0]);
         let order_quantity_basis = super::infer_order_quantity_basis(&rows[0]);
@@ -34771,7 +34870,7 @@ mod tests {
     fn l5_shadow_compare_records_divergence_for_gold_set_categories() -> Result<()> {
         let (_temp, mut runtime) = bootstrap_validation_runtime()?;
         seed_stage11_minimal_graph(runtime.state_db.connection(), "GB")?;
-        let rows = super::load_landed_cost_assessments(runtime.state_db.connection(), 10)?;
+        let rows = load_stage11_rows_for_manual_retry(runtime.state_db.connection())?;
         let supplier_cost = super::compute_supplier_cost_basis(&rows[0]);
         let order_quantity_basis = super::infer_order_quantity_basis(&rows[0]);
         let base_estimate = super::build_domestic_landed_cost_estimate(
@@ -34857,7 +34956,7 @@ mod tests {
     fn blocked_import_landed_cost_row_persists_with_blockers() -> Result<()> {
         let (_temp, mut runtime) = bootstrap_validation_runtime()?;
         seed_stage11_minimal_graph(runtime.state_db.connection(), "CN")?;
-        let rows = super::load_landed_cost_assessments(runtime.state_db.connection(), 10)?;
+        let rows = load_stage11_rows_for_manual_retry(runtime.state_db.connection())?;
         let supplier_cost = super::compute_supplier_cost_basis(&rows[0]);
         let sizing = super::ShipmentSizingResult {
             product_candidate_id: rows[0].product_candidate_id.clone(),
@@ -34934,10 +35033,39 @@ mod tests {
     }
 
     #[test]
+    fn coverage_sweep_skips_current_blocked_landed_cost_rows() -> Result<()> {
+        let (_temp, mut runtime) = bootstrap_validation_runtime()?;
+        seed_stage11_minimal_graph(runtime.state_db.connection(), "CN")?;
+        let rows = load_stage11_rows_for_manual_retry(runtime.state_db.connection())?;
+        assert_eq!(rows.len(), 1);
+        let estimate =
+            blocked_import_landed_cost_estimate_for(&rows[0], "stage-run-coverage-blocked-test")?;
+        super::persist_landed_cost_estimate(&mut runtime.state_db, &estimate)?;
+
+        let manual_rows = load_stage11_rows_for_manual_retry(runtime.state_db.connection())?;
+        let coverage_rows = super::load_landed_cost_assessments(
+            runtime.state_db.connection(),
+            10,
+            super::LandedCostAssessmentSelection::CoverageCurrentOnly,
+        )?;
+
+        assert_eq!(
+            manual_rows.len(),
+            1,
+            "manual landed-cost ingestion should keep retrying blocked estimates"
+        );
+        assert!(
+            coverage_rows.is_empty(),
+            "commercial coverage sweep must not churn a current downstream blocked decision"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn fx_session_ids_persist_when_freight_fx_converted() -> Result<()> {
         let (_temp, mut runtime) = bootstrap_validation_runtime()?;
         seed_stage11_minimal_graph(runtime.state_db.connection(), "CN")?;
-        let rows = super::load_landed_cost_assessments(runtime.state_db.connection(), 10)?;
+        let rows = load_stage11_rows_for_manual_retry(runtime.state_db.connection())?;
         let row = &rows[0];
         let supplier_cost = super::compute_supplier_cost_basis(row);
         let sizing = sized_shipment_for(row);
@@ -35041,7 +35169,7 @@ mod tests {
     fn landed_cost_arithmetic_populates_net_margin_band() -> Result<()> {
         let (_temp, runtime) = bootstrap_validation_runtime()?;
         seed_stage11_minimal_graph(runtime.state_db.connection(), "CN")?;
-        let rows = super::load_landed_cost_assessments(runtime.state_db.connection(), 10)?;
+        let rows = load_stage11_rows_for_manual_retry(runtime.state_db.connection())?;
         let supplier_cost = super::SupplierCostBasis {
             supplier_cost_gbp_pence: 10_000,
             basis: "test".to_owned(),
