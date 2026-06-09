@@ -1384,6 +1384,8 @@ struct ProcontractEnrichmentContract {
     cursor: String,
     continuation_required: bool,
     #[serde(default)]
+    not_yet_responded: Vec<ProcontractNotYetRespondedTender>,
+    #[serde(default)]
     enriched_tenders: Vec<ProcontractEnrichedTender>,
     summary: ProcontractEnrichmentSummary,
 }
@@ -1406,6 +1408,23 @@ struct ProcontractEnrichedTender {
     documents_downloaded: Vec<ProcontractDownloadedDocument>,
     documents_count: u32,
     enriched_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ProcontractNotYetRespondedTender {
+    notice_id: String,
+    #[serde(default)]
+    process_id: Option<String>,
+    #[serde(default)]
+    advert_id: Option<String>,
+    #[serde(default)]
+    source_notice_id: Option<String>,
+    #[serde(default)]
+    interest_registered_at: Option<String>,
+    #[serde(default)]
+    observed_at: Option<String>,
+    #[serde(default)]
+    deadline_at: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -17307,6 +17326,13 @@ fn load_procontract_interest_candidates(
               AND pss.stage = 'interest_registration'
               AND pss.state IN ('completed', 'succeeded', 'skipped')
           )
+          AND NOT EXISTS (
+            SELECT 1
+            FROM procontract_pending_enrichment ppe
+            WHERE ppe.process_id = cn.process_id
+              AND ppe.notice_id = cn.id
+              AND ppe.state IN ('awaiting_access', 'enriched', 'expired')
+          )
         ORDER BY cn.source_updated_at DESC, COALESCE(cn.deadline_at, '9999-12-31T23:59:59Z'), cn.id
         ",
     )?;
@@ -17594,6 +17620,393 @@ fn resolve_process_id_for_notice(
     .with_context(|| format!("loading process_id for notice {notice_id}"))
 }
 
+fn persist_procontract_pending_enrichment(
+    tx: &Transaction<'_>,
+    process_id: &str,
+    registration: &ProcontractRegistrationRecord,
+    stage_run_id: &str,
+    visible_after_seq: i64,
+) -> Result<()> {
+    let (notice_id, advert_id, source_notice_id, deadline_at): (
+        String,
+        String,
+        Option<String>,
+        Option<String>,
+    ) = tx
+        .query_row(
+            "\
+            SELECT cn.id,
+                   COALESCE(NULLIF(cn.source_notice_id, ''), cn.id),
+                   NULLIF(cn.source_notice_id, ''),
+                   cn.deadline_at
+            FROM contract_notices cn
+            WHERE cn.id = ?1
+            ",
+            params![registration.notice_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+        )
+        .with_context(|| {
+            format!(
+                "loading ProContract notice identity for pending enrichment {}",
+                registration.notice_id
+            )
+        })?;
+    let interest_registered_at = registration
+        .registered_at
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+        .map_or_else(|| Utc::now().to_rfc3339(), str::to_owned);
+    let pending_id = format!(
+        "pending-{}-{}-{}",
+        slug_token(process_id),
+        slug_token(&notice_id),
+        slug_token(&advert_id)
+    );
+
+    tx.execute(
+        "\
+        INSERT INTO procontract_pending_enrichment (
+          id, process_id, notice_id, advert_id, source_notice_id, state,
+          interest_registered_at, deadline_at, observation_count, owner_id,
+          row_version, last_local_seq, stage_run_id
+        ) VALUES (
+          ?1, ?2, ?3, ?4, ?5, 'awaiting_access', ?6, ?7, 0, ?8, 1, ?9, ?10
+        )
+        ON CONFLICT(process_id, notice_id, advert_id) DO UPDATE SET
+          source_notice_id = COALESCE(excluded.source_notice_id, procontract_pending_enrichment.source_notice_id),
+          deadline_at = COALESCE(excluded.deadline_at, procontract_pending_enrichment.deadline_at),
+          last_local_seq = excluded.last_local_seq,
+          stage_run_id = excluded.stage_run_id,
+          row_version = procontract_pending_enrichment.row_version + 1,
+          updated_at = CURRENT_TIMESTAMP
+        ",
+        params![
+            pending_id,
+            process_id,
+            notice_id,
+            advert_id,
+            source_notice_id,
+            interest_registered_at,
+            deadline_at,
+            DEFAULT_OWNER_ID,
+            visible_after_seq,
+            stage_run_id,
+        ],
+    )?;
+    Ok(())
+}
+
+#[derive(Debug, Clone)]
+struct ProcontractPendingEnrichmentIdentity {
+    process_id: String,
+    notice_id: String,
+    advert_id: String,
+    source_notice_id: Option<String>,
+    deadline_at: Option<String>,
+}
+
+type ProcontractPendingIdentityRow = (String, String, Option<String>, Option<String>);
+
+fn trimmed_non_empty_owned(value: Option<&str>) -> Option<String> {
+    value.and_then(|raw| {
+        let trimmed = raw.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed.to_owned())
+        }
+    })
+}
+
+fn normalize_optional_string(value: Option<String>) -> Option<String> {
+    value.and_then(|raw| {
+        let trimmed = raw.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed.to_owned())
+        }
+    })
+}
+
+fn build_procontract_pending_identity(
+    process_id: String,
+    notice_id: String,
+    source_notice_id: Option<String>,
+    deadline_at: Option<String>,
+    target: &ProcontractNotYetRespondedTender,
+) -> ProcontractPendingEnrichmentIdentity {
+    let source_notice_id = normalize_optional_string(source_notice_id)
+        .or_else(|| trimmed_non_empty_owned(target.source_notice_id.as_deref()))
+        .or_else(|| trimmed_non_empty_owned(target.advert_id.as_deref()));
+    let advert_id = trimmed_non_empty_owned(target.advert_id.as_deref())
+        .or_else(|| source_notice_id.clone())
+        .unwrap_or_else(|| notice_id.clone());
+    let deadline_at = normalize_optional_string(deadline_at)
+        .or_else(|| trimmed_non_empty_owned(target.deadline_at.as_deref()));
+
+    ProcontractPendingEnrichmentIdentity {
+        process_id,
+        notice_id,
+        advert_id,
+        source_notice_id,
+        deadline_at,
+    }
+}
+
+fn load_procontract_pending_identity_by_notice_id(
+    tx: &Transaction<'_>,
+    notice_id: &str,
+    target: &ProcontractNotYetRespondedTender,
+) -> Result<Option<ProcontractPendingEnrichmentIdentity>> {
+    tx.query_row(
+        "\
+        SELECT cn.process_id,
+               cn.id,
+               NULLIF(cn.source_notice_id, ''),
+               cn.deadline_at
+        FROM contract_notices cn
+        WHERE cn.id = ?1
+        ",
+        params![notice_id],
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+    )
+    .optional()
+    .map(|row: Option<ProcontractPendingIdentityRow>| {
+        row.map(
+            |(process_id, resolved_notice_id, source_notice_id, deadline_at)| {
+                build_procontract_pending_identity(
+                    process_id,
+                    resolved_notice_id,
+                    source_notice_id,
+                    deadline_at,
+                    target,
+                )
+            },
+        )
+    })
+    .context("loading ProContract pending identity by notice id")
+}
+
+fn load_procontract_pending_identity_by_source_notice_id(
+    tx: &Transaction<'_>,
+    source_notice_id: &str,
+    target: &ProcontractNotYetRespondedTender,
+) -> Result<Option<ProcontractPendingEnrichmentIdentity>> {
+    tx.query_row(
+        "\
+        SELECT cn.process_id,
+               cn.id,
+               NULLIF(cn.source_notice_id, ''),
+               cn.deadline_at
+        FROM contract_notices cn
+        WHERE cn.source_id = 'procontract'
+          AND cn.source_notice_id = ?1
+        ",
+        params![source_notice_id],
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+    )
+    .optional()
+    .map(|row: Option<ProcontractPendingIdentityRow>| {
+        row.map(
+            |(process_id, resolved_notice_id, source_notice_id, deadline_at)| {
+                build_procontract_pending_identity(
+                    process_id,
+                    resolved_notice_id,
+                    source_notice_id,
+                    deadline_at,
+                    target,
+                )
+            },
+        )
+    })
+    .context("loading ProContract pending identity by source notice id")
+}
+
+fn load_procontract_pending_identity_by_process_id(
+    tx: &Transaction<'_>,
+    process_id: &str,
+    fallback_notice_id: &str,
+    target: &ProcontractNotYetRespondedTender,
+) -> Result<Option<ProcontractPendingEnrichmentIdentity>> {
+    tx.query_row(
+        "\
+        SELECT pp.id,
+               COALESCE(NULLIF(cn.id, ''), NULLIF(pp.primary_notice_id, ''), ?2),
+               NULLIF(cn.source_notice_id, ''),
+               COALESCE(cn.deadline_at, pp.latest_deadline_at)
+        FROM procurement_processes pp
+        LEFT JOIN contract_notices cn ON cn.id = pp.primary_notice_id
+        WHERE pp.id = ?1
+        ",
+        params![process_id, fallback_notice_id],
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+    )
+    .optional()
+    .map(|row: Option<ProcontractPendingIdentityRow>| {
+        row.map(
+            |(resolved_process_id, resolved_notice_id, source_notice_id, deadline_at)| {
+                build_procontract_pending_identity(
+                    resolved_process_id,
+                    resolved_notice_id,
+                    source_notice_id,
+                    deadline_at,
+                    target,
+                )
+            },
+        )
+    })
+    .context("loading ProContract pending identity by process id")
+}
+
+fn procontract_not_yet_responded_source_keys(
+    target: &ProcontractNotYetRespondedTender,
+    notice_id: &str,
+) -> Vec<String> {
+    let mut source_keys = Vec::new();
+    for candidate in [
+        target.source_notice_id.as_deref(),
+        target.advert_id.as_deref(),
+        Some(notice_id),
+    ] {
+        if let Some(value) = trimmed_non_empty_owned(candidate)
+            && !source_keys.iter().any(|existing| existing == &value)
+        {
+            source_keys.push(value);
+        }
+    }
+    source_keys
+}
+
+fn resolve_procontract_pending_enrichment_identity(
+    tx: &Transaction<'_>,
+    target: &ProcontractNotYetRespondedTender,
+) -> Result<ProcontractPendingEnrichmentIdentity> {
+    let notice_id = target.notice_id.trim();
+    ensure!(
+        !notice_id.is_empty(),
+        "ProContract not-yet-responded target is missing notice_id"
+    );
+
+    if let Some(identity) = load_procontract_pending_identity_by_notice_id(tx, notice_id, target)? {
+        return Ok(identity);
+    }
+
+    let prefixed_notice_id = format!("pc-{notice_id}");
+    if prefixed_notice_id != notice_id
+        && let Some(identity) =
+            load_procontract_pending_identity_by_notice_id(tx, &prefixed_notice_id, target)?
+    {
+        return Ok(identity);
+    }
+
+    for source_key in procontract_not_yet_responded_source_keys(target, notice_id) {
+        if let Some(identity) =
+            load_procontract_pending_identity_by_source_notice_id(tx, &source_key, target)?
+        {
+            return Ok(identity);
+        }
+    }
+
+    if let Some(process_id) = trimmed_non_empty_owned(target.process_id.as_deref()) {
+        if let Some(identity) =
+            load_procontract_pending_identity_by_process_id(tx, &process_id, notice_id, target)?
+        {
+            return Ok(identity);
+        }
+
+        return Ok(build_procontract_pending_identity(
+            process_id,
+            notice_id.to_owned(),
+            None,
+            None,
+            target,
+        ));
+    }
+
+    bail!("cannot resolve ProContract not-yet-responded target {notice_id}")
+}
+
+fn keep_or_backfill_procontract_pending_enrichment(
+    tx: &Transaction<'_>,
+    target: &ProcontractNotYetRespondedTender,
+    stage_run_id: &str,
+    visible_after_seq: i64,
+) -> Result<()> {
+    let identity = resolve_procontract_pending_enrichment_identity(tx, target)?;
+    let checked_at = trimmed_non_empty_owned(target.observed_at.as_deref())
+        .unwrap_or_else(|| Utc::now().to_rfc3339());
+    let interest_registered_at = trimmed_non_empty_owned(target.interest_registered_at.as_deref())
+        .unwrap_or_else(|| checked_at.clone());
+    let scoped_run_id = scoped_stage_run_id(stage_run_id, &identity.process_id);
+
+    let updated = tx.execute(
+        "\
+        UPDATE procontract_pending_enrichment
+        SET source_notice_id = COALESCE(?1, source_notice_id),
+            deadline_at = COALESCE(?2, deadline_at),
+            observation_count = observation_count + 1,
+            last_checked_at = ?3,
+            last_local_seq = ?4,
+            stage_run_id = ?5,
+            row_version = row_version + 1,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE process_id = ?6
+          AND notice_id = ?7
+          AND advert_id = ?8
+          AND state = 'awaiting_access'
+        ",
+        params![
+            identity.source_notice_id.as_deref(),
+            identity.deadline_at.as_deref(),
+            checked_at,
+            visible_after_seq,
+            scoped_run_id,
+            identity.process_id,
+            identity.notice_id,
+            identity.advert_id,
+        ],
+    )?;
+    if updated > 0 {
+        return Ok(());
+    }
+
+    let pending_id = format!(
+        "pending-{}-{}-{}",
+        slug_token(&identity.process_id),
+        slug_token(&identity.notice_id),
+        slug_token(&identity.advert_id)
+    );
+    tx.execute(
+        "\
+        INSERT INTO procontract_pending_enrichment (
+          id, process_id, notice_id, advert_id, source_notice_id, state,
+          interest_registered_at, deadline_at, observation_count,
+          last_checked_at, owner_id, row_version, last_local_seq, stage_run_id
+        ) VALUES (
+          ?1, ?2, ?3, ?4, ?5, 'awaiting_access', ?6, ?7, 1,
+          ?8, ?9, 1, ?10, ?11
+        )
+        ON CONFLICT(process_id, notice_id, advert_id) DO NOTHING
+        ",
+        params![
+            pending_id,
+            identity.process_id,
+            identity.notice_id,
+            identity.advert_id,
+            identity.source_notice_id.as_deref(),
+            interest_registered_at,
+            identity.deadline_at.as_deref(),
+            checked_at,
+            DEFAULT_OWNER_ID,
+            visible_after_seq,
+            scoped_run_id,
+        ],
+    )?;
+
+    Ok(())
+}
+
 /// Resolve `notice_id` and `process_id` for enrichment results that may use
 /// portal reference numbers instead of the canonical `pc-{advertId}` format.
 /// Falls back to a title-based lookup within the procontract source when the
@@ -17833,6 +18246,18 @@ fn persist_interest_registrations(
                 state,
                 visible_after_seq,
             )?;
+            if matches!(
+                registration.action.as_str(),
+                "registered" | "already_registered"
+            ) {
+                persist_procontract_pending_enrichment(
+                    tx,
+                    &process_id,
+                    registration,
+                    &scoped_run_id,
+                    visible_after_seq,
+                )?;
+            }
         }
         persist_source_cursor(tx, source_id, "interest_cursor", &contract.cursor)?;
         Ok(contract.registrations.len())
@@ -17853,6 +18278,14 @@ fn persist_tender_enrichments(
 
     let (persisted_count, _) = state_db.with_write_transaction(|tx| {
         let visible_after_seq = next_commit_seq(tx)?;
+        for target in &contract.not_yet_responded {
+            keep_or_backfill_procontract_pending_enrichment(
+                tx,
+                target,
+                &stage_run_id,
+                visible_after_seq,
+            )?;
+        }
         for tender in &contract.enriched_tenders {
             let Ok((resolved_notice_id, process_id)) = resolve_enrichment_notice(
                 tx,
@@ -32795,6 +33228,44 @@ mod tests {
         Ok(())
     }
 
+    fn assert_pending_enrichment_created(conn: &Connection) -> Result<()> {
+        let pending: (
+            String,
+            i64,
+            String,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+        ) = conn.query_row(
+            "\
+            SELECT state, observation_count, interest_registered_at, deadline_at,
+                   last_checked_at, enriched_at
+            FROM procontract_pending_enrichment
+            WHERE process_id = 'proc-pc-test-001'
+              AND notice_id = 'pc-test-001'
+              AND advert_id = 'pc-test-001'
+            ",
+            [],
+            |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                    row.get(5)?,
+                ))
+            },
+        )?;
+        assert_eq!(pending.0, "awaiting_access");
+        assert_eq!(pending.1, 0);
+        assert_eq!(pending.2, "2026-04-13T15:02:30Z");
+        assert_eq!(pending.3.as_deref(), Some("2026-05-31T12:00:00Z"));
+        assert!(pending.4.is_none());
+        assert!(pending.5.is_none());
+        Ok(())
+    }
+
     #[test]
     fn persist_interest_registrations_writes_stage_tracking_rows() -> Result<()> {
         let temp = tempdir()?;
@@ -32862,6 +33333,7 @@ mod tests {
             |row| row.get(0),
         )?;
         assert!(head.contains("stage-run-"));
+        assert_pending_enrichment_created(state_db.connection())?;
         Ok(())
     }
 
@@ -32892,6 +33364,47 @@ mod tests {
         assert_eq!(targets[0]["process_id"], "proc-pc-test-0");
         assert_eq!(targets[1]["process_id"], "proc-pc-test-1");
         assert_eq!(targets[2]["process_id"], "proc-pc-test-2");
+    }
+
+    #[test]
+    fn pending_enrichment_rows_exclude_interest_candidates() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let state_db = open_state_db(&db_path, DEFAULT_SCHEMA_EPOCH)?;
+        seed_minimal_procontract_notice(
+            state_db.connection(),
+            "proc-pc-awaiting",
+            "pc-awaiting",
+            "Supply of awaiting access cameras",
+        )?;
+        seed_minimal_procontract_notice(
+            state_db.connection(),
+            "proc-pc-fresh",
+            "pc-fresh",
+            "Supply of fresh cameras",
+        )?;
+        state_db.connection().execute(
+            "\
+            INSERT INTO procontract_pending_enrichment (
+              id, process_id, notice_id, advert_id, source_notice_id, state,
+              interest_registered_at
+            ) VALUES (
+              'pending-pc-awaiting', 'proc-pc-awaiting', 'pc-awaiting',
+              'pc-awaiting', 'pc-awaiting', 'awaiting_access',
+              '2026-04-13T15:02:30Z'
+            )
+            ",
+            [],
+        )?;
+
+        let process_ids = load_procontract_interest_candidates(state_db.connection())?
+            .into_iter()
+            .map(|candidate| candidate.process_id)
+            .collect::<Vec<_>>();
+
+        assert!(!process_ids.iter().any(|id| id == "proc-pc-awaiting"));
+        assert!(process_ids.iter().any(|id| id == "proc-pc-fresh"));
+        Ok(())
     }
 
     #[test]
@@ -33307,6 +33820,123 @@ mod tests {
             |row| row.get(0),
         )?;
         assert_eq!(extraction_state, "pending");
+        Ok(())
+    }
+
+    fn seed_pending_access_keep_backfill_fixture(conn: &Connection) -> Result<()> {
+        seed_minimal_procontract_notice(conn, "proc-pc-tracked", "pc-tracked", "Tracked tender")?;
+        seed_minimal_procontract_notice(
+            conn,
+            "proc-pc-backfill",
+            "pc-backfill",
+            "Backfilled tender",
+        )?;
+        conn.execute(
+            "\
+            INSERT INTO procontract_pending_enrichment (
+              id, process_id, notice_id, advert_id, source_notice_id, state,
+              interest_registered_at, observation_count
+            ) VALUES (
+              'pending-pc-tracked', 'proc-pc-tracked', 'pc-tracked',
+              'pc-tracked', 'pc-tracked', 'awaiting_access',
+              '2026-04-12T10:00:00Z', 0
+            )
+            ",
+            [],
+        )?;
+        Ok(())
+    }
+
+    fn procontract_keep_backfill_result_json() -> Value {
+        json!({
+            "cursor": "{\"last_checked_at\":\"2026-04-13T17:00:00Z\"}",
+            "continuation_required": false,
+            "not_yet_responded": [
+                {
+                    "notice_id": "pc-tracked",
+                    "process_id": "proc-pc-tracked",
+                    "advert_id": "pc-tracked",
+                    "source_notice_id": "pc-tracked",
+                    "observed_at": "2026-04-13T17:00:00Z"
+                },
+                {
+                    "notice_id": "pc-backfill",
+                    "process_id": "proc-pc-backfill",
+                    "advert_id": "pc-backfill",
+                    "source_notice_id": "pc-backfill",
+                    "interest_registered_at": "2026-04-12T11:00:00Z",
+                    "observed_at": "2026-04-13T17:00:00Z"
+                }
+            ],
+            "enriched_tenders": [],
+            "summary": {
+                "total_checked": 2,
+                "enriched": 0,
+                "not_yet_responded": 2,
+                "failed": 0
+            }
+        })
+    }
+
+    type PendingAccessLifecycleRow = (String, i64, String, Option<String>, Option<String>);
+
+    fn pending_access_lifecycle_row(
+        conn: &Connection,
+        process_id: &str,
+        notice_id: &str,
+    ) -> Result<PendingAccessLifecycleRow> {
+        conn.query_row(
+            "\
+            SELECT state, observation_count, interest_registered_at,
+                   last_checked_at, enriched_at
+            FROM procontract_pending_enrichment
+            WHERE process_id = ?1
+              AND notice_id = ?2
+              AND advert_id = ?2
+            ",
+            params![process_id, notice_id],
+            |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                ))
+            },
+        )
+        .map_err(|error| {
+            anyhow::anyhow!("loading pending enrichment row for {process_id}/{notice_id}: {error}")
+        })
+    }
+
+    #[test]
+    fn persist_tender_enrichments_keeps_and_backfills_pending_access() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let mut state_db = open_state_db(&db_path, DEFAULT_SCHEMA_EPOCH)?;
+        seed_pending_access_keep_backfill_fixture(state_db.connection())?;
+        let result_json = procontract_keep_backfill_result_json();
+
+        let persisted =
+            persist_tender_enrichments(&mut state_db, "procontract-enrich", &result_json)?;
+        assert_eq!(persisted, 0);
+
+        let tracked =
+            pending_access_lifecycle_row(state_db.connection(), "proc-pc-tracked", "pc-tracked")?;
+        assert_eq!(tracked.0, "awaiting_access");
+        assert_eq!(tracked.1, 1);
+        assert_eq!(tracked.2, "2026-04-12T10:00:00Z");
+        assert_eq!(tracked.3.as_deref(), Some("2026-04-13T17:00:00Z"));
+        assert!(tracked.4.is_none());
+
+        let backfilled =
+            pending_access_lifecycle_row(state_db.connection(), "proc-pc-backfill", "pc-backfill")?;
+        assert_eq!(backfilled.0, "awaiting_access");
+        assert_eq!(backfilled.1, 1);
+        assert_eq!(backfilled.2, "2026-04-12T11:00:00Z");
+        assert_eq!(backfilled.3.as_deref(), Some("2026-04-13T17:00:00Z"));
+        assert!(backfilled.4.is_none());
         Ok(())
     }
 
