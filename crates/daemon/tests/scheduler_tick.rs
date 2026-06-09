@@ -114,9 +114,17 @@ mod tests {
 
         fn run_scheduler_once(&self, tick_now: &str) -> Result<SchedulerOneShotResult> {
             let fixture = default_fixture();
+            self.run_scheduler_once_with_fixture(tick_now, &fixture)
+        }
+
+        fn run_scheduler_once_with_fixture(
+            &self,
+            tick_now: &str,
+            fixture: &Value,
+        ) -> Result<SchedulerOneShotResult> {
             fs::write(&self.fixture_path, serde_json::to_vec_pretty(&fixture)?)
                 .with_context(|| format!("writing {}", self.fixture_path.display()))?;
-            let fake_claude = self.prepare_fake_claude(&fixture)?;
+            let fake_claude = self.prepare_fake_claude(fixture)?;
 
             let output = Command::new(env!("CARGO_BIN_EXE_daemon"))
                 .arg("--run-scheduler-once")
@@ -201,6 +209,11 @@ mod tests {
                 params![Utc::now().to_rfc3339(), job_id],
             )?;
             Ok(())
+        }
+
+        fn seed_commercial_stage11_graph(&self) -> Result<()> {
+            let state_db = StateDb::open(&self.db_path)?;
+            seed_stage11_minimal_graph(state_db.connection(), "GB")
         }
 
         fn prepare_fake_claude(&self, fixture: &Value) -> Result<FakeClaudeCli> {
@@ -374,6 +387,192 @@ mod tests {
         )?)
     }
 
+    fn query_completed_commercial_sweep_job(
+        conn: &Connection,
+    ) -> Result<(String, String, String, String)> {
+        Ok(conn.query_row(
+            "\
+            SELECT id, status, scheduled_for, output_payload
+            FROM workflow_jobs
+            WHERE kind = 'commercial_sweep'
+            ORDER BY created_at DESC
+            LIMIT 1
+            ",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+        )?)
+    }
+
+    fn count_commercial_sweep_jobs_at(conn: &Connection, scheduled_for: &str) -> Result<i64> {
+        Ok(conn.query_row(
+            "\
+            SELECT COUNT(*)
+            FROM workflow_jobs
+            WHERE kind = 'commercial_sweep'
+              AND scheduled_for = ?1
+            ",
+            params![scheduled_for],
+            |row| row.get(0),
+        )?)
+    }
+
+    fn completed_commercial_sweep_idempotency_key(
+        conn: &Connection,
+        scheduled_for: &str,
+    ) -> Result<String> {
+        let input_payload: String = conn.query_row(
+            "\
+            SELECT input_payload
+            FROM workflow_jobs
+            WHERE kind = 'commercial_sweep'
+              AND scheduled_for = ?1
+              AND status = 'completed'
+            ORDER BY created_at DESC
+            LIMIT 1
+            ",
+            params![scheduled_for],
+            |row| row.get(0),
+        )?;
+        let payload: Value = serde_json::from_str(&input_payload)?;
+        payload
+            .pointer("/runner_meta/idempotency_key")
+            .and_then(Value::as_str)
+            .map(str::to_owned)
+            .ok_or_else(|| anyhow!("commercial_sweep input_payload missing idempotency key"))
+    }
+
+    fn count_landed_cost_rows_for_stage(conn: &Connection, stage_run_id: &str) -> Result<i64> {
+        Ok(conn.query_row(
+            "\
+            SELECT COUNT(*)
+            FROM landed_cost_estimates
+            WHERE process_id = 'process-stage11'
+              AND product_candidate_id = 'candidate-stage11'
+              AND supplier_quote_id = 'quote-stage11'
+              AND stage_run_id = ?1
+            ",
+            params![stage_run_id],
+            |row| row.get(0),
+        )?)
+    }
+
+    fn net_margin_basis_hash_for_stage(conn: &Connection, stage_run_id: &str) -> Result<String> {
+        Ok(conn.query_row(
+            "\
+            SELECT basis_hash
+            FROM candidate_net_margin_assessments
+            WHERE process_id = 'process-stage11'
+              AND product_candidate_id = 'candidate-stage11'
+              AND stage_run_id = ?1
+            ",
+            params![stage_run_id],
+            |row| row.get(0),
+        )?)
+    }
+
+    fn manifest_state_for_stage(conn: &Connection, stage_run_id: &str) -> Result<(String, String)> {
+        Ok(conn.query_row(
+            "\
+            SELECT pa.pipeline_state, pa.decision_basis_hash
+            FROM manifests m
+            JOIN pipeline_assessments pa ON pa.process_id = m.process_id
+            WHERE m.process_id = 'process-stage11'
+              AND m.stage_run_id = ?1
+            ",
+            params![stage_run_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?)
+    }
+
+    fn assert_m2_commercial_sweep_side_effects(conn: &Connection) -> Result<()> {
+        let scheduled_for = "2026-06-05T07:00:00+00:00";
+        ensure!(
+            count_commercial_sweep_jobs_at(conn, scheduled_for)? == 1,
+            "M2 expected exactly one commercial_sweep job at the 07:00 slot"
+        );
+        ensure!(
+            completed_commercial_sweep_idempotency_key(conn, scheduled_for)?
+                == "cron:commercial-sweep:pipeline/commercial-sweep:2026-06-05T07:00:00+00:00",
+            "M2 expected the commercial sweep to use the shared per-slot cron dedup key"
+        );
+
+        let (_job_id, status, job_scheduled_for, output_payload) =
+            query_completed_commercial_sweep_job(conn)?;
+        ensure!(
+            status == "completed",
+            "M2 commercial_sweep did not complete"
+        );
+        ensure!(
+            job_scheduled_for == scheduled_for,
+            "M2 commercial_sweep scheduled_for drifted: {job_scheduled_for}"
+        );
+        let output_payload: Value = serde_json::from_str(&output_payload)?;
+        let stage_run_id = output_payload
+            .get("stage_run_id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| anyhow!("M2 commercial_sweep output missing stage_run_id"))?;
+        let net_margin_stage_run_id = output_payload
+            .get("net_margin_stage_run_id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| anyhow!("M2 commercial_sweep output missing net_margin_stage_run_id"))?;
+        let manifest_stage_run_id = output_payload
+            .get("manifest_stage_run_id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| anyhow!("M2 commercial_sweep output missing manifest_stage_run_id"))?;
+
+        ensure!(
+            count_landed_cost_rows_for_stage(conn, stage_run_id)? > 0,
+            "M2 expected landed_cost_estimates row for commercial sweep stage {stage_run_id}"
+        );
+        ensure!(
+            !net_margin_basis_hash_for_stage(conn, net_margin_stage_run_id)?
+                .trim()
+                .is_empty(),
+            "M2 expected non-empty net-margin basis_hash"
+        );
+        let (pipeline_state, decision_basis_hash) =
+            manifest_state_for_stage(conn, manifest_stage_run_id)?;
+        ensure!(
+            pipeline_state == "manifest_ready",
+            "M2 expected manifest_ready pipeline state, got {pipeline_state}"
+        );
+        ensure!(
+            !decision_basis_hash.trim().is_empty(),
+            "M2 expected non-empty pipeline decision_basis_hash"
+        );
+        Ok(())
+    }
+
+    fn assert_commercial_sweep_body_avoids_manual_rerun() -> Result<()> {
+        let main_source = include_str!("../src/main.rs");
+        let commercial_body_start = main_source
+            .find("async fn run_commercial_sweep_workflow_job(")
+            .ok_or_else(|| anyhow!("run_commercial_sweep_workflow_job missing"))?;
+        let commercial_body = main_source
+            .get(commercial_body_start..)
+            .ok_or_else(|| anyhow!("commercial sweep source slice out of bounds"))?;
+        let commercial_body_len = commercial_body
+            .find("fn parse_tick_now(")
+            .ok_or_else(|| anyhow!("commercial sweep source slice terminator missing"))?;
+        let commercial_body = commercial_body
+            .get(..commercial_body_len)
+            .ok_or_else(|| anyhow!("commercial sweep body slice out of bounds"))?;
+        for forbidden in [
+            "trigger_pipeline_rerun",
+            "stop_daemon_for_exclusive_pipeline_rerun",
+            "PIPELINE_RERUN_INGEST_STAGES",
+            "--ingest landed-cost",
+            "--ingest net-gate",
+            "--ingest manifest",
+        ] {
+            ensure!(
+                !commercial_body.contains(forbidden),
+                "M2 commercial_sweep body must not reuse manual rerun marker `{forbidden}`"
+            );
+        }
+        Ok(())
+    }
+
     fn enqueue_fts_history(db_path: &Path, scheduled_for: DateTime<Utc>) -> Result<()> {
         let mut state_db = StateDb::open(db_path)?;
         JobRunner::new("scheduler-tick-test").enqueue_job(
@@ -511,6 +710,144 @@ mod tests {
             }
           ]
         })
+    }
+
+    fn commercial_stage_fixture() -> Value {
+        json!({
+          "cursorBefore": "cursor-commercial-000",
+          "cursorAfter": "cursor-commercial-001",
+          "continuationRequired": false,
+          "fingerprintState": "matched",
+          "localeState": "en-GB",
+          "currencyState": "GBP",
+          "ptyTranscriptLines": ["commercial sweep manifest fixture"],
+          "notices": [
+            {
+              "processId": "process-stage11",
+              "noticeId": "notice-stage11",
+              "sourceNoticeId": "source-stage11",
+              "sourceUrl": "https://example.test/stage11",
+              "title": "Stage 11 notice",
+              "buyerName": "Buyer",
+              "publishedAt": "2026-04-01T00:00:00Z",
+              "sourceUpdatedAt": "2026-04-01T00:00:00Z",
+              "ocid": "ocds-stage11",
+              "procurementStage": "tender",
+              "lots": [
+                {
+                  "lotId": "lot-stage11",
+                  "sourceLotId": "source-lot-stage11",
+                  "title": "Stage 11 lot",
+                  "candidateCount": 1,
+                  "estimatedValuePence": 1_000
+                }
+              ]
+            }
+          ]
+        })
+    }
+
+    fn seed_process(conn: &Connection, process_id: &str) -> Result<()> {
+        conn.execute(
+            "\
+            INSERT INTO procurement_processes (
+              id, current_stage, title, latest_published_at, latest_updated_at, owner_id
+            ) VALUES (?1, 'manifest', 'Process title', '2026-03-30T00:00:00Z',
+                      '2026-03-30T00:00:00Z', 'local-owner')
+            ",
+            params![process_id],
+        )?;
+        Ok(())
+    }
+
+    fn seed_stage11_minimal_graph(conn: &Connection, quote_country: &str) -> Result<()> {
+        conn.execute(
+            "INSERT OR IGNORE INTO sources (id, kind, config) VALUES ('stage11-test', 'procurement', '{}')",
+            [],
+        )?;
+        seed_process(conn, "process-stage11")?;
+        conn.execute(
+            "\
+            INSERT INTO raw_documents (
+              id, source_id, content_type, source_url, payload_json, metadata
+            ) VALUES ('raw-stage11', 'stage11-test', 'application/json',
+                      'https://example.test/stage11', '{}', '{}')
+            ",
+            [],
+        )?;
+        conn.execute(
+            "\
+            INSERT INTO contract_notices (
+              id, process_id, source_id, source_notice_id, raw_document_id, title,
+              summary, buyer_name, procurement_stage, published_at, source_updated_at,
+              normalized_payload, owner_id
+            ) VALUES (
+              'notice-stage11', 'process-stage11', 'stage11-test', 'source-stage11',
+              'raw-stage11', 'Stage 11 notice', 'Supply test goods', 'Buyer',
+              'tender', '2026-04-01T00:00:00Z', '2026-04-01T00:00:00Z', '{}',
+              'local-owner'
+            )
+            ",
+            [],
+        )?;
+        conn.execute(
+            "\
+            INSERT INTO notice_lots (
+              id, notice_id, title, description, owner_id
+            ) VALUES (
+              'lot-stage11', 'notice-stage11', 'Stage 11 lot', 'Test lot',
+              'local-owner'
+            )
+            ",
+            [],
+        )?;
+        conn.execute(
+            "\
+            INSERT INTO product_candidates (
+              id, process_id, notice_id, lot_id, name, candidate_type,
+              match_archetype, head_noun, quantity, quantity_unit, owner_id
+            ) VALUES (
+              'candidate-stage11', 'process-stage11', 'notice-stage11',
+              'lot-stage11', 'Test goods', 'goods', 'product', 'goods',
+              2, 'unit', 'local-owner'
+            )
+            ",
+            [],
+        )?;
+        conn.execute(
+            "\
+            INSERT INTO supplier_quotes (
+              id, process_id, notice_id, product_candidate_id, product_name, region,
+              quote_class, source_name, ship_from_country, quoted_quantity,
+              quoted_quantity_unit, unit_price_original_minor, currency,
+              unit_price_gbp_pence, includes_shipping, price_signal_role,
+              evidence, owner_id
+            ) VALUES (
+              'quote-stage11', 'process-stage11', 'notice-stage11',
+              'candidate-stage11', 'Test goods quote', 'GB', 'spot',
+              'test-source', ?1, 2, 'unit', 100, 'GBP', 100, 0,
+              'test_quote', '{}', 'local-owner'
+            )
+            ",
+            params![quote_country],
+        )?;
+        conn.execute(
+            "\
+            INSERT INTO candidate_pricing_assessments (
+              id, process_id, notice_id, product_candidate_id, selected_quote_id,
+              selected_quote_row_version, quote_cost_boundary, revenue_basis_type,
+              expected_addressable_revenue_ex_vat_pence, revenue_confidence_bps,
+              gross_margin_bps, gross_estimate_confidence_bps, identity_gate_passed,
+              usability_gate_passed, pricing_input_confidence_bps, owner_id
+            ) VALUES (
+              'pricing-stage11', 'process-stage11', 'notice-stage11',
+              'candidate-stage11', 'quote-stage11', 1, 'unit', 'expected_value',
+              1000, 8000, 8000, 7000, 1, 1, 7000, 'local-owner'
+            )
+            ",
+            [],
+        )?;
+        Ok(())
     }
 
     fn child_output_text(output: &std::process::Output) -> String {
@@ -688,6 +1025,41 @@ mod tests {
             count_materialized_fts_notice_rows(&due_conn)? > 0,
             "M1 due one-shot expected FTS rows in procurement_processes, contract_notices, and raw_documents"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn m2_commercial_stage_autonomy_g6_one_shot_drains_without_manual_rerun() -> Result<()> {
+        let harness = SchedulerOneShotHarness::new()?;
+        harness.seed_commercial_stage11_graph()?;
+        harness.seed_completed_fts_source_health_slot(ts(2026, 6, 5, 7, 0, 0)?)?;
+        let fixture = commercial_stage_fixture();
+        let result = harness.run_scheduler_once_with_fixture("2026-06-05T07:00:00Z", &fixture)?;
+        ensure!(
+            result.success,
+            "M2 commercial one-shot should succeed: stdout={} stderr={}",
+            result.stdout,
+            result.stderr
+        );
+        ensure!(
+            result.stdout.contains("enqueued=1") && result.stdout.contains("drained=1"),
+            "M2 expected one commercial_sweep enqueue and in-process drain, got stdout={}",
+            result.stdout
+        );
+        for forbidden in [
+            "trigger_pipeline_rerun",
+            "stop_daemon_for_exclusive_pipeline_rerun",
+            "PIPELINE_RERUN_INGEST_STAGES",
+        ] {
+            ensure!(
+                !result.stdout.contains(forbidden) && !result.stderr.contains(forbidden),
+                "M2 observed forbidden manual rerun marker `{forbidden}` in one-shot output"
+            );
+        }
+
+        let conn = harness.connection()?;
+        assert_m2_commercial_sweep_side_effects(&conn)?;
+        assert_commercial_sweep_body_avoids_manual_rerun()?;
         Ok(())
     }
 
