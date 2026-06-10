@@ -536,6 +536,117 @@ fn ensure_no_live_loop_compat_shim_markers(source: &str) -> Result<()> {
     Ok(())
 }
 
+fn ensure_registry_production_skill_binding(
+    registry_source: &str,
+    source_id: &str,
+    skill_id: &str,
+) -> Result<()> {
+    let source_marker = format!("\"{source_id}\".to_owned(),");
+    let source_definition = source_section_between(
+        registry_source,
+        &source_marker,
+        "policy: SourcePolicy::default(),",
+    )?;
+    ensure!(
+        source_definition.contains("production_binding: Some("),
+        "{source_id} must keep a production skill binding"
+    );
+    let binding_scope = if source_definition.contains("l5_pcs_candidate_binding()") {
+        registry_source
+    } else {
+        source_definition
+    };
+    ensure!(
+        binding_scope.contains(&format!("\"{skill_id}\"")),
+        "{source_id} must remain bound to skill {skill_id}"
+    );
+    ensure!(
+        !source_definition.contains("production_binding: None"),
+        "{source_id} must not replace its skill binding with an empty production path"
+    );
+    Ok(())
+}
+
+fn ensure_skill_first_scraping_boundary(main_source: &str, registry_source: &str) -> Result<()> {
+    ensure_manual_ingest_dispatch_uses_direct_wrappers(main_source)?;
+    ensure_manual_wrappers_claim_before_shared_bodies(main_source)?;
+    ensure_sync_source_worker_routes_to_claimed_bodies(main_source)?;
+
+    for (source_id, skill_id) in [
+        ("fts", "procurement-ingestion/fts"),
+        ("contracts-finder", "procurement-ingestion/contracts-finder"),
+        ("procontract", "procurement-ingestion/procontract-discover"),
+        (
+            "procontract-interest",
+            "procurement-ingestion/procontract-register-interest",
+        ),
+        (
+            "procontract-enrich",
+            "procurement-ingestion/procontract-enrich-tender",
+        ),
+        ("pcs", "procurement-ingestion/pcs"),
+        ("alibaba", "supplier-price-enrichment/alibaba"),
+        ("1688", "supplier-price-enrichment/1688"),
+        ("amazon", "supplier-price-enrichment/amazon"),
+        ("gem-imports", "marketplace-search/gem-imports"),
+        ("mx-wholesale", "marketplace-search/mx-wholesale"),
+        ("amazon-uk", "marketplace-search/amazon-uk"),
+        ("ebay-uk", "marketplace-search/ebay-uk"),
+        ("alibaba-search", "marketplace-search/alibaba"),
+    ] {
+        ensure_registry_production_skill_binding(registry_source, source_id, skill_id)?;
+    }
+
+    let marketplace_section = source_section_between(
+        main_source,
+        "async fn run_marketplace_search_live_loop",
+        "async fn run_marketplace_coverage_live_loop",
+    )?;
+    ensure_source_markers_in_order(
+        marketplace_section,
+        &[
+            "skills/marketplace-search/{skill_subdir}/SKILL.md",
+            "load_skill(&skill_dir, &skill_md_rel)?",
+            "execute_skill_session(",
+            "insert_executed_session_log(",
+            "persist_marketplace_search_results(",
+        ],
+    )?;
+
+    for forbidden_marker in [
+        "ProcurementApiConnector",
+        "SupplierApiConnector",
+        "procurement_api_connector",
+        "supplier_api_connector",
+        "api_connector_replacement",
+        "direct_procurement_api_connector",
+        "direct_supplier_api_connector",
+        "run_procurement_api_connector",
+        "run_supplier_api_connector",
+        "replace_skill_with_api",
+        "skip_skill_session_for_api",
+    ] {
+        ensure!(
+            !main_source.contains(forbidden_marker),
+            "daemon must not introduce API connector replacement marker {forbidden_marker}"
+        );
+        ensure!(
+            !registry_source.contains(forbidden_marker),
+            "registry must not introduce API connector replacement marker {forbidden_marker}"
+        );
+    }
+
+    Ok(())
+}
+
+#[test]
+fn guard_scope_002_skill_first_boundary() -> Result<()> {
+    let main_source = include_str!("../src/main.rs");
+    let registry_source = include_str!("../src/sources/registry.rs");
+
+    ensure_skill_first_scraping_boundary(main_source, registry_source)
+}
+
 #[test]
 fn guard_scope_005_no_compat_shims() -> Result<()> {
     let source = include_str!("../src/main.rs");
