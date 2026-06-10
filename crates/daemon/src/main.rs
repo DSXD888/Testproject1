@@ -18007,6 +18007,48 @@ fn keep_or_backfill_procontract_pending_enrichment(
     Ok(())
 }
 
+fn mark_procontract_pending_enrichment_enriched(
+    tx: &Transaction<'_>,
+    process_id: &str,
+    resolved_notice_id: &str,
+    result_notice_id: &str,
+    enriched_at: &str,
+    scoped_stage_run_id: &str,
+    visible_after_seq: i64,
+) -> Result<usize> {
+    tx.execute(
+        "\
+        UPDATE procontract_pending_enrichment
+        SET state = 'enriched',
+            last_checked_at = ?1,
+            enriched_at = ?1,
+            last_local_seq = ?2,
+            stage_run_id = ?3,
+            row_version = row_version + 1,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE process_id = ?4
+          AND state = 'awaiting_access'
+          AND (
+            notice_id = ?5
+            OR notice_id = ?6
+            OR advert_id = ?5
+            OR advert_id = ?6
+            OR source_notice_id = ?5
+            OR source_notice_id = ?6
+          )
+        ",
+        params![
+            enriched_at,
+            visible_after_seq,
+            scoped_stage_run_id,
+            process_id,
+            resolved_notice_id,
+            result_notice_id,
+        ],
+    )
+    .context("marking ProContract pending enrichment row as enriched")
+}
+
 /// Resolve `notice_id` and `process_id` for enrichment results that may use
 /// portal reference numbers instead of the canonical `pc-{advertId}` format.
 /// Falls back to a title-based lookup within the procontract source when the
@@ -18490,6 +18532,16 @@ fn persist_tender_enrichments(
                 &process_id,
                 &scoped_run_id,
                 "completed",
+                visible_after_seq,
+            )?;
+
+            mark_procontract_pending_enrichment_enriched(
+                tx,
+                &process_id,
+                &resolved_notice_id,
+                &tender.notice_id,
+                &tender.enriched_at,
+                &scoped_run_id,
                 visible_after_seq,
             )?;
 
@@ -33809,6 +33861,7 @@ mod tests {
             "pc-test-002",
             "Supply of signs",
         )?;
+        seed_pending_access_row(state_db.connection(), "proc-pc-test-002", "pc-test-002")?;
 
         let pdf_path = temp.path().join("sample.pdf");
         let docx_path = temp.path().join("sample.docx");
@@ -33889,6 +33942,29 @@ mod tests {
             |row| row.get(0),
         )?;
         assert_eq!(extraction_state, "pending");
+
+        let pending =
+            pending_access_lifecycle_row(state_db.connection(), "proc-pc-test-002", "pc-test-002")?;
+        assert_eq!(pending.0, "enriched");
+        assert_eq!(pending.1, 1);
+        assert_eq!(pending.3.as_deref(), Some("2026-04-13T16:05:00Z"));
+        assert_eq!(pending.4.as_deref(), Some("2026-04-13T16:05:00Z"));
+        Ok(())
+    }
+
+    fn seed_pending_access_row(conn: &Connection, process_id: &str, notice_id: &str) -> Result<()> {
+        conn.execute(
+            "\
+            INSERT INTO procontract_pending_enrichment (
+              id, process_id, notice_id, advert_id, source_notice_id, state,
+              interest_registered_at, observation_count
+            ) VALUES (
+              ?1, ?2, ?3, ?3, ?3, 'awaiting_access',
+              '2026-04-13T15:02:30Z', 1
+            )
+            ",
+            params![format!("pending-{notice_id}"), process_id, notice_id],
+        )?;
         Ok(())
     }
 
