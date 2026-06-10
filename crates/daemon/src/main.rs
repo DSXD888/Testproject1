@@ -1473,6 +1473,7 @@ struct ProcontractInterestEvaluation {
 }
 
 const MAX_PROCONTRACT_INTEREST_REGISTRATIONS_PER_RUN: usize = 3;
+const PROCONTRACT_AWAITING_ACCESS_MAX_AGE_DAYS: i64 = 90;
 const CONTRACT_SKILL_TIMEOUT_SECONDS: u64 = 600;
 // Bound how long a PTY skill session is allowed to run before the daemon
 // proactively terminates the child. Marketplace skills can briefly exceed
@@ -18049,6 +18050,108 @@ fn mark_procontract_pending_enrichment_enriched(
     .context("marking ProContract pending enrichment row as enriched")
 }
 
+fn parse_optional_rfc3339_utc(value: Option<&str>) -> Option<DateTime<Utc>> {
+    value
+        .and_then(|raw| {
+            let trimmed = raw.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed)
+            }
+        })
+        .and_then(|raw| DateTime::parse_from_rfc3339(raw).ok())
+        .map(|parsed| parsed.with_timezone(&Utc))
+}
+
+fn procontract_pending_expiry_reason(
+    deadline_at: Option<&str>,
+    interest_registered_at: &str,
+    now: DateTime<Utc>,
+) -> Option<&'static str> {
+    if let Some(deadline) = parse_optional_rfc3339_utc(deadline_at) {
+        if deadline <= now {
+            return Some("notice_deadline");
+        }
+        return None;
+    }
+
+    let interest_registered_at = parse_optional_rfc3339_utc(Some(interest_registered_at.trim()))?;
+    if now.signed_duration_since(interest_registered_at)
+        > chrono::Duration::days(PROCONTRACT_AWAITING_ACCESS_MAX_AGE_DAYS)
+    {
+        Some("max_age")
+    } else {
+        None
+    }
+}
+
+fn expire_stale_procontract_pending_enrichment(
+    tx: &Transaction<'_>,
+    now: DateTime<Utc>,
+    stage_run_id: &str,
+    visible_after_seq: i64,
+) -> Result<usize> {
+    let rows = {
+        let mut statement = tx.prepare(
+            "\
+            SELECT process_id, notice_id, advert_id, deadline_at, interest_registered_at
+            FROM procontract_pending_enrichment
+            WHERE state = 'awaiting_access'
+            ",
+        )?;
+        statement
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, Option<String>>(3)?,
+                    row.get::<_, String>(4)?,
+                ))
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?
+    };
+
+    let checked_at = now.to_rfc3339();
+    let mut expired_count = 0_usize;
+    for (process_id, notice_id, advert_id, deadline_at, interest_registered_at) in rows {
+        let Some(expiry_reason) =
+            procontract_pending_expiry_reason(deadline_at.as_deref(), &interest_registered_at, now)
+        else {
+            continue;
+        };
+        let scoped_run_id = scoped_stage_run_id(stage_run_id, &process_id);
+        expired_count += tx.execute(
+            "\
+            UPDATE procontract_pending_enrichment
+            SET state = 'expired',
+                last_checked_at = ?1,
+                expiry_reason = ?2,
+                last_local_seq = ?3,
+                stage_run_id = ?4,
+                row_version = row_version + 1,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE process_id = ?5
+              AND notice_id = ?6
+              AND advert_id = ?7
+              AND state = 'awaiting_access'
+            ",
+            params![
+                checked_at,
+                expiry_reason,
+                visible_after_seq,
+                scoped_run_id,
+                process_id,
+                notice_id,
+                advert_id,
+            ],
+        )?;
+    }
+
+    Ok(expired_count)
+}
+
 /// Resolve `notice_id` and `process_id` for enrichment results that may use
 /// portal reference numbers instead of the canonical `pc-{advertId}` format.
 /// Falls back to a title-based lookup within the procontract source when the
@@ -18556,6 +18659,12 @@ fn persist_tender_enrichments(
             )?;
         }
 
+        expire_stale_procontract_pending_enrichment(
+            tx,
+            Utc::now(),
+            &stage_run_id,
+            visible_after_seq,
+        )?;
         persist_source_cursor(tx, source_id, "enrich_cursor", &contract.cursor)?;
         Ok(contract.enriched_tenders.len())
     })?;
@@ -34072,6 +34181,22 @@ mod tests {
             "proc-pc-backfill",
             "pc-backfill",
             "Backfilled tender",
+        )?;
+        conn.execute(
+            "\
+            UPDATE procurement_processes
+            SET latest_deadline_at = '2099-04-13T17:00:00Z'
+            WHERE id IN ('proc-pc-tracked', 'proc-pc-backfill')
+            ",
+            [],
+        )?;
+        conn.execute(
+            "\
+            UPDATE contract_notices
+            SET deadline_at = '2099-04-13T17:00:00Z'
+            WHERE id IN ('pc-tracked', 'pc-backfill')
+            ",
+            [],
         )?;
         conn.execute(
             "\

@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, anyhow, ensure};
 use assert_cmd::Command;
+use chrono::Utc;
 use rusqlite::{Connection, OptionalExtension, params};
 use serde_json::{Value, json};
 use tempfile::TempDir;
@@ -17,6 +18,12 @@ const TRACKED_PROCESS_ID: &str = "proc-pc-resume-001";
 const TRACKED_NOTICE_ID: &str = "pc-resume-001";
 const BACKFILL_PROCESS_ID: &str = "proc-pc-backfill-001";
 const BACKFILL_NOTICE_ID: &str = "pc-backfill-001";
+const EXPIRED_BY_DEADLINE_PROCESS_ID: &str = "proc-pc-expire-deadline";
+const EXPIRED_BY_DEADLINE_NOTICE_ID: &str = "pc-expire-deadline";
+const EXPIRED_BY_MAX_AGE_PROCESS_ID: &str = "proc-pc-expire-max-age";
+const EXPIRED_BY_MAX_AGE_NOTICE_ID: &str = "pc-expire-max-age";
+const RFX_DEADLINE_IGNORED_PROCESS_ID: &str = "proc-pc-rfx-deadline-ignored";
+const RFX_DEADLINE_IGNORED_NOTICE_ID: &str = "pc-rfx-deadline-ignored";
 
 struct ProcontractRunHarness {
     _temp: TempDir,
@@ -45,6 +52,7 @@ struct PendingRow {
     deadline_at: Option<String>,
     last_checked_at: Option<String>,
     enriched_at: Option<String>,
+    expiry_reason: Option<String>,
 }
 
 impl ProcontractRunHarness {
@@ -262,11 +270,110 @@ fn keep_and_backfill_contract() -> Value {
     })
 }
 
+fn empty_enrich_sweep_contract() -> Value {
+    json!({
+        "cursor": "{\"last_checked_at\":\"2026-06-10T09:00:00Z\"}",
+        "continuation_required": false,
+        "not_yet_responded": [],
+        "enriched_tenders": [],
+        "summary": {
+            "total_checked": 0,
+            "enriched": 0,
+            "not_yet_responded": 0,
+            "failed": 0
+        }
+    })
+}
+
+fn insert_pending_awaiting_access_row(
+    conn: &Connection,
+    process_id: &str,
+    notice_id: &str,
+    interest_registered_at: &str,
+    deadline_at: Option<&str>,
+) -> Result<()> {
+    conn.execute(
+        "\
+        INSERT INTO procontract_pending_enrichment (
+          id, process_id, notice_id, advert_id, source_notice_id, state,
+          interest_registered_at, deadline_at, observation_count
+        ) VALUES (
+          ?1, ?2, ?3, ?3, ?3, 'awaiting_access', ?4, ?5, 0
+        )
+        ",
+        params![
+            format!("pending-{notice_id}"),
+            process_id,
+            notice_id,
+            interest_registered_at,
+            deadline_at,
+        ],
+    )?;
+    Ok(())
+}
+
+fn seed_expiry_sweep_rows(harness: &ProcontractRunHarness) -> Result<()> {
+    harness.seed_notice(
+        EXPIRED_BY_DEADLINE_PROCESS_ID,
+        EXPIRED_BY_DEADLINE_NOTICE_ID,
+        "Supply of stale deadline widgets",
+    )?;
+    harness.seed_notice(
+        EXPIRED_BY_MAX_AGE_PROCESS_ID,
+        EXPIRED_BY_MAX_AGE_NOTICE_ID,
+        "Supply of stale max-age widgets",
+    )?;
+    harness.seed_notice(
+        RFX_DEADLINE_IGNORED_PROCESS_ID,
+        RFX_DEADLINE_IGNORED_NOTICE_ID,
+        "Supply of active RFx deadline widgets",
+    )?;
+
+    let conn = harness.connection()?;
+    insert_pending_awaiting_access_row(
+        &conn,
+        EXPIRED_BY_DEADLINE_PROCESS_ID,
+        EXPIRED_BY_DEADLINE_NOTICE_ID,
+        &Utc::now().to_rfc3339(),
+        Some("2000-01-01T00:00:00Z"),
+    )?;
+    insert_pending_awaiting_access_row(
+        &conn,
+        EXPIRED_BY_MAX_AGE_PROCESS_ID,
+        EXPIRED_BY_MAX_AGE_NOTICE_ID,
+        "2000-01-01T00:00:00Z",
+        None,
+    )?;
+    insert_pending_awaiting_access_row(
+        &conn,
+        RFX_DEADLINE_IGNORED_PROCESS_ID,
+        RFX_DEADLINE_IGNORED_NOTICE_ID,
+        &Utc::now().to_rfc3339(),
+        None,
+    )?;
+    conn.execute(
+        "\
+        UPDATE contract_notices
+        SET normalized_payload = ?1
+        WHERE id = ?2
+        ",
+        params![
+            json!({
+                "rfx_response_deadline_at": "2000-01-01T00:00:00Z",
+                "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=ignored"
+            })
+            .to_string(),
+            RFX_DEADLINE_IGNORED_NOTICE_ID,
+        ],
+    )?;
+    Ok(())
+}
+
 fn pending_row(conn: &Connection, process_id: &str, advert_id: &str) -> Result<PendingRow> {
     conn.query_row(
         "\
         SELECT state, observation_count, interest_registered_at, deadline_at,
-               last_checked_at, enriched_at
+               last_checked_at, enriched_at, expiry_reason
         FROM procontract_pending_enrichment
         WHERE process_id = ?1
           AND notice_id = ?2
@@ -281,6 +388,7 @@ fn pending_row(conn: &Connection, process_id: &str, advert_id: &str) -> Result<P
                 deadline_at: row.get(3)?,
                 last_checked_at: row.get(4)?,
                 enriched_at: row.get(5)?,
+                expiry_reason: row.get(6)?,
             })
         },
     )
@@ -337,7 +445,7 @@ fn latest_job_output(conn: &Connection, scope_id: &str) -> Result<Value> {
         WHERE kind = 'sync_source'
           AND scope_id = ?1
           AND parent_job_id IS NULL
-        ORDER BY created_at DESC, id DESC
+        ORDER BY rowid DESC
         LIMIT 1
         ",
         params![scope_id],
@@ -354,7 +462,7 @@ fn latest_job_input(conn: &Connection, scope_id: &str) -> Result<Value> {
         WHERE kind = 'sync_source'
           AND scope_id = ?1
           AND parent_job_id IS NULL
-        ORDER BY created_at DESC, id DESC
+        ORDER BY rowid DESC
         LIMIT 1
         ",
         params![scope_id],
@@ -377,6 +485,63 @@ fn require_object_field<'a>(value: &'a Value, field: &str) -> Result<&'a Value> 
     value
         .get(field)
         .ok_or_else(|| anyhow!("missing JSON field `{field}`"))
+}
+
+fn assert_expiry_sweep_rows(conn: &Connection) -> Result<()> {
+    let deadline_expired = pending_row(
+        conn,
+        EXPIRED_BY_DEADLINE_PROCESS_ID,
+        EXPIRED_BY_DEADLINE_NOTICE_ID,
+    )?;
+    ensure!(deadline_expired.state == "expired");
+    ensure!(deadline_expired.last_checked_at.is_some());
+    ensure!(deadline_expired.expiry_reason.as_deref() == Some("notice_deadline"));
+
+    let max_age_expired = pending_row(
+        conn,
+        EXPIRED_BY_MAX_AGE_PROCESS_ID,
+        EXPIRED_BY_MAX_AGE_NOTICE_ID,
+    )?;
+    ensure!(max_age_expired.state == "expired");
+    ensure!(max_age_expired.last_checked_at.is_some());
+    ensure!(max_age_expired.expiry_reason.as_deref() == Some("max_age"));
+
+    let rfx_deadline_ignored = pending_row(
+        conn,
+        RFX_DEADLINE_IGNORED_PROCESS_ID,
+        RFX_DEADLINE_IGNORED_NOTICE_ID,
+    )?;
+    ensure!(rfx_deadline_ignored.state == "awaiting_access");
+    ensure!(rfx_deadline_ignored.expiry_reason.is_none());
+    Ok(())
+}
+
+fn assert_future_targets_exclude_expired(input_payload: &Value) -> Result<()> {
+    let awaiting_targets = input_payload
+        .pointer("/job_parameters/awaitingAccessTargets")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    ensure!(
+        !awaiting_targets
+            .iter()
+            .any(|target| target["advertId"] == EXPIRED_BY_DEADLINE_NOTICE_ID),
+        "deadline-expired row should not be scheduled as a future direct target"
+    );
+    ensure!(
+        !awaiting_targets
+            .iter()
+            .any(|target| target["advertId"] == EXPIRED_BY_MAX_AGE_NOTICE_ID),
+        "max-age-expired row should not be scheduled as a future direct target"
+    );
+    ensure!(
+        awaiting_targets.iter().any(|target| {
+            target["advertId"] == RFX_DEADLINE_IGNORED_NOTICE_ID
+                && target["processId"] == RFX_DEADLINE_IGNORED_PROCESS_ID
+        }),
+        "active row with only an RFx response deadline should remain scheduled"
+    );
+    Ok(())
 }
 
 fn repo_root() -> Result<PathBuf> {
@@ -557,5 +722,38 @@ fn m3_step_002_enrich_keep_and_backfill() -> Result<()> {
     ensure!(backfilled.interest_registered_at == "2026-04-12T11:00:00Z");
     ensure!(backfilled.last_checked_at.as_deref() == Some("2026-04-13T17:00:00Z"));
     ensure!(backfilled.enriched_at.is_none());
+    Ok(())
+}
+
+#[test]
+fn m3_step_004_staleness_expire() -> Result<()> {
+    let harness = ProcontractRunHarness::new()?;
+    seed_expiry_sweep_rows(&harness)?;
+
+    let first_sweep = harness.run_ingest("procontract-enrich", &empty_enrich_sweep_contract())?;
+    assert_run_success(&first_sweep, "first expiry sweep")?;
+
+    let conn = harness.connection()?;
+    assert_expiry_sweep_rows(&conn)?;
+    drop(conn);
+
+    let second_sweep = harness.run_ingest("procontract-enrich", &empty_enrich_sweep_contract())?;
+    assert_run_success(&second_sweep, "second expiry sweep")?;
+
+    let conn = harness.connection()?;
+    let input_payload = latest_job_input(&conn, "procontract-enrich")?;
+    assert_future_targets_exclude_expired(&input_payload)?;
+    drop(conn);
+
+    let invocation_count_before_interest = harness.fake_pty_invocation_count()?;
+    let interest = harness.run_ingest("procontract-interest", &registration_success_contract())?;
+    assert_run_success(&interest, "interest run after expiry")?;
+    ensure!(
+        harness.fake_pty_invocation_count()? == invocation_count_before_interest,
+        "expired pending rows must not re-enter register-interest"
+    );
+    let conn = harness.connection()?;
+    let output = latest_job_output(&conn, "procontract-interest")?;
+    ensure!(require_object_field(&output, "registrations")?.as_i64() == Some(0));
     Ok(())
 }
