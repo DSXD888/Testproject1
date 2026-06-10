@@ -89,6 +89,14 @@ mod tests {
         Ok(())
     }
 
+    fn assert_line_contains_all(source: &str, line_marker: &str, markers: &[&str]) -> Result<()> {
+        let line = source
+            .lines()
+            .find(|line| line.contains(line_marker))
+            .with_context(|| format!("missing line containing `{line_marker}`"))?;
+        assert_contains_all(line, markers)
+    }
+
     fn create_m5_soak_tables(conn: &rusqlite::Connection) -> Result<()> {
         conn.execute_batch(
             "\
@@ -598,6 +606,15 @@ mod tests {
         );
         arbiter.release(&held, ReleaseCause::Archived);
         ensure!(arbiter.snapshot().source_lanes.is_empty());
+        let after_release =
+            match arbiter.admit(&browser_request("quota-source-after-release", "fts-quota")) {
+                ArbiterDecision::Granted(lease) => lease,
+                ArbiterDecision::Denied(reason) => {
+                    anyhow::bail!("source-lane quota did not reopen after release: {reason:?}");
+                }
+            };
+        arbiter.release(&after_release, ReleaseCause::Archived);
+        ensure!(arbiter.snapshot().source_lanes.is_empty());
         Ok(())
     }
 
@@ -721,7 +738,201 @@ mod tests {
             .collect::<rusqlite::Result<Vec<i64>>>()?;
         ensure!(observed_ipc_rows == vec![1, 2, 3]);
 
+        assert_source_lane_denial_and_release()?;
         assert_commercial_sweep_has_no_outer_write_transaction(include_str!("../src/main.rs"))
+    }
+
+    fn assert_r1_r8_spec_map(spec: &str) -> Result<()> {
+        let invariant_map = section_between(
+            spec,
+            "#### FR-G5.5 R1-R8 Concurrency Invariant Map",
+            "### 2.7 G6 - Autonomous Commercial Sweep",
+        )?;
+        assert_line_contains_all(
+            invariant_map,
+            "R1 write contention",
+            &["FR-G5.2", "M5 counter/unique-row soak"],
+        )?;
+        assert_line_contains_all(
+            invariant_map,
+            "R2 PTY starvation of tick",
+            &["FR-G1.1", "M1/M5"],
+        )?;
+        assert_line_contains_all(
+            invariant_map,
+            "R3 double dispatch",
+            &["FR-G1.3", "`tick_002`"],
+        )?;
+        assert_line_contains_all(
+            invariant_map,
+            "R4 arbiter accounting",
+            &["FR-G2.2", "`worker_005`"],
+        )?;
+        assert_line_contains_all(
+            invariant_map,
+            "R5 sleep/wake and leases",
+            &["FR-G1.5", "FR-G5.4", "M5"],
+        )?;
+        assert_line_contains_all(
+            invariant_map,
+            "R6 schema epoch coupling",
+            &["FR-G4.1", "`sqlite_schema.rs` or re-fire guard test"],
+        )?;
+        assert_line_contains_all(
+            invariant_map,
+            "R7 same-source overlap",
+            &["FR-G5.3", "`worker_003`", "M5"],
+        )?;
+        assert_line_contains_all(
+            invariant_map,
+            "R8 heavy sweep writer pressure",
+            &["FR-G5.2", "M5"],
+        )?;
+        Ok(())
+    }
+
+    fn assert_r1_r8_tdd_mapping(tdd: &str) -> Result<()> {
+        let tdd_mapping = section_between(tdd, "| `FR-G5.5`", "| `FR-G6.1`")?;
+        assert_contains_all(
+            tdd_mapping,
+            &[
+                "`tick_002`",
+                "`tick_003`",
+                "`tick_007`",
+                "`worker_002`",
+                "`worker_003`",
+                "`worker_005`",
+                "M5",
+                "Q4 schema branch",
+            ],
+        )?;
+        Ok(())
+    }
+
+    fn assert_r1_r8_strategy_closure(strategy: &str) -> Result<()> {
+        let closure_map = section_between(strategy, "### R1-R8 Closure Map", "### Gate Criteria")?;
+        assert_line_contains_all(
+            closure_map,
+            "R1 write contention",
+            &["M5", "no permanent `SQLITE_BUSY`", "only if falsified"],
+        )?;
+        assert_line_contains_all(
+            closure_map,
+            "R2 PTY starvation of tick",
+            &["M1", "`tick_007`", "M5"],
+        )?;
+        assert_line_contains_all(
+            closure_map,
+            "R3 double dispatch",
+            &["`tick_002`", "scheduler startup fold"],
+        )?;
+        assert_line_contains_all(
+            closure_map,
+            "R4 arbiter accounting",
+            &["`worker_005`", "`DenialReason`", "release path"],
+        )?;
+        assert_line_contains_all(
+            closure_map,
+            "R5 sleep/wake and leases",
+            &["Existing lease tests", "M5"],
+        )?;
+        assert_line_contains_all(
+            closure_map,
+            "R6 schema epoch coupling",
+            &["Q4 branch proof"],
+        )?;
+        assert_line_contains_all(
+            closure_map,
+            "R7 same-source overlap",
+            &["`worker_003`", "M5", "never runs concurrently"],
+        )?;
+        assert_line_contains_all(
+            closure_map,
+            "R8 heavy sweep writer pressure",
+            &["per-process scoped", "`busy_timeout`"],
+        )?;
+        Ok(())
+    }
+
+    fn assert_r1_r8_test_surfaces(
+        worker_pump: &str,
+        scheduler_tick: &str,
+        job_claim: &str,
+        sqlite_schema: &str,
+        procontract_resumption: &str,
+    ) -> Result<()> {
+        assert_contains_all(
+            worker_pump,
+            &[
+                "fn worker_002_defer_on_denial_no_attempt_bump",
+                "fn worker_003_source_lane_serializes_same_source",
+                "fn worker_005_arbiter_quota_respected",
+                "fn m5_concurrency_soak_g5",
+                "m5_unique_writes",
+                "journal_mode",
+                "busy_timeout",
+                "assert_source_lane_denial_and_release()?",
+                "assert_commercial_sweep_has_no_outer_write_transaction",
+            ],
+        )?;
+        assert_contains_all(
+            scheduler_tick,
+            &[
+                "fn tick_002_repeated_ticks_same_slot_idempotent",
+                "fn tick_003_long_gap_catchup",
+                "fn tick_007_serve_scheduler_thread_spawn_poll_terminate",
+            ],
+        )?;
+        assert_contains_all(
+            job_claim,
+            &[
+                "fn l3_t_job_claim_004_expired_lease_returns_work_to_runnable_pool_exactly_once",
+                "impact_job_claim_new_kinds_claimable_without_mutating_lease_contract",
+            ],
+        )?;
+        assert_contains_all(
+            sqlite_schema,
+            &[
+                "fn schema_0015_procontract_pending_enrichment",
+                "0015_procontract_pending_enrichment",
+                "DEFAULT_SCHEMA_EPOCH",
+            ],
+        )?;
+        assert_contains_all(
+            procontract_resumption,
+            &["fn m3_step_001_register_creates_awaiting_access_without_refire"],
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn m5_r1_r8_invariant_map_has_named_proofs_and_no_escalation() -> Result<()> {
+        let spec = include_str!(
+            "../../../docs/pipeline/autonomous-daemon-scheduling/artifacts/autonomous-daemon-scheduling-spec.md"
+        );
+        let tdd = include_str!(
+            "../../../docs/pipeline/autonomous-daemon-scheduling/artifacts/autonomous-daemon-scheduling-tdd.md"
+        );
+        let strategy = include_str!(
+            "../../../docs/pipeline/autonomous-daemon-scheduling/artifacts/autonomous-daemon-scheduling-strategy.md"
+        );
+        let main_rs = include_str!("../src/main.rs");
+
+        assert_r1_r8_spec_map(spec)?;
+        assert_r1_r8_tdd_mapping(tdd)?;
+        assert_r1_r8_strategy_closure(strategy)?;
+        assert_r1_r8_test_surfaces(
+            include_str!("worker_pump.rs"),
+            include_str!("scheduler_tick.rs"),
+            include_str!("job_claim.rs"),
+            include_str!("sqlite_schema.rs"),
+            include_str!("procontract_resumption.rs"),
+        )?;
+
+        assert_commercial_sweep_has_no_outer_write_transaction(main_rs)?;
+        ensure!(!main_rs.contains("SingleWriterActor"));
+        ensure!(!main_rs.contains("single_writer_actor"));
+        Ok(())
     }
 
     #[test]
