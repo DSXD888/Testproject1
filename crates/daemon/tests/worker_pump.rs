@@ -5,13 +5,19 @@
 #[path = "../src/agents/arbiter.rs"]
 mod arbiter_impl;
 
+mod support;
+
 mod tests {
     use anyhow::{Context, Result, ensure};
+    use rusqlite::params;
+    use std::sync::{Arc, Barrier};
+    use std::thread;
 
     use crate::arbiter_impl::{
         AdmissionPriority, AdmissionRequest, ArbiterDecision, ArbiterEventKind, DenialReason,
         ReleaseCause, ResourceArbiter, ResourceBudgets, SourceKind, SourceLaneRequest,
     };
+    use crate::support::db::{StateDb, TestStateDb};
 
     fn browser_request(job_id: &str, source_id: &str) -> AdmissionRequest {
         AdmissionRequest {
@@ -80,6 +86,106 @@ mod tests {
         for marker in markers {
             ensure!(section.contains(marker), "missing `{marker}`");
         }
+        Ok(())
+    }
+
+    fn create_m5_soak_tables(conn: &rusqlite::Connection) -> Result<()> {
+        conn.execute_batch(
+            "\
+            CREATE TABLE m5_unique_writes (
+              worker_index INTEGER NOT NULL,
+              row_index INTEGER NOT NULL,
+              PRIMARY KEY (worker_index, row_index)
+            );
+            CREATE TABLE m5_commercial_process_writes (
+              process_id TEXT PRIMARY KEY
+            );
+            CREATE TABLE m5_ipc_mutations (
+              process_id TEXT PRIMARY KEY,
+              observed_commercial_rows INTEGER NOT NULL
+            );
+            ",
+        )
+        .context("creating M5 soak tables")?;
+        Ok(())
+    }
+
+    fn run_m5_unique_insert_worker(
+        mut state_db: StateDb,
+        barrier: &Barrier,
+        worker_index: usize,
+        rows_per_worker: usize,
+    ) -> Result<usize> {
+        barrier.wait();
+        let worker_index = i64::try_from(worker_index).context("worker index fits i64")?;
+        for row_index in 0..rows_per_worker {
+            let row_index = i64::try_from(row_index).context("row index fits i64")?;
+            state_db.with_write_transaction(|tx| {
+                tx.execute(
+                    "INSERT INTO m5_unique_writes (worker_index, row_index) VALUES (?1, ?2)",
+                    params![worker_index, row_index],
+                )
+                .context("inserting M5 unique write")?;
+                Ok(())
+            })?;
+        }
+        Ok(rows_per_worker)
+    }
+
+    fn run_m5_commercial_process_write(state_db: &mut StateDb, process_id: &str) -> Result<i64> {
+        let ((), commit_seq) = state_db.with_write_transaction(|tx| {
+            tx.execute(
+                "INSERT INTO m5_commercial_process_writes (process_id) VALUES (?1)",
+                params![process_id],
+            )
+            .with_context(|| format!("recording commercial process write {process_id}"))?;
+            Ok(())
+        })?;
+        Ok(commit_seq)
+    }
+
+    fn run_m5_ipc_mutation(state_db: &mut StateDb, process_id: &str) -> Result<i64> {
+        let observed_commercial_rows: i64 = state_db
+            .connection()
+            .query_row(
+                "SELECT COUNT(*) FROM m5_commercial_process_writes",
+                [],
+                |row| row.get(0),
+            )
+            .context("reading commercial rows before IPC mutation")?;
+        let ((), commit_seq) = state_db.with_write_transaction(|tx| {
+            tx.execute(
+                "\
+                INSERT INTO m5_ipc_mutations (process_id, observed_commercial_rows)
+                VALUES (?1, ?2)
+                ",
+                params![process_id, observed_commercial_rows],
+            )
+            .with_context(|| format!("recording IPC mutation after {process_id}"))?;
+            Ok(())
+        })?;
+        Ok(commit_seq)
+    }
+
+    fn assert_commercial_sweep_has_no_outer_write_transaction(main_rs: &str) -> Result<()> {
+        let sweep_body = section_between(
+            main_rs,
+            "async fn run_commercial_sweep_workflow_job",
+            "fn parse_tick_now",
+        )?;
+        assert_contains_all(
+            sweep_body,
+            &[
+                "run_landed_cost_live_loop_with_stage_run_id(runtime, cli, Some(&stage_run_id), true)",
+                "run_net_margin_gate_once(&mut runtime.state_db, &net_margin_stage_run_id)",
+                "run_manifest_generation_live_loop_with_stage_run_id(",
+                "complete_claimed_job_after_side_effect(",
+            ],
+        )?;
+        ensure!(
+            !sweep_body.contains("with_write_transaction"),
+            "commercial_sweep must not wrap all subpasses in one outer write transaction"
+        );
         Ok(())
     }
 
@@ -527,6 +633,95 @@ mod tests {
         assert_agent_slot_denial_and_release()?;
         assert_source_lane_denial_and_release()?;
         assert_skill_concurrency_denial_and_release()
+    }
+
+    #[test]
+    fn m5_concurrency_soak_g5() -> Result<()> {
+        let test_db = TestStateDb::new()?;
+        let journal_mode: String =
+            test_db
+                .connection()
+                .pragma_query_value(None, "journal_mode", |row| row.get(0))?;
+        ensure!(journal_mode.eq_ignore_ascii_case("wal"));
+        let busy_timeout_ms: i64 =
+            test_db
+                .connection()
+                .pragma_query_value(None, "busy_timeout", |row| row.get(0))?;
+        ensure!(busy_timeout_ms == 5_000);
+        create_m5_soak_tables(test_db.connection())?;
+
+        let writer_count = 4_usize;
+        let rows_per_writer = 25_usize;
+        let barrier = Arc::new(Barrier::new(writer_count));
+        let mut handles = Vec::with_capacity(writer_count);
+        for worker_index in 0..writer_count {
+            let state_db = StateDb::open(test_db.db_path())?;
+            let worker_barrier = Arc::clone(&barrier);
+            handles.push(thread::spawn(move || {
+                run_m5_unique_insert_worker(
+                    state_db,
+                    &worker_barrier,
+                    worker_index,
+                    rows_per_writer,
+                )
+            }));
+        }
+
+        let mut inserted_rows = 0_usize;
+        for handle in handles {
+            inserted_rows += handle
+                .join()
+                .map_err(|_| anyhow::anyhow!("M5 writer thread panicked"))??;
+        }
+        let expected_rows = writer_count
+            .checked_mul(rows_per_writer)
+            .context("M5 expected row count overflow")?;
+        ensure!(inserted_rows == expected_rows);
+        let persisted_rows: i64 =
+            test_db
+                .connection()
+                .query_row("SELECT COUNT(*) FROM m5_unique_writes", [], |row| {
+                    row.get(0)
+                })?;
+        ensure!(persisted_rows == i64::try_from(expected_rows)?);
+
+        let mut commercial_db = StateDb::open(test_db.db_path())?;
+        let mut ipc_db = StateDb::open(test_db.db_path())?;
+        let mut commercial_and_ipc_sequences = Vec::new();
+        for process_id in ["process-0", "process-1", "process-2"] {
+            let commercial_seq = run_m5_commercial_process_write(&mut commercial_db, process_id)?;
+            let ipc_seq = run_m5_ipc_mutation(&mut ipc_db, process_id)?;
+            ensure!(commercial_seq < ipc_seq);
+            commercial_and_ipc_sequences.push((commercial_seq, ipc_seq));
+        }
+        for pair in commercial_and_ipc_sequences.windows(2) {
+            let previous_ipc_seq = pair
+                .first()
+                .map(|(_, ipc_seq)| *ipc_seq)
+                .context("previous IPC sequence exists")?;
+            let next_commercial_seq = pair
+                .get(1)
+                .map(|(commercial_seq, _)| *commercial_seq)
+                .context("next commercial sequence exists")?;
+            ensure!(
+                previous_ipc_seq < next_commercial_seq,
+                "commercial writes must commit per process so IPC can interleave"
+            );
+        }
+        let observed_ipc_rows: Vec<i64> = test_db
+            .connection()
+            .prepare(
+                "\
+                SELECT observed_commercial_rows
+                FROM m5_ipc_mutations
+                ORDER BY process_id
+                ",
+            )?
+            .query_map([], |row| row.get(0))?
+            .collect::<rusqlite::Result<Vec<i64>>>()?;
+        ensure!(observed_ipc_rows == vec![1, 2, 3]);
+
+        assert_commercial_sweep_has_no_outer_write_transaction(include_str!("../src/main.rs"))
     }
 
     #[test]
