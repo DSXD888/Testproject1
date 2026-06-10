@@ -2,7 +2,45 @@ expected_fields:
   - cursor
   - continuation_required
   - enriched_tenders
+  - not_yet_responded
+  - failed_targets
+  - directly_visited
+  - target_evidence
   - summary
 expected_interaction_profile: pty_interactive
 expected_download_root_required: true
+expected_optional_input_fields:
+  - awaitingAccessTargets
+expected_canary_modes:
+  - scan_only_missing_worklist
+  - scan_only_empty_worklist
+  - direct_target_worklist
+expected_awaiting_access_target_fields:
+  - advertId
+  - sourceNoticeId
+  - processId
+expected_outcome_buckets:
+  - enriched_tenders
+  - not_yet_responded
+  - failed_targets
+  - directly_visited
+expected_target_evidence_fields:
+  - advert_id
+  - source_notice_id
+  - process_id
+  - outcome
+  - checked_at
+  - discovery_method
+  - direct_visit_attempted
+expected_target_evidence_outcomes:
+  - enriched
+  - not_yet_responded
+  - failed
+  - blocked
+expected_direct_visit_summary_fields:
+  - direct_targets_received
+  - direct_targets_visited
+  - directly_visited
+  - scan_rows_checked
+  - scan_direct_union_count
 expected_rfx_url_prefix: https://procontract.due-north.com/RfxResponse/Index

@@ -40,6 +40,18 @@
               "null"
             ]
           },
+          "advert_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source_notice_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "rfx_id": {
             "type": "string"
           },
@@ -115,6 +127,348 @@
           },
           "enriched_at": {
             "type": "string"
+          },
+          "discovery_method": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "scan",
+              "direct",
+              "scan_and_direct",
+              null
+            ]
+          },
+          "direct_visit_attempted": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "activity_dashboard_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "not_yet_responded": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "notice_id"
+        ],
+        "properties": {
+          "notice_id": {
+            "type": "string"
+          },
+          "process_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "advert_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source_notice_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "interest_registered_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "observed_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "deadline_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "discovery_method": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "scan",
+              "direct",
+              "scan_and_direct",
+              null
+            ]
+          },
+          "direct_visit_attempted": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "activity_dashboard_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "outcome_detail": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "failed_targets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "failure_code"
+        ],
+        "properties": {
+          "notice_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "process_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "advert_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source_notice_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "observed_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "failure_code": {
+            "type": "string",
+            "enum": [
+              "CDP_CONNECT_FAILED",
+              "SESSION_REFRESH_FAILED",
+              "PAGE_SHAPE_DRIFT",
+              "SOURCE_SOFT_BLOCKED",
+              "AGENT_PARTIAL_FAILURE",
+              "AGENT_STALLED",
+              "AGENT_AUTH_CHALLENGE"
+            ]
+          },
+          "message": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "severity": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "blocked",
+              "warning",
+              "error",
+              null
+            ]
+          },
+          "discovery_method": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "scan",
+              "direct",
+              "scan_and_direct",
+              null
+            ]
+          },
+          "direct_visit_attempted": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "direct_visit_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "directly_visited": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "advert_id",
+          "visited_at",
+          "outcome"
+        ],
+        "properties": {
+          "advert_id": {
+            "type": "string"
+          },
+          "source_notice_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "process_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "notice_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "visited_at": {
+            "type": "string"
+          },
+          "activity_dashboard_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "direct_visit_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "enriched",
+              "not_yet_responded",
+              "failed",
+              "blocked"
+            ]
+          }
+        }
+      }
+    },
+    "target_evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "outcome",
+          "checked_at",
+          "discovery_method",
+          "direct_visit_attempted"
+        ],
+        "properties": {
+          "notice_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "process_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "advert_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source_notice_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "enriched",
+              "not_yet_responded",
+              "failed",
+              "blocked"
+            ]
+          },
+          "checked_at": {
+            "type": "string"
+          },
+          "discovery_method": {
+            "type": "string",
+            "enum": [
+              "scan",
+              "direct",
+              "scan_and_direct"
+            ]
+          },
+          "direct_visit_attempted": {
+            "type": "boolean"
+          },
+          "activity_dashboard_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "rfx_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "failure_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "message": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       }
@@ -138,6 +492,21 @@
           "type": "integer"
         },
         "failed": {
+          "type": "integer"
+        },
+        "direct_targets_received": {
+          "type": "integer"
+        },
+        "direct_targets_visited": {
+          "type": "integer"
+        },
+        "directly_visited": {
+          "type": "integer"
+        },
+        "scan_rows_checked": {
+          "type": "integer"
+        },
+        "scan_direct_union_count": {
           "type": "integer"
         }
       }

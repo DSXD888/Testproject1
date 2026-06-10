@@ -17,6 +17,18 @@
     "tenders_processed": {
       "type": "integer",
       "minimum": 0
+    },
+    "awaiting_access_targets_processed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "direct_targets_processed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "direct_targets_remaining": {
+      "type": "integer",
+      "minimum": 0
     }
   }
 }

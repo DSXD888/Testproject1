@@ -1,9 +1,9 @@
 ---
 skill_id: procurement-ingestion/procontract-enrich-tender
-skill_version: 1.2.0
+skill_version: 1.3.0
 interaction_profile: pty_interactive
-result_schema_version: 1.0.0
-checkpoint_schema_version: 1.0.0
+result_schema_version: 1.1.0
+checkpoint_schema_version: 1.1.0
 model_profile: browse_stable_low_cost
 agent_cli: claude
 side_effect_class: none
@@ -26,17 +26,34 @@ Do not use this skill for listing discovery or for clicking the initial interest
 - `source_id`: should be `procontract-enrich`
 - `download_root`: absolute directory where all attachment files must be saved
 - Optional `cursor`
+- Optional `awaitingAccessTargets`: daemon-provided durable work-list of
+  ProContract tenders that have registered interest but are still waiting for
+  the live RFx event. Each item has:
+  - `advertId`: ProContract advert/activity identifier
+  - `sourceNoticeId`: daemon notice key for the pending tender
+  - `processId`: daemon procurement process id
+
+If `awaitingAccessTargets` is missing or empty, run the scan-only flow exactly
+as before. If it is present, union these direct targets with the Recently added
+scan results and dedupe by `advertId` before enrichment.
 
 ## Outputs
-- `result.json` containing `enriched_tenders[]`
+- `result.json` containing `enriched_tenders[]`, `not_yet_responded[]`,
+  `failed_targets[]`, `directly_visited[]`, and `target_evidence[]`
 - Each enriched tender includes the updated deadline and the downloaded document inventory
+- Each awaited target must be classified as exactly one of:
+  `enriched`, `not_yet_responded`, or `failed`
+- `directly_visited[]` records daemon-supplied targets that were reached by
+  advert/source id rather than only by the portal scan
 
 ## Failure Codes
 - AGENT_AUTH_CHALLENGE
+- CDP_CONNECT_FAILED
 - PAGE_SHAPE_DRIFT
 - SOURCE_SOFT_BLOCKED
 - AGENT_PARTIAL_FAILURE
 - AGENT_STALLED
+- SESSION_REFRESH_FAILED
 
 ---
 
@@ -74,11 +91,18 @@ If CDP is unreachable, write a valid blocked `result.json` immediately:
   "cursor": "{}",
   "continuation_required": false,
   "enriched_tenders": [],
+  "not_yet_responded": [],
+  "failed_targets": [],
+  "directly_visited": [],
+  "target_evidence": [],
   "summary": {
     "total_checked": 0,
     "enriched": 0,
     "not_yet_responded": 0,
-    "failed": 0
+    "failed": 0,
+    "direct_targets_received": 0,
+    "direct_targets_visited": 0,
+    "directly_visited": 0
   },
   "status": "blocked",
   "blockers": [
@@ -90,6 +114,13 @@ If CDP is unreachable, write a valid blocked `result.json` immediately:
   ]
 }
 ```
+
+If `awaitingAccessTargets` was supplied and CDP or session recovery blocks the
+run before target inspection, every supplied target remains daemon-owned
+`awaiting_access`. Do not mark it expired. Emit one `failed_targets[]` and one
+`target_evidence[]` entry per supplied target with the blocking code
+(`CDP_CONNECT_FAILED` or `SESSION_REFRESH_FAILED`) so the daemon can retain the
+row and retry later.
 
 Every browser command must use:
 
@@ -264,11 +295,25 @@ Preferred path:
 
 If the `Recently added` tab does not visibly switch but the grid already contains newly added items, continue with the visible activity list and record that the tab interaction was brittle.
 
-After collecting all activity rows across all pages, process each one through Steps 3-7 below.
+After collecting all activity rows across all pages, merge in
+`awaitingAccessTargets`:
+
+1. Normalize each scanned row and each awaiting target to a common key set:
+   `advert_id`, `source_notice_id`, `process_id`, `activity_url`, `title`, and
+   `discovery_method`
+2. Dedupe by `advert_id` when present, otherwise by `source_notice_id`
+3. Prefer scanned row metadata for titles and activity URLs, but retain daemon
+   ids from `awaitingAccessTargets`
+4. For awaiting targets not present in the scan, create a direct target and
+   visit it by advert/source id in Step 3
+
+After building this scan/direct union, process each candidate through Steps 3-7
+below.
 
 ### Step 3: Open the activity dashboard
 
-For each candidate row collected from the Recently added list (across all pages):
+For each candidate row collected from the Recently added list (across all pages)
+or supplied by `awaitingAccessTargets`:
 
 1. Navigate back to the home page if needed:
 
@@ -278,7 +323,12 @@ agent-browser --cdp ${CDP_PORT} wait 2000
 ```
 
 2. Open the row title link to reach the activity dashboard. If you saved the activity URL or title link from Step 2, navigate directly to it.
-3. Confirm the dashboard heading looks like:
+3. If this is a direct awaiting target that was not found in the scan, use the
+   `advertId` / `sourceNoticeId` to search the activity grid or construct the
+   ProContract activity URL when the portal exposes it. Record
+   `direct_visit_attempted: true` in `target_evidence[]` whether the visit
+   succeeds or fails.
+4. Confirm the dashboard heading looks like:
 
 ```text
 Activity : {title}
@@ -299,6 +349,17 @@ On the live page observed during validation:
 
 - `Open` beside `Not started (Respond by: ...)` led to the RFx summary page
 - `Open` beside `Expression of interest accepted` is not the correct enrichment path
+
+If a target only shows `Expression of interest accepted`, no live tender event,
+or copy equivalent to "not yet responded", classify it as `not_yet_responded`
+and do not fail it. The daemon keeps that row in `awaiting_access` and retries
+on a later scheduled enrichment run.
+
+If a target cannot be reached because the portal shape changed, the direct
+activity URL is unavailable, or the page blocks inspection, classify it in
+`failed_targets[]` with the precise failure code and include the same target in
+`target_evidence[]`. A failed inspection is not an expiry decision for daemon
+awaiting-access state.
 
 ### Step 5: Extract the RFx summary
 
@@ -355,6 +416,8 @@ Per tender, emit:
 ```text
 notice_id:                 required
 process_id:                required if known
+advert_id:                 required if known
+source_notice_id:          required if known
 rfx_id:                    required
 rfx_url:                   current RFx page URL
 updated_title:             RFx title
@@ -365,6 +428,9 @@ buyer_contact:             object with name/email/organisation when visible
 documents_downloaded:      array of downloaded file objects
 documents_count:           integer
 enriched_at:               ISO 8601 UTC
+discovery_method:          scan, direct, or scan_and_direct
+direct_visit_attempted:    true when sourced from awaitingAccessTargets
+activity_dashboard_url:    dashboard URL when known
 ```
 
 Per downloaded document:
@@ -389,20 +455,43 @@ Write a top-level JSON object:
   "cursor": "{\"last_checked_at\":\"2026-04-13T16:00:00Z\",\"pages_checked\":3}",
   "continuation_required": false,
   "enriched_tenders": [],
+  "not_yet_responded": [],
+  "failed_targets": [],
+  "directly_visited": [],
+  "target_evidence": [],
   "summary": {
     "total_checked": 0,
     "enriched": 0,
     "not_yet_responded": 0,
-    "failed": 0
+    "failed": 0,
+    "direct_targets_received": 0,
+    "direct_targets_visited": 0,
+    "directly_visited": 0,
+    "scan_rows_checked": 0
   }
 }
 ```
 
 Set `continuation_required` to `false` when you have checked ALL pages of the Recently added list. Only set it to `true` if you hit the `maxPages` limit before reaching the end.
 
-The `total_checked` count must reflect activities checked across ALL pages, not just one page.
+The `total_checked` count must reflect the deduped scan/direct union checked
+across ALL pages, not just one page. `scan_rows_checked` is the raw count of
+Recently added rows inspected before union. `direct_targets_received` is the
+input `awaitingAccessTargets` length. `direct_targets_visited` is the count of
+awaiting targets for which a direct visit was attempted.
 
 If no tender-ready RFx pages are found, return an empty `enriched_tenders` array with a valid summary.
+
+For every supplied awaiting target:
+
+- Emit an `enriched_tenders[]` entry when a live RFx page was opened and
+  documents were inspected
+- Emit a `not_yet_responded[]` entry when the target is reachable but still has
+  no live tender event
+- Emit a `failed_targets[]` entry only for inspection failures
+- Emit a `directly_visited[]` entry when a direct visit was attempted
+- Emit a `target_evidence[]` entry in all cases, including blocked CDP/session
+  outcomes
 
 ### Step 9: Leave the persistent browser open
 
@@ -436,6 +525,15 @@ Produce a run manifest with:
 - agent_claimed_fingerprint_state
 - agent_claimed_locale_state
 - agent_claimed_currency_state
+- awaiting_access_targets_received
+- scan_rows_checked
+- scan_direct_union_count
+- direct_targets_visited
+- directly_visited_targets
+- enriched_targets
+- not_yet_responded_targets
+- failed_targets
+- direct_visit_evidence
 
 Narrative sections:
 
