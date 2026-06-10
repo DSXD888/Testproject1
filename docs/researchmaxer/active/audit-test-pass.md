@@ -1,117 +1,149 @@
-# Researchmaxer — PASS 2: Audit & Test Pass
+# Audit & Test Pass — Autonomous Daemon Scheduling & ProContract Resumption
 
-> **Target document:** `docs/research/2026-06-01-goods-led-install-maintenance-pipeline-research.md`
-> **Run:** researchmaxer run 0 · generated 2026-06-01
-> **Prerequisite:** Run **Pass 1 (improvement-pass.md) first.** This pass assumes the drift corrections are already applied. Read the "Improvement Pass — change log" at the top of the doc before you start.
-> **You run this in ONE session:** audit → find gaps → define the full testing strategy → edit the target doc → fresh-eyes verify.
+> **You are the last quality gate before this research doc becomes a spec.** One session: audit for gaps/gotchas/contradictions → define a complete REAL-E2E testing strategy → edit the target doc with both → fresh-eyes verify. You edit exactly ONE file.
 
----
+**Run this AFTER `improvement-pass.md` has been executed.**
 
-## 1. MISSION
-
-You are the **last quality gate before implementation**. The improvement pass made the doc match the codebase; your job is to (a) hunt the remaining design gaps, gotchas, and contradictions, and (b) author a **complete, REAL E2E testing strategy** the doc currently only sketches.
-
-Project rule (from `AGENTS.md`): **REAL end-to-end agent tests — no mocks, no stubs.** Every behavioural claim in this feature must be pinned by a named, runnable test with an expected verdict. The doc already has an excellent **Appendix A scenario corpus (11 cases)** — your testing strategy must turn those into concrete fixtures wired to the real harnesses that exist in this repo, and fill every coverage gap.
-
-**The target document is the ONLY file you may edit.** Codebase, L0 doc, AGENTS.md are READ-ONLY.
+**Target document (the ONLY file you may edit):**
+`docs/research/2026-06-04-autonomous-daemon-scheduling-research.md`
 
 ---
 
-## 2. WHAT TO READ
-- The improved target doc (all of it, especially Appendix A, §6.3, §6.4, §8.4) + its Pass-1 change log.
-- `docs/researchmaxer/active/improvement-pass.md` — for the embedded findings (do not re-verify; reuse).
-- **Test harnesses (verified to exist — these are what your strategy must target):**
-  - `crates/daemon/tests/skill_canary_harness.rs` — loads `canary.inputs.jsonl` (one JSON case/line) + asserts against `golden.assertions.yaml`; validates corpus dir has `metadata.json` (`row_count` must match), `validator-rubric.yaml`, `manifest.md`.
-  - `crates/daemon/tests/decision_basis_hash.rs` — the **qualify→candidate→quote→landed-cost** seeding pattern (`seed_candidate_quote_and_landed_cost` inserts into `product_candidates`, `supplier_quotes`, `landed_cost_estimates` with deterministic values; asserts FK integrity + reproducible cost).
-  - `crates/daemon/tests/customs_fx_freight_engine.rs` — landed-cost E2E + outbox + **schema-epoch assertion** pattern (`assert … user_version == DEFAULT_SCHEMA_EPOCH`).
-  - `crates/daemon/tests/skill_lint.rs` — required frontmatter (`skill_id, skill_version, interaction_profile, result_schema_version, model_profile, agent_cli, side_effect_class`); required SKILL.md sections (`## Non-goals`, `## Failure Codes`, `## Resume Strategy`, run-manifest tokens); promotion-required files for overlays; `CDP_BROWSER_SKILLS`.
-  - `packages/intelligence/src/qualification/goods-qualification.test.ts` — **5 cases** (TS-QUAL-001…005), `bun:test`, fixture shape: `qualifyGoodsOpportunity({ cpvCodes, totalValuePence, goodsAddressableValuePence, goodsSeparability, goodsDensitySignals, … })` → assert `legalCategory`, `addressableValuePence`, `qualificationResult`.
-  - `packages/intelligence/src/margins/coverage-rollup.test.ts` — **6 cases** (TS-COV-001…006), `bun:test`, fixture: `computeCoverageRollup({ lots:[{ candidates:[{ candidateValueShareBps, … }] }] })`.
-  - **NO `description-quality.test.ts` exists** (the riskiest gate has zero coverage today).
-- `docs/strategy/layers/layer-0-gold-set-evaluation.md` lines 96–122 — whitelist (6 cats) + no-list (8) + the expansion rule "Each new category requires its own gold-set validation before entering production" (this is a **test gate** the feature must satisfy per added category).
-- Stage-validation gate in `AGENTS.md`: a stage manifest is NOT green on `cargo test -p daemon --bin daemon` alone — it must also run **each** `crates/daemon/tests/*.rs` integration target. Your E2E plan must respect this gate.
+## 1. Mission
+
+The improvement pass strengthened the design. Your job is twofold:
+
+1. **Audit** the (now-improved) doc for implementation-readiness gaps, contradictions, undocumented failure modes, and gotchas an implementer will hit.
+2. **Define the testing strategy** to the standard this codebase actually enforces: **real end-to-end, no mocks/stubs** (`AGENTS.md`). The doc's §7 is a good skeleton (clock-injection seam, worker defer, ProContract lifecycle, concurrency soak) — your job is to turn it into manifests concrete enough that a fresh implementation agent could build *and verify* the feature from the doc + your test definitions alone, matching existing test conventions exactly.
+
+A fresh deep-research pass mapped the test infrastructure precisely (§4 below). Use it — don't re-discover it.
 
 ---
 
-## 3. EMBEDDED TESTING LANDSCAPE (verified)
+## 2. What to read
 
-**What exists and is reusable:**
-| Layer | Real harness | Pattern to mirror |
+- **The target doc**, fully — paying special attention to §7 (testing strategy), §6 (concurrency risks R1–R6), §8 (open questions), and the §4.5 commercial-trigger material the improvement pass expanded.
+- **The improvement-pass output** (the edited target doc) — your audit is against the *improved* version, not the original.
+- **`AGENTS.md`** — the quality gate is explicit and non-negotiable (reproduced in §5d below). Real E2E, no mocks. Integration tests are per-file targets.
+- **Codebase test surfaces** — the exemplar files in §4. Read at least `crates/daemon/tests/cron_scheduler.rs`, `crates/daemon/tests/job_claim.rs`, `crates/daemon/tests/agent_procurement_ingestion.rs`, and the `crates/daemon/tests/support/` helpers before writing any manifest, so your manifests match real patterns (the `ts()` helper, `TestStateDb`, `CronSchedulerHarness::advance_to`, the `assert_cmd` + fake-claude subprocess harness).
+
+---
+
+## 3. Audit directives
+
+Go subsystem by subsystem. For each, decide: *is the design complete enough to implement, are failure modes documented, what will an implementer trip on?*
+
+**Scheduler tick (§4.1)**
+- Is "build the scheduler once at thread start, don't re-seed every tick" airtight against a source being enabled/disabled mid-run? The doc says "reload registry only when it changes" — but *how* does the tick learn it changed (IPC sets a flag? version counter? poll-on-change)? Pin the mechanism or flag it as a Q for the spec.
+- The "fold startup-enqueue into the tick (run once immediately, then on interval)" lean — confirm the idempotency key genuinely makes this safe even when bootstrap's `enqueue_startup_cron_jobs` and the first tick race. Trace the dedup (`find_existing_enqueue_ack`).
+
+**Worker pump (§4.2)**
+- Single worker vs pool (Q3): the doc leans pool. Audit the *head-of-line blocking* claim — a long PTY `sync_source` run blocking quick deterministic commercial stages. Is the pool the right fix, or does separating PTY-source jobs from deterministic-stage jobs onto different lanes/workers solve it more cleanly? Make the doc commit to a falsifiable position or a crisp Q.
+- Defer-on-denial: is "back to pending, no attempt bump, no held lease" fully specified, including the *backoff* so a permanently-over-subscribed queue doesn't hot-loop re-deferring?
+
+**Live-loop refactor (§4.3)**
+- The cron-vs-manual payload divergence (manual packs `job_parameters`; cron packs only schedule metadata): is the "derive at execution time from `source_id`+state" path specified for EACH cron-bound source (FTS, contracts-finder, procontract discover/interest/enrich)? Enrich specifically needs cursor (from `source_cursors`) + `download_root` (from artifact root) derived — confirm the doc says so per-source, not just generically.
+
+**Commercial-stage trigger (§4.5)** — the riskiest area
+- After the improvement pass, does the doc clearly pick (or clearly defer with criteria) between worker-queued jobs and an in-process sweep modeled on `run_deterministic_pipeline`? A vague "scheduled or coverage-driven" without resolving the execution-context question (worker thread vs in-process) is still under-specified for the spec.
+- Dedup: "several ingestion runs in one window shouldn't trigger redundant commercial sweeps" — is the dedup key/condition defined (coverage query? stage_run cohort? time window?)?
+
+**ProContract resumption (§4.4)**
+- Lifecycle completeness: create-on-success → keep-while-no-event → clear-on-enrich → backfill-untracked → staleness-expiry. Is EACH transition's trigger and the exact state/row it writes specified? The expiry (Q5) must NOT key off the RFx response deadline (unknown for awaiting-access items) — confirm the doc uses notice-level `deadline_at` or max-age. 
+- Skill contract: the enrich skill must accept an explicit work-list of advertIds in addition to its "Recently added" scan. Is the input shape and the merge-with-Recently-added behavior specified well enough to write the SKILL.md change?
+
+**Cross-cutting**
+- Contradictions: scan for any place §2.5/§4.5/§7/§8/§9 disagree on the commercial-trigger model or on the `run_deterministic_pipeline`/`trigger_pipeline_rerun` relationship.
+- Schema: every epoch reference reads "10" (and "11" for the new-table case)? Q4's table-vs-state-string decision stated with its consequence (widen the guard if state-string; bump epoch if table)?
+- The weakest remaining point: name it explicitly in your audit summary.
+- Hostile-reviewer challenge: what would a skeptical senior engineer attack first? (Likely: "two concurrent same-source `sync_source` runs across a tick boundary," or "the worker pool + WAL single-writer under IPC mutation pressure.") Make sure the doc has an answer or an owned open question.
+
+---
+
+## 4. Embedded testing landscape (verified — use this, don't re-discover)
+
+**The gate (from `AGENTS.md`, enforced):**
+```bash
+cargo fmt --check
+cargo check --all-targets
+cargo clippy --all-targets -- -D warnings
+cargo test -p daemon --bin daemon                      # binary unit tests
+for t in crates/daemon/tests/*.rs; do                  # EACH integration file is its own target
+  cargo test --test "$(basename "$t" .rs)" || exit 1
+done
+```
+`cargo test -p daemon --bin daemon` alone is **insufficient** — it silently skips the integration files (this caused two false-GREEN Stage 11 manifests). Environment-dependent tests must auto-skip via runtime probes, never `#[ignore]`.
+
+**Time control — there is NO global clock mock.** Time is threaded explicitly:
+- `dispatch_due_jobs(registry, now)` already takes `now` — the clock-injection seam the doc's §7 calls for **already exists at the scheduler layer**. The doc's real test requirement is threading that same `now` through the *tick thread* so a test can drive "it is 04:15" without advancing a live `--serve` wall clock.
+- `crates/daemon/tests/cron_scheduler.rs:77` `fn ts(y,mo,d,h,mi,s) -> DateTime<Utc>` — the fixed-instant helper used everywhere.
+- `crates/daemon/tests/support/cron.rs` `CronSchedulerHarness` with `.advance_to(instant)` (multi-step time progression), `.seed_definition()`, `.run_due_sweep()`.
+
+**Test DB construction (real SQLite, tempdir):**
+- `crates/daemon/tests/support/db.rs` — `TestStateDb::new()` / `L4TestStateDb::new()` open a real SQLite DB in a tempdir at the current `DEFAULT_SCHEMA_EPOCH`; seed helpers `seed_process`, `seed_raw_document`, etc.; schema-introspection helpers (`logical_schema_for_tables`, table/column assertions).
+
+**Subprocess E2E harness (whole-daemon, real binary):**
+- `crates/daemon/tests/agent_procurement_ingestion.rs` `RunHarness` — tempdir state/runtime/artifact roots; runs `Command::cargo_bin("daemon").arg("--ingest").arg("fts")…`; a **fake-claude shell script** (mode 0o755) responds to `--version`/`probe`/result-path env vars so the PTY/agent side is deterministic without mocking the daemon. `DAEMON_TEST_CLAUDE_RESULT_PATH` / `…_CHECKPOINT_PATH` env vars feed canned skill results. Post-run, opens the real SQLite and asserts rows. This is the model for any "full autonomous run" E2E.
+
+**Exemplars to copy (verified):**
+
+| Test scenario | Copy this file | Key patterns |
 |---|---|---|
-| Unit (TS) | `bun:test` | `goods-qualification.test.ts` (TS-QUAL-*), `coverage-rollup.test.ts` (TS-COV-*) |
-| Unit (Rust) | `cargo test -p daemon --bin daemon` `#[test]` | rollup/persistence assertions |
-| Skill canary | `skill_canary_harness.rs` + `{canary.inputs.jsonl, golden.assertions.yaml, validator-rubric.yaml, metadata.json, manifest.md}` corpus | the existing calibration corpora under `tests/fixtures/calibration/` |
-| Gold-set | **fixture corpus + integration tests** (NOT `evaluation_runs`/`evaluation_case_results` — those tables do not exist; L0 is PARTIALLY BUILT) | `skill_canary_harness.rs` |
-| E2E pipeline | `crates/daemon/tests/*.rs` seeding real rows, no mocks | `decision_basis_hash.rs`, `customs_fx_freight_engine.rs` |
+| **Scheduler-tick** (time-injected dispatch, idempotency, catch-up) | `crates/daemon/tests/cron_scheduler.rs` (esp. tests 003 dispatch shape, 005 persist `scheduled_for`, 006 startup catch-up priority order) | `ts()`, `TestStateDb::new()`, `CronScheduler::from_registry` → `refresh_next_run_at(now)` → `dispatch_due_jobs(registry, now)`; assert exactly one `workflow_jobs` row per slot under repeated ticks |
+| **Worker-pump** (claim → route → complete; defer-on-denial; arbiter caps) | `crates/daemon/tests/job_claim.rs` + `crates/daemon/tests/resource_arbiter.rs` | `seed_job()`/`seed_running_job()`, concurrent-claim barrier, lease expiry/recycle; arbiter `admit`/`release` with `DenialReason` |
+| **ProContract awaiting-access E2E** (greenfield) | `crates/daemon/tests/agent_procurement_ingestion.rs` (`RunHarness` + fake-claude) | subprocess `--ingest procontract-interest` then `--ingest procontract-enrich`; seed/assert the awaiting-access row across runs |
+| **Schema migration** (if G4 adds a table) | `crates/daemon/tests/sqlite_schema.rs` | `PRAGMA user_version == DEFAULT_SCHEMA_EPOCH`; `schema_migrations` row present; table/columns exist |
 
-**Coverage gaps (verified):**
-- `description-quality.ts` — **no test file at all**. The service-gate split is rated Medium-High risk; it ships untested today.
-- No existing test asserts a labour/permit cost component (the fields don't exist yet).
-- No existing test exercises the **Phase-2 dominance gate** (it doesn't exist yet) or the **no-list/bespoke flag** (new).
-- The labour skill needs a **new** canary corpus dir mirroring the calibration-corpus file set.
+**Critical gap to flag in the doc:** there is **no existing ProContract integration test file** — register-interest/enrich are only referenced inside `cron_scheduler.rs` schedule assertions. So the G4 E2E suite is **net-new**, built on the `agent_procurement_ingestion.rs` harness pattern. The testing strategy must say this explicitly (it's more work than "extend an existing test").
 
-**E2E seeding reality:** `decision_basis_hash.rs` shows landed-cost rows are seeded with explicit pence values (`supplier_cost_gbp_pence`, `freight_*_gbp_pence`, `customs_duty_gbp_pence`, `import_vat_gbp_pence`, …). Your E2E manifests for labour must extend this exact seeding pattern with the new labour/permit columns and assert the `economic_landed_cost_gbp_pence` rollup *includes* them and that `goods_value_share_bps` is computed and gates correctly.
+**Cron schedules already asserted (so your tick tests have known anchors):** FTS `04:15`, FTS canary every 30 min, ProContract discover `05:00`, register-interest `05:30`, enrich `06:00` (see `cron_scheduler.rs` definition assertions). A new commercial-sweep slot (if §4.5 picks "scheduled") would slot after the ingestion window (doc suggests ~07:00).
 
 ---
 
-## 4. AUDIT DIRECTIVES
+## 5. Testing strategy requirements (the doc must end up with these)
 
-Audit each subsystem for implementation-readiness. For each, the doc must answer: complete enough to implement? failure modes documented? edge cases addressed? integrates cleanly with the corrected (Pass-1) integration model? what gotchas will an implementer hit?
+Produce a §7 (or expanded §7 + a new testing-manifest subsection) covering ALL of the following. Every test must be REAL — real SQLite, real cron parsing, real binary subprocess where the flow demands it; the only permitted "fake" is the deterministic fake-claude CLI already used by `agent_procurement_ingestion.rs` (it stands in for the *agent/PTY*, not for the daemon under test).
 
-**Per-subsystem:**
-1. **Two-phase qualification.** Does the Phase-1 branch (after line 353, before 355) actually produce the intended routing for every Appendix-A class, given the *verified* 319–372 logic? Trace each of the 11 scenarios through the real branch order (note `goodsConfidenceBps < 6000 → review` at 339 fires **before** the category branches — does that interact with acceptance scenarios?). Does downgrading the line-347 separable-mixed `pass` branch regress Scenario 8 (pure paper) or TS-QUAL-003 (which currently expects `pass` for a separable mixed contract)? **TS-QUAL-003 is a live test that expects `pass` for mixed+separable — the Phase-1 change may break it. Flag this explicitly.**
-2. **Service-gate split** (`isServiceDescription`). Zero existing coverage. Enumerate the false-positive/false-negative space: "supply **and installation** of shelving" (must pass), "installation services" (must reject), "maintenance of grounds" (reject), "supply of maintenance kits" (goods! must pass). Does the split reuse the existing `DescriptionQualityVerdict` union (`split_safe`/`reject_bundle_unsafe`) or invent a parallel path? Audit for regex catastrophe / over-admission.
-3. **Labour skill + reference data.** With the Pass-1 correction (skill-local reference JSON, no `data/reference/` loader), is the skill self-contained? Does it pass `skill_lint.rs` (required frontmatter, `## Non-goals`/`## Failure Codes`/`## Resume Strategy`, run-manifest tokens)? Is its `interaction_profile` defensible and does it avoid the CDP requirement?
-4. **Rollup integration.** Labour must land at **both** domestic (8114) and import (8548) sites. Does the doc's rollup edit cover both? Does adding labour to `economic_landed_cost_gbp_pence` change behaviour for **already-assessed** processes / existing tests in `customs_fx_freight_engine.rs`?
-5. **Phase-2 dominance gate.** At decision synthesis, is the **goods-only** landed cost available separately from the labour-inclusive total to compute the ratio? Where exactly (function + line)?
-6. **Recurring maintenance.** Can "capital-event-only dominance + separate annualised per-period margin" be represented in the current `LandedCostEstimateRow`/`PipelineAssessmentRow` schema, or does it need a new entity/columns? This is under-specified — audit hard.
-7. **No-list/bespoke flag.** New runtime check. Where does it live (qualification? a new pass?), and how is it tested for Scenario 11 (bespoke windows, goods-dominant)?
+**a. Existing-test impact**
+- Which existing tests change because the worker now routes more kinds / the live-loop body is refactored? At minimum `cron_scheduler.rs` (new dispatch assertions for any new commercial-sweep kind), `job_claim.rs` (new kinds claimable), and any `--ingest`-driven test whose body moved behind the shared execution function. List them with the expected change.
 
-**Cross-cutting:** contradictions between sections after Pass-1 edits; dependency cycles; the weakest point; what a hostile reviewer challenges first; the schema-epoch bump coordination (daemon + 3 desktop constants + Supabase) as an implementation gotcha.
+**b. New unit/integration tests** (per subsystem, naming the exemplar to follow)
+- **Scheduler tick:** a due schedule produces exactly ONE `workflow_jobs` row per slot; repeated ticks within the same slot enqueue nothing new (idempotency); a simulated long gap (advance `now` past several slots) produces overdue slots that the next tick enqueues (catch-up). Follow `cron_scheduler.rs`.
+- **Worker pump:** enqueue each cron `kind` (`sync_source`, `source_health`, `auth_refresh`, `validation_cross_model_audit`, `validation_calibration_readiness_sweep`) and assert it is claimed → routed → completed (NOT `fail_job "unsupported"`); a slot-denied job defers back to `pending` with no attempt-count bump and no held lease; arbiter quotas honored (browser_slots=2 caps concurrent PTY — note this presumes the pool choice from Q3; with a single serial worker there's no concurrency to cap, so state which model the test assumes). Follow `job_claim.rs` + `resource_arbiter.rs`.
+- **Live-loop refactor regression:** `--ingest fts`, `--ingest procontract-enrich`, `--run-next-job` still work (these execute today). Follow `agent_procurement_ingestion.rs`.
 
----
+**c. E2E manifests (real, not stubs)** — each with: scenario name, preconditions, steps, expected outcomes, verification method (exact query/command).
+- **End-to-end autonomy:** drive "it is now 04:15" via the tick's clock seam (thread `now` through the tick thread; the seam is itself a small design requirement, per the doc) OR register a temporary test schedule a few seconds in the future; then assert a full source run executes and persists with NO manual trigger.
+- **Commercial-stage autonomy (G6):** after an autonomous ingestion run yields a process needing pricing, assert `landed-cost`→`net-gate`→`manifest` advance to a current `manifest`/decision with no operator action — via whichever §4.5 model is chosen, and **without** the daemon-stop behavior of `trigger_pipeline_rerun`. (If the chosen model is an in-process sweep modeled on `run_deterministic_pipeline`, the manifest should assert it ran on the serve daemon without a stop/restart.)
+- **ProContract resumption (G4) full lifecycle:** after register-interest **succeeds**, assert an awaiting-access record persists (and that the `interest_registration` row stays `state='completed'` so the re-fire guard still excludes it — the §4.4 landmine); first enrich pass with no live tender event → record **kept**, and an untracked portal `not_yet_responded` item gets **backfilled**; later enrich pass where the live event now exists → enrich finds it via the daemon work-list (NOT dependent on "Recently added"/`maxPages`), downloads docs, and **clears** the record; staleness expiry fires per the chosen policy (notice-level `deadline_at` or max-age — Q5; explicitly NOT the RFx response deadline). Build on the `RunHarness` subprocess pattern; this is net-new (no ProContract test exists).
+- **Manual-path regression vs new capability:** `--ingest fts`, `--run-next-job`, and desktop `trigger_pipeline_rerun` still work (regression). Separately, the desktop `trigger_ingestion` button (`sync_source`) now **executes** via the worker (NEW capability — today it enqueues an orphan). If `enrich_process` routing is folded in (Q/§5/G3), `trigger_enrichment` executes too.
+- **Concurrency soak:** worker(s) + IPC mutations + lease heartbeat in parallel under WAL; assert no lost writes, no permanent `SQLITE_BUSY`. **Add the case the improvement pass surfaced:** two slots for the same source firing across a tick boundary while the first run is still in-flight — assert the `procurement_source_lanes=1` budget (or whatever serialization the doc chose) prevents two concurrent same-source runs, OR that concurrent runs are provably safe.
 
-## 5. TESTING STRATEGY REQUIREMENTS (the core deliverable)
+**d. Verification criteria** — for each of G1–G6, state what "correctly implemented" looks like and the exact command/query that proves it, plus what a regression looks like. Map each criterion to the gate commands in §4. Make clear that the stage-validation gate requires the per-file integration loop, not just `--bin daemon`.
 
-Rewrite/expand §6.3 + §6.4 (and add an Appendix if needed) so the doc contains a **complete** strategy. Required parts:
-
-**a. Existing-test impact.** For every existing test the feature touches, name it and state the change. **Mandatory:** `goods-qualification.test.ts` TS-QUAL-003 expects `pass` for separable mixed — state whether the Phase-1 change alters its expected verdict and how the test must be updated. Audit `customs_fx_freight_engine.rs` / `decision_basis_hash.rs` for rollup-total assertions that will shift once labour is summed.
-
-**b. New unit/integration tests.** Enumerate concretely, each referencing the exemplar to mirror:
-- `goods-qualification.test.ts` (extend): Phase-1 provisional-admit branch; the `addressableValuePence` contract-value dominance basis (preferred) vs cost-proxy fallback.
-- `description-quality.test.ts` (**NEW** — mirror `bun:test` style of customs-classification.test.ts): the full goods-led-mixed vs pure-service truth table.
-- `coverage-rollup.test.ts` (extend): `goods_value_share_bps` math + labour/permit coverage metrics (mirror TS-COV-* fixtures).
-- Rust `#[test]`: rollup includes labour at both domestic+import sites; field persistence (mirror `decision_basis_hash` seeding).
-
-**c. E2E test manifests (REAL — no stubs).** For **each of the 11 Appendix-A scenarios**, write a manifest: scenario name, preconditions (seeded process/notice/lot/candidate/quote rows, the labour reference-table version), steps (run the real deterministic pipeline + the labour skill invocation in `run_landed_cost_live_loop`), expected outcome (legal category, `goods_value_share_bps` band, labour line items, permit line + responsibility flag, final decision), and verification method (which assertion in which integration-test file). Anchor them to the `decision_basis_hash.rs` seeding pattern. Scenario 1 (festive lights) is the **engine acceptance** case: its base labour estimate must land inside the §4.5 NW band (~£2,100–2,650) or the rate table is wrong — make that a hard assertion.
-
-**d. Skill canary corpus.** Define the `uk-installation-labour-estimate` canary corpus: the file set (`canary.inputs.jsonl` with `metadata.json` row_count match, `golden.assertions.yaml`, `validator-rubric.yaml`, `manifest.md`) mirroring the calibration corpora, and the canned `job_parameters` → asserted 3-point band cases (incl. Scenario 1 and Scenario 9 CCTV to prove the resolver generalises across goods→trade).
-
-**e. Browser-based tests.** The labour skill itself is headless (no CDP) — but the **desktop manifest/contract-card rendering** of the labour breakdown is UI. Per `AGENTS.md`, browser/UI testing uses the `/agent-browser` skill. Define a real UI verification: render a `review`-routed goods-led contract, assert the labour line (low/base/high/confidence) + permit row + responsibility flag appear in the manifest viewer and contract card. Specify it as a real agent-browser flow, not a stub.
-
-**f. Verification criteria.** For each subsystem, define what "correctly implemented" looks like + the exact command/assertion that proves it + what indicates regression. Respect the `AGENTS.md` stage gate: the green bar is `cargo fmt --check` + `cargo check --all-targets` + `cargo clippy --all-targets -- -D warnings` + `cargo test -p daemon --bin daemon` + **every** `crates/daemon/tests/*.rs` target + the `bun test` suites. The **promotion gate** (per L0 expansion rule + the doc's own §6.4): 100% of negative + regression controls pass, acceptance precision ≥ agreed floor, evaluated through the canary/fixture harness before Canary→Shadow promotion.
+**e. Schema-migration test (conditional on Q4)** — if G4 adds `procontract_pending_enrichment` (or any table/column): a `sqlite_schema.rs`-style test asserting `user_version == 11`, the `0015_*` migration recorded in `schema_migrations`, and the table/columns present — AND a note that desktop `EXPECTED_SCHEMA_EPOCH` must move 10→11 in the same change (schema-epoch coupling). If Q4 picks the state-string option instead, no migration test, but a test that the widened re-fire guard still excludes `awaiting_access`.
 
 ---
 
-## 6. WHAT A GREAT OUTCOME LOOKS LIKE
-- Every Appendix-A scenario has a real, runnable E2E manifest anchored to an actual harness file — a fresh implementer could build + verify the feature from the doc + manifests alone.
-- The zero-coverage service gate now has a complete truth-table test plan.
-- The TS-QUAL-003 regression risk (and any rollup-assertion shifts) are surfaced with the exact test edits.
-- The labour-skill canary corpus is fully specified against the verified corpus file-set and `skill_lint.rs` requirements.
-- No mock/stub anywhere; all tests exercise real runtime paths.
-- Verification criteria are specific enough to gate promotion, and consistent with the `AGENTS.md` stage gate.
+## 6. What a great outcome looks like
 
-## 7. WHAT I DON'T WANT
-- No mock/stub-based E2E (project constitutional rule).
-- Don't edit any file but the target doc.
-- Don't invent harnesses/tables that don't exist (no `evaluation_runs`); target the real ones.
-- Don't duplicate Appendix-A prose — *operationalise* it into fixtures + assertions.
+- Every audit gap is either fixed in the doc or converted into a precise, owned open question (not a vague "TBD").
+- §7 becomes a testing strategy a fresh agent could execute: real-E2E manifests with exact preconditions/steps/queries, each pointing at the exemplar test file to copy.
+- The "no ProContract test exists yet → G4 suite is net-new" reality is stated, so the strategy/beads downstream size it correctly.
+- The clock-injection seam is described as a *design requirement on the tick thread* (thread `now` through), not just a test wish.
+- Verification criteria tie each goal to the actual gate commands, including the per-file integration loop.
+- No contradiction survives between §2.5/§4.5/§7/§8/§9 on the commercial-trigger model.
 
-## 8. FOLLOW-UP FRESH-EYES PASS (run in the SAME session, after editing)
-Re-read the doc + the new testing strategy cold. Verify:
-1. **No test-coverage gap:** every behavioural claim (each MVP success criterion in §2.3, each Appendix-A scenario, each new warning code in §5.6) maps to at least one named test.
-2. **E2E manifests are complete & real:** preconditions/steps/expected/verification all present; each names a real harness file; none rely on mocks.
-3. **Verification criteria are specific:** concrete commands + expected outputs, not "verify it works."
-4. **No contradictions:** the testing strategy agrees with the Pass-1-corrected integration model (skill loaded transiently, sequential invocation, skill-local reference data, schema-epoch bump).
-5. **Promotion gate is explicit and matches the L0 expansion rule + AGENTS.md stage gate.**
-Fix anything that fails, then append a 6–10 line "Audit & Test Pass — change log" beneath the Pass-1 change log, listing the gaps you closed and the test artifacts you specified. The doc is then optimized and test-strategy-complete → ready for `/research-to-spec`.
+---
+
+## 7. Follow-up fresh-eyes pass (run in THIS session, after the edits)
+
+Re-read the doc + the testing strategy cold. Verify:
+- **Coverage:** every subsystem (tick, worker, live-loop refactor, commercial trigger, ProContract G4, concurrency, schema) has at least one real-E2E test; G1–G6 each have a verification criterion.
+- **No mock leakage:** nothing in the strategy relies on stubbing the daemon or faking SQLite; the only fake is the agent/PTY (fake-claude), consistent with `agent_procurement_ingestion.rs`.
+- **Manifests are executable:** preconditions, steps, and verification queries are concrete enough to run without further design.
+- **Gate correctness:** the strategy invokes the full gate (fmt/check/clippy/`--bin daemon`/per-file integration loop), not the insufficient narrow command.
+- **Internal consistency:** epoch numbers (10, and 11 for the table case) consistent; commercial-trigger model identical across sections; no leftover references to a daemon-side `trigger_pipeline_rerun` (it's desktop-only).
+- **Honest sizing:** anything net-new (G4 ProContract suite, new cron-kind handlers with no executor today) is flagged as new work, not "extend existing."
+
+Fix what fails. Then report: the gaps you found and how each was resolved, the weakest remaining point, the full test inventory (by subsystem, with exemplar file), and any open questions the spec must still answer.

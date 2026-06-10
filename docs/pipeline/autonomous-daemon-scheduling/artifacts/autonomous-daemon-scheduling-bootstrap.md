@@ -156,7 +156,7 @@ for required in [
 }
 ```
 
-If Q4 selects the state-string model, do not bump the epoch. Instead add `schema_state_string_refire_guard`, which seeds an awaiting-access marker and asserts `load_procontract_interest_candidates` does not pick the same notice again.
+If Q4 selects the state-string model, do not bump the epoch. Instead add `schema_state_string_refire_guard`, which asserts `PRAGMA user_version == DEFAULT_SCHEMA_EPOCH`, confirms `schema_migrations` does not contain `0015_procontract_pending_enrichment`, seeds an awaiting-access marker, and asserts `load_procontract_interest_candidates` does not pick the same notice again.
 
 ## 6. Helper Reuse Map
 
@@ -202,9 +202,11 @@ fn tick_001_due_slot_enqueues_exactly_one_row() -> Result<()> {
 }
 ```
 
-`tick_002` must call the tick body three times and assert the count remains 1 through pending/completed states. It must not assert failed jobs are suppressed.
+`tick_002` must call the tick body three times and assert the count remains 1 through pending/completed states. It must not assert failed jobs are suppressed. It also includes a source-static guard: any remaining startup enqueue helper must delegate to `run_scheduler_tick`, and no auxiliary cron dedup table, flag, or bootstrap-only guard may appear.
 
 `tick_006_failed_slot_reenqueueable` seeds a `failed` row with the same idempotency key, ticks again, and asserts a second row exists. This pins the retry behavior verified against `find_existing_enqueue_ack`.
+
+`tick_007_serve_scheduler_thread_spawn_poll_terminate` is the bounded live-serve assertion for FR-G1.1. It must use `Command::spawn()`, not `.output()`: start `daemon --serve` in a tempdir, poll real SQLite/status with a timeout until the scheduler thread's cold-start tick is observed, then terminate the process and wait for clean exit. M1/M2 still use `--run-scheduler-once --tick-now`.
 
 `tick_004` includes both behavioral and source-static checks:
 
@@ -253,18 +255,20 @@ The final no-immediate-reclaim assertion is required. A denial is not a failed r
 
 ### 8.2 Handler Side-Effect Assertions
 
-`worker_001_routes_each_cron_kind` must implement one subcase per kind. Each subcase asserts both job result and durable side effect:
+`worker_001_routes_each_cron_kind` must implement one subcase per kind. The `sync_source` subcase is a route-key matrix covering FTS, Contracts Finder, ProContract discover, ProContract register-interest, and ProContract enrich by `(source_id, skill_id)`. Each subcase asserts both job result and durable side effect:
 
 ```text
-sync_source -> procurement_processes plus notice/raw-document row
-source_health -> source_runtime_state last_canary_at plus last_canary_result
-auth_refresh -> durable auth-state row with source/portal, status, cdp_state, timestamp, job_id
-validation_cross_model_audit -> validation_verdicts or validation_incident_clusters row
-validation_calibration_readiness_sweep -> validation_calibration_cases/enforcement_readiness summary row
-commercial_sweep -> landed_cost_estimates plus candidate_net_margin_assessments plus manifests/pipeline_assessments
+sync_source -> route-key matrix plus procurement_processes and notice/raw-document rows
+source_health -> source_runtime_state last_canary_at, last_canary_result, last_health_state/circuit_state, updated_at
+auth_refresh -> auth_refresh_results row keyed by workflow_job_id, or exact source_runtime_state auth columns schema-tested by name
+validation_cross_model_audit -> validation_incident_clusters row, plus validation_verdicts.worker_job_id when verdicts are written
+validation_calibration_readiness_sweep -> enforcement_readiness row plus validation_calibration_cases row for the same slice
+commercial_sweep -> landed_cost_estimates.stage_run_id plus candidate_net_margin_assessments.basis_hash plus manifests and pipeline_assessments.pipeline_state='manifest_ready'
 ```
 
 Do not merge those subcases into a single status-only loop. The test must fail if any handler only writes `workflow_jobs.status='completed'`.
+
+`worker_005_arbiter_quota_respected` must force all current `DenialReason` variants: `BrowserSlotsExhausted`, `AgentSlotsExhausted`, `SourceLaneExhausted`, and `SkillConcurrencyCapReached`. It then asserts every held cap is released after completion/failure.
 
 ### 8.3 Head-Of-Line Test
 
@@ -324,6 +328,8 @@ WHERE process_id = ?1 AND advert_id = ?2;
 
 If Q4 selects state-string, adapt the row checks to the selected storage, but keep all four lifecycle transitions and the re-fire guard assertion.
 
+Contracts Finder is a special regression guard. Existing `agent_contracts_finder_ingestion.rs` tests `ag_cf_001` through `ag_cf_006` are skill-contract assertions and must pass unchanged, but they are not a daemon `--ingest contracts-finder` run. Add `impact_contracts_finder_live_loop_regression_001` in that file or a sibling daemon E2E suite using the `RunHarness` pattern: run `--ingest contracts-finder`, assert the latest parent job is `kind='sync_source'`, `status='completed'`, and assert Contracts Finder-produced process/notice/raw-document rows exist.
+
 ## 10. E2E Harness Commands
 
 M1 command shape:
@@ -343,9 +349,9 @@ daemon \
 M1 verification query:
 
 ```sql
-SELECT kind,status
+SELECT kind, status
 FROM workflow_jobs
-WHERE kind='sync_source' AND parent_job_id IS NULL
+WHERE parent_job_id IS NULL
 ORDER BY created_at DESC
 LIMIT 1;
 ```
@@ -394,7 +400,14 @@ SELECT COUNT(*) FROM pipeline_assessments WHERE process_id = ?1;
 
 Also assert the autonomous path did not call the desktop PID-stop path. In one-shot, assert no restart/exclusive-rerun marker, subprocess spawn, or `trigger_pipeline_rerun` call was observed. In a live serve harness, assert the daemon PID is unchanged until the harness terminates it.
 
-M4 drains desktop `trigger_ingestion` with:
+M4 first proves the manual source paths:
+
+```bash
+daemon --ingest fts ...
+daemon --ingest contracts-finder ...
+```
+
+Then M4 drains desktop `trigger_ingestion` with:
 
 ```bash
 daemon --run-next-job --state-root "$STATE_ROOT" --runtime-dir "$RUNTIME_ROOT" --artifact-root "$ARTIFACT_ROOT" ...
@@ -441,13 +454,15 @@ The same run also starts:
 - simulated IPC source mutation writes;
 - lease heartbeat writes;
 - a same-source overlap case.
+- a commercial-sweep writer-pressure case with per-process-scoped transactions.
 
 Assertions:
 
 - no surfaced permanent `SQLITE_BUSY` error;
 - final counter or unique-row count equals `N*M`;
 - same-source FTS overlap returns `SourceLaneExhausted { source_id: "fts", limit: 1, in_use: 1 }`;
-- the second same-source job runs after the first release.
+- the second same-source job runs after the first release;
+- commercial-sweep writes do not hold one giant transaction that starves IPC mutations past `busy_timeout`.
 
 ## 12. Env Auto-Skip Discipline
 
@@ -464,12 +479,15 @@ The autonomous scheduling core tests are designed to avoid live external service
 ## 13. Completion Checklist
 
 - `autonomous-daemon-scheduling-tdd.md` exists and maps every spec requirement.
-- `scheduler_tick.rs` defines `tick_001` through `tick_006`.
+- `scheduler_tick.rs` defines `tick_001` through `tick_007`.
 - `worker_pump.rs` defines `worker_001` through `worker_005`.
 - `procontract_resumption.rs` implements M3 as one ordered scenario.
 - M1 and M2 use `--run-scheduler-once --tick-now`, not `--serve` with blocking `.output()`.
 - M1 copies the `agent_procurement_ingestion.rs` latest-parent-job query and adds FTS-produced row assertions.
 - `worker_001` contains one real side-effect row assertion per cron kind.
+- `worker_001` proves `sync_source` routing by `(source_id, skill_id)`.
 - `worker_002` copies resource arbiter denial idioms and asserts unchanged attempts plus cleared lease.
+- `worker_005` forces every current `DenialReason` variant.
 - Q4 table path copies `sqlite_schema.rs` schema-migration idioms.
+- Q4 state-string path asserts no epoch bump and widened awaiting-access re-fire guard.
 - The full stage gate in section 2 passes.

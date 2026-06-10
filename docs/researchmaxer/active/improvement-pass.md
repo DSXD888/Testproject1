@@ -1,167 +1,157 @@
-# Researchmaxer — PASS 1: Improvement Pass
+# Improvement Pass — Autonomous Daemon Scheduling & ProContract Resumption
 
-> **Target document:** `docs/research/2026-06-01-goods-led-install-maintenance-pipeline-research.md` (1009 lines)
-> **Run:** researchmaxer run 0 · generated 2026-06-01
-> **You run this in ONE session:** research → improve → edit the target doc in place → fresh-eyes verify.
+> **You are improving a research document, not implementing it.** One session: research → analyze → improve the target doc → fresh-eyes verify. You edit exactly ONE file. Everything else is read-only context.
 
----
-
-## 1. MISSION
-
-You are improving a **research document** for a UK public procurement platform feature: broaden the pipeline to admit **goods-led supply-and-install / supply-and-maintain** contracts (while still rejecting service-only work), and add a **UK installation-labour + access-equipment + permits cost engine** as a new peer term in the existing landed-cost rollup.
-
-**You are NOT implementing.** You are researching, analysing, and improving the *document* so that it precisely matches codebase reality and is implementation-ready. The doc is already strong and heavily grounded — it cites `file:line` throughout. Your job is **not** to rewrite it but to **correct the places where it has drifted from the actual code, fill the gaps the drift exposes, and sharpen the modelling**.
-
-This skill has already done deep codebase research for you (Phase-1 verification of ~40 claims). **The verified findings and confirmed drifts are embedded below — treat them as ground truth.** Do not re-verify from scratch; spend your effort on the *deeper* analysis the embedded findings unlock.
-
-**The target document is the ONLY file you may edit.** Everything else (codebase, strategy docs, L0 doc) is READ-ONLY context.
+**Target document (the ONLY file you may edit):**
+`docs/research/2026-06-04-autonomous-daemon-scheduling-research.md` (215 lines, STRUCTURED, already codebase-verified)
 
 ---
 
-## 2. SOURCE-OF-TRUTH HIERARCHY
+## 1. Mission
 
-1. **The live codebase** = ground truth for what exists today. Where the doc and the code disagree, the code wins and the doc must be corrected.
-2. **`docs/strategy/layers/layer-0-gold-set-evaluation.md`** = authoritative on category whitelist / no-list / expansion rule (READ-ONLY).
-3. **`AGENTS.md`** = project rules (money in integer pence; bps for ratios; no mocks/stubs in E2E; skills are registry-bound *where applicable*; Rust 2024 nightly, `forbid(unsafe_code)`; Bun for TS).
-4. **The target doc** = the artifact you improve.
+This research doc is the input to a `pipemaxxer` run (→ spec → TDD → strategy → beads). It is already unusually strong: codebase-verified with specific `file:line` references, clear goals/non-goals, an honest gap analysis, and explicit open questions. Your job is **not** to rewrite it — it is to make it *implementation-airtight* by closing the specific gaps found during a fresh deep-research pass, correcting two stale facts, and strengthening the under-scoped surfaces so the spec author has zero ambiguity.
 
----
+The feature itself: leave the Tauri desktop app (and the detached `--serve` daemon it spawns) open perpetually, and have the daemon (1) fire its cron schedules autonomously while running (no quit/reopen, no manual button clicks), (2) drain the resulting jobs end-to-end through an always-on worker, (3) advance the whole pipeline including the commercial stages, and (4) never silently drop a ProContract notice whose access hasn't been granted yet.
 
-## 3. WHAT TO READ
-
-Read these before editing. Focus notes tell you what to extract.
-
-### Target doc
-- `docs/research/2026-06-01-goods-led-install-maintenance-pipeline-research.md` — read all 1009 lines twice. First pass: what it claims. Second pass: where the embedded drift findings (§4 below) force corrections, and what *downstream* claims those corrections invalidate.
-
-### Codebase ground truth (read the regions cited; they are verified-current)
-- `packages/intelligence/src/qualification/goods-qualification.ts` — **lines 319–372** (`determineQualificationDecision`), **lines 290–317** (`computeAddressableValue` — the existing surface the doc MISSED, see §5), **lines 264–288** (`computeGoodsDensityScore`), **lines 50–59** (access-route sets), **lines 21–34 / 14–19** (input types). Call site at **line 108** (`qualifyGoodsOpportunity`).
-- `packages/intelligence/src/customs/description-quality.ts` — **lines 100–113** (`gateDescriptionQuality`), **lines 360–364** (`isServiceDescription`), **lines 23–36** (the `DescriptionQualityVerdict` union — note it already has `split_safe` and `reject_bundle_unsafe` variants the doc ignores).
-- `packages/intelligence/src/margins/coverage-rollup.ts` — `computeCoverageRollup` (lines 92–152) and the `CoverageMetrics` interface (lines 23–31). Note: it *consumes* `candidateValueShareBps` but computes **no** value-share itself.
-- `packages/contracts-schema/src/index.ts` — `ProductCandidateRow` (36–75), `SupplierQuoteRow` (77–130), `LandedCostEstimateRow` (166–191), `PipelineAssessmentRow` (216–241).
-- `crates/daemon/src/main.rs` — `LandedCostEstimateWrite` struct (**5361–5432**, NOT –5421); `uk_final_mile_cost_gbp_pence` (field 5403, set `0` at 8213+8630, persisted 8933+8992, read 9064); import rollup `build_import_landed_cost_estimate` (**8548–8557**, `.saturating_add` chain at 8548–8552; estimate written at 8632); domestic rollup `build_domestic_landed_cost_estimate` (**line 8114**, supplier-cost-only); `net_margin_bps()` (8033); the sequential landed-cost driver `run_landed_cost_live_loop` (~9140); skill loads at **9131–9151**; decision synthesis `build_decision_grade_landed_cost_candidate` (5502) + `authoritative_landed_cost_estimate` (~9210/9493).
-- `crates/daemon/src/sources/registry.rs` — `PromotionStage` (123–131), `SkillBinding` (157–166), `SourceDefinition` (188–199), `builtin_definitions()` (581+). **Note: NO landed-cost skill is registered here** — only procurement/marketplace sources.
-- `skills/landed-cost/freightos-freight-estimate/` and `skills/landed-cost/searates-freight-estimate/` — the freight skill templates (see drift §4.6). Read the frontmatter of both, of `simple-fx-lookup` (`http_public`) and `hmrc-customs-classification` (`pty_interactive`).
-- `skills/validation/overlay-supplier-enrichment/` — the overlay template (7 files incl. `validator-rubric.yaml`, `canary.inputs.jsonl`, `golden.assertions.yaml`, `checkpoint.schema.json`).
-- `crates/daemon/tests/skill_lint.rs` — required frontmatter fields + required files for promotion + `CDP_BROWSER_SKILLS`.
+**Absorb the embedded findings below, then think independently.** The surface issues are already flagged in the doc and here. What earns this pass its keep is the *non-obvious* insight — the design tension the doc resolves too glibly, the failure mode nobody named, the simpler architecture hiding in the existing code.
 
 ---
 
-## 4. EMBEDDED RESEARCH FINDINGS — VERIFIED TRUTH & CONFIRMED DRIFTS
+## 2. Source-of-truth hierarchy
 
-The skill verified the doc's claims against the code. **Below, ✅ = doc is correct (leave alone); ⚠️ = DRIFT, the doc is wrong and you must correct it.**
-
-### ✅ VERIFIED CORRECT (do not touch these — they are accurate and well-cited)
-- `determineQualificationDecision` at **319–372** with the exact branch logic the doc quotes. The `goodsConfidenceBps < 6000 → review` floor is at **line 339** (and rationale at 97). Call at **line 108**. ✅
-- `categoryForDivision` 225–239 (45→works, 14–44→goods, 50–98→services); `classifyLegalCategory` returns `mixed` when ≥2 categories. ✅
-- `REVIEWABLE_ACCESS_ROUTES` / `REJECTED_ACCESS_ROUTES` at 50–59, exactly as quoted. ✅
-- `gateDescriptionQuality` 100–113 and the `isServiceDescription` regex at 360–364, verbatim match. ✅
-- `LandedCostEstimateWrite.uk_final_mile_cost_gbp_pence` (5403) is **always `0`** (8213 domestic, 8630 import), yet **persisted** (8933, 8992) and **read back** (9064). The ADR-003 "zero-migration fallback" claim is sound. ✅
-- The import rollup is `supplier + freight + duty + import_vat` via `.saturating_add` (8548–8552). ✅
-- All four contracts-schema row types have the fields the doc claims (`candidate_value_share_bps`, `critical_attributes_json`, `incoterm`, `economic_landed_cost_gbp_pence`, `net_margin_{low,base,high}_bps`, `landed_cost_coverage_bps`, etc.). `candidate_type` is an unconstrained `string` (so `installed_goods` is *allowed* but not an enforced enum — the doc slightly overstates "already supports values like installed_goods"; soften to "the column is a free string, so a new value needs no migration"). ✅-ish
-- `SkillBinding`/`SourceDefinition`/`PromotionStage`/`builtin_definitions()` at the cited lines. ✅
-- 6 validation overlays exist; `overlay-supplier-enrichment` exists with `validator-rubric.yaml`. ✅
-- L0 doc has exactly 6 whitelist categories + the 8-item no-list + the expansion rule "Each new category requires its own gold-set validation before entering production" — **verbatim** as the doc claims. The L0 doc *already* flags metal furniture/shelving as HIGH trade-remedy and packaging as split easy/dangerous. ✅
-- Real E2E test patterns exist (`crates/daemon/tests/decision_basis_hash.rs`, `customs_fx_freight_engine.rs` seed process→candidate→quote→landed-cost with no mocks). Skill canary harness exists (`skill_canary_harness.rs` + JSONL/YAML fixtures). ✅
-
-### ⚠️ DRIFT 1 — Landed-cost skills are NOT registered in `registry.rs` (corrupts ADR-002 + §3.4 + §3.6 + §8.2)
-**The doc's central integration claim is wrong.** §3.6 and ADR-002 say the labour engine is "registered in `registry.rs` `builtin_definitions()` … exactly like the existing freight/customs skills." **It is not.** `registry.rs` registers only *procurement/marketplace sources* (FTS, Contracts Finder, Alibaba, …). The landed-cost skills (`searates-freight-estimate`, `hmrc-customs-classification`, `shipment-sizing`, `simple-fx-lookup`) are **loaded as transient skill artifacts** via `load_landed_cost_skill(..., "skills/landed-cost/<name>/SKILL.md")` at **main.rs:9131–9151** and invoked **sequentially inside `run_landed_cost_live_loop` (~main.rs:9140)**.
-
-**Correction required:** rewrite ADR-002, §3.4, §3.6, and the §8.2 "registry.rs" row. The real integration for the labour skill is:
-1. add a `load_landed_cost_skill(...)` call alongside the others at ~9131–9151, and
-2. add a sequential invocation in `run_landed_cost_live_loop` **after the FX step, before `build_import_landed_cost_estimate` (decision synthesis)**.
-The `registry.rs` edit the doc lists as a "modified file" is likely **unnecessary** (unless the team decides to promote landed-cost skills into the registry as a *separate* refactor — call that out as out-of-scope). Net effect: **more** `main.rs` surgery than the doc implies, **less** registry work. Re-examine the "Estimated Complexity / Quick Stats / §8.2" accordingly.
-
-### ⚠️ DRIFT 2 — No `next_job_kind` chaining for Stage 11 (corrupts §3.4)
-§3.4 says the landed-cost skills are "chained by `next_job_kind` (`jobs/runner.rs`)." **False.** They run **sequentially in a single async function** (`run_landed_cost_live_loop`), not via the job-runner's `next_job_kind` mechanism. Job IDs use a `job-stage11-{kind}-{uuid}` *prefix* (main.rs:7527), which is probably where the doc's "stage11_*" intuition came from — but the **job-kind identifier strings are `landed_cost_*`**: `landed_cost_searates_freight`, `landed_cost_simple_fx`, `landed_cost_customs_classification`, `landed_cost_shipment_sizing`. The real execution order is **Customs → Sizing → Freight → FX → synthesis**. Correct §3.4 (and remove the "confirm the precise naming at spec stage" hedge — it's now confirmed: `landed_cost_uk_installation_labour` would be the new kind).
-
-### ⚠️ DRIFT 3 — `interaction_profile` for the labour worker skill (corrupts §5.2 Component B)
-Component B proposes the labour skill be `interaction_profile: headless_contract`, "closer to `simple-fx-lookup`/`hmrc-customs-classification`." But: `simple-fx-lookup` is **`http_public`**, `hmrc-customs-classification` is **`pty_interactive`** (browser/CDP!). `headless_contract` is the profile used by **validation overlays** and manifest-generation, **not** by operational landed-cost workers. So the analogy is broken. Resolve this: the labour skill reads curated tables + does bounded LLM inference with **no browser** → the honest fit is **`http_public`** (no `requires_cdp`) or a justified `headless_contract` if the team treats it as a pure contract-mode compute skill. Either way, correct the false "like fx/hmrc" framing, and confirm against `skill_lint.rs` which profile values are accepted. (Component F, the *overlay*, IS correctly `headless_contract` — overlays use it.)
-
-### ⚠️ DRIFT 4 — `data/reference/` does not exist; no versioned-reference-JSON loader (corrupts §5.2 Comp C, ADR-004, §8.3, §9.4, Quick Stats)
-The doc proposes 4 files under `data/reference/` loaded "at daemon start (parallel to freight provider config)." There is **no `data/reference/` directory, no startup reference-JSON loader, and no 'freight provider config' loaded at startup** — freight skills fetch live; reference/seed data today lives as **cassette fixtures under `tests/fixtures/cassettes/`** (e.g. `l5/fx/hmrc-monthly-current.json`). This is a **new convention** the feature must *establish*, not reuse. Correct the doc to either: (a) establish a new `data/reference/` dir + a new daemon loader (and own that as real new work — bumps complexity), or (b) ship the rate tables **inside the skill directory** (`skills/landed-cost/uk-installation-labour-estimate/reference/*.json`) read by the skill itself (no daemon loader needed — likely the cleaner fit, since the skill, not the daemon, needs the rates). Reflect the choice in ADR-004, §5.2-C, §8.3, §9.4, and the modularity checklist.
-
-### ⚠️ DRIFT 5 — Freight skill template specifics (corrupts §3.6, §8.1, §8.3)
-Both `freightos-freight-estimate` and `searates-freight-estimate` exist (the doc names only `freightos`). **Neither has a `checkpoint.schema.json`** — the doc repeatedly claims the freight skill has one and lists it as a file to create/mirror. `freightos` has `{SKILL.md, eval.js, result.schema.json}`; `searates` has `{SKILL.md, result.schema.json}`. The result envelope uses `freight_base_amount_minor` / `freight_low_amount_minor` / `freight_high_amount_minor` (+ `evidence`/`warnings`/`blockers`), confirming the doc's "`*_base/low/high_amount_minor` shape" intuition. Both freight skills are `pty_interactive` + `requires_cdp: true`. **Correction:** name both freight skills; drop `checkpoint.schema.json` from the worker-skill file list (it belongs to *overlays*, per `skill_lint.rs` promotion requirements); keep the result-envelope shape claim.
-
-### ⚠️ DRIFT 6 — Gold-set harness tables don't exist (corrupts §6.3, §6.4)
-The doc cites a gold-set harness using tables `evaluation_runs` / `evaluation_case_results`. **These tables do not exist** in any migration. L0 is **"PARTIALLY BUILT"** (per the L0 doc's own status note): gold-set lives as **JSONL + `golden.assertions.yaml` fixtures** under `tests/fixtures/calibration/` exercised by Rust integration tests (`skill_canary_harness.rs`), not as DB tables. Correct §6.3/§6.4 to describe the *actual* harness (fixture-corpus + canary harness + integration tests), and note that a persistent evaluation-table harness would itself be net-new work if desired.
-
-### ⚠️ DRIFT 7 — `description-quality.test.ts` does not exist (corrupts §8.4)
-§8.4 lists `description-quality.test.ts` as "(extend)". There is **no** test file for `description-quality.ts` (the customs dir has `customs-classification.test.ts`, `hmrc-fpo.test.ts`, `measure-interaction.test.ts`). The service-gate split is the **highest-risk change in the feature** (per the doc's own complexity table) yet has **zero existing test coverage** — so this is a **new** test file and the doc should flag the current zero-coverage as a risk amplifier. Correct "(extend)" → "(NEW)".
-
-### ⚠️ DRIFT 8 — Schema epoch is live-inconsistent (sharpens §9.3 authority note)
-Daemon `DEFAULT_SCHEMA_EPOCH = 9` (`crates/daemon/src/db/sqlite.rs:82`). Desktop is **internally split**: `main.rs` = 9, but `daemon_bridge.rs:16` and `query_service.rs:14` = **8**. Supabase `schema_metadata` = 9. A new migration bumping to **10** must update the daemon constant, **all three** desktop constants, and the Supabase metadata, or reads break (see the project's known "desktop/daemon schema-epoch coupling" gotcha). Sharpen §9.3's authority-matrix note from a vague "confirm at spec stage" into this concrete checklist, and confirm whether `landed_cost_estimates` / `pipeline_assessments` are remote-projected (`infra/supabase/migrations/0009_l5_field_level_projection.sql` is the place to check).
+1. **The codebase is ground truth** for what exists today. Where the doc and the code disagree, the code wins and the doc must be corrected.
+2. **The target doc** is what you improve.
+3. **Project docs** (`AGENTS.md`, `docs/research/2026-03-08-public-procurement-intelligence-platform-research.md`, the strategy set) are READ-ONLY context. Do **not** edit them. Align terminology to them.
+4. **Memory facts** (schema-epoch coupling; L6 archived) are background — verify against code before relying on them; one of them is now stale (see §4 finding A).
 
 ---
 
-## 5. THE MISSED SURFACE — existing early `addressableValuePence` (HIGH-VALUE INSIGHT)
+## 3. What to read (with reading notes)
 
-The doc asserts (§3.2) that "the goods value-share **cannot** exist at the early stage." That is true **only for the cost-based share**. But the codebase **already** computes a **contract-value-based goods portion at qualification time**:
+**The target doc** — read it twice. First for what it says (§1 intent, §2 current-state, §3 goals, §4 architecture, §5 routing, §6 concurrency, §7 testing, §8 questions). Second for what it *implies but doesn't pin down* — especially §4.3 (the refactor), §4.5 (commercial-stage trigger), and §6 (concurrency).
 
-- `qualifyGoodsOpportunity` accepts `totalValuePence` + `goodsAddressableValuePence` and returns `addressableValuePence`.
-- `computeAddressableValue()` (goods-qualification.ts **290–317**): for `goods` → whole `totalValuePence`; for `mixed`/`works` **with separability** → the passed-in `goodsAddressableValuePence`; else `null`.
-- This is **exactly the "prefer a contract-value / quantity goods-share basis" mitigation** the doc recommends in §5.5 as superior to the cost proxy — and it is **already partially wired**.
+**Codebase — the integration surfaces (all verified to exist at these locations):**
 
-**Improvement directive:** integrate this. The doc's §5.5 "basis caveat" and ADR-001 should explicitly reconcile the **new** Phase-2 `goods_value_share_bps` (cost-proxy, post-Stage-11) with the **existing** early `addressableValuePence` (contract-value basis). Concretely: when `goodsAddressableValuePence` is supplied (tender itemises goods vs labour/works), the *contract-value* share `addressableValuePence / totalValuePence` is the **preferred** dominance basis and is available **at Phase 1** — only when it is absent does the pipeline fall back to the Phase-2 cost proxy. This materially strengthens the two-phase design (it may let some dominance decisions happen early) and directly de-risks the §5.5 "false reject" problem. Also note `computeGoodsDensityScore` (264–288) is **text-signal-based** (CPV base + mention counts), so the proposed Phase-1 `GOODS_PRESENCE_FLOOR` maps naturally onto `goodsDensityScore` — make that mapping explicit.
+| Surface | Location | What it is |
+|---|---|---|
+| Blocking serve loop (no tick) | `crates/daemon/src/main.rs:3819` `serve_handshake_service` | `loop { listener.accept() … }`, pure IPC, no timer |
+| Cron status snapshot (read-only) | `main.rs:3890` `build_cron_status_snapshot` | builds `CronScheduler` per handshake only to display next-run times; never enqueues |
+| Bootstrap | `main.rs:2921` `bootstrap_runtime` → `:3697` `enqueue_startup_cron_jobs` | the ONLY caller of `dispatch_due_jobs` (single call site at `:3708`) |
+| History seed | `main.rs:3736` `seed_cron_scheduler_from_history` | rebuilds `last_run_at` from `workflow_jobs.scheduled_for` |
+| Cron core | `crates/daemon/src/scheduler/cron.rs:120` `dispatch_due_jobs(registry, now)`; `:341` `build_enqueue_request`; `:204` `record_enqueued` | `now` is **already a parameter** (clock seam exists); catch-up via `schedule.after(&anchor).next()` |
+| Current worker | `main.rs:1703` `run_next_workflow_job` | matches only `extract_document_structure` / `extract_document_semantics` / `run_bid_workflow`; `other => fail_job` at `:1722` |
+| `--run-next-job` | `main.rs:1424`/`1435` | claims ONE job, runs, exits |
+| Background-thread precedent | `main.rs:682` `struct SyncLeaseHeartbeat` + `:2991` `spawn` | own `StateDb` connection via `open_state_db`, `recv_timeout(interval)` loop, `mpsc` stop channel, named thread |
+| Runtime struct | `main.rs:657` `RuntimeBootstrap` | `state_db: StateDb` (owned, NOT Arc), `state_db_path: PathBuf` (cloned to threads), `resource_arbiter: Mutex<ResourceArbiter>` |
+| Lease gates push only | `main.rs:3225` | lease-conflict path `return Ok(())` disables push dispatch; local execution unaffected |
+| Job claim/runner | `crates/daemon/src/jobs/claim.rs:174` ordering `COALESCE(scheduled_for, created_at), created_at`; `:15-16` lease 300s/hb 60s; `:97` `claim_job_by_id`; `crates/daemon/src/jobs/runner.rs:580` `enqueue_job`; `:1626` `find_existing_enqueue_ack` (dedup on `idempotency_key`, matches kind+scope across statuses `pending/running/retry/completed`) |
+| Live-loop bodies | `main.rs` `run_fts_live_loop` (:20096), `run_contracts_finder_live_loop` (:19171), `run_procontract_discover_live_loop` (:19382), `run_procontract_register_interest_live_loop` (:19481), `run_procontract_enrich_tender_live_loop` (:19627), marketplace (:19883), `create_source_sync_job_from_parameters` (:4511) | each derives per-run params (cursor from `source_cursors`, `download_root` from artifact root), mints a `sync_source` job, then `claim_job_by_id`, then executes |
+| `--ingest` dispatch | `main.rs:1390-1414` | maps source string → live-loop fn |
+| Commercial stages | `main.rs:12345` `run_net_margin_gate_once` (wrapper `run_net_margin_gate_live_loop` :12403), `:15043` `run_manifest_generation_live_loop`, `:10532` `run_landed_cost_live_loop` | `stage_run_id`-keyed whole-DB batch passes; not `sync_source`, not cron-bound |
+| **In-process sequential stage runner** | `main.rs:23323` `run_deterministic_pipeline` (via `--pipeline`, dispatch at `:1423`) | **see §4 finding C — the doc omits this entirely** |
+| Resource arbiter | `crates/daemon/src/agents/arbiter.rs:13` `ResourceBudgets::default` (browser 2 / agent 4 / proc-lane 1 / supplier-lane 2); `:194` `admit → ArbiterDecision::Granted(ResourceLease) | Denied(DenialReason)`; `:231` `release(lease, ReleaseCause)`; `DenialReason::{BrowserSlotsExhausted, AgentSlotsExhausted, SourceLaneExhausted, SkillConcurrencyCapReached}` |
+| Register-interest guard | `main.rs:15371` `load_procontract_interest_candidates` — excludes `process_stage_status` rows with `stage='interest_registration' AND state IN ('completed','succeeded','skipped')`; `:15600` `persist_custom_process_stage_state` |
+| Stage-state table | `migrations/0001_sqlite_state_initial.sql:453` `process_stage_status` — keyed `(process_id, stage, scope_kind, scope_id, stage_run_id)`, `state` is a free string, has `process_stage_heads` companion; **no `notice_id` column** |
+| Source cursors | `migrations/0003_sqlite_runtime.sql:79` `source_cursors (source_id, cursor_key, cursor_value, updated_at)` |
+| ProContract IDs | `contract_notices.source_notice_id` = advertId (held from discover); `rfx_id`/RFx URL only exist after access granted (extracted from live tender event page) |
+| Desktop triggers | `apps/desktop/src-tauri/src/main.rs:2005` `trigger_pipeline_rerun`, `:1755` `trigger_ingestion`, `:1114` `run_daemon_ingest_stage`, `:78` `PIPELINE_RERUN_INGEST_STAGES = ["landed-cost","net-gate","manifest"]` |
+| Daemon IPC enqueue-only | `crates/daemon/src/ipc/handlers/jobs.rs:222` `trigger_ingestion` (enqueues `sync_source`), `trigger_enrichment` (enqueues `enrich_process`) — both enqueue-only, no consumer |
+| Schema epoch | `crates/daemon/src/db/sqlite.rs:89` `DEFAULT_SCHEMA_EPOCH = 10`; `apps/desktop/src-tauri/src/main.rs:51` `EXPECTED_SCHEMA_EPOCH = 10`; `MIGRATIONS` array at `sqlite.rs:33`, last entry `0014_installation_labour_fields` (epoch 10) |
+| Enrich skill | `skills/procurement-ingestion/procontract-enrich-tender/SKILL.md` — Step 2 "My Activities → Recently added", `maxPages: 5` (~50 rows), `summary.not_yet_responded`, cursor `{"last_checked_at":…,"pages_checked":…}`, live-event detection "Not started (Respond by: …)" vs "Expression of interest accepted", CDP `:9222` |
 
----
-
-## 6. IMPROVEMENT DIRECTIVES (each grounded in the findings above)
-
-**CORRECT (drift fixes — highest priority):**
-- §3.4, §3.6, ADR-002, §8.2: rewrite the skill-integration model per **Drift 1 & 2** (transient `load_landed_cost_skill` + sequential `run_landed_cost_live_loop` insertion after FX; job-kind `landed_cost_uk_installation_labour`; registry edit likely unnecessary).
-- §5.2 Component B: fix the `interaction_profile` per **Drift 3** (`http_public` or justified `headless_contract`; kill the false fx/hmrc analogy).
-- §5.2-C, ADR-004, §8.3, §9.4, Quick Stats: fix the reference-data convention per **Drift 4** (no `data/reference/` today; choose skill-local vs new-loader and own the consequence).
-- §3.6, §8.1, §8.3: fix freight-template specifics per **Drift 5** (two skills; no `checkpoint.schema.json` for workers).
-- §6.3, §6.4: fix gold-set harness per **Drift 6** (fixtures + canary harness + integration tests; no `evaluation_*` tables).
-- §8.4: `description-quality.test.ts` is **NEW**, and current zero coverage on the riskiest gate is itself a risk (**Drift 7**).
-- §9.3: concrete schema-epoch checklist per **Drift 8**.
-
-**EXPAND / STRENGTHEN:**
-- §5.5 + ADR-001: integrate the existing `addressableValuePence` contract-value basis (**§5 above**) as the preferred Phase-1 dominance basis with the cost proxy as fallback.
-- §3.2: map `GOODS_PRESENCE_FLOOR` onto the actual `goodsDensityScore` derivation; show the concrete new branch position relative to the verified 319–372 code (it sits after line 353, before the line-355 branch, exactly as the doc sketches — confirm the sketch still lines up after you re-read).
-- §3.3: the `DescriptionQualityVerdict` union **already** has `split_safe` and `reject_bundle_unsafe` variants. The service-gate split should reuse/extend that taxonomy (add a `goods_led_mixed` verdict) rather than inventing a parallel mechanism — strengthen §3.3 with the real union shape.
-- §5.3 / Quick Stats: the labour cost must be added at **both** the domestic (main.rs:8114, currently supplier-only) and import (8548) construction sites, plus both `0`-literal sites (8213, 8630). The doc under-counts the rollup touch-points — make them explicit.
-
-**ALIGN (terminology / project conventions):**
-- The bidder is **Sorellon** (double-L). The doc and the codebase carry a systemic single-L `sorelon`/`sorelon.com` typo. Do **not** mass-fix code, but ensure the *research doc* uses the canonical "Sorellon" spelling in prose.
-- Keep money as integer pence, ratios as bps — the doc already does this; verify no new field violates it.
-
-**THINK INDEPENDENTLY (after absorbing the above):**
-Generate your own questions and pressure-test the design. The surface drifts are flagged for you — what remains are the *non-obvious* issues. For example: Does adding labour to `economic_landed_cost_gbp_pence` silently change the **existing** net-margin gate behaviour for contracts that happen to already carry an installation CPV but were previously passing? Is there a backfill/recompute concern for already-assessed processes? Does the Phase-2 gate's position (decision synthesis) actually have access to the goods-only landed cost separately from the labour-inclusive total (it must, to compute the ratio)? Challenge the recurring-maintenance "capital event only" basis: is the per-period margin check actually representable in the current `LandedCostEstimate`/`PipelineAssessment` schema, or does it need its own entity? What would an adversary architect attack first?
-
----
-
-## 7. NON-NEGOTIABLES (do not change)
-- Operator-locked decisions (the three ✅ in §1.5: low-reg category breadth, goods-value-share rule, both one-off + recurring labour scope).
-- "Screening-grade triage, never a firm quote" framing.
-- Skills/overlays/config/reference-data modularity mandate — **do not** propose hardcoding rules into the daemon.
-- The PRE-BID vs POST-WIN regulatory split (Sorellon estimates labour cost; it does not perform regulated work).
-- Money = integer pence; ratios/confidence = bps.
-
-## 8. WHAT I DON'T WANT
-- Don't rewrite the strong, verified sections (Executive Summary thesis, §4 external research, Appendix A/B/C content) — they're good.
-- Don't edit any file other than the target research doc.
-- Don't soften the corrections into "consider whether…" — where the code contradicts the doc, **state the corrected fact**.
-- Don't add fluff. Every added sentence should carry a verified fact or a sharpened decision.
-- Don't delete the doc's honest hedges where they're still warranted — replace only the ones the research has now resolved.
-
-## 9. WHAT A GREAT OUTCOME LOOKS LIKE
-- Every ⚠️ drift corrected in-place with the real `file:line` truth, and every downstream claim the drift touched reconciled (the Quick Stats table, §8.2/§8.3 file lists, ADRs, and complexity estimate all consistent with the corrected integration model).
-- The existing `addressableValuePence` surface integrated into the two-phase design and the §5.5 basis caveat.
-- A reader who knows the codebase finds **nothing** in the doc that contradicts the code.
-- The riskiest change (service-gate split) is honestly framed as zero-coverage-today and tied to the real `DescriptionQualityVerdict` union.
-- Effort/complexity re-estimated against the corrected reality (more `main.rs` work, reference-data convention to establish, schema-epoch coordination across 4 constants).
+**Project context:** `AGENTS.md` (Rust 2024 nightly, `#![forbid(unsafe_code)]`, clippy pedantic+nursery `-D warnings`, **real E2E no mocks**, no file proliferation, no backwards-compat shims, schema-epoch coupling, CDP `:9222` discipline). The doc already respects these; keep it that way.
 
 ---
 
-## 10. FOLLOW-UP FRESH-EYES PASS (run in the SAME session, after you finish editing)
+## 4. Embedded research findings — what the fresh pass discovered
 
-Re-read the **entire** improved doc top-to-bottom as if you'd never seen it. Verify:
-1. **Coherence:** Do the corrected §3.4/§3.6/ADR-002 agree with §8.2, §8.3, Quick Stats, and §6.1 complexity? No section still says "register in registry.rs" or "chained by next_job_kind."
-2. **No orphaned claims:** Search the doc for `data/reference/`, `checkpoint.schema.json`, `evaluation_runs`, `next_job_kind`, `stage11/`, `freightos` (sole-named), `headless_contract` — every surviving occurrence must now be *correct* in context.
-3. **No bolted-on feel:** the `addressableValuePence` integration reads as part of the design, not an appendix.
-4. **Nothing weakened:** the verified-correct sections are intact; the operator-locked decisions are untouched.
-5. **Terminology:** "Sorellon" in prose; pence/bps conventions held.
-Fix anything that fails, then write a 6–10 line "Improvement Pass — change log" at the very top of the doc (under the status line) summarising what you corrected and why, so Pass 2 (audit/test) knows what moved.
+The doc's `file:line` references are accurate (most within ~11 lines of actual, a few exact; none structurally wrong). The architecture analysis in §2 is sound and verified. The following are the **deltas** — corrections and gaps. Fold each into the doc precisely.
+
+### A. CORRECTION — schema epoch is 10, not 9 (and the memory is stale)
+§6 R6 says the desktop/daemon epochs are "(both 9)". **They are both 10 today** (`DEFAULT_SCHEMA_EPOCH = 10`, `EXPECTED_SCHEMA_EPOCH = 10`); migration `0014_installation_labour_fields` bumped to epoch 10 on ~2026-06-02 (the goods-led install/maintenance expansion). Correct §6 R6 to say "both currently **10**", and make §4.4 / §8 Q4 say a new G4 **table** bumps the pair to **11** (next free migration is `0015_*`). Keep the principle identical (bump both sides together; a new state-string is not a bump) — only the numbers are wrong.
+
+### B. SHARPEN — `trigger_pipeline_rerun` is a *desktop* command that kills+restarts the daemon
+The doc's §4.5/§7/§10 are correct that it "stops the daemon for an exclusive run," and §10 correctly attributes it to `apps/desktop/src-tauri/src/main.rs`. Make the mechanism explicit so the spec doesn't mis-model it: `trigger_pipeline_rerun` (desktop, `:2005`) (1) **signals the detached `--serve` daemon to stop by PID and waits for it to release the runtime lock** (`stop_daemon_for_exclusive_pipeline_rerun`), (2) shells `daemon --ingest landed-cost`, `--ingest net-gate`, `--ingest manifest` as **one-shot subprocesses** (`PIPELINE_RERUN_INGEST_STAGES`), (3) **relaunches the detached daemon** and waits for handshake. So the exclusivity comes from the *desktop killing the daemon*, not the daemon yielding — which is exactly why an in-process autonomous trigger cannot reuse it. State this as a one-liner in §4.5.
+
+### C. GAP — the doc omits an existing in-process sequential stage runner (`run_deterministic_pipeline`)
+There is a **third** execution surface the doc never mentions, and it directly informs §4.5: `run_deterministic_pipeline` (`main.rs:23323`, invoked by `--pipeline <source_id>` at `:1423`) runs a **synchronous, in-process, daemon-resident** sequence — extract-lots → prequalify → qualify-lot → reclassify-candidates → score-quoteability → **gross-margin-gate** → relate — taking `&mut runtime.state_db`, **without stopping the daemon**. It covers the *qualification* stages (up through the gross-margin gate), **not** the *commercial* stages (`landed-cost`→`net-gate`→`manifest`) that §4.5 targets — but it is the existing precedent for "run a deterministic stage chain in-process under the daemon." §4.5 should (a) acknowledge this runner exists, (b) frame the commercial-stage trigger as either *extending the same in-process sequential pattern* or *routing the commercial stages through the worker/arbiter as queued jobs*, and (c) note the open design question this raises: do the deterministic commercial sweeps run on the worker thread (subject to head-of-line blocking behind a long PTY job — see Q3) or as a separate in-process sweep like `run_deterministic_pipeline`? They consume **no** browser slots, so arbiter pressure is near-zero; the real question is scheduling/ordering, not resource contention. This is the single most under-scoped part of the doc — give it the depth it deserves.
+
+### D. CONFIRM + embed — the refactor entanglement (§4.3) is exactly as described, with one concrete detail to add
+Verified: live-loop bodies derive per-run params *then* mint+claim. `create_source_sync_job_from_parameters` (`main.rs:4511`) writes a `workflow_jobs` row whose `input_payload` carries `{source_id, trigger:"manual_cli", skill_binding, agent_cli, job_parameters, durable_step_surfaces}` — i.e. the *manual* path packs `job_parameters` (cursor, download_root) **into the job at mint time**. The *cron* path (`build_enqueue_request`, `cron.rs:341`) packs only schedule metadata `{source_id, skill_id, skill_version, scheduled_for, schedule_key}` — **no `job_parameters`**. So the doc's §4.3 "payload mismatch" is real and precisely this: the shared body must branch on "did the payload already carry `job_parameters` (manual) or must I derive them from `source_id`+state (cron)?" Add this concrete payload contrast to §4.3 so the spec knows the exact shape divergence, not just that one exists.
+
+### E. CONFIRM — the §4.4 re-registration landmine is exactly right, with the precise guard string
+The guard is literally `state IN ('completed','succeeded','skipped')` (`main.rs:15391`). `process_stage_status` has **no `notice_id` column** (keyed on `process_id`+stage+scope), and `state` is a free string (not a DB-enum), so an `awaiting_access` value is schema-legal without migration — but it breaks the guard exactly as the doc warns. The doc's recommendation (dedicated `procontract_pending_enrichment` row, leaving `interest_registration.state='completed'` intact) is the safer call; the table-vs-state-string tradeoff is correctly captured. One addition: because `process_stage_status` is keyed by `process_id` (not `notice_id`) and the sweep must key off `source_notice_id`/advertId, a dedicated row that stores the advertId is *also* a cleaner data fit than overloading a stage row that lacks that identifier. Note this as additional support for the dedicated-row option in §4.4/Q4.
+
+### F. CONFIRM — clock seam already exists; worker/tick threading is de-risked
+`dispatch_due_jobs(registry, now)` already takes `now`. The `SyncLeaseHeartbeat` pattern (own connection + `recv_timeout` + `mpsc` stop) is a complete, working template for both the new tick thread and the worker. `claim_job_by_id` already exists for the `--ingest` path's reuse. The doc's §4.1/§4.2/§4.3 plans are all directly supported by existing primitives — the doc could state more confidently that the *primitives* exist and the work is *composition + one refactor + new handlers*, not net-new infrastructure. (Keep the honest "highest-risk decision" framing on §4.3/§6 — that's correct.)
+
+### G. ADD — defer-vs-fail mechanics for the worker (§4.2) can be made concrete
+The arbiter returns `ArbiterDecision::Denied(DenialReason)` vs `Granted(ResourceLease)`; release takes a `ReleaseCause`. The claim path already has `recycle_expired_leases`. So the doc's "release back to `pending`, don't fail" can be pinned to specifics: on `Denied`, the worker must put the job back to `pending` (or `retry`) **without** incrementing the failure/attempt count as a *run* failure, and **without** holding a lease — distinct from a genuine execution error which goes through `fail_job`. Worth a sentence in §4.2 naming the `Denied` vs execution-error fork explicitly.
+
+---
+
+## 5. Improvement directives
+
+Apply these to the target doc. Stay surgical — the doc is already good; do not bloat it.
+
+**CORRECT**
+- §6 R6 and §4.4 and §8 Q4: schema epoch `9` → `10`; a new G4 table → epoch `11`, migration `0015_*` (finding A).
+
+**SHARPEN**
+- §4.5: make the `trigger_pipeline_rerun` mechanism explicit (PID-stop → one-shot `--ingest` subprocesses → relaunch) and state plainly why an in-process trigger can't reuse it (finding B).
+- §4.3: add the concrete cron-vs-manual `input_payload` shape contrast (manual packs `job_parameters`; cron packs only schedule metadata) (finding D).
+- §4.2: name the `Denied(DenialReason)` vs execution-error fork and the "no attempt-count bump / no held lease on defer" rule (finding G).
+
+**EXPAND (the one section that needs real depth)**
+- §4.5 / §2.5 / §8 Q8: introduce `run_deterministic_pipeline` as the existing in-process sequential-stage precedent, and reframe the commercial-stage trigger decision as "worker-queued jobs vs in-process sweep like `run_deterministic_pipeline`," noting commercial stages consume no browser slots so the real axis is scheduling/HOL-blocking, not resource contention (finding C). This is the highest-leverage improvement in the pass.
+
+**STRENGTHEN (think independently here)**
+- The doc lists the three trigger models for commercial stages (chained / scheduled / coverage-driven) and leans "scheduled or coverage-driven." Pressure-test that lean against the existence of `run_deterministic_pipeline` and the dedupe concern. Is there a cleaner unification — e.g. a single "advance-pipeline" sweep (coverage-driven) that handles BOTH qualification and commercial deterministic stages in-process, leaving only the PTY source scrapers on the worker/arbiter? Surface the strongest option, don't just relay the doc's hedge.
+- Concurrency (§6): the doc names R1–R6. Add the failure mode that isn't named: **what happens to an in-flight claimed job (lease held, 300s) when the tick thread enqueues the *next* slot for the same source while the previous run is still executing past one tick interval?** The idempotency key is keyed on `scheduled_for`, so two *different* slots are legitimately distinct jobs — does the system tolerate two concurrent `sync_source` runs for the same source, or must per-source serialization (the `procurement_source_lanes=1` budget) prevent it? Trace this and state the resolution.
+
+**ALIGN**
+- Terminology: keep "worker pump," "scheduler tick," "live-loop body," "commercial stages," "awaiting-access" consistent with the doc and `AGENTS.md`. Use `process_stage_status` / `process_stage_heads` / `source_cursors` / `workflow_jobs` exactly as the schema names them.
+
+---
+
+## 6. Non-negotiables (do not touch)
+
+- The PTY/browser-session/skill-first model stays (N2). No API connectors.
+- One daemon per org (N3). No multi-daemon, no remote/HTTP trigger (N4).
+- No retuning of existing schedule values (FTS 04:15 etc. stay code-defined).
+- Real E2E, no mocks (project rule) — don't soften this anywhere in the doc.
+- The doc's honest framing (e.g. "this is a refactor not a match arm," "highest-risk decision," "at current volume this gap is inert") is a feature. Preserve the candor; don't paper over hard parts.
+
+---
+
+## 7. What I don't want
+
+- Don't rewrite §1, §2, §3 — they're strong and verified. Touch them only for the epoch correction.
+- Don't add generic "best practices" filler. Every addition must be grounded in a specific code surface from §3/§4.
+- Don't edit any file other than the target doc.
+- Don't invent new goals. The scope is fixed at G1–G6 / N1–N4.
+- Don't turn the doc into a spec — keep it research-altitude (decisions framed for the spec to make, with the tradeoffs made explicit).
+
+---
+
+## 8. What a great outcome looks like
+
+- The two stale facts (epoch) are corrected everywhere they appear.
+- §4.5 is no longer the weakest section: it names `run_deterministic_pipeline`, explains the desktop-kill mechanism of `trigger_pipeline_rerun`, and frames the commercial-trigger decision as a crisp worker-queued-vs-in-process-sweep choice with the resource/scheduling axis made explicit.
+- §4.3 and §4.2 carry the concrete payload-shape and defer-vs-fail details an implementer needs.
+- §6 gains the unnamed concurrency failure mode (overlapping same-source runs across ticks) with a resolution.
+- A spec author reading the improved doc has no "wait, how does X actually work?" moments on the integration surfaces — every one is pinned to a `file:line`.
+
+---
+
+## 9. Follow-up fresh-eyes pass (run in THIS session, after the edits)
+
+Re-read the entire improved doc top to bottom as if you'd never seen it. Verify:
+- **Coherence:** every epoch number now reads "10" (and "11" for the new-table case) consistently; no leftover "9".
+- **No contradiction:** §2.5, §4.5, §7 (commercial-stage test), §8 Q8, §9 scope all describe the SAME commercial-trigger model and the SAME relationship to `run_deterministic_pipeline` / `trigger_pipeline_rerun`.
+- **No bolt-on:** the `run_deterministic_pipeline` material reads as integrated reasoning, not an appended paragraph.
+- **Altitude preserved:** still a research doc (decisions + tradeoffs for the spec), not a half-written spec.
+- **Nothing weakened:** the honest caveats, the real-E2E rule, and the verified `file:line` references are all intact.
+- **Goals still covered:** G1–G6 each still trace to a concrete section.
+
+Fix anything that fails. Then report: what you corrected, what you expanded, the independent insight you added (the overlapping-run concurrency call and/or the unified-sweep proposal), and any residual open question you're handing to the audit pass.
