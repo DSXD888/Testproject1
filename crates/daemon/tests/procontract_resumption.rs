@@ -3,7 +3,7 @@
 mod support;
 
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, anyhow, ensure};
 use assert_cmd::Command;
@@ -377,6 +377,93 @@ fn require_object_field<'a>(value: &'a Value, field: &str) -> Result<&'a Value> 
     value
         .get(field)
         .ok_or_else(|| anyhow!("missing JSON field `{field}`"))
+}
+
+fn repo_root() -> Result<PathBuf> {
+    fs::canonicalize(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../.."))
+        .context("resolving repository root")
+}
+
+fn read_text_file(path: &Path) -> Result<String> {
+    fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))
+}
+
+fn relative_display<'a>(path: &'a Path, root: &'a Path) -> std::path::Display<'a> {
+    path.strip_prefix(root)
+        .map_or_else(|_| path.display(), |relative| relative.display())
+}
+
+fn ensure_terms_absent_outside_enrich(
+    root: &Path,
+    enrich_dir: &Path,
+    repo_root: &Path,
+    terms: &[&str],
+) -> Result<()> {
+    for entry in fs::read_dir(root)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.starts_with(enrich_dir) {
+            continue;
+        }
+        let file_type = entry.file_type()?;
+        if file_type.is_dir() {
+            ensure_terms_absent_outside_enrich(&path, enrich_dir, repo_root, terms)?;
+        } else if file_type.is_file() {
+            let contents = read_text_file(&path)?;
+            for term in terms {
+                ensure!(
+                    !contents.contains(term),
+                    "`{term}` leaked outside ProContract enrich skill into {}",
+                    relative_display(&path, repo_root)
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn guard_scope_001_skill_selector_boundary() -> Result<()> {
+    const WORKLIST_BOUNDARY_TERMS: &[&str] = &[
+        "awaitingAccessTargets",
+        "direct_target_worklist",
+        "direct_targets_received",
+        "direct_targets_visited",
+        "scan_direct_union_count",
+        "direct_visit_attempted",
+        "directly_visited",
+        "target_evidence",
+    ];
+
+    let repo_root = repo_root()?;
+    let skills_root = repo_root.join("skills");
+    let enrich_dir = skills_root
+        .join("procurement-ingestion")
+        .join("procontract-enrich-tender");
+
+    let enrich_contract = [
+        read_text_file(&enrich_dir.join("SKILL.md"))?,
+        read_text_file(&enrich_dir.join("result.schema.json"))?,
+        read_text_file(&enrich_dir.join("checkpoint.schema.json"))?,
+        read_text_file(&enrich_dir.join("canary.inputs.jsonl"))?,
+        read_text_file(&enrich_dir.join("golden.assertions.yaml"))?,
+    ]
+    .join("\n");
+    for term in WORKLIST_BOUNDARY_TERMS {
+        ensure!(
+            enrich_contract.contains(term),
+            "ProContract enrich skill contract should contain `{term}`"
+        );
+    }
+
+    ensure_terms_absent_outside_enrich(
+        &skills_root,
+        &enrich_dir,
+        &repo_root,
+        WORKLIST_BOUNDARY_TERMS,
+    )?;
+
+    Ok(())
 }
 
 #[test]
