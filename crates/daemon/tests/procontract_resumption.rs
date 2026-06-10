@@ -270,6 +270,83 @@ fn keep_and_backfill_contract() -> Value {
     })
 }
 
+fn clear_via_worklist_contract() -> Value {
+    json!({
+        "cursor": "{\"last_checked_at\":\"2026-04-14T09:05:00Z\"}",
+        "continuation_required": false,
+        "not_yet_responded": [],
+        "enriched_tenders": [
+            {
+                "notice_id": TRACKED_NOTICE_ID,
+                "process_id": TRACKED_PROCESS_ID,
+                "rfx_id": "rfx-pc-resume-001",
+                "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=rfx-pc-resume-001",
+                "updated_title": "Supply of tracked awaiting-access widgets",
+                "updated_description": "Tender pack now available after portal access opened.",
+                "updated_deadline_at": "2026-06-01T12:00:00Z",
+                "buyer_name": "Buyer",
+                "buyer_contact": {
+                    "name": "Alex Buyer",
+                    "email": "alex@example.invalid"
+                },
+                "documents_downloaded": [
+                    {
+                        "filename": "Requirements.txt",
+                        "content_type": "text/plain",
+                        "size_bytes": 64,
+                        "local_path": "downloads/procontract/pc-resume-001/requirements.txt",
+                        "download_url": "https://procontract.due-north.com/Documents/pc-resume-001/requirements.txt",
+                        "document_role_hint": "technical_specification",
+                        "extracted_from_archive": false
+                    }
+                ],
+                "documents_count": 1,
+                "enriched_at": "2026-04-14T09:05:00Z"
+            }
+        ],
+        "directly_visited": [
+            {
+                "advert_id": TRACKED_NOTICE_ID,
+                "source_notice_id": TRACKED_NOTICE_ID,
+                "process_id": TRACKED_PROCESS_ID,
+                "direct_visit_url": "https://procontract.due-north.com/Advert?advertId=pc-resume-001",
+                "result": "enriched"
+            }
+        ],
+        "target_evidence": [
+            {
+                "advert_id": TRACKED_NOTICE_ID,
+                "source_notice_id": TRACKED_NOTICE_ID,
+                "process_id": TRACKED_PROCESS_ID,
+                "located_via": "direct_advert_id",
+                "recently_added_scan": false,
+                "direct_visit_attempted": true,
+                "outcome": "enriched"
+            }
+        ],
+        "summary": {
+            "total_checked": 1,
+            "enriched": 1,
+            "not_yet_responded": 0,
+            "failed": 0,
+            "direct_targets_received": 1,
+            "direct_targets_visited": 1,
+            "scan_direct_union_count": 1,
+            "target_evidence": [
+                {
+                    "advert_id": TRACKED_NOTICE_ID,
+                    "source_notice_id": TRACKED_NOTICE_ID,
+                    "process_id": TRACKED_PROCESS_ID,
+                    "located_via": "direct_advert_id",
+                    "recently_added_scan": false,
+                    "direct_visit_attempted": true,
+                    "outcome": "enriched"
+                }
+            ]
+        }
+    })
+}
+
 fn empty_enrich_sweep_contract() -> Value {
     json!({
         "cursor": "{\"last_checked_at\":\"2026-06-10T09:00:00Z\"}",
@@ -487,6 +564,135 @@ fn require_object_field<'a>(value: &'a Value, field: &str) -> Result<&'a Value> 
         .ok_or_else(|| anyhow!("missing JSON field `{field}`"))
 }
 
+fn seed_tracked_and_backfill_notices(harness: &ProcontractRunHarness) -> Result<()> {
+    harness.seed_notice(
+        TRACKED_PROCESS_ID,
+        TRACKED_NOTICE_ID,
+        "Supply of tracked awaiting-access widgets",
+    )?;
+    harness.seed_notice(
+        BACKFILL_PROCESS_ID,
+        BACKFILL_NOTICE_ID,
+        "Supply of backfilled awaiting-access widgets",
+    )?;
+    Ok(())
+}
+
+fn run_registration_setup(harness: &ProcontractRunHarness) -> Result<()> {
+    assert_run_success(
+        &harness.run_ingest("procontract-interest", &registration_success_contract())?,
+        "register-interest setup run",
+    )
+}
+
+fn run_keep_and_backfill_setup(harness: &ProcontractRunHarness) -> Result<()> {
+    assert_run_success(
+        &harness.run_ingest("procontract-enrich", &keep_and_backfill_contract())?,
+        "enrich keep/backfill setup run",
+    )
+}
+
+fn assert_enrich_input_contains_tracked_target(input_payload: &Value) -> Result<()> {
+    let awaiting_targets = input_payload
+        .pointer("/job_parameters/awaitingAccessTargets")
+        .and_then(Value::as_array)
+        .ok_or_else(|| anyhow!("procontract-enrich input missing awaitingAccessTargets"))?;
+    ensure!(
+        awaiting_targets
+            .iter()
+            .any(|target| target["advertId"] == TRACKED_NOTICE_ID
+                && target["sourceNoticeId"] == TRACKED_NOTICE_ID
+                && target["processId"] == TRACKED_PROCESS_ID),
+        "expected enrich job input to carry tracked awaiting-access target"
+    );
+    Ok(())
+}
+
+fn assert_direct_visit_evidence(output_payload: &Value) -> Result<()> {
+    ensure!(
+        require_object_field(output_payload, "enriched_tenders")?.as_i64() == Some(1),
+        "clear run should report one persisted enriched tender"
+    );
+    let summary = require_object_field(output_payload, "summary")?;
+    ensure!(summary["direct_targets_received"].as_i64() == Some(1));
+    ensure!(summary["direct_targets_visited"].as_i64() == Some(1));
+    ensure!(summary["scan_direct_union_count"].as_i64() == Some(1));
+    let evidence = summary
+        .get("target_evidence")
+        .and_then(Value::as_array)
+        .ok_or_else(|| anyhow!("summary missing target_evidence array"))?;
+    ensure!(
+        evidence.iter().any(|item| {
+            item["advert_id"] == TRACKED_NOTICE_ID
+                && item["process_id"] == TRACKED_PROCESS_ID
+                && item["located_via"] == "direct_advert_id"
+                && item["recently_added_scan"].as_bool() == Some(false)
+                && item["direct_visit_attempted"].as_bool() == Some(true)
+                && item["outcome"] == "enriched"
+        }),
+        "fake Claude output should prove the target was visited directly by advert id"
+    );
+    Ok(())
+}
+
+fn assert_tracked_enriched_with_documents(conn: &Connection) -> Result<()> {
+    let pending = pending_row(conn, TRACKED_PROCESS_ID, TRACKED_NOTICE_ID)?;
+    ensure!(pending.state == "enriched");
+    ensure!(pending.observation_count == 1);
+    ensure!(pending.interest_registered_at == "2026-04-13T15:02:30Z");
+    ensure!(pending.last_checked_at.as_deref() == Some("2026-04-14T09:05:00Z"));
+    ensure!(pending.enriched_at.as_deref() == Some("2026-04-14T09:05:00Z"));
+    ensure!(pending.expiry_reason.is_none());
+
+    let raw_document_count: i64 = conn.query_row(
+        "\
+        SELECT COUNT(*)
+        FROM raw_documents
+        WHERE source_id = 'procontract-enrich'
+          AND storage_path = 'downloads/procontract/pc-resume-001/requirements.txt'
+        ",
+        [],
+        |row| row.get(0),
+    )?;
+    ensure!(raw_document_count == 1);
+
+    let (completeness_state, extraction_state, documents_json): (String, String, String) = conn
+        .query_row(
+            "\
+            SELECT completeness_state, extraction_state, documents_json
+            FROM tender_document_sets
+            WHERE id = 'tds-pc-resume-001'
+            ",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )?;
+    ensure!(completeness_state == "complete");
+    ensure!(extraction_state == "none");
+    let documents: Vec<Value> =
+        serde_json::from_str(&documents_json).context("parsing persisted documents_json")?;
+    ensure!(
+        documents.iter().any(|document| {
+            document["filename"] == "Requirements.txt"
+                && document["document_role_hint"] == "technical_specification"
+        }),
+        "persisted tender document set should include the cleared tender document"
+    );
+    Ok(())
+}
+
+fn run_clear_via_worklist_and_assert(harness: &ProcontractRunHarness) -> Result<()> {
+    let clear = harness.run_ingest("procontract-enrich", &clear_via_worklist_contract())?;
+    assert_run_success(&clear, "enrich clear via work-list run")?;
+
+    let conn = harness.connection()?;
+    let input_payload = latest_job_input(&conn, "procontract-enrich")?;
+    assert_enrich_input_contains_tracked_target(&input_payload)?;
+    let output_payload = latest_job_output(&conn, "procontract-enrich")?;
+    assert_direct_visit_evidence(&output_payload)?;
+    assert_tracked_enriched_with_documents(&conn)?;
+    Ok(())
+}
+
 fn assert_expiry_sweep_rows(conn: &Connection) -> Result<()> {
     let deadline_expired = pending_row(
         conn,
@@ -541,6 +747,35 @@ fn assert_future_targets_exclude_expired(input_payload: &Value) -> Result<()> {
         }),
         "active row with only an RFx response deadline should remain scheduled"
     );
+    Ok(())
+}
+
+fn run_expiry_sweep_and_assert(harness: &ProcontractRunHarness) -> Result<()> {
+    let first_sweep = harness.run_ingest("procontract-enrich", &empty_enrich_sweep_contract())?;
+    assert_run_success(&first_sweep, "first expiry sweep")?;
+
+    let conn = harness.connection()?;
+    assert_expiry_sweep_rows(&conn)?;
+    drop(conn);
+
+    let second_sweep = harness.run_ingest("procontract-enrich", &empty_enrich_sweep_contract())?;
+    assert_run_success(&second_sweep, "second expiry sweep")?;
+
+    let conn = harness.connection()?;
+    let input_payload = latest_job_input(&conn, "procontract-enrich")?;
+    assert_future_targets_exclude_expired(&input_payload)?;
+    drop(conn);
+
+    let invocation_count_before_interest = harness.fake_pty_invocation_count()?;
+    let interest = harness.run_ingest("procontract-interest", &registration_success_contract())?;
+    assert_run_success(&interest, "interest run after expiry")?;
+    ensure!(
+        harness.fake_pty_invocation_count()? == invocation_count_before_interest,
+        "expired pending rows must not re-enter register-interest"
+    );
+    let conn = harness.connection()?;
+    let output = latest_job_output(&conn, "procontract-interest")?;
+    ensure!(require_object_field(&output, "registrations")?.as_i64() == Some(0));
     Ok(())
 }
 
@@ -676,38 +911,15 @@ fn m3_step_001_register_creates_awaiting_access_without_refire() -> Result<()> {
 #[test]
 fn m3_step_002_enrich_keep_and_backfill() -> Result<()> {
     let harness = ProcontractRunHarness::new()?;
-    harness.seed_notice(
-        TRACKED_PROCESS_ID,
-        TRACKED_NOTICE_ID,
-        "Supply of tracked awaiting-access widgets",
-    )?;
-    harness.seed_notice(
-        BACKFILL_PROCESS_ID,
-        BACKFILL_NOTICE_ID,
-        "Supply of backfilled awaiting-access widgets",
-    )?;
-    assert_run_success(
-        &harness.run_ingest("procontract-interest", &registration_success_contract())?,
-        "register-interest setup run",
-    )?;
+    seed_tracked_and_backfill_notices(&harness)?;
+    run_registration_setup(&harness)?;
 
     let enrich = harness.run_ingest("procontract-enrich", &keep_and_backfill_contract())?;
     assert_run_success(&enrich, "enrich keep/backfill run")?;
 
     let conn = harness.connection()?;
     let input_payload = latest_job_input(&conn, "procontract-enrich")?;
-    let awaiting_targets = input_payload
-        .pointer("/job_parameters/awaitingAccessTargets")
-        .and_then(Value::as_array)
-        .ok_or_else(|| anyhow!("procontract-enrich input missing awaitingAccessTargets"))?;
-    ensure!(
-        awaiting_targets
-            .iter()
-            .any(|target| target["advertId"] == TRACKED_NOTICE_ID
-                && target["sourceNoticeId"] == TRACKED_NOTICE_ID
-                && target["processId"] == TRACKED_PROCESS_ID),
-        "expected enrich job input to carry tracked awaiting-access target"
-    );
+    assert_enrich_input_contains_tracked_target(&input_payload)?;
 
     let tracked = pending_row(&conn, TRACKED_PROCESS_ID, TRACKED_NOTICE_ID)?;
     ensure!(tracked.state == "awaiting_access");
@@ -726,34 +938,48 @@ fn m3_step_002_enrich_keep_and_backfill() -> Result<()> {
 }
 
 #[test]
+fn m3_step_003_enrich_clear_via_worklist() -> Result<()> {
+    let harness = ProcontractRunHarness::new()?;
+    seed_tracked_and_backfill_notices(&harness)?;
+    run_registration_setup(&harness)?;
+    run_keep_and_backfill_setup(&harness)?;
+    run_clear_via_worklist_and_assert(&harness)
+}
+
+#[test]
 fn m3_step_004_staleness_expire() -> Result<()> {
     let harness = ProcontractRunHarness::new()?;
     seed_expiry_sweep_rows(&harness)?;
+    run_expiry_sweep_and_assert(&harness)
+}
 
-    let first_sweep = harness.run_ingest("procontract-enrich", &empty_enrich_sweep_contract())?;
-    assert_run_success(&first_sweep, "first expiry sweep")?;
+#[test]
+fn m3_procontract_resumption_full_lifecycle_g4() -> Result<()> {
+    let harness = ProcontractRunHarness::new()?;
+    seed_tracked_and_backfill_notices(&harness)?;
 
+    run_registration_setup(&harness)?;
     let conn = harness.connection()?;
-    assert_expiry_sweep_rows(&conn)?;
-    drop(conn);
-
-    let second_sweep = harness.run_ingest("procontract-enrich", &empty_enrich_sweep_contract())?;
-    assert_run_success(&second_sweep, "second expiry sweep")?;
-
-    let conn = harness.connection()?;
-    let input_payload = latest_job_input(&conn, "procontract-enrich")?;
-    assert_future_targets_exclude_expired(&input_payload)?;
-    drop(conn);
-
-    let invocation_count_before_interest = harness.fake_pty_invocation_count()?;
-    let interest = harness.run_ingest("procontract-interest", &registration_success_contract())?;
-    assert_run_success(&interest, "interest run after expiry")?;
+    let pending = pending_row(&conn, TRACKED_PROCESS_ID, TRACKED_NOTICE_ID)?;
+    ensure!(pending.state == "awaiting_access");
     ensure!(
-        harness.fake_pty_invocation_count()? == invocation_count_before_interest,
-        "expired pending rows must not re-enter register-interest"
+        interest_registration_state(&conn, TRACKED_PROCESS_ID)?.as_deref() == Some("completed")
     );
+    drop(conn);
+
+    run_keep_and_backfill_setup(&harness)?;
     let conn = harness.connection()?;
-    let output = latest_job_output(&conn, "procontract-interest")?;
-    ensure!(require_object_field(&output, "registrations")?.as_i64() == Some(0));
+    let tracked = pending_row(&conn, TRACKED_PROCESS_ID, TRACKED_NOTICE_ID)?;
+    ensure!(tracked.state == "awaiting_access");
+    ensure!(tracked.last_checked_at.as_deref() == Some("2026-04-13T17:00:00Z"));
+    let backfilled = pending_row(&conn, BACKFILL_PROCESS_ID, BACKFILL_NOTICE_ID)?;
+    ensure!(backfilled.state == "awaiting_access");
+    ensure!(backfilled.last_checked_at.as_deref() == Some("2026-04-13T17:00:00Z"));
+    drop(conn);
+
+    run_clear_via_worklist_and_assert(&harness)?;
+
+    seed_expiry_sweep_rows(&harness)?;
+    run_expiry_sweep_and_assert(&harness)?;
     Ok(())
 }
