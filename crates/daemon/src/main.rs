@@ -29319,37 +29319,127 @@ mod tests {
     }
 
     #[test]
-    fn autonomous_worker_runtime_owns_state_db_connection_and_shares_arbiter() -> Result<()> {
+    fn autonomous_worker_runtime_owns_state_db_connection_per_lane_and_shares_arbiter() -> Result<()>
+    {
         let (_temp, runtime, cli) = bootstrap_manifest_render_runtime()?;
-        let mut worker_runtime =
+        let mut pty_runtime =
             runtime.autonomous_worker_runtime(super::AutonomousWorkerLane::PtyBrowser, &cli)?;
+        let coverage_runtime = runtime
+            .autonomous_worker_runtime(super::AutonomousWorkerLane::CoverageDeterministic, &cli)?;
 
         let serve_connection = std::ptr::from_ref::<Connection>(runtime.state_db.connection());
-        let worker_connection =
-            std::ptr::from_ref::<Connection>(worker_runtime.state_db.connection());
-        assert_ne!(serve_connection, worker_connection);
-        assert_eq!(worker_runtime.state_db_path, runtime.state_db_path);
-        assert_eq!(worker_runtime.artifact_root, runtime.artifact_root);
+        let pty_connection = std::ptr::from_ref::<Connection>(pty_runtime.state_db.connection());
+        let coverage_connection =
+            std::ptr::from_ref::<Connection>(coverage_runtime.state_db.connection());
+        assert_ne!(serve_connection, pty_connection);
+        assert_ne!(serve_connection, coverage_connection);
+        assert_ne!(pty_connection, coverage_connection);
+        assert_eq!(pty_runtime.state_db_path, runtime.state_db_path);
+        assert_eq!(coverage_runtime.state_db_path, runtime.state_db_path);
+        assert_eq!(pty_runtime.artifact_root, runtime.artifact_root);
+        assert_eq!(coverage_runtime.artifact_root, runtime.artifact_root);
         assert!(std::sync::Arc::ptr_eq(
-            &worker_runtime.resource_arbiter,
+            &pty_runtime.resource_arbiter,
+            &runtime.resource_arbiter
+        ));
+        assert!(std::sync::Arc::ptr_eq(
+            &coverage_runtime.resource_arbiter,
             &runtime.resource_arbiter
         ));
 
-        worker_runtime.state_db_mut().connection_mut().execute(
+        pty_runtime.state_db_mut().connection_mut().execute(
             "CREATE TABLE autonomous_worker_runtime_probe (id TEXT PRIMARY KEY)",
             [],
         )?;
-        worker_runtime.state_db_mut().connection_mut().execute(
+        pty_runtime.state_db_mut().connection_mut().execute(
             "INSERT INTO autonomous_worker_runtime_probe (id) VALUES ('worker-write')",
             [],
         )?;
-        let count: i64 = runtime.state_db.connection().query_row(
+        let serve_count: i64 = runtime.state_db.connection().query_row(
             "SELECT COUNT(*) FROM autonomous_worker_runtime_probe",
             [],
             |row| row.get(0),
         )?;
-        assert_eq!(count, 1);
+        let coverage_count: i64 = coverage_runtime.state_db.connection().query_row(
+            "SELECT COUNT(*) FROM autonomous_worker_runtime_probe",
+            [],
+            |row| row.get(0),
+        )?;
+        assert_eq!(serve_count, 1);
+        assert_eq!(coverage_count, 1);
 
+        Ok(())
+    }
+
+    #[test]
+    fn background_autonomy_thread_model_keeps_owned_state_db_connections() -> Result<()> {
+        let source = include_str!("main.rs");
+        let serve_bootstrap = source_section_between(
+            source,
+            "fn bootstrap_runtime(cli: &Cli) -> Result<RuntimeBootstrap>",
+            "impl SyncLeaseHeartbeat",
+        )?;
+        assert_source_contains_all(
+            serve_bootstrap,
+            &[
+                "let state_db = open_state_db(runtime_paths.state_db_path(), DEFAULT_SCHEMA_EPOCH)?",
+                "state_db,",
+                "state_db_path: runtime_paths.state_db_path()",
+                "resource_arbiter: Arc::new(Mutex::new(ResourceArbiter::new(ResourceBudgets::default())))",
+            ],
+        )?;
+
+        let heartbeat = source_section_between(
+            source,
+            "impl SyncLeaseHeartbeat",
+            "impl SchedulerTickThread",
+        )?;
+        assert_source_contains_all(
+            heartbeat,
+            &[
+                "let thread_db_path = state_db_path.clone()",
+                "open_state_db(&thread_db_path, DEFAULT_SCHEMA_EPOCH)",
+            ],
+        )?;
+
+        let scheduler = source_section_between(
+            source,
+            "fn initialize_scheduler_tick_thread",
+            "fn run_scheduler_thread_tick",
+        )?;
+        assert_source_contains_all(
+            scheduler,
+            &["open_state_db(state_db_path, DEFAULT_SCHEMA_EPOCH)"],
+        )?;
+
+        let worker_init = source_section_between(
+            source,
+            "fn initialize_autonomous_worker_thread_runtime",
+            "fn run_autonomous_worker_loop",
+        )?;
+        assert_source_contains_all(
+            worker_init,
+            &[
+                "let state_db = open_state_db(&state_db_path, DEFAULT_SCHEMA_EPOCH)",
+                "state_db,",
+                "resource_arbiter,",
+                "scheduler_tick_thread: None",
+                "sync_lease_heartbeat: None",
+            ],
+        )?;
+
+        let worker_spawn = source_section_between(
+            source,
+            "fn spawn_autonomous_worker_threads",
+            "fn serve_handshake_once",
+        )?;
+        assert_source_contains_all(
+            worker_spawn,
+            &[
+                "runtime.state_db_path.clone()",
+                "Arc::clone(&runtime.resource_arbiter)",
+            ],
+        )?;
         Ok(())
     }
 
@@ -30541,6 +30631,13 @@ mod tests {
             anyhow::bail!("missing {end} after {start}");
         };
         Ok(&source[start_index..start_index + relative_end])
+    }
+
+    fn assert_source_contains_all(section: &str, markers: &[&str]) -> Result<()> {
+        for marker in markers {
+            anyhow::ensure!(section.contains(marker), "missing source marker {marker}");
+        }
+        Ok(())
     }
 
     fn assert_source_markers_in_order(section: &str, markers: &[&str]) -> Result<()> {
