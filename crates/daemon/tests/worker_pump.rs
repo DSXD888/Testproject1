@@ -10,6 +10,7 @@ mod support;
 mod tests {
     use anyhow::{Context, Result, ensure};
     use rusqlite::params;
+    use std::path::Path;
     use std::sync::{Arc, Barrier};
     use std::thread;
 
@@ -119,11 +120,12 @@ mod tests {
     }
 
     fn run_m5_unique_insert_worker(
-        mut state_db: StateDb,
+        db_path: &Path,
         barrier: &Barrier,
         worker_index: usize,
         rows_per_worker: usize,
     ) -> Result<usize> {
+        let mut state_db = StateDb::open(db_path)?;
         barrier.wait();
         let worker_index = i64::try_from(worker_index).context("worker index fits i64")?;
         for row_index in 0..rows_per_worker {
@@ -672,11 +674,11 @@ mod tests {
         let barrier = Arc::new(Barrier::new(writer_count));
         let mut handles = Vec::with_capacity(writer_count);
         for worker_index in 0..writer_count {
-            let state_db = StateDb::open(test_db.db_path())?;
+            let db_path = test_db.db_path().to_path_buf();
             let worker_barrier = Arc::clone(&barrier);
             handles.push(thread::spawn(move || {
                 run_m5_unique_insert_worker(
-                    state_db,
+                    &db_path,
                     &worker_barrier,
                     worker_index,
                     rows_per_writer,
@@ -871,6 +873,7 @@ mod tests {
                 "m5_unique_writes",
                 "journal_mode",
                 "busy_timeout",
+                "StateDb::open(db_path)",
                 "assert_source_lane_denial_and_release()?",
                 "assert_commercial_sweep_has_no_outer_write_transaction",
             ],
