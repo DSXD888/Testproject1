@@ -908,6 +908,114 @@ mod tests {
         Ok(())
     }
 
+    fn assert_no_multi_daemon_or_multi_org_markers(label: &str, source: &str) -> Result<()> {
+        for forbidden in [
+            "multi_daemon",
+            "multi-daemon",
+            "multi_org",
+            "multi-org",
+            "daemon_cluster",
+            "daemon_fleet",
+            "distributed_scheduler",
+            "scheduler_leader",
+            "leader_election",
+            "cross_org_scheduler",
+            "organization_scheduler",
+            "remote_daemon_coordinator",
+        ] {
+            ensure!(
+                !source.contains(forbidden),
+                "{label} introduced multi-daemon or multi-org scheduler marker `{forbidden}`"
+            );
+        }
+        Ok(())
+    }
+
+    fn assert_guard_scope_003_single_daemon_boundary() -> Result<()> {
+        let spec = include_str!(
+            "../../../docs/pipeline/autonomous-daemon-scheduling/artifacts/autonomous-daemon-scheduling-spec.md"
+        );
+        let tdd = include_str!(
+            "../../../docs/pipeline/autonomous-daemon-scheduling/artifacts/autonomous-daemon-scheduling-tdd.md"
+        );
+        let worker_pump = include_str!("worker_pump.rs");
+
+        let nfr_row = section_between(spec, "| NFR-3 |", "| NFR-4 |")?;
+        assert_contains_all(
+            nfr_row,
+            &[
+                "Do not add multi-org or multi-daemon execution semantics",
+                "one daemon per org",
+            ],
+        )?;
+
+        let guard_row = section_between(
+            tdd,
+            "| `guard_scope_003_single_daemon_boundary`",
+            "| `guard_scope_004_no_remote_http_trigger`",
+        )?;
+        assert_contains_all(guard_row, &["T1/T2", "no multi-daemon or multi-org"])?;
+
+        let spec_to_test_matrix = section_between(
+            tdd,
+            "| `FR-G2.2` |",
+            "### 10.1 Reverse Test-To-Requirement Matrix",
+        )?;
+        assert_line_contains_all(
+            spec_to_test_matrix,
+            "| `NFR-3` |",
+            &["`guard_scope_003_single_daemon_boundary`", "M5", "T1/T3"],
+        )?;
+
+        let reverse_matrix = section_between(
+            tdd,
+            "### 10.1 Reverse Test-To-Requirement Matrix",
+            "## 11. Research Section 7 Preservation Matrix",
+        )?;
+        let reverse_guard_row = section_between(
+            reverse_matrix,
+            "| `guard_scope_003_single_daemon_boundary` |",
+            "| `guard_scope_004_no_remote_http_trigger` |",
+        )?;
+        assert_contains_all(reverse_guard_row, &["`NFR-3`", "no multi-daemon semantics"])?;
+
+        let m5_row = section_between(
+            reverse_matrix,
+            "| `M5_concurrency_soak_g5` |",
+            "| `decision_001_operator_decisions_recorded` |",
+        )?;
+        assert_contains_all(m5_row, &["`NFR-3`", "single-daemon scope"])?;
+
+        let m5_test = section_between(
+            worker_pump,
+            "fn m5_concurrency_soak_g5",
+            "fn assert_r1_r8_spec_map",
+        )?;
+        assert_contains_all(
+            m5_test,
+            &[
+                "TestStateDb::new()?",
+                "StateDb::open(test_db.db_path())",
+                "assert_source_lane_denial_and_release()?",
+                "assert_commercial_sweep_has_no_outer_write_transaction",
+            ],
+        )?;
+
+        for (label, source) in [
+            ("daemon main", include_str!("../src/main.rs")),
+            ("cron scheduler", include_str!("../src/scheduler/cron.rs")),
+            ("job claim", include_str!("../src/jobs/claim.rs")),
+            ("job runner", include_str!("../src/jobs/runner.rs")),
+            (
+                "source registry",
+                include_str!("../src/sources/registry.rs"),
+            ),
+        ] {
+            assert_no_multi_daemon_or_multi_org_markers(label, source)?;
+        }
+        Ok(())
+    }
+
     #[test]
     fn m5_r1_r8_invariant_map_has_named_proofs_and_no_escalation() -> Result<()> {
         let spec = include_str!(
@@ -936,6 +1044,11 @@ mod tests {
         ensure!(!main_rs.contains("SingleWriterActor"));
         ensure!(!main_rs.contains("single_writer_actor"));
         Ok(())
+    }
+
+    #[test]
+    fn guard_scope_003_single_daemon_boundary() -> Result<()> {
+        assert_guard_scope_003_single_daemon_boundary()
     }
 
     #[test]
