@@ -119,6 +119,28 @@ recorded_decisions:
     blocks: ["testproject1-0c1g.3.10 (p2-e1-enrich-process)"]
 
 # ============================================================================
+# Phase 6 / Q7 branch record (bead testproject1-0c1g.7.1)
+# ============================================================================
+phase_6_q7_branch:
+  recorded_at: "2026-06-11T20:24:00Z"
+  recorded_by: "JadePelican"
+  source_decision: "recorded_decisions.Q7_desktop_status_ux"
+  selected_branch: minimal_read_only_desktop_status_fields
+  operator_answer: "Q7 = minimal read-only desktop status fields."
+  required_fields:
+    - scheduler running
+    - last tick
+    - next run
+    - awaiting-access count
+  required_surfaces:
+    - daemon CronStatusSnapshot
+    - desktop Rust bridge/query service
+    - desktop React control panel rendering
+  behavior: "read-only status surfacing; desktop must not mutate daemon autonomy state"
+  desktop_files_touched_by_decision_bead: false
+  named_non_rendering_extension_point: "daemon-only docs/tests branch remains the fallback if Q7 is not selected in a later batch."
+
+# ============================================================================
 # Quality gate (spec §9 / TDD §3) — the per-file integration loop is the ONLY
 # green Rust stage claim. `cargo test -p daemon --bin daemon` ALONE silently
 # skips every integration target and is never green by itself.
