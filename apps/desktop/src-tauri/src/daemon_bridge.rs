@@ -165,6 +165,45 @@ pub struct StartupRecovery {
     pub last_recovery_at: Option<String>,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CronDefinitionStatus {
+    pub definition_key: String,
+    pub source_id: String,
+    pub skill_id: String,
+    pub skill_version: String,
+    pub cron_expression: String,
+    pub enabled: bool,
+    pub last_run_at: Option<String>,
+    pub next_run_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CronWorkerLaneStatus {
+    pub lane: String,
+    pub running: bool,
+    pub claimable_kinds: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CronAwaitingAccessStatus {
+    pub active_count: i64,
+    pub expired_count: i64,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CronStatusSnapshot {
+    pub definitions: Vec<CronDefinitionStatus>,
+    pub scheduler_running: bool,
+    pub last_tick_at: Option<String>,
+    pub next_run_at: Option<String>,
+    pub worker_lanes: Vec<CronWorkerLaneStatus>,
+    pub awaiting_access: CronAwaitingAccessStatus,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum StructuredSessionEvent {
@@ -257,6 +296,10 @@ pub enum NativeSubscriptionEvent {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct GetDaemonInfoParams {}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct GetCronStatusParams {}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -369,6 +412,7 @@ pub struct RerunFromErrorParams {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DaemonCommandMethod {
     GetDaemonInfo,
+    GetCronStatus,
     TriggerIngestion,
     TriggerEnrichment,
     CaptureDecision,
@@ -385,8 +429,9 @@ pub enum DaemonCommandMethod {
 }
 
 impl DaemonCommandMethod {
-    pub const ALL: [Self; 14] = [
+    pub const ALL: [Self; 15] = [
         Self::GetDaemonInfo,
+        Self::GetCronStatus,
         Self::TriggerIngestion,
         Self::TriggerEnrichment,
         Self::CaptureDecision,
@@ -405,6 +450,7 @@ impl DaemonCommandMethod {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::GetDaemonInfo => "get_daemon_info",
+            Self::GetCronStatus => "get_cron_status",
             Self::TriggerIngestion => "trigger_ingestion",
             Self::TriggerEnrichment => "trigger_enrichment",
             Self::CaptureDecision => "capture_decision",
@@ -584,6 +630,10 @@ impl DaemonBridgeConnection {
 
     pub fn get_daemon_info(&mut self) -> Result<DaemonInfoSnapshot, BridgeError> {
         self.call_readonly(DaemonCommandMethod::GetDaemonInfo, &GetDaemonInfoParams {})
+    }
+
+    pub fn get_cron_status(&mut self) -> Result<CronStatusSnapshot, BridgeError> {
+        self.call_readonly(DaemonCommandMethod::GetCronStatus, &GetCronStatusParams {})
     }
 
     pub fn trigger_ingestion(
@@ -1086,4 +1136,160 @@ fn to_value<T: Serialize>(params: &T) -> Result<Value, BridgeError> {
 
 fn next_request_id() -> String {
     format!("bridge-{}", NEXT_REQUEST_ID.fetch_add(1, Ordering::Relaxed))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io;
+    use std::os::unix::net::UnixListener;
+    use std::thread;
+
+    type TestResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
+
+    fn sample_cron_status_payload() -> Value {
+        json!({
+            "definitions": [{
+                "definitionKey": "fts::procurement-ingestion/fts",
+                "sourceId": "fts",
+                "skillId": "procurement-ingestion/fts",
+                "skillVersion": "1.0.0",
+                "cronExpression": "15 4 * * *",
+                "enabled": true,
+                "lastRunAt": "2026-03-30T04:15:00Z",
+                "nextRunAt": "2026-03-31T04:15:00Z"
+            }],
+            "schedulerRunning": true,
+            "lastTickAt": "2026-03-30T04:15:10Z",
+            "nextRunAt": "2026-03-31T04:15:00Z",
+            "workerLanes": [{
+                "lane": "pty_browser",
+                "running": true,
+                "claimableKinds": ["sync_source", "source_health", "auth_refresh"]
+            }, {
+                "lane": "coverage_deterministic",
+                "running": true,
+                "claimableKinds": [
+                    "commercial_sweep",
+                    "validation_cross_model_audit",
+                    "validation_calibration_readiness_sweep"
+                ]
+            }],
+            "awaitingAccess": {
+                "activeCount": 2,
+                "expiredCount": 1
+            }
+        })
+    }
+
+    fn io_error(message: impl Into<String>) -> io::Error {
+        io::Error::other(message.into())
+    }
+
+    #[test]
+    fn desktop_status_001_bridge_get_cron_status_is_read_only_and_typed() -> TestResult {
+        let temp = tempfile::tempdir()?;
+        let socket_path = temp.path().join("daemon.sock");
+        let listener = UnixListener::bind(socket_path.as_path())?;
+        fs::write(
+            temp.path().join(DESCRIPTOR_FILENAME),
+            serde_json::to_vec(&json!({
+                "socketPath": socket_path.display().to_string()
+            }))?,
+        )?;
+
+        let server = thread::spawn(move || -> TestResult {
+            let (mut stream, _) = listener.accept()?;
+            let mut reader = BufReader::new(stream.try_clone()?);
+
+            let mut hello = String::new();
+            reader.read_line(&mut hello)?;
+            let hello_frame: Value = serde_json::from_str(hello.trim_end())?;
+            if hello_frame.get("messageType").and_then(Value::as_str) != Some("hello") {
+                return Err(io_error("daemon bridge did not send hello first").into());
+            }
+
+            writeln!(
+                stream,
+                "{}",
+                json!({
+                    "messageType": "welcome",
+                    "selectedProtocolVersion": DEFAULT_PROTOCOL_VERSION,
+                    "daemonVersion": "test",
+                    "instanceId": "daemon-test",
+                    "schemaEpoch": DEFAULT_SCHEMA_EPOCH,
+                    "commitSeq": 7,
+                    "healthState": { "status": "ready" },
+                    "mutationsAllowed": true,
+                    "activeSessions": { "count": 0, "ids": [], "states": [] },
+                    "reconnectOutcome": "freshConnection",
+                    "streamResumePermitted": true
+                })
+            )?;
+
+            let mut command = String::new();
+            reader.read_line(&mut command)?;
+            let command_frame: Value = serde_json::from_str(command.trim_end())?;
+            if command_frame.get("messageType").and_then(Value::as_str) != Some("command") {
+                return Err(io_error("daemon bridge did not send command frame").into());
+            }
+            if command_frame.get("method").and_then(Value::as_str) != Some("get_cron_status") {
+                return Err(io_error("daemon bridge called the wrong cron-status method").into());
+            }
+            if command_frame.get("idempotencyKey") != Some(&Value::Null) {
+                return Err(
+                    io_error("cron-status command must not carry an idempotency key").into(),
+                );
+            }
+            if command_frame.get("params") != Some(&json!({})) {
+                return Err(io_error("cron-status command params must be empty").into());
+            }
+
+            let request_id = command_frame
+                .get("requestId")
+                .and_then(Value::as_str)
+                .ok_or_else(|| io_error("cron-status command request id missing"))?;
+            writeln!(
+                stream,
+                "{}",
+                json!({
+                    "messageType": "commandResponse",
+                    "requestId": request_id,
+                    "payload": sample_cron_status_payload()
+                })
+            )?;
+            Ok(())
+        });
+
+        let bridge = DaemonBridge::new(temp.path());
+        let mut connection = bridge.connect()?;
+        let snapshot = connection.get_cron_status()?;
+
+        assert_eq!(snapshot.definitions.len(), 1);
+        assert_eq!(
+            snapshot
+                .definitions
+                .first()
+                .ok_or_else(|| io_error("cron definition missing"))?
+                .definition_key,
+            "fts::procurement-ingestion/fts"
+        );
+        assert!(snapshot.scheduler_running);
+        assert_eq!(
+            snapshot.last_tick_at.as_deref(),
+            Some("2026-03-30T04:15:10Z")
+        );
+        assert_eq!(
+            snapshot.next_run_at.as_deref(),
+            Some("2026-03-31T04:15:00Z")
+        );
+        assert_eq!(snapshot.worker_lanes.len(), 2);
+        assert_eq!(snapshot.awaiting_access.active_count, 2);
+        assert_eq!(snapshot.awaiting_access.expired_count, 1);
+
+        server
+            .join()
+            .map_err(|_| io_error("fake daemon server panicked"))??;
+        Ok(())
+    }
 }

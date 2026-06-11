@@ -297,6 +297,45 @@ pub struct KeysetPage<T> {
     pub has_more: bool,
 }
 
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CronDefinitionStatus {
+    pub definition_key: String,
+    pub source_id: String,
+    pub skill_id: String,
+    pub skill_version: String,
+    pub cron_expression: String,
+    pub enabled: bool,
+    pub last_run_at: Option<String>,
+    pub next_run_at: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CronWorkerLaneStatus {
+    pub lane: String,
+    pub running: bool,
+    pub claimable_kinds: Vec<String>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CronAwaitingAccessStatus {
+    pub active_count: i64,
+    pub expired_count: i64,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CronStatusSnapshot {
+    pub definitions: Vec<CronDefinitionStatus>,
+    pub scheduler_running: bool,
+    pub last_tick_at: Option<String>,
+    pub next_run_at: Option<String>,
+    pub worker_lanes: Vec<CronWorkerLaneStatus>,
+    pub awaiting_access: CronAwaitingAccessStatus,
+}
+
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum PipelineState {
@@ -2461,4 +2500,62 @@ fn storage_unreadable(error: rusqlite::Error) -> QueryServiceError {
         format!("query-service storage read failed: {error}"),
         true,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    type TestResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
+
+    #[test]
+    fn desktop_status_001_query_envelope_carries_cron_status_read_only() -> TestResult {
+        let envelope = QueryEnvelope {
+            data: CronStatusSnapshot {
+                definitions: vec![CronDefinitionStatus {
+                    definition_key: "fts::procurement-ingestion/fts".to_owned(),
+                    source_id: "fts".to_owned(),
+                    skill_id: "procurement-ingestion/fts".to_owned(),
+                    skill_version: "1.0.0".to_owned(),
+                    cron_expression: "15 4 * * *".to_owned(),
+                    enabled: true,
+                    last_run_at: Some("2026-03-30T04:15:00Z".to_owned()),
+                    next_run_at: Some("2026-03-31T04:15:00Z".to_owned()),
+                }],
+                scheduler_running: true,
+                last_tick_at: Some("2026-03-30T04:15:10Z".to_owned()),
+                next_run_at: Some("2026-03-31T04:15:00Z".to_owned()),
+                worker_lanes: vec![CronWorkerLaneStatus {
+                    lane: "pty_browser".to_owned(),
+                    running: true,
+                    claimable_kinds: vec![
+                        "sync_source".to_owned(),
+                        "source_health".to_owned(),
+                        "auth_refresh".to_owned(),
+                    ],
+                }],
+                awaiting_access: CronAwaitingAccessStatus {
+                    active_count: 2,
+                    expired_count: 1,
+                },
+            },
+            snapshot_seq: 42,
+            snapshot_at: "2026-03-30T04:15:11Z".to_owned(),
+        };
+
+        let value = serde_json::to_value(envelope)?;
+        assert_eq!(
+            value["data"]["definitions"][0]["definitionKey"],
+            "fts::procurement-ingestion/fts"
+        );
+        assert_eq!(value["data"]["schedulerRunning"], true);
+        assert_eq!(value["data"]["lastTickAt"], "2026-03-30T04:15:10Z");
+        assert_eq!(value["data"]["nextRunAt"], "2026-03-31T04:15:00Z");
+        assert_eq!(value["data"]["workerLanes"][0]["lane"], "pty_browser");
+        assert_eq!(value["data"]["awaitingAccess"]["activeCount"], 2);
+        assert_eq!(value["data"]["awaitingAccess"]["expiredCount"], 1);
+        assert!(value["data"].get("accepted").is_none());
+        assert!(value["data"].get("idempotencyKey").is_none());
+        Ok(())
+    }
 }

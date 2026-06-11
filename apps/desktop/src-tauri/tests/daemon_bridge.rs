@@ -574,10 +574,11 @@ fn rs_dbr_007_closed_method_set_stays_stable() {
         .iter()
         .map(|method| method.as_str())
         .collect::<Vec<_>>();
-    // Stage 14 Phase 2 added 3 new operator-decision IPC methods
-    // (capture_clarification, withdraw_clarification, withdraw_decision).
-    assert_eq!(methods.len(), 14);
+    // Autonomous scheduling adds one read-only status IPC method
+    // (`get_cron_status`) without adding a mutation surface.
+    assert_eq!(methods.len(), 15);
     assert_eq!(methods[0], "get_daemon_info");
+    assert!(methods.contains(&"get_cron_status"));
     assert!(methods.contains(&"capture_decision"));
     assert!(methods.contains(&"capture_clarification"));
     assert!(methods.contains(&"withdraw_clarification"));

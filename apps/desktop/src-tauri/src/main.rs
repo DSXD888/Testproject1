@@ -93,6 +93,7 @@ pub fn configure_builder<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri
             get_session_history,
             list_errors,
             get_daemon_info,
+            get_cron_status,
             trigger_ingestion,
             trigger_enrichment,
             restart_daemon,
@@ -1747,6 +1748,17 @@ fn get_daemon_info<R: tauri::Runtime>(
     let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
     serialize_bridge_result(with_daemon_connection(&paths, |connection| {
         connection.get_daemon_info()
+    }))
+}
+
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
+fn get_cron_status<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> std::result::Result<Value, String> {
+    let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
+    serialize_bridge_result(with_daemon_connection(&paths, |connection| {
+        connection.get_cron_status()
     }))
 }
 

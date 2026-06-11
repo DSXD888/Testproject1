@@ -17,7 +17,7 @@ use tauri::{WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 #[allow(dead_code)]
 pub mod desktop_main;
 
-const EXPECTED_SCHEMA_EPOCH_FOR_TEST: i64 = 8;
+const EXPECTED_SCHEMA_EPOCH_FOR_TEST: i64 = 11;
 
 pub struct NativeAppHarness {
     #[allow(dead_code)]
