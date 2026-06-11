@@ -96,7 +96,7 @@ mod jobs {
 }
 
 mod tests {
-    use anyhow::{Result, ensure};
+    use anyhow::{Context, Result, ensure};
     use serde_json::Value as JsonValue;
     use serde_yaml::Value as YamlValue;
     use tempfile::tempdir;
@@ -105,9 +105,9 @@ mod tests {
     use crate::artifacts_impl::{DaemonEvidenceAppendix, OutcomeClass, RunManifestFrontmatter};
     use crate::errors_manifest_impl::ErrorCode;
     use crate::handshake_impl::{
-        CronDefinitionStatus, CronStatusSnapshot, ResourceArbiterEventSnapshot,
-        ResourceArbiterStatusSnapshot, SourceHealthStatusEntry, SourceHealthStatusSnapshot,
-        ValidationStatusSnapshot,
+        CronAwaitingAccessStatus, CronDefinitionStatus, CronStatusSnapshot, CronWorkerLaneStatus,
+        ResourceArbiterEventSnapshot, ResourceArbiterStatusSnapshot, SourceHealthStatusEntry,
+        SourceHealthStatusSnapshot, ValidationStatusSnapshot,
     };
     use crate::health_impl::HealthIssue;
     use crate::runner_impl::{
@@ -314,6 +314,33 @@ mod tests {
                 last_run_at: Some("2026-03-30T04:15:00Z".to_owned()),
                 next_run_at: Some("2026-03-31T04:15:00Z".to_owned()),
             }],
+            scheduler_running: true,
+            last_tick_at: Some("2026-03-30T04:15:10Z".to_owned()),
+            next_run_at: Some("2026-03-31T04:15:00Z".to_owned()),
+            worker_lanes: vec![
+                CronWorkerLaneStatus {
+                    lane: "pty_browser".to_owned(),
+                    running: true,
+                    claimable_kinds: vec![
+                        "sync_source".to_owned(),
+                        "source_health".to_owned(),
+                        "auth_refresh".to_owned(),
+                    ],
+                },
+                CronWorkerLaneStatus {
+                    lane: "coverage_deterministic".to_owned(),
+                    running: true,
+                    claimable_kinds: vec![
+                        "commercial_sweep".to_owned(),
+                        "validation_cross_model_audit".to_owned(),
+                        "validation_calibration_readiness_sweep".to_owned(),
+                    ],
+                },
+            ],
+            awaiting_access: CronAwaitingAccessStatus {
+                active_count: 2,
+                expired_count: 1,
+            },
         }
     }
 
@@ -1111,6 +1138,49 @@ mod tests {
         ensure!(value["definitions"].is_array());
         ensure!(value["definitions"][0]["definitionKey"] == "fts::procurement-ingestion/fts");
         ensure!(value["definitions"][0]["nextRunAt"] == "2026-03-31T04:15:00Z");
+        ensure!(value.get("schedulerRunning").and_then(JsonValue::as_bool) == Some(true));
+        ensure!(
+            value.get("lastTickAt").and_then(JsonValue::as_str) == Some("2026-03-30T04:15:10Z")
+        );
+        ensure!(value.get("nextRunAt").and_then(JsonValue::as_str) == Some("2026-03-31T04:15:00Z"));
+        let worker_lanes = value
+            .get("workerLanes")
+            .and_then(JsonValue::as_array)
+            .context("workerLanes must be an array")?;
+        let pty_lane = worker_lanes
+            .first()
+            .context("pty/browser worker lane must be present")?;
+        ensure!(pty_lane.get("lane").and_then(JsonValue::as_str) == Some("pty_browser"));
+        ensure!(pty_lane.get("running").and_then(JsonValue::as_bool) == Some(true));
+        ensure!(
+            pty_lane
+                .get("claimableKinds")
+                .and_then(JsonValue::as_array)
+                .and_then(|kinds| kinds.first())
+                .and_then(JsonValue::as_str)
+                == Some("sync_source")
+        );
+        let coverage_lane = worker_lanes
+            .get(1)
+            .context("coverage/deterministic worker lane must be present")?;
+        ensure!(
+            coverage_lane.get("lane").and_then(JsonValue::as_str) == Some("coverage_deterministic")
+        );
+        let awaiting_access = value
+            .get("awaitingAccess")
+            .context("awaitingAccess must be present")?;
+        ensure!(
+            awaiting_access
+                .get("activeCount")
+                .and_then(JsonValue::as_i64)
+                == Some(2)
+        );
+        ensure!(
+            awaiting_access
+                .get("expiredCount")
+                .and_then(JsonValue::as_i64)
+                == Some(1)
+        );
         Ok(())
     }
 

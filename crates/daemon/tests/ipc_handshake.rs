@@ -627,6 +627,55 @@ fn l3_t_observability_telemetry_013_get_cron_status_dispatches_read_only_snapsho
         .map_err(|error| anyhow!(error.message))?;
     assert!(payload["definitions"][0]["definitionKey"] == "fts::procurement-ingestion/fts");
     assert!(payload["definitions"][0]["nextRunAt"] == "2026-03-31T04:15:00Z");
+    assert!(
+        payload
+            .get("schedulerRunning")
+            .and_then(serde_json::Value::as_bool)
+            == Some(true)
+    );
+    assert!(
+        payload
+            .get("lastTickAt")
+            .and_then(serde_json::Value::as_str)
+            == Some("2026-03-30T04:15:10Z")
+    );
+    assert!(
+        payload.get("nextRunAt").and_then(serde_json::Value::as_str)
+            == Some("2026-03-31T04:15:00Z")
+    );
+    let worker_lanes = payload
+        .get("workerLanes")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| anyhow!("workerLanes must be an array"))?;
+    assert!(
+        worker_lanes
+            .first()
+            .and_then(|lane| lane.get("lane"))
+            .and_then(serde_json::Value::as_str)
+            == Some("pty_browser")
+    );
+    assert!(
+        worker_lanes
+            .get(1)
+            .and_then(|lane| lane.get("lane"))
+            .and_then(serde_json::Value::as_str)
+            == Some("coverage_deterministic")
+    );
+    let awaiting_access = payload
+        .get("awaitingAccess")
+        .ok_or_else(|| anyhow!("awaitingAccess must be present"))?;
+    assert!(
+        awaiting_access
+            .get("activeCount")
+            .and_then(serde_json::Value::as_i64)
+            == Some(2)
+    );
+    assert!(
+        awaiting_access
+            .get("expiredCount")
+            .and_then(serde_json::Value::as_i64)
+            == Some(1)
+    );
     harness.assert_invalid_params("get_cron_status", json!({"unexpected": true}))?;
     Ok(())
 }

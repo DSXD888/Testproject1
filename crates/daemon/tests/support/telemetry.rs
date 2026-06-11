@@ -21,8 +21,28 @@ pub struct CronDefinitionStatus {
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct CronWorkerLaneStatus {
+    pub lane: String,
+    pub running: bool,
+    pub claimable_kinds: Vec<String>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CronAwaitingAccessStatus {
+    pub active_count: i64,
+    pub expired_count: i64,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct CronStatusSnapshot {
     pub definitions: Vec<CronDefinitionStatus>,
+    pub scheduler_running: bool,
+    pub last_tick_at: Option<String>,
+    pub next_run_at: Option<String>,
+    pub worker_lanes: Vec<CronWorkerLaneStatus>,
+    pub awaiting_access: CronAwaitingAccessStatus,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -188,6 +208,33 @@ pub fn sample_cron_status() -> CronStatusSnapshot {
             last_run_at: Some("2026-03-30T04:15:00Z".to_owned()),
             next_run_at: Some("2026-03-31T04:15:00Z".to_owned()),
         }],
+        scheduler_running: true,
+        last_tick_at: Some("2026-03-30T04:15:10Z".to_owned()),
+        next_run_at: Some("2026-03-31T04:15:00Z".to_owned()),
+        worker_lanes: vec![
+            CronWorkerLaneStatus {
+                lane: "pty_browser".to_owned(),
+                running: true,
+                claimable_kinds: vec![
+                    "sync_source".to_owned(),
+                    "source_health".to_owned(),
+                    "auth_refresh".to_owned(),
+                ],
+            },
+            CronWorkerLaneStatus {
+                lane: "coverage_deterministic".to_owned(),
+                running: true,
+                claimable_kinds: vec![
+                    "commercial_sweep".to_owned(),
+                    "validation_cross_model_audit".to_owned(),
+                    "validation_calibration_readiness_sweep".to_owned(),
+                ],
+            },
+        ],
+        awaiting_access: CronAwaitingAccessStatus {
+            active_count: 2,
+            expired_count: 1,
+        },
     }
 }
 

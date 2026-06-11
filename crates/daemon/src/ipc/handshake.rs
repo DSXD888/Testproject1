@@ -69,8 +69,28 @@ pub struct CronDefinitionStatus {
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct CronWorkerLaneStatus {
+    pub lane: String,
+    pub running: bool,
+    pub claimable_kinds: Vec<String>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CronAwaitingAccessStatus {
+    pub active_count: i64,
+    pub expired_count: i64,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct CronStatusSnapshot {
     pub definitions: Vec<CronDefinitionStatus>,
+    pub scheduler_running: bool,
+    pub last_tick_at: Option<String>,
+    pub next_run_at: Option<String>,
+    pub worker_lanes: Vec<CronWorkerLaneStatus>,
+    pub awaiting_access: CronAwaitingAccessStatus,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]

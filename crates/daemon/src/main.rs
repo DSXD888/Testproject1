@@ -171,10 +171,10 @@ use ipc::descriptor::{
 use ipc::handlers::control::{ControlHandlerContext, RestartController, RestartPlan};
 use ipc::handlers::jobs::JobsHandlerContext;
 use ipc::handshake::{
-    ActiveSessions, CronDefinitionStatus, CronStatusSnapshot, HandshakeContext, HealthState,
-    LifecycleFrame, LifecyclePhase, OperationalStatusSnapshot, ResourceArbiterEventSnapshot,
-    ResourceArbiterStatusSnapshot, SourceHealthStatusEntry, SourceHealthStatusSnapshot,
-    ValidationStatusSnapshot,
+    ActiveSessions, CronAwaitingAccessStatus, CronDefinitionStatus, CronStatusSnapshot,
+    CronWorkerLaneStatus, HandshakeContext, HealthState, LifecycleFrame, LifecyclePhase,
+    OperationalStatusSnapshot, ResourceArbiterEventSnapshot, ResourceArbiterStatusSnapshot,
+    SourceHealthStatusEntry, SourceHealthStatusSnapshot, ValidationStatusSnapshot,
 };
 use jobs::runner::{
     ClaimedJob, EnqueueJobRequest, EnqueuedValidatorJob, FreshnessState, JobLeaseHeartbeat,
@@ -715,6 +715,7 @@ struct RuntimeBootstrap {
     resource_arbiter: Arc<Mutex<ResourceArbiter>>,
     restart_controller: RestartController,
     scheduler_tick_thread: Option<SchedulerTickThread>,
+    scheduler_tick_status: Arc<Mutex<SchedulerTickRuntimeStatus>>,
     autonomous_worker_threads: Vec<AutonomousWorkerThread>,
     #[allow(dead_code)]
     sync_lease_heartbeat: Option<SyncLeaseHeartbeat>,
@@ -733,6 +734,12 @@ const COVERAGE_DETERMINISTIC_WORKFLOW_KINDS: &[&str] = &[
 const AUTONOMOUS_WORKER_IDLE_BACKOFF_MS: u64 = 250;
 const AUTONOMOUS_WORKER_DENIAL_BACKOFF_BASE_MS: u64 = 500;
 const AUTONOMOUS_WORKER_DENIAL_BACKOFF_JITTER_MS: u64 = 250;
+
+#[derive(Debug, Default)]
+struct SchedulerTickRuntimeStatus {
+    running: bool,
+    last_tick_at: Option<DateTime<Utc>>,
+}
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -4400,6 +4407,7 @@ fn bootstrap_runtime(cli: &Cli) -> Result<RuntimeBootstrap> {
         resource_arbiter: Arc::new(Mutex::new(ResourceArbiter::new(ResourceBudgets::default()))),
         restart_controller: RestartController::new(build_restart_plan(cli)?),
         scheduler_tick_thread: None,
+        scheduler_tick_status: Arc::new(Mutex::new(SchedulerTickRuntimeStatus::default())),
         autonomous_worker_threads: Vec::new(),
         sync_lease_heartbeat: None,
     })
@@ -4568,7 +4576,11 @@ impl SyncLeaseHeartbeat {
 }
 
 impl SchedulerTickThread {
-    fn spawn(state_db_path: PathBuf, interval: Duration) -> Result<Self> {
+    fn spawn(
+        state_db_path: PathBuf,
+        interval: Duration,
+        status: Arc<Mutex<SchedulerTickRuntimeStatus>>,
+    ) -> Result<Self> {
         let (stop_tx, stop_rx) = mpsc::channel();
         let (startup_tx, startup_rx) = mpsc::sync_channel(1);
         let thread_db_path = state_db_path;
@@ -4594,12 +4606,14 @@ impl SchedulerTickThread {
                     }
                 };
 
+                set_scheduler_tick_running(&status, true);
                 let _ = startup_tx.send(Ok(()));
                 run_scheduler_thread_tick(
                     &mut scheduler,
                     &mut source_registry,
                     &mut state_db,
                     &mut observed_registry_generation,
+                    status.as_ref(),
                     "cold_start",
                 );
 
@@ -4614,9 +4628,11 @@ impl SchedulerTickThread {
                         &mut source_registry,
                         &mut state_db,
                         &mut observed_registry_generation,
+                        status.as_ref(),
                         "interval",
                     );
                 }
+                set_scheduler_tick_running(&status, false);
             })
             .context("spawning autonomous scheduler tick thread")?;
 
@@ -4635,6 +4651,12 @@ impl SchedulerTickThread {
                 bail!("autonomous scheduler tick thread startup timed out: {error}");
             }
         }
+    }
+
+    fn is_running(&self) -> bool {
+        self.handle
+            .as_ref()
+            .is_some_and(|handle| !handle.is_finished())
     }
 }
 
@@ -4721,6 +4743,12 @@ impl AutonomousWorkerThread {
             }
         }
     }
+
+    fn is_running(&self) -> bool {
+        self.handle
+            .as_ref()
+            .is_some_and(|handle| !handle.is_finished())
+    }
 }
 
 fn initialize_autonomous_worker_thread_runtime(
@@ -4749,6 +4777,7 @@ fn initialize_autonomous_worker_thread_runtime(
         resource_arbiter,
         restart_controller: RestartController::new(restart_plan),
         scheduler_tick_thread: None,
+        scheduler_tick_status: Arc::new(Mutex::new(SchedulerTickRuntimeStatus::default())),
         autonomous_worker_threads: Vec::new(),
         sync_lease_heartbeat: None,
     })
@@ -5462,14 +5491,46 @@ fn initialize_scheduler_tick_thread(
     ))
 }
 
+fn set_scheduler_tick_running(status: &Mutex<SchedulerTickRuntimeStatus>, running: bool) {
+    match status.lock() {
+        Ok(mut guard) => {
+            guard.running = running;
+        }
+        Err(error) => {
+            ::tracing::warn!(
+                running,
+                error = %error,
+                "failed to update autonomous scheduler running status"
+            );
+        }
+    }
+}
+
+fn record_scheduler_tick_at(status: &Mutex<SchedulerTickRuntimeStatus>, tick_at: DateTime<Utc>) {
+    match status.lock() {
+        Ok(mut guard) => {
+            guard.last_tick_at = Some(tick_at);
+        }
+        Err(error) => {
+            ::tracing::warn!(
+                tick_at = %tick_at.to_rfc3339(),
+                error = %error,
+                "failed to update autonomous scheduler last tick status"
+            );
+        }
+    }
+}
+
 fn run_scheduler_thread_tick(
     scheduler: &mut CronScheduler,
     source_registry: &mut SourceRegistry,
     state_db: &mut StateDb,
     observed_registry_generation: &mut u64,
+    scheduler_status: &Mutex<SchedulerTickRuntimeStatus>,
     phase: &'static str,
 ) {
     let now = Utc::now();
+    record_scheduler_tick_at(scheduler_status, now);
     match refresh_scheduler_registry_if_generation_changed(
         scheduler,
         source_registry,
@@ -5660,6 +5721,7 @@ fn serve_handshake_service(runtime: &mut RuntimeBootstrap, cli: &Cli) -> Result<
         runtime.scheduler_tick_thread = Some(SchedulerTickThread::spawn(
             runtime.state_db_path.clone(),
             scheduler_tick_interval(),
+            Arc::clone(&runtime.scheduler_tick_status),
         )?);
     }
     if runtime.autonomous_worker_threads.is_empty() {
@@ -5733,14 +5795,83 @@ fn build_operational_status_snapshot(
 ) -> Result<OperationalStatusSnapshot> {
     let now = Utc::now();
     Ok(OperationalStatusSnapshot {
-        cron: build_cron_status_snapshot(runtime.state_db.connection(), now)?,
+        cron: build_cron_status_snapshot(runtime, now)?,
         source_health: build_source_health_status_snapshot(runtime.state_db.connection(), now)?,
         validation: build_validation_status_snapshot(runtime.state_db.connection())?,
         resource_arbiter: build_resource_arbiter_status_snapshot(runtime.resource_arbiter())?,
     })
 }
 
-fn build_cron_status_snapshot(conn: &Connection, now: DateTime<Utc>) -> Result<CronStatusSnapshot> {
+fn scheduler_tick_runtime_snapshot(runtime: &RuntimeBootstrap) -> (bool, Option<DateTime<Utc>>) {
+    let thread_running = runtime
+        .scheduler_tick_thread
+        .as_ref()
+        .is_some_and(SchedulerTickThread::is_running);
+    match runtime.scheduler_tick_status.lock() {
+        Ok(guard) => (thread_running && guard.running, guard.last_tick_at),
+        Err(error) => {
+            ::tracing::warn!(
+                error = %error,
+                "failed to read autonomous scheduler status snapshot"
+            );
+            (false, None)
+        }
+    }
+}
+
+fn autonomous_worker_lane_statuses(runtime: &RuntimeBootstrap) -> Vec<CronWorkerLaneStatus> {
+    AUTONOMOUS_WORKER_LANES
+        .iter()
+        .map(|lane| {
+            let running = runtime
+                .autonomous_worker_threads
+                .iter()
+                .find(|thread| thread.lane == *lane)
+                .is_some_and(AutonomousWorkerThread::is_running);
+            CronWorkerLaneStatus {
+                lane: lane.as_str().to_owned(),
+                running,
+                claimable_kinds: lane
+                    .claimable_kinds()
+                    .iter()
+                    .map(|kind| (*kind).to_owned())
+                    .collect(),
+            }
+        })
+        .collect()
+}
+
+fn procontract_awaiting_access_status(conn: &Connection) -> Result<CronAwaitingAccessStatus> {
+    if !procontract_pending_enrichment_table_exists(conn)? {
+        return Ok(CronAwaitingAccessStatus::default());
+    }
+
+    let active_count = conn
+        .query_row(
+            "SELECT COUNT(*) FROM procontract_pending_enrichment WHERE state = 'awaiting_access'",
+            [],
+            |row| row.get::<_, i64>(0),
+        )
+        .context("counting active ProContract awaiting-access rows")?;
+    let expired_count = conn
+        .query_row(
+            "SELECT COUNT(*) FROM procontract_pending_enrichment WHERE state = 'expired'",
+            [],
+            |row| row.get::<_, i64>(0),
+        )
+        .context("counting expired ProContract awaiting-access rows")?;
+
+    Ok(CronAwaitingAccessStatus {
+        active_count,
+        expired_count,
+    })
+}
+
+fn build_cron_status_snapshot(
+    runtime: &RuntimeBootstrap,
+    now: DateTime<Utc>,
+) -> Result<CronStatusSnapshot> {
+    let conn = runtime.state_db.connection();
     let registry = SourceRegistry::load(conn).context("loading source registry for cron status")?;
     let mut scheduler = CronScheduler::from_registry(&registry);
     scheduler
@@ -5749,6 +5880,13 @@ fn build_cron_status_snapshot(conn: &Connection, now: DateTime<Utc>) -> Result<C
     seed_cron_scheduler_from_history(conn, &mut scheduler)
         .context("seeding cron status snapshot from history")?;
 
+    let next_run_at = scheduler
+        .definitions()
+        .values()
+        .filter(|definition| definition.enabled)
+        .filter_map(|definition| definition.next_run_at)
+        .min()
+        .map(|value| value.to_rfc3339());
     let definitions = scheduler
         .definitions()
         .iter()
@@ -5763,8 +5901,16 @@ fn build_cron_status_snapshot(conn: &Connection, now: DateTime<Utc>) -> Result<C
             next_run_at: definition.next_run_at.map(|value| value.to_rfc3339()),
         })
         .collect();
+    let (scheduler_running, last_tick_at) = scheduler_tick_runtime_snapshot(runtime);
 
-    Ok(CronStatusSnapshot { definitions })
+    Ok(CronStatusSnapshot {
+        definitions,
+        scheduler_running,
+        last_tick_at: last_tick_at.map(|value| value.to_rfc3339()),
+        next_run_at,
+        worker_lanes: autonomous_worker_lane_statuses(runtime),
+        awaiting_access: procontract_awaiting_access_status(conn)?,
+    })
 }
 
 fn build_source_health_status_snapshot(
@@ -29133,20 +29279,20 @@ mod tests {
         PtyRuntimeIds, SemanticExtractionJobRequest, SessionDraft, SkillFrontmatter,
         SkillPromotionStageMetadata, ValidationPolicyMode, ValidationStatusSnapshot,
         ValidationTrigger, append_runtime_control_records, backtrack_window_seconds,
-        bootstrap_runtime, build_focused_semantic_markdown, build_handshake_context,
-        build_live_validation_policy_config, build_live_validation_policy_context,
-        build_skill_run_telemetry, child_runtime_ids, default_fixture, evaluate_validation_policy,
-        insert_session_log, live_loop_surface_names, load_live_validation_job_parameters,
-        load_procontract_interest_candidates, mark_document_extraction_semantic_failed_if_pending,
-        next_pending_extraction_job_id, observe_host_health, open_state_db,
-        persisted_lifecycle_frames, prepare_semantic_skill_job_parameters,
-        procontract_interest_registration_targets, reconcile_interrupted_sessions,
-        resolve_enrichment_notice, run_live_semantic_validation, supervise_pty_session,
-        wait_for_contract_child_output, write_run_manifest_for_session,
+        bootstrap_runtime, build_cron_status_snapshot, build_focused_semantic_markdown,
+        build_handshake_context, build_live_validation_policy_config,
+        build_live_validation_policy_context, build_skill_run_telemetry, child_runtime_ids,
+        default_fixture, evaluate_validation_policy, insert_session_log, live_loop_surface_names,
+        load_live_validation_job_parameters, load_procontract_interest_candidates,
+        mark_document_extraction_semantic_failed_if_pending, next_pending_extraction_job_id,
+        observe_host_health, open_state_db, persisted_lifecycle_frames,
+        prepare_semantic_skill_job_parameters, procontract_interest_registration_targets,
+        reconcile_interrupted_sessions, resolve_enrichment_notice, run_live_semantic_validation,
+        supervise_pty_session, wait_for_contract_child_output, write_run_manifest_for_session,
     };
     use crate::db::sqlite::DEFAULT_SCHEMA_EPOCH;
     use crate::{persist_interest_registrations, persist_tender_enrichments};
-    use chrono::Utc;
+    use chrono::{DateTime, Utc};
 
     type HistoryIdentityRow = (Option<i64>, Option<String>, Option<i64>);
     type CrashSessionRow = (
@@ -29425,6 +29571,76 @@ mod tests {
         ]);
         let runtime = bootstrap_runtime(&cli)?;
         Ok((temp, runtime, cli))
+    }
+
+    #[test]
+    fn desktop_status_001_cron_snapshot_reports_daemon_autonomy_fields() -> Result<()> {
+        let (_temp, runtime, _cli) = bootstrap_manifest_render_runtime()?;
+        let tick_at = "2026-03-30T04:15:10Z".parse::<DateTime<Utc>>()?;
+        {
+            let mut scheduler_status = runtime.scheduler_tick_status.lock().map_err(|error| {
+                anyhow::anyhow!("scheduler status mutex poisoned in test: {error}")
+            })?;
+            scheduler_status.running = true;
+            scheduler_status.last_tick_at = Some(tick_at);
+        }
+
+        runtime.state_db.connection().execute(
+            "\
+            INSERT INTO procontract_pending_enrichment (
+              id, process_id, notice_id, advert_id, state, interest_registered_at
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+            ",
+            params![
+                "pending-active",
+                "proc-active",
+                "notice-active",
+                "advert-active",
+                "awaiting_access",
+                "2026-03-30T04:00:00Z"
+            ],
+        )?;
+        runtime.state_db.connection().execute(
+            "\
+            INSERT INTO procontract_pending_enrichment (
+              id, process_id, notice_id, advert_id, state, interest_registered_at
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+            ",
+            params![
+                "pending-expired",
+                "proc-expired",
+                "notice-expired",
+                "advert-expired",
+                "expired",
+                "2026-03-29T04:00:00Z"
+            ],
+        )?;
+
+        let snapshot =
+            build_cron_status_snapshot(&runtime, "2026-03-30T04:15:00Z".parse::<DateTime<Utc>>()?)?;
+
+        assert!(!snapshot.scheduler_running);
+        assert_eq!(
+            snapshot.last_tick_at.as_deref(),
+            Some("2026-03-30T04:15:10+00:00")
+        );
+        assert!(snapshot.next_run_at.is_some());
+        assert_eq!(snapshot.worker_lanes.len(), 2);
+        assert_eq!(snapshot.worker_lanes[0].lane, "pty_browser");
+        assert!(!snapshot.worker_lanes[0].running);
+        assert_eq!(
+            snapshot.worker_lanes[0].claimable_kinds,
+            vec![
+                "sync_source".to_owned(),
+                "source_health".to_owned(),
+                "auth_refresh".to_owned()
+            ]
+        );
+        assert_eq!(snapshot.worker_lanes[1].lane, "coverage_deterministic");
+        assert_eq!(snapshot.awaiting_access.active_count, 1);
+        assert_eq!(snapshot.awaiting_access.expired_count, 1);
+
+        Ok(())
     }
 
     #[test]
