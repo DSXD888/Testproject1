@@ -1097,6 +1097,138 @@ mod tests {
         Ok(())
     }
 
+    fn assert_shadow_health_auth_dispatch_and_outcome(main_rs: &str) -> Result<()> {
+        let dispatch = section_between(
+            main_rs,
+            "async fn execute_claimed_workflow_job",
+            "async fn run_sync_source_workflow_job",
+        )?;
+        assert_contains_all(
+            dispatch,
+            &[
+                "\"source_health\" => run_source_health_workflow_job",
+                "\"auth_refresh\" => run_auth_refresh_workflow_job",
+                "\"validation_cross_model_audit\"",
+                "\"validation_calibration_readiness_sweep\"",
+                "\"commercial_sweep\" => run_commercial_sweep_workflow_job",
+            ],
+        )?;
+
+        let shadow_outcome = section_between(
+            main_rs,
+            "fn health_auth_shadow_outcome",
+            "fn health_auth_shadow_summary",
+        )?;
+        assert_contains_all(
+            shadow_outcome,
+            &[
+                "\"mode\": HEALTH_AUTH_SHADOW_MODE",
+                "\"handler_executed\": true",
+                "\"side_effect_persisted\": side_effect_persisted",
+                "\"enforcement_action\": HEALTH_AUTH_SHADOW_ENFORCEMENT_ACTION",
+                "\"production_gate_applied\": false",
+            ],
+        )?;
+        Ok(())
+    }
+
+    fn assert_shadow_health_auth_handler_persistence(main_rs: &str) -> Result<()> {
+        let source_health = section_between(
+            main_rs,
+            "async fn run_source_health_workflow_job",
+            "#[allow(clippy::future_not_send, clippy::too_many_lines)]\nasync fn run_auth_refresh_workflow_job",
+        )?;
+        assert_contains_all(
+            source_health,
+            &[
+                "persist_source_runtime_canary(",
+                "complete_claimed_job_after_side_effect(",
+                "\"source_health\"",
+                "\"source_runtime_state\"",
+                "\"autonomy_mode\": HEALTH_AUTH_SHADOW_MODE",
+                "\"shadow_outcome\": health_auth_shadow_outcome(true)",
+            ],
+        )?;
+
+        let auth_refresh = section_between(
+            main_rs,
+            "async fn run_auth_refresh_workflow_job",
+            "fn run_validation_cross_model_audit_workflow_job",
+        )?;
+        assert_contains_all(
+            auth_refresh,
+            &[
+                "persist_source_runtime_canary(",
+                "INSERT INTO auth_refresh_results",
+                "complete_claimed_job_after_side_effect(",
+                "\"auth_refresh\"",
+                "\"auth_refresh_results\"",
+                "\"autonomy_mode\": HEALTH_AUTH_SHADOW_MODE",
+                "\"shadow_outcome\": health_auth_shadow_outcome(true)",
+            ],
+        )?;
+
+        let worker_shadow_assertions = section_between(
+            main_rs,
+            "async fn autonomous_worker_routes_cron_kinds_to_side_effect_handlers",
+            "struct FakeManifestSkillInvoker",
+        )?;
+        assert_contains_all(
+            worker_shadow_assertions,
+            &[
+                "\"source_health\" | \"auth_refresh\" =>",
+                "assert_health_auth_shadow_payload(&output_payload)",
+                "report.summary_line.contains(\"autonomy_mode=shadow\")",
+                "contains(\"enforcement_action=recorded_only\")",
+                "\"validation_cross_model_audit\"",
+                "\"validation_calibration_readiness_sweep\"",
+                "\"commercial_sweep\"",
+                "assert_not_health_auth_shadow_gated(&output_payload)",
+            ],
+        )?;
+        Ok(())
+    }
+
+    fn assert_non_health_auth_handlers_not_shadow_gated(main_rs: &str) -> Result<()> {
+        for (handler_name, start, end) in [
+            (
+                "validation_cross_model_audit",
+                "fn run_validation_cross_model_audit_workflow_job",
+                "fn run_validation_calibration_readiness_sweep_workflow_job",
+            ),
+            (
+                "validation_calibration_readiness_sweep",
+                "fn run_validation_calibration_readiness_sweep_workflow_job",
+                "#[allow(clippy::future_not_send)]\nasync fn run_commercial_sweep_workflow_job",
+            ),
+            (
+                "commercial_sweep",
+                "async fn run_commercial_sweep_workflow_job",
+                "fn parse_tick_now",
+            ),
+        ] {
+            let handler_body = section_between(main_rs, start, end)?;
+            ensure!(
+                !handler_body.contains("HEALTH_AUTH_SHADOW")
+                    && !handler_body.contains("health_auth_shadow_outcome")
+                    && !handler_body.contains("\"autonomy_mode\"")
+                    && !handler_body.contains("\"shadow_outcome\""),
+                "{handler_name} must not be gated by Q6 health/auth shadow mode"
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn shadow_health_auth_001_shadow_mode_executes_persists_and_gates_only_health_auth()
+    -> Result<()> {
+        let main_rs = include_str!("../src/main.rs");
+        assert_shadow_health_auth_dispatch_and_outcome(main_rs)?;
+        assert_shadow_health_auth_handler_persistence(main_rs)?;
+        assert_non_health_auth_handlers_not_shadow_gated(main_rs)?;
+        Ok(())
+    }
+
     #[test]
     fn worker_001_anti_hollow_side_effect_matrix_names_every_required_surface() -> Result<()> {
         let main_rs = include_str!("../src/main.rs");
