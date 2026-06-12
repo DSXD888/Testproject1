@@ -27,6 +27,37 @@ interface DaemonInfoSnapshot {
   control: string;
 }
 
+export interface CronDefinitionStatus {
+  definitionKey: string;
+  sourceId: string;
+  skillId: string;
+  skillVersion: string;
+  cronExpression: string;
+  enabled: boolean;
+  lastRunAt: string | null;
+  nextRunAt: string | null;
+}
+
+export interface CronWorkerLaneStatus {
+  lane: string;
+  running: boolean;
+  claimableKinds: string[];
+}
+
+export interface CronAwaitingAccessStatus {
+  activeCount: number;
+  expiredCount: number;
+}
+
+export interface CronStatusSnapshot {
+  definitions: CronDefinitionStatus[];
+  schedulerRunning: boolean;
+  lastTickAt: string | null;
+  nextRunAt: string | null;
+  workerLanes: CronWorkerLaneStatus[];
+  awaitingAccess: CronAwaitingAccessStatus;
+}
+
 interface BootstrapSnapshot {
   controlPlane: ControlPlaneState;
 }
@@ -137,6 +168,153 @@ function restartAllowed(
   );
 }
 
+function normalizeStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.reduce<string[]>((items, item) => {
+    if (typeof item === 'string' && item.length > 0) {
+      items.push(item);
+    }
+    return items;
+  }, []);
+}
+
+function normalizeCronStatus(result: unknown): CronStatusSnapshot | null {
+  if (
+    !result ||
+    typeof result !== 'object' ||
+    !('schedulerRunning' in result) ||
+    !('awaitingAccess' in result)
+  ) {
+    return null;
+  }
+
+  const payload = result as Record<string, unknown>;
+  const awaitingAccess =
+    payload.awaitingAccess && typeof payload.awaitingAccess === 'object'
+      ? (payload.awaitingAccess as Record<string, unknown>)
+      : {};
+  const definitions = Array.isArray(payload.definitions)
+    ? payload.definitions
+        .filter((definition): definition is Record<string, unknown> =>
+          Boolean(definition && typeof definition === 'object'),
+        )
+        .map((definition) => ({
+          definitionKey:
+            typeof definition.definitionKey === 'string'
+              ? definition.definitionKey
+              : 'unknown',
+          sourceId: typeof definition.sourceId === 'string' ? definition.sourceId : '',
+          skillId: typeof definition.skillId === 'string' ? definition.skillId : '',
+          skillVersion:
+            typeof definition.skillVersion === 'string'
+              ? definition.skillVersion
+              : '',
+          cronExpression:
+            typeof definition.cronExpression === 'string'
+              ? definition.cronExpression
+              : '',
+          enabled: definition.enabled === true,
+          lastRunAt:
+            typeof definition.lastRunAt === 'string' ? definition.lastRunAt : null,
+          nextRunAt:
+            typeof definition.nextRunAt === 'string' ? definition.nextRunAt : null,
+        }))
+    : [];
+  const workerLanes = Array.isArray(payload.workerLanes)
+    ? payload.workerLanes
+        .filter((lane): lane is Record<string, unknown> =>
+          Boolean(lane && typeof lane === 'object'),
+        )
+        .map((lane) => ({
+          lane: typeof lane.lane === 'string' ? lane.lane : 'unknown',
+          running: lane.running === true,
+          claimableKinds: normalizeStringList(lane.claimableKinds),
+        }))
+    : [];
+
+  return {
+    definitions,
+    schedulerRunning: payload.schedulerRunning === true,
+    lastTickAt: typeof payload.lastTickAt === 'string' ? payload.lastTickAt : null,
+    nextRunAt: typeof payload.nextRunAt === 'string' ? payload.nextRunAt : null,
+    workerLanes,
+    awaitingAccess: {
+      activeCount:
+        typeof awaitingAccess.activeCount === 'number'
+          ? awaitingAccess.activeCount
+          : 0,
+      expiredCount:
+        typeof awaitingAccess.expiredCount === 'number'
+          ? awaitingAccess.expiredCount
+          : 0,
+    },
+  };
+}
+
+function unavailableCronStatus(): CronStatusSnapshot {
+  return {
+    definitions: [],
+    schedulerRunning: false,
+    lastTickAt: null,
+    nextRunAt: null,
+    workerLanes: [],
+    awaitingAccess: {
+      activeCount: 0,
+      expiredCount: 0,
+    },
+  };
+}
+
+export function AutonomyStatusPanel({
+  cronStatus,
+}: {
+  cronStatus: CronStatusSnapshot;
+}): ReactElement {
+  return (
+    <section className="detail-card" aria-labelledby="autonomy-status-heading">
+      <h2 id="autonomy-status-heading">Autonomy status</h2>
+      <dl className="diagnostics-grid">
+        <div>
+          <dt>Scheduler</dt>
+          <dd>{cronStatus.schedulerRunning ? 'running' : 'not running'}</dd>
+        </div>
+        <div>
+          <dt>Last scheduler tick</dt>
+          <dd>{cronStatus.lastTickAt ?? 'Unavailable'}</dd>
+        </div>
+        <div>
+          <dt>Next scheduled run</dt>
+          <dd>{cronStatus.nextRunAt ?? 'Unavailable'}</dd>
+        </div>
+        <div>
+          <dt>Awaiting ProContract access</dt>
+          <dd>{cronStatus.awaitingAccess.activeCount}</dd>
+        </div>
+        <div>
+          <dt>Expired awaiting access</dt>
+          <dd>{cronStatus.awaitingAccess.expiredCount}</dd>
+        </div>
+      </dl>
+      {cronStatus.workerLanes.length > 0 ? (
+        <ul className="stack-list" aria-label="Worker lane health">
+          {cronStatus.workerLanes.map((lane) => (
+            <li key={lane.lane}>
+              <strong>{lane.lane}</strong>
+              <span>{lane.running ? 'running' : 'stopped'}</span>
+              <span>{lane.claimableKinds.join(', ') || 'no claimable kinds'}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p>Worker lane health unavailable.</p>
+      )}
+    </section>
+  );
+}
+
 export function DaemonStatusPage({
   controlPlane,
 }: {
@@ -144,6 +322,9 @@ export function DaemonStatusPage({
 }): ReactElement {
   const [diagnostics, setDiagnostics] = useState<DaemonInfoSnapshot>(
     placeholderDiagnostics(controlPlane),
+  );
+  const [cronStatus, setCronStatus] = useState<CronStatusSnapshot>(
+    unavailableCronStatus(),
   );
   const [actionPending, setActionPending] = useState<
     'restart' | 'logs' | 'artifacts' | 'quit' | 'stop_quit' | null
@@ -171,6 +352,19 @@ export function DaemonStatusPage({
         }
       });
 
+    void invoke('get_cron_status')
+      .then((result) => {
+        if (cancelled) {
+          return;
+        }
+        setCronStatus(normalizeCronStatus(result) ?? unavailableCronStatus());
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCronStatus(unavailableCronStatus());
+        }
+      });
+
     return () => {
       cancelled = true;
     };
@@ -188,11 +382,13 @@ export function DaemonStatusPage({
       };
       const refreshedBootstrap = (await invoke('refresh_bootstrap_snapshot')) as BootstrapSnapshot;
       const refreshedDiagnostics = await invoke('get_daemon_info');
+      const refreshedCronStatus = await invoke('get_cron_status').catch(() => null);
       const normalized =
         normalizeDiagnostics(refreshedDiagnostics, refreshedBootstrap.controlPlane) ??
         placeholderDiagnostics(refreshedBootstrap.controlPlane);
       const previousInstanceId = diagnostics.instanceId;
       setDiagnostics(normalized);
+      setCronStatus(normalizeCronStatus(refreshedCronStatus) ?? unavailableCronStatus());
       setActionMessage(
         previousInstanceId &&
           normalized.instanceId &&
@@ -305,6 +501,8 @@ export function DaemonStatusPage({
         <h2>Startup and recovery</h2>
         <p>{startupRecoverySummary(diagnostics)}</p>
       </section>
+
+      <AutonomyStatusPanel key="autonomy-status" cronStatus={cronStatus} />
 
       <div className="action-row">
         <button

@@ -1299,6 +1299,66 @@ function daemonInfoForRequest(request: IncomingMessage) {
   };
 }
 
+function cronStatusForRequest(request: IncomingMessage) {
+  const bootstrap = bootstrapSnapshotForRequest(request);
+  const liveAvailable =
+    bootstrap.mode !== 'browse_only' &&
+    bootstrap.mode !== 'incompatible' &&
+    bootstrap.mode !== 'recovery_required';
+
+  return {
+    definitions: liveAvailable
+      ? [
+          {
+            definitionKey: 'fts::procurement-ingestion/fts',
+            sourceId: 'fts',
+            skillId: 'procurement-ingestion/fts',
+            skillVersion: '1.0.0',
+            cronExpression: '15 4 * * *',
+            enabled: true,
+            lastRunAt: '2026-03-28T04:15:00Z',
+            nextRunAt: '2026-03-29T04:15:00Z',
+          },
+          {
+            definitionKey: 'commercial::commercial_sweep',
+            sourceId: 'commercial',
+            skillId: 'commercial_sweep',
+            skillVersion: '1.0.0',
+            cronExpression: '0 7 * * *',
+            enabled: true,
+            lastRunAt: '2026-03-28T07:00:00Z',
+            nextRunAt: '2026-03-29T07:00:00Z',
+          },
+        ]
+      : [],
+    schedulerRunning: liveAvailable,
+    lastTickAt: liveAvailable ? '2026-03-28T20:00:00Z' : null,
+    nextRunAt: liveAvailable ? '2026-03-29T04:15:00Z' : null,
+    workerLanes: liveAvailable
+      ? [
+          {
+            lane: 'pty_browser',
+            running: true,
+            claimableKinds: ['sync_source', 'source_health', 'auth_refresh'],
+          },
+          {
+            lane: 'coverage_deterministic',
+            running: true,
+            claimableKinds: [
+              'commercial_sweep',
+              'validation_cross_model_audit',
+              'validation_calibration_readiness_sweep',
+            ],
+          },
+        ]
+      : [],
+    awaitingAccess: {
+      activeCount: liveAvailable ? 2 : 0,
+      expiredCount: liveAvailable ? 1 : 0,
+    },
+  };
+}
+
 function errorsForRequest(request: IncomingMessage): ErrorFixtureItem[] {
   const fixtureKey = requestSearchParams(request).get('errorsFixture') ?? 'default';
   if (fixtureKey === 'resolveFence') {
@@ -1892,6 +1952,10 @@ export async function handleDevBridgeInvoke({
 
   if (payload.cmd === 'get_daemon_info') {
     return daemonInfoForRequest(request);
+  }
+
+  if (payload.cmd === 'get_cron_status') {
+    return cronStatusForRequest(request);
   }
 
   if (payload.cmd === 'restart_daemon') {
