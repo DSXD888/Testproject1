@@ -1,0 +1,287 @@
+feature: autonomous-daemon-scheduling
+created: "2026-06-07"
+source_doc: docs/research/2026-06-04-autonomous-daemon-scheduling-research.md
+source_type: research
+entry_point: batch-1-create-spec
+generated_by: pipemaxxer (Pattern A — research doc → full pipeline)
+
+# ============================================================================
+# What this feature is  (the research doc is the contract — ZERO scope drift)
+# ============================================================================
+# A RUNTIME-AUTONOMY change to the Rust daemon (crates/daemon/). The schedules,
+# skills, sources, job queue, resource arbiter and live-loop scrapers ALREADY
+# EXIST and run today via the `--ingest <source>` CLI. This feature makes them
+# fire and drain AUTONOMOUSLY while the daemon sits open — no quit-and-reopen,
+# no manual button clicks. Three stacked gaps in the cron→execution path are
+# closed (research §2.2), plus ProContract resumption is hardened so an
+# awaiting-access item can never age out of the enrich scan window (§2.4/§4.4),
+# plus the post-ingestion commercial stages gain an autonomous trigger (§2.5/§4.5).
+#
+# Six goals (research §3) — ALL ship, phases are execution ORDER not importance:
+#   G1. Daemon fires due schedules autonomously while running (recurring tick),
+#       incl. catch-up after sleep/wake.
+#   G2. Cron-enqueued kinds (sync_source, source_health, auth_refresh,
+#       validation_*) execute end-to-end via an always-on worker.
+#   G3. CLI manual paths (--ingest, --run-next-job) keep working unchanged; the
+#       desktop ingestion button becomes functional for free.
+#   G4. ProContract awaiting-access items tracked in daemon state + swept by
+#       enrich regardless of the portal's "Recently added" ordering.
+#   G5. Concurrency-correct under WAL single-writer (serve + lease heartbeat +
+#       new scheduler tick + new worker lanes).
+#   G6. Commercial pipeline (landed-cost→net-gate→manifest) advances after
+#       autonomous ingestion without an operator pressing "Re-run pipeline".
+#
+# This is NOT a change to WHAT the skills scrape (N1/N2), NOT multi-daemon (N3),
+# NOT a new remote/HTTP trigger (N4).
+
+paths:
+  spec: docs/pipeline/autonomous-daemon-scheduling/artifacts/autonomous-daemon-scheduling-spec.md
+  architecture: docs/pipeline/autonomous-daemon-scheduling/artifacts/autonomous-daemon-scheduling-architecture.md
+  tdd: docs/pipeline/autonomous-daemon-scheduling/artifacts/autonomous-daemon-scheduling-tdd.md
+  bootstrap: docs/pipeline/autonomous-daemon-scheduling/artifacts/autonomous-daemon-scheduling-bootstrap.md
+  strategy: docs/pipeline/autonomous-daemon-scheduling/artifacts/autonomous-daemon-scheduling-strategy.md
+  kickoff: docs/pipeline/autonomous-daemon-scheduling/artifacts/autonomous-daemon-scheduling-kickoff.md
+  push: docs/pipeline/autonomous-daemon-scheduling/artifacts/autonomous-daemon-scheduling-push.md
+  status: docs/pipeline/autonomous-daemon-scheduling/artifacts/autonomous-daemon-scheduling-status.yaml
+  completion_audit: docs/pipeline/autonomous-daemon-scheduling/artifacts/autonomous-daemon-scheduling-completion-audit-YYYY-MM-DD.md
+
+# ============================================================================
+# Bead tracking
+# ============================================================================
+# Project issue prefix is `testproject1` (.beads/config.yaml) — ALL bead IDs are
+# testproject1-XXXX. The feature is tagged with a LABEL, not an ID prefix
+# (same pattern as goods-led / L4 / L5 / L6).
+bead_cli: br
+bead_sync_cmd: bin/br-sync                  # NEVER raw `br sync` (it may run git commands)
+bead_label: autonomous-scheduling           # label applied to every bead in this feature
+bead_id_prefix: testproject1                # actual IDs assigned at step 07
+# Step 07 creates one implementation epic (sister-epic pattern, matches L4/L5/L6/goods-led):
+#   br create --type=epic --priority=P0 \
+#     --title="Epic: Autonomous Daemon Scheduling & ProContract Resumption" \
+#     --labels autonomous-scheduling
+# Capture the resulting epic ID into the status file under `implementation_epic`.
+implementation_epic: "testproject1-0c1g"     # set at step 07 (2026-06-08); root epic + 7 phase sub-epics (.1..7) + 76 task beads
+
+agentmail:
+  enabled: true
+  project_key: /Users/alinaaitova/Desktop/Testproject1
+  health_endpoint: http://127.0.0.1:8765/health/liveness
+
+# ============================================================================
+# Tech stack + quality gates  (verbatim from the goods-led/L6 manifests — same repo)
+# ============================================================================
+tech_stack:
+  language: "rust (primary) + minor typescript (optional desktop status surfacing, Q7)"
+  rust:
+    edition: 2024
+    toolchain: "nightly (per rust-toolchain.toml); #![forbid(unsafe_code)]"
+    package_manager: cargo
+    build_cmd: "cargo check --all-targets"
+    test_cmd: "cargo test"
+    lint_cmd: "cargo clippy --all-targets -- -D warnings && cargo fmt --check"
+    test_framework: "cargo test (#[test], #[tokio::test]); real SQLite tempdir; fake-claude CLI for the agent/PTY only"
+    forbid: "unsafe_code"
+  typescript:
+    package_manager: bun
+    build_cmd: "bun run build"
+    test_cmd: "bun run test"
+    lint_cmd: "bun run lint"
+    test_framework: "vitest / bun:test (unit); @playwright/test for desktop E2E"
+
+quality_gates:
+  # The AGENTS.md FULL Stage Validation Test Gate — a passing
+  # `cargo test -p daemon --bin daemon` ALONE is NOT green; it silently skips
+  # every integration test file (~61+ targets; this feature adds 3). The new suites (scheduler_tick.rs,
+  # worker_pump.rs, procontract_resumption.rs) are ONLY exercised by the
+  # per-file loop (research §7 gate; AGENTS.md "Stage Validation Test Gate").
+  build: "cargo check --all-targets"
+  fmt: "cargo fmt --check"
+  clippy: "cargo clippy --all-targets -- -D warnings"
+  test_rust_bin: "cargo test -p daemon --bin daemon"
+  test_rust_integration: "for t in crates/daemon/tests/*.rs; do cargo test --test \"$(basename \"$t\" .rs)\" || exit 1; done"
+  test_ts: "bun run test   # only if Q7 desktop surfacing is taken"
+
+handoff_dir: docs/pipeline/autonomous-daemon-scheduling
+
+# ============================================================================
+# Operator/design decisions ALREADY RESOLVED in the research doc (research §4, §8).
+# Step 01 TRANSCRIBES these verbatim into the spec — it does NOT re-decide them.
+# ============================================================================
+recorded_decisions:
+  fold_startup_into_tick: "Q2 RESOLVED — tick subsumes enqueue_startup_cron_jobs; run the tick body once at thread start (cold-start catch-up) then on interval. Bootstrap-vs-first-tick race is dedup-closed by the identical idempotency key cron:{source}:{skill}:{scheduled_for} + find_existing_enqueue_ack read-before-write. Delete the separate startup path once the tick lands. (research §4.1)"
+  two_lane_worker: "Q3 RESOLVED — TWO lanes by job class, NOT single-serial and NOT a homogeneous pool: (a) PTY/browser lane (sync_source, source_health, auth_refresh; sized to browser_slots=2); (b) coverage/deterministic lane (commercial_sweep + validation_*). Each lane its own claim loop filtering claim_next_job by kind-class. Falsifiable via the head-of-line test (worker_004); fall back to a kind-aware pool ONLY if that test cannot pass. (research §4.2)"
+  commercial_trigger_model: "Q8 RESOLVED (principal) — commercial stages fire via a NEW scheduled `commercial_sweep` cron kind (~07:00 UTC slot) with a COVERAGE-DRIVEN body, executed IN-PROCESS by the worker's coverage/deterministic lane. It runs the EXISTING landed-cost → run_net_margin_gate_once → manifest-generation passes over eligible rows. It MUST NOT call trigger_pipeline_rerun (that is a desktop PID-stop/relaunch affordance and stays manual-only). (research §4.5)"
+  clock_seam_is_design_req: "The clock-injection seam is a DESIGN REQUIREMENT, not just a test hook. The tick body is `fn run_scheduler_tick(scheduler, registry, db, now: DateTime<Utc>)`; production supplies Utc::now(), tests supply a fixed ts(). It is exposed as a one-shot autonomous entrypoint `--run-scheduler-once --tick-now <rfc3339>` (evaluate schedules at the injected instant → enqueue → drain worker to quiescence → exit 0). Without it the §7 E2E autonomy tests are unwritable. IN SCOPE, not optional. (research §4.1, §7c)"
+  schedule_values_unchanged: "Existing source schedule values (FTS 04:15 etc.) stay code-defined in sources/registry.rs + scheduler/cron.rs. Out of scope to retune. The feature adds exactly ONE new slot: the ~07:00 commercial_sweep. (research §9)"
+
+# ============================================================================
+# OPEN QUESTIONS the SPEC must resolve (research §8). These are NOT scope cuts —
+# they are genuine design/operator decisions the research doc deliberately left
+# to the spec. Step 01 escalates each to the operator and TRANSCRIBES the
+# decision; it never silently drops the underlying feature. (Mirrors goods-led's
+# recorded_decisions / open_defaults_recommended escalation pattern.)
+# ============================================================================
+open_questions_for_spec:
+  Q1_worker_exec_context: "Own StateDb connection per worker/lane vs a shared services handle. HIGHEST-RISK unresolved decision (research §11) — shapes the §4.3 refactor surface and §6 R8 WAL-contention behavior. Lease-heartbeat precedent favors own-connection-per-lane. SPEC'S FIRST DECISION."
+  Q4_awaiting_access_modeling: "Dedicated `procontract_pending_enrichment` TABLE (lean; keeps interest_registration.state='completed', avoids the re-registration landmine; ships as migrations/0015_*.sql, schema_epoch 10→11 across all constants) VS an extra state-string value in an existing process_stage_status column (NO epoch bump but MUST widen the re-registration guard — §4.4 landmine). Pick one; both have a §7e test."
+  Q5_staleness_policy: "Expiry policy for awaiting-access: notice-level deadline_at (may be null) and/or max_age fallback; operator-visible? HARD CONSTRAINT: must NOT key off the RFx response deadline (unknown for these items)."
+  Q6_shadow_flag: "Should source_health / auth_refresh autonomous execution be gated behind a flag initially (shadow) before full enforcement, mirroring the validator rollout philosophy? (Default recommendation: ship behind a shadow flag.)"
+  Q7_desktop_ux: "Surface scheduler running / last tick / next run / awaiting-access count in the desktop control panel? Read-only CronStatusSnapshot already exists to extend (build_cron_status_snapshot, daemon main.rs:3890). If taken, this spans THREE surfaces, NOT 'TS only': (1) daemon-Rust — add scheduler/awaiting-access fields to the snapshot; (2) desktop-Rust — pass them through daemon_bridge/query_service; (3) desktop-TS/React — render. So its gate includes cargo checks for crates/daemon + apps/desktop/src-tauri AND bun build/test/lint. NAMED + bounded — not dropped."
+  Q8_residual_chained_nudge: "Whether to ALSO enqueue a deduped commercial_sweep immediately after a successful ingestion run (a chained nudge so a new process doesn't wait until 07:00). Optional optimization; the scheduled+coverage model is correct without it. Defer unless the spec can keep the source-scraper boundary clean."
+  Q9_registry_reload_trigger: "Tick registry-reload trigger: wire a monotonic registry GENERATION COUNTER (AtomicU64) bumped by every IPC source-mutation handler (lean) VS poll MAX(sources.updated_at) each tick. Either avoids per-tick reloads. Pick one; ensure newly-enabled sources re-seed last_run_at so they don't fire a spurious catch-up burst."
+
+# ============================================================================
+# Scope contract — every feature surface below MUST survive to beads (ZERO drift).
+# Source: research §3 (goals), §4 (architecture), §5 (routing), §9 (scope summary).
+# Phases are EXECUTION ORDER, not importance tiers. Nothing silently dropped.
+# ============================================================================
+feature_surface:
+  scheduler_tick:                          # §4.1 [G1]
+    - "Background scheduler-tick thread modeled on SyncLeaseHeartbeat::spawn (own StateDb connection; recv_timeout(tick_interval) loop, default ~30-60s, configurable)"
+    - "Build CronScheduler + seed last_run_at from history ONCE at thread start — do NOT rebuild/re-seed every tick"
+    - "Per tick: read injected `now` → dispatch_due_jobs(&registry, now) → enqueue due jobs (dedup via find_existing_enqueue_ack) → record_enqueued in-memory so next_run_at advances"
+    - "Clock-injection seam: run_scheduler_tick(scheduler, registry, db, now: DateTime<Utc>) — NO inline Utc::now() in the tick body (design requirement)"
+    - "One-shot autonomous entrypoint `--run-scheduler-once --tick-now <rfc3339>`: evaluate at injected instant → enqueue → drain worker to quiescence → exit 0 (drives the §7c M1/M2 manifests)"
+    - "Registry-reload trigger (Q9): reload SourceRegistry::load + rebuild in-memory schedules ONLY when changed; newly-enabled sources re-seed last_run_at (no spurious catch-up burst)"
+    - "Fold startup-enqueue into the tick path (Q2 resolved): run tick body once at thread start, then on interval; delete enqueue_startup_cron_jobs once the tick lands"
+    - "Sleep/wake catch-up via existing schedule.after(last_run_at) math; long monotonic gap on wake → overdue slot enqueued next tick"
+    - "Tick runs on a SEPARATE thread from the worker — a long PTY run must never block the tick (R2)"
+  worker_pump:                             # §4.2 [G2]
+    - "Continuous worker: claim next ready job (claim_next_job, COALESCE(scheduled_for, created_at) overdue-first) → route by kind → execute → complete/fail → continue"
+    - "TWO lanes by job class (Q3 resolved): PTY/browser lane (sync_source, source_health, auth_refresh; sized to browser_slots=2) + coverage/deterministic lane (commercial_sweep, validation_*). Each lane its own claim loop filtering by kind-class"
+    - "Idle backoff: when claim_next_job returns None, poll with short idle backoff — NO busy-spin"
+    - "Respect ResourceArbiter exactly as the manual path does (browser_slots=2, agent_slots=4, procurement_source_lanes=1, supplier_source_lanes=2) — never exceed quotas (R4)"
+    - "Defer-on-denial with backoff: a claimed job denied admission (ArbiterDecision::Denied) returns to status='pending' with NO attempt_count bump and NO held lease; denial backoff (next_eligible_at or in-memory per-lane cool-down, jittered) prevents hot-looping. MUST NOT reuse the failure/retry attempt_count machinery (a denial is not an attempt). Prefer in-memory cool-down to avoid an epoch bump (Q4-adjacent)"
+    - "Worker writes local state directly (local SQLite = operational authority); the L4 writer lease gates only remote push, NOT local execution — worker runs regardless of lease state"
+  live_loop_refactor:                      # §4.3 [G2/G3]
+    - "Extract per-source execution body into a function accepting (claimed job, runtime/services handle, cli/config) that does NOT assume it created the job"
+    - "Keep thin --ingest CLI wrappers that enqueue+claim then call the shared body (preserves --ingest path, G3)"
+    - "Map sync_source job → source body, keyed on (source_id, skill_id) NOT source_id alone (discover/interest/enrich share source_id=procontract, distinct skill_id)"
+    - "Per-source execution-time parameter derivation (payload carries schedule metadata, NOT run params): fts (download_root, page/window defaults); contracts-finder (as fts); procontract-discover (download_root, discover window); procontract-register-interest (candidate set from load_procontract_interest_candidates, NOT a payload list); procontract-enrich (cursor from source_cursors, download_root, AND the G4 awaiting-access work-list)"
+    - "Commercial stages are NOT in this sync_source mapping — they are stage_run_id passes handled by commercial_sweep (§4.5)"
+  new_job_kind_handlers:                   # §5 [G2]
+    - "source_health handler — NEW: invoke the source-health/* canary skill (skill exists, no daemon job-handler today)"
+    - "auth_refresh handler — NEW: invoke the auth-signin/* skill (skill exists, no daemon job-handler today)"
+    - "validation_cross_model_audit handler — NEW: no executor exists today (kind appears only in cron.rs); distinct from the existing semantic_validate per-result sub-job"
+    - "validation_calibration_readiness_sweep handler — NEW: no executor exists today"
+    - "Extend run_next_workflow_job's 3-kind match (main.rs:1703, other => fail_job at :1722) and the worker routing to cover ALL cron kinds"
+  commercial_sweep:                        # §4.5 [G6]
+    - "New cron kind `commercial_sweep` + ONE new ~07:00 UTC schedule slot after the ingestion window"
+    - "Coverage-driven body: run existing landed-cost → run_net_margin_gate_once → manifest-generation over ELIGIBLE rows (advance every process/candidate lacking a current downstream decision)"
+    - "Stage-shape nuance: net-gate is a PURE DB sweep (run_net_margin_gate_once, no skill); landed-cost + manifest MAY invoke their skill runners for eligible rows → they consume agent/skill slots, so the coverage/deterministic lane takes NO procurement-source browser slot but the ResourceArbiter is STILL in force for the skill-backed sub-passes (research §4.2/§4.5). Do not treat the coverage lane as arbiter-free."
+    - "Reconcile (not reuse) trigger_pipeline_rerun: it stays a manual desktop affordance that kills the daemon by PID. A manual rerun firing mid-autonomous-sweep SIGTERMs the daemon mid-run — safe because per-process-scoped sweep txns (R8) commit incrementally and the next 07:00 sweep is coverage-idempotent/self-healing. The two paths must coexist without corrupting each other (research §9 'reconcile not reuse')"
+    - "Execute IN-PROCESS on the coverage/deterministic lane under the arbiter — MUST NOT call trigger_pipeline_rerun (desktop PID-stop affordance stays manual-only)"
+    - "Two-layer dedup: per-slot cron idempotency key cron:commercial-sweep:{skill}:{scheduled_for} + coverage-idempotent body (only advances un-decided processes)"
+    - "Q8 residual: optional chained nudge (enqueue deduped commercial_sweep after successful ingestion) — defer unless spec keeps the boundary clean"
+  procontract_resumption:                  # §4.4 [G4]
+    - "Awaiting-access modeling (Q4): dedicated procontract_pending_enrichment table (0015_*, epoch 10→11) OR state-string + widened re-registration guard"
+    - "Create row when register-interest SUCCEEDS (interest in, access pending); landmine: do NOT touch interest_registration.state (stays 'completed' so the re-fire guard still excludes it)"
+    - "Lifecycle (each transition's trigger + exact row): create / keep (bump observation_count) / clear (state='enriched' on live tender event + docs) / backfill (untracked not_yet_responded item) / expire (now>deadline_at OR now-interest_registered_at>max_age)"
+    - "observation_count is the enrich-SWEEP counter — deliberately SEPARATE from the job-retry attempt_count"
+    - "Enrich sweeps the daemon-tracked awaiting-access set (NOT just 'Recently added'), locating each item on the portal by stored advertId/source_notice_id — independent of Recently-added ordering and maxPages"
+    - "Skill contract change (procontract-enrich-tender): optional `awaitingAccessTargets: [{advertId, sourceNoticeId, processId}]` input; merge = normal Recently-added scan UNIONed with direct-by-advertId navigation for un-located targets, deduped by advertId; empty work-list ⇒ behaves exactly as today (backward compatible)"
+    - "Staleness expiry (Q5): notice-level deadline_at (captured at discover, may be null) OR max-age-since-interest fallback; MUST NOT key off the RFx response deadline (unknown for awaiting-access items)"
+  concurrency_correctness:                 # §6 [G5]
+    - "Worker exec context (Q1): own StateDb connection per lane (lease-heartbeat precedent) vs shared services handle — spec's first decision"
+    - "WAL single-writer correctness with up to 4 writers (serve/IPC, lease heartbeat, scheduler tick, worker lanes): short write transactions + busy_timeout=5000; commercial sweep transactions per-process-scoped (yield the writer lock between processes), not one giant transaction (R8)"
+    - "R7: procurement_source_lanes=1 serializes same-source runs — a second concurrent sync_source for the same source is denied at admission (SourceLaneExhausted) and defers, never runs concurrently"
+    - "Escalation path if contention surfaces: single-writer actor (R1)"
+    - "Sleep/wake interaction: in-flight PTY tainting on host sleep (pty/health.rs detect_host_sleep, 5s threshold) vs worker claim/lease (300s lease, 60s heartbeat) (R5)"
+  desktop_status_surfacing:                # §9, Q7 — operator-decided scope
+    - "OPTIONAL (Q7): surface scheduler running / last tick / next run / awaiting-access count in the desktop control panel (extend the existing read-only CronStatusSnapshot). Spec scopes per operator decision — NAMED + bounded, never silently dropped"
+  tests:                                   # §7 — real E2E, no mocks
+    - "NEW scheduler_tick.rs (tick_001..005), worker_pump.rs (worker_001..005), procontract_resumption.rs (M3, net-new suite — NO ProContract integration test exists today)"
+    - "E2E manifests M1 (end-to-end autonomy G1+G2), M2 (commercial autonomy G6), M3 (ProContract lifecycle G4), M4 (manual-path regression + live buttons G3), M5 (concurrency soak G5)"
+    - "Existing-test impacts (§7a): cron_scheduler.rs (add 07:00 slot to test 001 anchors + test 006 catch-up order), job_claim.rs (new kinds claimable — add tests, don't mutate ordering tests), agent_procurement_ingestion.rs / agent_contracts_finder_ingestion.rs (refactor regression guard — must still pass unchanged), sqlite_schema.rs (only if Q4 picks a table)"
+    - "Schema-migration test (§7e, conditional on Q4): if table → PRAGMA user_version==11 + schema_migrations '0015_*' + table/columns; if state-string → widened re-fire guard test"
+
+# ----------------------------------------------------------------------------
+# Scope-drift red flags to scan for at EVERY step (research is the contract):
+#   "post-MVP", "Phase 2+", "stretch goal", "nice to have", "deferred",
+#   "out of scope", "future iteration", "simplified for initial implementation"
+# The ONLY legitimately-optional items are the operator-decided open questions
+# (Q6 shadow flag, Q7 desktop UX, Q8 chained nudge, enrich_process button
+# routing in G3/§5). These are NAMED + escalated to the operator at step 01,
+# NEVER silently dropped — exactly like goods-led's future_tier_b handling.
+# ----------------------------------------------------------------------------
+
+# ============================================================================
+# Key integration files (VERIFIED file:line, 2026-06-07 — research §10 + a
+# fresh codebase verification pass; line numbers are CURRENT, not the research
+# doc's possibly-drifted ones). Handoffs must use these, never 'find the file'.
+# ============================================================================
+key_files:
+  scheduler_cron:
+    path: crates/daemon/src/scheduler/cron.rs
+    notes: "CronScheduler::from_registry() :93; refresh_next_run_at() :111; dispatch_due_jobs(&registry, now) :120; record_enqueued() :204; build_enqueue_request() :341 (kind mapping :346-356: sync_source/source_health/auth_refresh/validation_cross_model_audit/validation_calibration_readiness_sweep); idempotency key format :392-397 = cron:{source_id}:{skill_id}:{scheduled_for.to_rfc3339()}"
+  main_runtime:
+    path: crates/daemon/src/main.rs
+    notes: "enqueue_startup_cron_jobs() :3697 (sole dispatch caller — fold into tick); bootstrap_runtime() :2921; serve_handshake_service() :3819 (blocking IPC loop, NO tick); build_cron_status_snapshot() :3890 (read-only, extend for Q7); seed_cron_scheduler_from_history() :3736; run_next_workflow_job() :1703 (3-kind match; other => fail_job :1722-1727); --ingest :492; --run-next-job :534; --pipeline :516 → run_deterministic_pipeline() :23323; SyncLeaseHeartbeat::spawn :3260 (own-connection background-thread precedent); create_source_sync_job_from_parameters() :4511; claim_job_by_id() in claim.rs:97; load_procontract_interest_candidates() :15371; persist_custom_process_stage_state() :15600"
+  live_loops:
+    path: crates/daemon/src/main.rs
+    notes: "run_fts_live_loop() :20096; run_contracts_finder_live_loop() :19171; run_procontract_discover_live_loop() :19382; run_procontract_register_interest_live_loop() :19481; run_procontract_enrich_tender_live_loop() :19627; run_landed_cost_live_loop() :10532; run_net_margin_gate_live_loop() :12403 → run_net_margin_gate_once(state_db, stage_run_id) :12345; run_manifest_generation_live_loop() :15043"
+  jobs_runner:
+    path: crates/daemon/src/jobs/runner.rs
+    notes: "enqueue_job() :580 (calls find_existing_enqueue_ack for idempotency); find_existing_enqueue_ack() :1626 (read-before-write on idempotency_key in runner_meta; returns existing ack instead of inserting) — this enforces dedup"
+  jobs_claim:
+    path: crates/daemon/src/jobs/claim.rs
+    notes: "claim_next_job() :72 (IMMEDIATE txn, recycles expired leases, ORDER BY COALESCE(scheduled_for, created_at), created_at LIMIT 1 :176); claim_job_by_id() :97 (used by --ingest); lease/heartbeat constants :15-16 = 300s lease / 60s heartbeat"
+  arbiter:
+    path: crates/daemon/src/agents/arbiter.rs
+    notes: "ResourceBudgets::default() :14 = {browser_slots:2, agent_slots:4, procurement_source_lanes:1, supplier_source_lanes:2}; ArbiterDecision :104-107 = Granted(ResourceLease)|Denied(DenialReason); DenialReason :82-101 = BrowserSlotsExhausted|AgentSlotsExhausted|SourceLaneExhausted{source_id,limit,in_use}|SkillConcurrencyCapReached. ResourceArbiter struct :152 (NOT Mutex-wrapped in arbiter.rs itself — RuntimeBootstrap wraps it Mutex<ResourceArbiter>)"
+  sqlite:
+    path: crates/daemon/src/db/sqlite.rs
+    notes: "configure_pragmas() :212 (journal_mode=WAL :215, synchronous=NORMAL, foreign_keys=ON, busy_timeout=5000 :218); DEFAULT_SCHEMA_EPOCH :89 = 10 (research said 10; CONFIRMED). G4 table → epoch 10→11"
+  sources_registry:
+    path: crates/daemon/src/sources/registry.rs
+    notes: "SourceRegistry::load() :229; FTS production_binding '0 15 4 * * *' (04:15) ~:594, canary '0 */30 * * * *' ~:601; SkillBinding.cron_expression :160; auth_refresh_binding :196. The new commercial_sweep ~07:00 slot is added here / in cron.rs"
+  ipc_jobs:
+    path: crates/daemon/src/ipc/handlers/jobs.rs
+    notes: "trigger_ingestion (enqueues sync_source) / trigger_enrichment (enqueues enrich_process) ~:222 — both enqueue-only, NO consumer today. trigger_ingestion becomes functional for free once the worker routes sync_source (G3). Source-mutation handlers under crates/daemon/src/ipc/handlers/ are where a registry-generation counter (Q9) would be bumped"
+  desktop_main:
+    path: apps/desktop/src-tauri/src/main.rs
+    notes: "trigger_pipeline_rerun() :2005 (desktop PID-stop affordance — autonomous path MUST NOT reuse); stop_daemon_for_exclusive_pipeline_rerun() :1215; PIPELINE_RERUN_INGEST_STAGES :78 = [landed-cost,net-gate,manifest]; EXPECTED_SCHEMA_EPOCH :51 = 10"
+  desktop_epoch_constants:
+    path: apps/desktop/src-tauri/src/{main.rs,daemon_bridge.rs,query_service.rs}
+    notes: "main.rs EXPECTED_SCHEMA_EPOCH :51 = 10; daemon_bridge.rs DEFAULT_SCHEMA_EPOCH :16 = 10; query_service.rs EXPECTED_SCHEMA_EPOCH :14 = 10. ALL currently 10 (research's '8' values were reconciled to 10 during goods-led). A G4 table bump moves ALL of these 10→11 IN THE SAME COMMIT (R6, schema-epoch coupling)"
+  enrich_skill:
+    path: skills/procurement-ingestion/procontract-enrich-tender/
+    notes: "SKILL.md (18KB; Activities scan Step 2, not_yet_responded, maxPages:5, CDP :9222 discipline) + result.schema.json (3.3KB) + checkpoint.schema.json + canary.inputs.jsonl + golden.assertions.yaml. G4 adds optional awaitingAccessTargets input + union/merge behavior"
+
+migration_numbers:        # VERIFIED 2026-06-07 — handoffs use these concrete numbers, not 00NN
+  next_sqlite: "migrations/0015_procontract_pending_enrichment.sql (current max = migrations/0014_installation_labour_fields.sql) — ONLY IF Q4 picks the dedicated table"
+  migrations_dir: "migrations/ (repo root) — SQLite state migrations"
+  supabase_migrations_dir: "infra/supabase/migrations/ (the Supabase epoch is SEEDED in 0006_schema_metadata.sql and advanced by later projection migrations; do NOT assume 0006 is the max — check the dir). This runtime-autonomy feature is daemon-LOCAL: procontract_pending_enrichment is operational authority (local SQLite), NOT shared/projected, so a Supabase projection migration is typically NOT needed. Add one only if Q7/spec decides awaiting-access must be viewer-projected."
+
+schema_epoch_constants:   # bump 10 -> 11 ONLY IF Q4 picks the dedicated table; update ALL of these in ONE commit (R6)
+  - "crates/daemon/src/db/sqlite.rs DEFAULT_SCHEMA_EPOCH :89 (currently 10)"
+  - "apps/desktop/src-tauri/src/main.rs EXPECTED_SCHEMA_EPOCH :51 (currently 10)"
+  - "apps/desktop/src-tauri/src/daemon_bridge.rs DEFAULT_SCHEMA_EPOCH :16 (currently 10)"
+  - "apps/desktop/src-tauri/src/query_service.rs EXPECTED_SCHEMA_EPOCH :14 (currently 10)"
+  - "sqlite_schema.rs asserts PRAGMA user_version == DEFAULT_SCHEMA_EPOCH (auto-tracks the constant)"
+
+test_harnesses:   # research §7, §10 — REAL, no mocks; the ONLY permitted fake is the deterministic fake-claude CLI (stands in for the agent/PTY, never the daemon)
+  new_targets:
+    - "crates/daemon/tests/scheduler_tick.rs (NEW — copy cron_scheduler.rs idioms: ts(), TestStateDb::new(), seed_source, CronScheduler::from_registry, refresh_next_run_at, dispatch_due_jobs)"
+    - "crates/daemon/tests/worker_pump.rs (NEW — copy job_claim.rs seed_job/claim_next_job + resource_arbiter.rs admit/release/DenialReason)"
+    - "crates/daemon/tests/procontract_resumption.rs (NEW NET-NEW SUITE — built from scratch on RunHarness + fake-claude; NO ProContract integration test exists today)"
+  extend_or_guard:
+    - "crates/daemon/tests/cron_scheduler.rs (add ~07:00 commercial_sweep slot to test 001 anchors + test 006 catch-up priority order — if you add the slot you MUST update these)"
+    - "crates/daemon/tests/job_claim.rs (new kinds now claimable — ADD tests; existing claim-ordering tests use kind='stage-job' and are unaffected — do NOT mutate them)"
+    - "crates/daemon/tests/agent_procurement_ingestion.rs (--ingest fts now goes through the refactored shared body — test 001 'sync_source'/'completed' MUST still pass = live-loop-refactor regression guard; RunHarness.run() uses Command::output() BLOCKING — cannot point at --serve, use the one-shot --run-scheduler-once entrypoint for M1/M2)"
+    - "crates/daemon/tests/agent_contracts_finder_ingestion.rs (same refactor regression guard — must still pass unchanged)"
+    - "crates/daemon/tests/resource_arbiter.rs (reused as the model for defer-on-denial + source-lane tests; no source change)"
+    - "crates/daemon/tests/sqlite_schema.rs (only if Q4 picks a table → add user_version==11 + new-table assertions, §7e)"
+  fake_claude:
+    - "DAEMON_TEST_CLAUDE_RESULT_PATH / DAEMON_TEST_CLAUDE_CHECKPOINT_PATH env vars; --version/probe; RunHarness in agent_procurement_ingestion.rs is the pattern"
+
+quality_bar_docs:   # match or EXCEED these (best existing examples, same repo)
+  spec: "docs/pipeline/goods-led-install-maintenance/artifacts/goods-led-install-maintenance-spec.md (633 lines)"
+  tdd: "docs/pipeline/l6-request-pipeline-automation/artifacts/l6-request-pipeline-automation-tdd.md (881 lines) + goods-led tdd (318 lines)"
+  strategy: "docs/pipeline/goods-led-install-maintenance/artifacts/goods-led-install-maintenance-strategy.md (740 lines)"
+  kickoff: "docs/pipeline/l6-request-pipeline-automation/artifacts/l6-request-pipeline-automation-kickoff.md (770 lines) + goods-led kickoff"
+
+mandatory_stops:
+  - "After step 10 (kickoff generated) — human authorizes execution"
+  - "After execution complete — human triggers completion audit (step 12)"
+  - "After step 12 (fix beads created) — human authorizes fix-bead execution (step 13)"
