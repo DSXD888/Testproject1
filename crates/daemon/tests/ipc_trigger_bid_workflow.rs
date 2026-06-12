@@ -123,6 +123,86 @@ fn workflow_job_count(state_db: &StateDb) -> Result<i64> {
         .context("counting workflow jobs")
 }
 
+fn assert_status_artifact_contains(snippet: &str) {
+    assert!(
+        AUTONOMOUS_SCHEDULING_STATUS.contains(snippet),
+        "autonomous scheduling status artifact missing decision snippet:\n{snippet}"
+    );
+}
+
+#[test]
+fn decision_001_operator_decisions_recorded() {
+    assert_eq!(
+        AUTONOMOUS_SCHEDULING_STATUS
+            .matches("status: RECORDED")
+            .count(),
+        8
+    );
+
+    assert_status_artifact_contains(
+        r"  Q1_worker_exec_context:
+    status: RECORDED
+    chosen_branch: own_state_db_connection_per_lane",
+    );
+    assert_status_artifact_contains(
+        r#"    operator_answer: "Q1 = own `StateDb` connection per lane.""#,
+    );
+    assert_status_artifact_contains(
+        r"  Q4_awaiting_access_model:
+    status: RECORDED
+    chosen_branch: dedicated_table_epoch_11",
+    );
+    assert_status_artifact_contains(
+        r#"    operator_answer: "Q4 = dedicated table (epoch 10->11).""#,
+    );
+    assert_status_artifact_contains(
+        r"  Q5_awaiting_access_expiry:
+    status: RECORDED
+    chosen_branch: notice_deadline_else_max_age",
+    );
+    assert_status_artifact_contains(
+        r#"    operator_answer: "Q5 = expire on notice `deadline_at` if known, else max-age since interest (NEVER the RFx response deadline - unknown for awaiting-access items).""#,
+    );
+    assert_status_artifact_contains(
+        r"  Q6_shadow_flag:
+    status: RECORDED
+    chosen_branch: shadow_flag_first",
+    );
+    assert_status_artifact_contains(
+        r#"    operator_answer: "Q6 = shadow flag first for `source_health`/`auth_refresh`.""#,
+    );
+    assert_status_artifact_contains(
+        r"  Q7_desktop_status_ux:
+    status: RECORDED
+    chosen_branch: minimal_read_only_desktop_status_fields",
+    );
+    assert_status_artifact_contains(
+        r#"    operator_answer: "Q7 = minimal read-only desktop status fields.""#,
+    );
+    assert_status_artifact_contains(
+        r"  Q8_residual_chained_nudge:
+    status: RECORDED
+    chosen_branch: scheduled_sweep_only",
+    );
+    assert_status_artifact_contains(
+        r#"    operator_answer: "Q8-residual = scheduled sweep only.""#,
+    );
+    assert_status_artifact_contains(
+        r"  Q9_registry_reload_trigger:
+    status: RECORDED
+    chosen_branch: registry_generation_counter",
+    );
+    assert_status_artifact_contains(r#"    operator_answer: "Q9 = registry generation counter.""#);
+    assert_status_artifact_contains(
+        r"  E1_trigger_enrichment_routing:
+    status: RECORDED
+    chosen_branch: named_extension_not_cron_core",
+    );
+    assert_status_artifact_contains(
+        r#"    operator_answer: "E1 = route `enrich_process` only if operator wants the button fixed now.""#,
+    );
+}
+
 #[test]
 fn m4_trigger_ingestion_enqueues_routable_sync_source_job() -> Result<()> {
     let test_db = TestStateDb::new()?;
