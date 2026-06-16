@@ -4,11 +4,13 @@
 >
 > **Normative planning docs:** `layer-strategy.md` + 7 per-layer docs in `layers/`. **Navigation aids (no planning authority):** this index + `README.md`.
 
-## Implementation Status Snapshot (2026-05-02; goods-led labour-cost rows added 2026-06-04)
+## Implementation Status Snapshot (2026-05-02; goods-led labour-cost rows added 2026-06-04; autonomous daemon scheduling added 2026-06-12, schema epoch 11)
 
 Entries in this index that point at L1-L3 strategy sections describe **built** code unless their layer doc says otherwise in an inline status callout. Use the implementation references below before treating historical strategy prose as future work.
 
 > **Updated 2026-06-04:** topic rows for the goods-led install/maintenance + UK installation-labour cost extension (shipped 2026-06-04, schema epoch 10) were added — see "Installation-labour cost engine", "Goods value-share & dominance floor", "Goods-led mixed qualification", "MaintenancePeriodEstimate", and the labour-skills rows below.
+>
+> **Updated 2026-06-12:** topic rows for autonomous daemon scheduling & ProContract resumption (shipped 2026-06-12, schema epoch **11**, `migrations/0015_procontract_pending_enrichment`) were added — see "Autonomous scheduler-tick", "Two-lane worker pump", "`commercial_sweep` cron kind", "ProContract awaiting-access resumption / `procontract_pending_enrichment`", "Shadow / record-only health+auth", "Desktop autonomy status", and "One-shot `--run-scheduler-once` entrypoint" below.
 
 | Layer / Topic | Strategy Entry | Impl |
 |---------------|----------------|------|
@@ -20,7 +22,9 @@ Entries in this index that point at L1-L3 strategy sections describe **built** c
 | L2 read models and manifest inbox | `layers/layer-2-single-operator-desktop.md` §§1.4, 1.9, 3 | `apps/desktop/src-tauri/src/query_service.rs:219`, `apps/desktop/src-tauri/src/query_service.rs:593`, `apps/desktop/src/pages/ManifestInbox.tsx:143` |
 | L2 operator decisions and clarifications | `layers/layer-2-single-operator-desktop.md` §3.2 | `migrations/0004_l2_pending_operator_intents.sql:3`, `migrations/0009_operator_input_overrides.sql:1`, `crates/daemon/src/ipc/handlers/decisions.rs:56`, `crates/daemon/src/ipc/handlers/clarifications.rs:90`, `apps/desktop/src/pages/OperatorDecisionPanel.tsx:247` |
 | L3 scheduler, source registry, and resource arbiter | `layers/layer-3-operational-hardening.md` §§1.3-1.5, 3.4-3.5 | `crates/daemon/src/scheduler/cron.rs:15`, `crates/daemon/src/scheduler/cron.rs:140`, `crates/daemon/src/sources/registry.rs:210`, `crates/daemon/src/agents/arbiter.rs:152` |
+| L3 autonomous scheduler-tick + two-lane worker (2026-06-12) | `layers/layer-3-operational-hardening.md` §1.5, §1.11 | `crates/daemon/src/scheduler/tick.rs:16` (tick body), `SchedulerTickThread` + two `AutonomousWorkerThread` lanes in `serve_handshake_service`, `SOURCE_REGISTRY_GENERATION` in `crates/daemon/src/sources/registry.rs`, `commercial_sweep` slot in `crates/daemon/src/scheduler/cron.rs`, `migrations/0015_procontract_pending_enrichment.sql` (dedicated awaiting-access table; `interest_registration.state` stays `'completed'`) |
 | L3 job claiming and validation dry-run | `layers/layer-3-operational-hardening.md` §§1.3, 2, 4.1-4.2 | `crates/daemon/src/jobs/claim.rs:72`, `crates/daemon/src/validation/policy.rs:238`, `crates/daemon/src/validation/executor.rs:25`, `migrations/0005_l3_operational_hardening.sql:14` |
+| L3 worker job-kind routing (every cron kind; `enrich_process` still orphaned) | `layers/layer-3-operational-hardening.md` §1.5 routing table | `execute_claimed_workflow_job` in `crates/daemon/src/main.rs` (`run_sync_source_workflow_job`, `run_source_health_workflow_job`, `run_auth_refresh_workflow_job`, `run_validation_*_workflow_job`, `run_commercial_sweep_workflow_job`) |
 | L3 relation resolution | `layers/layer-3-operational-hardening.md` §3.6 | Implemented narrowly as OCID-exact `merged_same_process` only in `crates/daemon/src/main.rs:19175`; heuristic relation classes remain deferred. |
 | L3 landed-cost hardening | `layers/layer-3-operational-hardening.md` (implementation addendum) | `OrderQuantityBasis::BasisUndetermined` and operator overrides in `crates/daemon/src/main.rs:3473`, `crates/daemon/src/main.rs:4058`, `crates/daemon/src/main.rs:4197`; see `docs/pipeline/stage-11-hardening-order-quantity-validation-manifest.md`. |
 | L4 shared visibility | `layers/layer-4-shared-visibility.md` | **BUILT** 2026-05-08. Sync engine in `crates/daemon/src/db/sync.rs`, 8 Supabase migrations under `infra/supabase/migrations/`, web portal under `apps/web/`, validator overlays under `skills/validation/overlay-*`. Pipeline archived at `docs/pipeline/l4-shared-visibility/archived/2026-05-08-l4-shared-visibility/`; artifacts (spec/TDD/strategy/kickoff/push/status) remain in place at `docs/pipeline/l4-shared-visibility/artifacts/`. |
@@ -32,8 +36,9 @@ Entries in this index that point at L1-L3 strategy sections describe **built** c
 
 | Topic | File | Section |
 |-------|------|---------|
-| Full SQLite DDL (49 tables + `maintenance_period_estimates` added at epoch 10 = 50) | `layers/layer-0-gold-set-evaluation.md` | §2 |
+| Full SQLite DDL (49 tables + `maintenance_period_estimates` at epoch 10 + `procontract_pending_enrichment` at epoch 11 = 51) | `layers/layer-0-gold-set-evaluation.md` | §2 |
 | Goods-led labour/permit columns + `maintenance_period_estimates` (epoch 10, `migrations/0014`) | `layers/layer-0-gold-set-evaluation.md`, `layer-strategy.md` | §2.2.1, §2.5.2; §9 matrix |
+| `procontract_pending_enrichment` (local-only, epoch 11, `migrations/0015`; no Supabase mirror; dedicated table so `interest_registration.state` stays `'completed'`) | `layers/layer-0-gold-set-evaluation.md`, `layers/layer-3-operational-hardening.md`, `layer-strategy.md` | L0 §2.2.1, §2.5.2; L3 §4.1, §1.11; §9 matrix |
 | Evaluation tables (gold_set_cases, evaluation_runs, evaluation_case_results, evaluation_metric_summaries) | `layers/layer-0-gold-set-evaluation.md` | §2 (§2.5.12) |
 | Cross-authority FK discipline (rule 15) | `layers/layer-0-gold-set-evaluation.md` | §2 (§2.2) |
 | Rounding policy and BPS constraint families (rules 17-18) | `layers/layer-0-gold-set-evaluation.md` | §2 (§2.2) |
@@ -61,6 +66,7 @@ Entries in this index that point at L1-L3 strategy sections describe **built** c
 | Branded scalar types recommendation (`Pence`, `MinorUnits`, `BpsBounded`, `BpsSigned`) | `layers/layer-0-gold-set-evaluation.md` | §5 (§5.3.5) |
 | Harness DB isolation (separate SQLite from operational DB) | `layers/layer-0-gold-set-evaluation.md` | §5 (§5.3.4) |
 | New L3 tables (`validation_verdicts`, `source_runtime_state`, `listing_evidence`, `process_relations`, `process_aliases`) | `layers/layer-3-operational-hardening.md` | §4 |
+| `procontract_pending_enrichment` table (local-only awaiting-access tracking, epoch 11; dedicated anti-re-registration table, not an `interest_registration.state` flip) | `layers/layer-3-operational-hardening.md` | §4 (§4.1), §1.11 |
 | Document extraction tables (`document_extractions`, `document_semantic_extractions`) | `layers/layer-1-thin-local-runner.md` | §1 (§1.5) |
 | `extraction_state` on `tender_document_sets` (forward-compatibility) | `layers/layer-0-gold-set-evaluation.md` | §2 |
 | `semantic_extraction_state` on `document_extractions` (distinct from `tender_document_sets.extraction_state`) | `layers/layer-1-thin-local-runner.md` | §1 (§1.5) |
@@ -114,6 +120,13 @@ Entries in this index that point at L1-L3 strategy sections describe **built** c
 | Skill linting CI gate | `layers/layer-1-thin-local-runner.md` | §4 (§4.4) |
 | Ingestion flow (end-to-end live loop) | `layers/layer-1-thin-local-runner.md` | §1 (§1.6) |
 | Cron scheduler (explicit skill binding) | `layers/layer-3-operational-hardening.md` | §1 (§1.5) |
+| Autonomous scheduler-tick (continuous ~30s, injected clock, generation-counter registry reload) | `layers/layer-3-operational-hardening.md` | §1 (§1.5) |
+| Two-lane worker pump (PTY/browser + coverage/deterministic; defer-on-denial cooldown) | `layers/layer-3-operational-hardening.md` | §1 (§1.4, §1.5) |
+| `commercial_sweep` cron kind (autonomous landed-cost→net-gate→manifest, cron `0 0 7 * * *` / 07:00 UTC; vs manual `trigger_pipeline_rerun`) | `layers/layer-3-operational-hardening.md`, `layers/layer-5-expanded-commercial-intelligence.md` | L3 §1.5; L5 §1.2, §2.4 |
+| ProContract awaiting-access resumption (lifecycle, `interest_registration.state='completed'` invariant, Q5 staleness, work-list sweep) | `layers/layer-3-operational-hardening.md` | §1 (§1.11), §4 (§4.1) |
+| Shadow / record-only health+auth (compile-time const, not config flag; not applied to validation/commercial_sweep) | `layers/layer-3-operational-hardening.md` | §1 (§1.9) |
+| One-shot `--run-scheduler-once --tick-now` entrypoint | `layers/layer-3-operational-hardening.md` | §1 (§1.5) |
+| Desktop autonomy status (`CronStatusSnapshot` → `get_cron_status` → `AutonomyStatusPanel`); `trigger_ingestion` functional, `trigger_enrichment` orphaned | `layers/layer-2-single-operator-desktop.md`, `layer-strategy.md` | L2 §1.5; §10 Interface Contracts |
 | Resource arbiter (typed quotas) | `layers/layer-3-operational-hardening.md` | §1 (§1.4) |
 | Resource admission/release semantics + validator resource consumption | `layers/layer-3-operational-hardening.md` | §1 (§1.4) |
 | PTY hardening (fd hygiene, EIO, geometry) | `layers/layer-3-operational-hardening.md` | §1 (§1.6) |

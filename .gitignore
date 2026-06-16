@@ -68,3 +68,7 @@ new-laptop-setup.md
 # Phase B precommit-hook bypass audit log (path lives under .git/ which git
 # already ignores — entry kept for documentation/discoverability).
 .git/agent-mail-bypasses.log
+
+# Local repo-transfer scan output (scratch). Contains a secrets.txt that
+# enumerates token/credential locations — must never be committed.
+.transfer-scan/

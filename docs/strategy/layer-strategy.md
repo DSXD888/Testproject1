@@ -8,14 +8,16 @@
 
 > **Build status (2026-05-02):**
 > - Layer 0 (Gold Set + Evaluation): partially built (gold-set fixtures exist; evaluation harness scaffolding in `crates/daemon/tests/`).
-> - Layer 1 (Thin Local Runner): **BUILT**. Daemon binary, PTY-based skill execution, cron scheduler, agent error manifest.
+> - Layer 1 (Thin Local Runner): **BUILT**. Daemon binary, PTY-based skill execution, live-source ingestion loop, agent error manifest. (Cron scheduling belongs to L3, not L1.)
 > - Layer 2 (Single-Operator Desktop): **BUILT**. Tauri desktop app, IPC bridge, `ContractList`/`ContractDetail`/`ManifestInbox`/`OperatorDecisionPanel` pages.
-> - Layer 3 (Operational Hardening): **BUILT**. Stages 1-14 of the pipeline, multi-source ingestion, Stage 11 hardening, Stage 14 Phase 1+2.
+> - Layer 3 (Operational Hardening): **BUILT**. Stages 1-14 of the pipeline, multi-source ingestion, Stage 11 hardening, Stage 14 Phase 1+2. **Autonomous daemon scheduling shipped 2026-06-12** (schema epoch 11): continuous `autonomous-scheduler-tick` thread + always-on two-lane worker, `commercial_sweep` cron kind, and durable ProContract awaiting-access resumption (`procontract_pending_enrichment`, leaving `interest_registration.state='completed'`).
 > - Layer 4 (Shared Visibility): **BUILT** 2026-05-08. SQLite ↔ Supabase sync engine (`crates/daemon/src/db/sync.rs`), 8 Supabase migrations with RLS for 4 roles, read-only Next.js web portal at `apps/web/`, 4 validator overlays, Wilson-bound calibration harness, two-user verification passed. Pipeline archived at `docs/pipeline/l4-shared-visibility/archived/2026-05-08-l4-shared-visibility/`; SOT artifacts remain at `docs/pipeline/l4-shared-visibility/artifacts/`.
 > - Layer 5 (Expanded Commercial Intelligence): NOT BUILT, **except the goods-led install/maintenance + UK installation-labour cost extension, shipped 2026-06-04** (schema epoch 10; see L5 §1.17).
 > - Layer 6 (Request Pipeline Automation): NOT BUILT. Stage 15 (`bid_workflow`) blocked on this layer.
 >
 > **Updated 2026-06-04 — goods-led labour-cost harmonization.** §7 (L5 Data Introduced), §9 (Schema Stability Matrix + rules), §10 (Stage Scope / Landed-cost boundary), and the L4 epoch-transition stub were reconciled to the shipped goods-led labour-cost extension: `landed_cost_estimates` / `pipeline_assessments` gained labour/permit/goods-share columns and `maintenance_period_estimates` was added at schema epoch 10 (`migrations/0014` + Supabase `0010`).
+>
+> **Updated 2026-06-12 — autonomous daemon scheduling harmonization.** §3 (L1 live-loop refactor note), §5 (L3 narrative/capability/components/data — continuous scheduler tick + always-on two-lane worker + `commercial_sweep` cron kind + ProContract awaiting-access resumption), §9 (Schema Stability Matrix — epoch 10→11, new local-only `procontract_pending_enrichment` table via `migrations/0015`), the job-kinds list, §10 (Interface Contracts — `CronStatusSnapshot`), and the Appendix Component Activation table were reconciled to the shipped autonomous daemon scheduling feature. Schema epoch is now **11** (daemon + desktop). The new table is **local-only** (no Supabase projection) and is deliberately separate from `interest_registration` so awaiting-access does not flip `interest_registration.state` away from `'completed'`. The cron attribution misplaced on L1 in the build-status list above was corrected to L3.
 
 ---
 
@@ -360,6 +362,8 @@ Layer 0 tables have three authority classifications, all permanent from creation
 
 Minimal Rust runtime — just enough to launch skills, capture artifacts, supervise processes, and run the first live-source end-to-end local pipeline loop. PTY is available as a first-class capability, with contract mode for deterministic tasks. This remains a thin daemon layer, but it is also the first live pipeline layer: a manual CLI trigger ingests live FTS notices, runs the full local qualification/pricing/manifest loop, and emits verifiable local output without any UI or sync dependency.
 
+> **Updated 2026-06-12 (autonomous daemon scheduling).** L1's "no cron, manual CLI trigger only" scope boundary is still correct — cron is L3. But the L1 source live-loop bodies were later **refactored** so the same body can be driven either by the manual `--ingest` wrapper or by a worker-claimed cron job: each `run_*_live_loop` now wraps a shared `*_claimed_live_loop` body routed by `SyncSourceRoute::from_key(source_id, skill_id)`, deriving per-run parameters (cursor, download root, ProContract awaiting-access work-list) at execution time rather than from the job payload. See §5 (L3) for the scheduler/worker that drives it.
+
 **If we never build Layer 2:** The thin runner provides a reliable way to execute skills from the command line with full process supervision, artifact capture, and error manifests. It operates as a headless pipeline executor.
 
 ### Capability Delivered
@@ -646,6 +650,8 @@ No new remote-owned tables are introduced in this layer. The desktop writes only
 
 Daily automation without babysitting. The daemon gains cron scheduling, batched ingestion, relation resolution, PTY hardening, resource management, and the worker-validator system in dry-run mode. The system runs unattended for 5 consecutive days. This layer transforms the single-operator tool into a production-grade pipeline.
 
+> **Autonomous runtime (shipped 2026-06-12).** Scheduling is now genuinely autonomous while the daemon stays open — no quit-and-reopen, no manual button. A continuous **`autonomous-scheduler-tick`** background thread (~30s, injected-clock seam, generation-counter registry reload) re-evaluates due schedules while serving, replacing the old "dispatched once at process start" model (the deleted `enqueue_startup_cron_jobs`; cold-start catch-up is folded into the tick body's first run). An always-on **two-lane worker pump** (PTY/browser lane + coverage/deterministic lane) drains `workflow_jobs` and routes **every** cron kind to a real executor (defer-on-denial uses an in-memory cooldown with no attempt cost; the arbiter caps real concurrency and `procurement_source_lanes=1` serializes same-source runs). `source_health` + `auth_refresh` run in **shadow / record-only** mode (a compile-time const, not a config flag); the `validation_*` and `commercial_sweep` kinds are not shadow-gated. A new **`commercial_sweep`** cron kind (cron `0 0 7 * * *`, 07:00 UTC) advances `landed-cost → net-gate → manifest` in-process on the coverage/deterministic lane (the desktop `trigger_pipeline_rerun` stays manual-only). ProContract awaiting-access tenders are tracked durably in `procontract_pending_enrichment` so resumption can't age out without mutating `interest_registration.state` away from `'completed'`. The one cron kind still unrouted is `enrich_process` (desktop `trigger_enrichment` remains non-functional). See L3 §1.5 and §1.11 for the mechanism.
+
 **If we never build Layer 4:** A single operator has a fully automated, self-monitoring pipeline that runs daily, handles relation resolution, manages resources, and validates output quality via dry-run semantic checking. No multi-user visibility, but the core automation works.
 
 ### Capability Delivered
@@ -657,7 +663,9 @@ System runs unattended for 5 consecutive days with ≥95% skill success rate. Cr
 | Component | Action | Files |
 |-----------|--------|-------|
 | `crates/daemon` | Create | 12 additions (scheduler/cron, sources/registry, jobs/claim, pty/reaper+hardening, agents/arbiter, db/checkpoints, tracing/structured+forensic, validation/policy+executor+manifest_writer) |
+| `crates/daemon` (autonomous runtime, 2026-06-12) | Add | `scheduler/tick.rs` (pure tick body), `SchedulerTickThread` + two `AutonomousWorkerThread` lanes in the serve loop, in-memory `DenialCooldowns`; `scheduler/cron.rs` gains the `commercial_sweep` synthetic slot; `migrations/0015_procontract_pending_enrichment.sql` creates the dedicated awaiting-access table while leaving `interest_registration.state='completed'` |
 | Skills | Create | 10 (4 operational: auth-refresh/alibaba+1688, source-health/fts+alibaba; 6 validator-base files: SKILL.md, result.schema.json, checkpoint.schema.json, canary.inputs.jsonl, golden.assertions.yaml, validator-rubric.yaml) |
+| Skills (autonomous runtime, 2026-06-12) | Modify | `procurement-ingestion/procontract-enrich-tender` → v1.3.0 (optional `awaitingAccessTargets` work-list input) |
 | `packages/intelligence` | Create | 1 (relations/resolve-process-relations.ts) |
 | `packages/manifests` | Create | 2 (render-error-manifest.ts, error.md.ts template) |
 
@@ -672,6 +680,7 @@ System runs unattended for 5 consecutive days with ≥95% skill success rate. Cr
 | `listing_evidence` | Local-only | Two-tier cache for search results + listing evidence |
 | `process_relations` | Push-owned | Relation edges between processes |
 | `process_aliases` | Push-owned | Redirect from retired process IDs |
+| `procontract_pending_enrichment` *(added at epoch 11, `migrations/0015`, 2026-06-12)* | Local-only | Durable ProContract awaiting-access tracking; dedicated anti-re-registration table that leaves `interest_registration.state='completed'`; not projected to Supabase |
 
 **Modified tables:**
 
@@ -687,6 +696,7 @@ System runs unattended for 5 consecutive days with ≥95% skill success rate. Cr
 | `validation_verdicts` | Local-only | Full validator reasoning too large/sensitive for sync |
 | `source_runtime_state` | Local-only | Per-daemon runtime state |
 | `listing_evidence` | Local-only | Cache layer, not authoritative |
+| `procontract_pending_enrichment` | Local-only | Per-daemon awaiting-access resumption state; keeps `interest_registration.state='completed'`; not projected to Supabase |
 | `process_relations` | Push-owned | Shared visibility in Layer 4 |
 | `process_aliases` | Push-owned | Stable deep links across desktop/web |
 
@@ -889,7 +899,7 @@ Formalized and enforced at the Supabase database level via RLS:
 
 | Feature | Stub | Full Implementation |
 |---------|------|-------------------|
-| Schema epoch transitions | The schema has since evolved — **current epoch is 10**, last bumped by the goods-led labour migration (`migrations/0014` + Supabase `0010`). The expand/drain/upgrade/contract transition *protocol* (L4 §1.7) remains the future hardening target; additive epoch bumps like 0014 are handled by the existing PRAGMA-backed guard | Future: full expand/drain/upgrade/contract orchestration |
+| Schema epoch transitions | The schema has since evolved — **current epoch is 11**, last bumped by the autonomous daemon scheduling migration (`migrations/0015_procontract_pending_enrichment`, local-only, no Supabase mirror; dedicated awaiting-access table, not an `interest_registration.state` flip); the prior bump to 10 was the goods-led labour migration (`migrations/0014` + Supabase `0010`). The expand/drain/upgrade/contract transition *protocol* (L4 §1.7) remains the future hardening target; additive epoch bumps like 0014/0015 are handled by the existing PRAGMA-backed guard | Future: full expand/drain/upgrade/contract orchestration |
 | Multi-org | Single org hardcoded | Future: org_id scoping |
 | Epoch-repair reproject | Minimum L4 path: mark `projection_generation`, republish current row images, discard stale-epoch outbox only after successful reseed | Future: full generation-based rebuild with anti-entropy |
 | Logical consistency auditor | Not implemented | Future: domain invariant checking |
@@ -1165,7 +1175,7 @@ Nothing — this is the final layer.
 
 L0 §2 is the constitutional schema source and reserves the full logical shape of every table up front. In this matrix, **Created** means the first layer where that already-specified table is physically materialized or operationally introduced in the implementation plan; **First Active Use** means the first layer where real workloads begin writing or consuming it.
 
-Matrix-count note: this section currently renders as 47 rows because the five Supabase summary tables are grouped into one row for readability. Counting underlying operational tables represented here yields 51. That does not conflict with the Layer 0 "49 tables" constitutional DDL inventory: the count excludes the later Supabase-only CAS ledger `operator_decision_commands`, and includes `maintenance_period_estimates`, which was added at **schema epoch 10** by the goods-led labour-cost extension (`migrations/0014`) rather than at L0.
+Matrix-count note: this section currently renders as 48 rows because the five Supabase summary tables are grouped into one row for readability. Counting underlying operational tables represented here yields 52. That does not conflict with the Layer 0 "49 tables" constitutional DDL inventory: the count excludes the later Supabase-only CAS ledger `operator_decision_commands`, and includes `maintenance_period_estimates` (added at **schema epoch 10** by the goods-led labour-cost extension, `migrations/0014`) and `procontract_pending_enrichment` (added at **schema epoch 11** by the autonomous daemon scheduling extension, `migrations/0015`, as a dedicated awaiting-access table rather than an `interest_registration.state` flip) rather than at L0.
 
 | Table | Created | First Active Use | Sync Activated | Authority |
 |-------|---------|-----------------|----------------|-----------|
@@ -1201,6 +1211,7 @@ Matrix-count note: this section currently renders as 47 rows because the five Su
 | `validation_verdicts` | L3 | L3 | Never (local-only) | Local-only |
 | `source_runtime_state` | L3 | L3 | Never (local-only) | Local-only |
 | `listing_evidence` | L3 | L3 | Never (local-only) | Local-only |
+| `procontract_pending_enrichment` | **epoch 11 (`migrations/0015`, autonomous daemon scheduling; not L0)** | 2026-06-12 (ProContract awaiting-access tracking; dedicated table, not an `interest_registration.state` flip) | Never (local-only) | Local-only |
 | `process_relations` | L3 | L3 | L4 | Push-owned |
 | `process_aliases` | L3 | L3 | L4 | Push-owned |
 | `local_outbox` | L4 (`migrations/0012_l4_sync_state.sql`; L0 reserves shape only) | L4 | N/A (SQLite sync infra) | Local-only |
@@ -1222,11 +1233,11 @@ Matrix-count note: this section currently renders as 47 rows because the five Su
 ### Schema Evolution Rules
 
 1. **No table reclassification.** A table's authority classification is permanent from its introduction layer. `operator_decision_heads` is remote-owned from introduction in Layer 4; before that, local single-operator decisions exist only as `pending_operator_intents`.
-2. **All columns exist from table creation (held through L0–L4).** Through Layer 4, later layers populated existing nullable columns rather than adding new ones, eliminating late `ALTER TABLE` on synced tables. It does not eliminate index migrations, check-constraint changes, view changes, backfills, RLS/RPC changes, or semantic migrations (see L0 §2.2.1 for full scope). **Documented exception — goods-led labour-cost extension (epoch 10):** `migrations/0014_installation_labour_fields.sql` performed a genuine additive `ALTER TABLE` on `landed_cost_estimates` and `pipeline_assessments` and created `maintenance_period_estimates`. All additions are nullable / default-0 (back-compatible) and were mirrored to Supabase by `0010_installation_labour_projection.sql`, which bumped the schema epoch 9 → 10. This is the first real post-L0 column addition; the schema-epoch guard (L4 §1.7) is what makes such an evolution safe.
+2. **All columns exist from table creation (held through L0–L4).** Through Layer 4, later layers populated existing nullable columns rather than adding new ones, eliminating late `ALTER TABLE` on synced tables. It does not eliminate index migrations, check-constraint changes, view changes, backfills, RLS/RPC changes, or semantic migrations (see L0 §2.2.1 for full scope). **Documented exception — goods-led labour-cost extension (epoch 10):** `migrations/0014_installation_labour_fields.sql` performed a genuine additive `ALTER TABLE` on `landed_cost_estimates` and `pipeline_assessments` and created `maintenance_period_estimates`. All additions are nullable / default-0 (back-compatible) and were mirrored to Supabase by `0010_installation_labour_projection.sql`, which bumped the schema epoch 9 → 10. This is the first real post-L0 column addition; the schema-epoch guard (L4 §1.7) is what makes such an evolution safe. **Second documented exception — autonomous daemon scheduling (epoch 11):** `migrations/0015_procontract_pending_enrichment.sql` created the new **local-only** `procontract_pending_enrichment` table, bumping the schema epoch 10 → 11 (daemon `DEFAULT_SCHEMA_EPOCH` and desktop `EXPECTED_SCHEMA_EPOCH` moved together). Unlike `0014`, it has **no Supabase mirror** because the table is per-daemon operational state that is never projected, and it exists so awaiting-access resumption does **not** flip `interest_registration.state` away from `'completed'`.
 3. **Sync tracking columns from day 1.** All push-owned tables include `owner_id`, `row_version`, `last_local_seq`, `stage_run_id`, `created_at`, `updated_at` from their creation in Layer 0, and those fields are populated on first write even before the outbox engine exists.
 4. **No column renames.** Column names are stable across layers (important for sync field mapping).
 5. **Junction tables introduced with parent tables.** `notice_cpv_codes` created alongside `contract_notices` in L0.
-6. **Job kinds.** Each pipeline stage maps to a specific `job_kind` value in `workflow_jobs` (e.g., `sync_source`, `normalize_notice`, `prequalify_notice`, `qualify_lot`, `extract_products`, `enrich_supplier_prices`, `estimate_landed_cost`, `extract_document_structure`, `extract_document_semantics`). Qualification split into `prequalify_notice` (notice-grain) and `qualify_lot` (lot-grain). `extract_document_structure` is runner-native (daemon subprocess, no agent adapter, consumes no `browser_slots` or `agent_slots`); `extract_document_semantics` runs through the standard agent adapter pipeline (`headless_contract`, consumes 1 `agent_slot` and no `browser_slots`). The full mapping of 20 job kinds to pipeline stages is defined in the Layer 0 doc §5.1.
+6. **Job kinds.** Each pipeline stage maps to a specific `job_kind` value in `workflow_jobs` (e.g., `sync_source`, `normalize_notice`, `prequalify_notice`, `qualify_lot`, `extract_products`, `enrich_supplier_prices`, `estimate_landed_cost`, `extract_document_structure`, `extract_document_semantics`). Qualification split into `prequalify_notice` (notice-grain) and `qualify_lot` (lot-grain). `extract_document_structure` is runner-native (daemon subprocess, no agent adapter, consumes no `browser_slots` or `agent_slots`); `extract_document_semantics` runs through the standard agent adapter pipeline (`headless_contract`, consumes 1 `agent_slot` and no `browser_slots`). The autonomous daemon scheduling extension (2026-06-12, epoch 11) adds the **`commercial_sweep`** kind, which advances `landed-cost → net-gate → manifest` in-process on the coverage/deterministic worker lane (cron `0 0 7 * * *`, 07:00 UTC). The full mapping of 21 job kinds to pipeline stages is defined in the Layer 0 doc §5.1. (Of the cron-enqueued kinds, only `enrich_process` remains unrouted — its desktop `trigger_enrichment` button is non-functional.)
 7. **Validation forward-compatibility exists from job-table introduction.** `workflow_jobs.parent_job_id` is nullable from Layer 0, `workflow_jobs.validation_required` exists from Layer 0 with default `false`, and `workflow_jobs.validation_verdict_id` is nullable from Layer 0.
 8. **Run-manifest columns exist from session-log introduction.** `agent_session_logs.run_manifest_path` and `agent_session_logs.run_manifest_hash` exist when `agent_session_logs` is introduced in Layer 1 and are populated from the first skill run.
 9. **Validation state exists from assessment-table introduction.** `pipeline_assessments.validation_state` exists from Layer 0 with default `'unverified'`.
@@ -1244,6 +1255,7 @@ Matrix-count note: this section currently renders as 47 rows because the five Su
 | Daemon descriptor + handshake | L1 | Desktop bootstrap | `daemon.info.json` (instanceId, pid, socketPath, protocolVersion, schemaEpoch); `daemon.lock` for single-writer; `hello`/`welcome` handshake with version negotiation, `commitSeq` exchange, active sessions summary; `instanceId` mismatch = daemon restarted (PTY streams NOT resumable) |
 | QueryService envelope | L2 | Desktop UI | `QueryEnvelope<T>` carries snapshot data only (`snapshotSeq`, `snapshotAt`); live daemon health is separate `ControlPlaneState` (storage/daemon/control/load dimensions) populated from handshake/heartbeat, not SQLite queries |
 | DaemonBridge commands | L2 | Desktop UI | `MutationAck` with `durability`, `visibleAfterSeq`, `conflictReason`; UDS/named-pipe transport with peer credential verification; 10 commands including `stop_session`, `send_session_input`, `resize_session`, `retry_job`, `restart_daemon` |
+| `CronStatusSnapshot` (autonomy status) | L3 (2026-06-12) | Desktop `AutonomyStatusPanel` | Read-only snapshot over IPC via `get_cron_status`: `scheduler_running`, `last_tick_at`, `next_run_at`, `worker_lanes`, `awaiting_access {active_count, expired_count}`, `definitions`. Surfaces the autonomous scheduler-tick + two-lane worker + ProContract awaiting-access state; read-only (status display, not a control surface) |
 | Channel<T> streaming | L2 | Desktop session viewer | Session streaming protocol with chunked replay; `SessionFrame` lifecycle frames include `cleanupVerdict` (on `reaped`) and `archiveSeq` (on `archived`); all 7 lifecycle phases emit frames (adapter-level for spawned/active/exited, daemon-level for created/terminating/reaped/archived); gap recovery via artifact chunk index (`stream.index.jsonl`); live→historical handoff waits for `snapshotSeq >= archiveSeq`; desktop reconnect resumes from `lastSeq`; daemon restart = streams NOT resumable |
 | Skill directory standard | L0 | All skills, skill linting | SKILL.md + result.schema.json + checkpoint.schema.json + canary.inputs.jsonl + golden.assertions.yaml |
 | Result contract format | L1 | Job Runner, OQG, validators | Schema-validated output format per skill |
@@ -1465,6 +1477,13 @@ For quick reference, when each major component becomes active:
 | Interactive SessionViewer (PTY input/resize) | L2 | Full |
 | Shared UI components (FreshnessBadge) | L2 | Full |
 | Cron scheduler | L3 | Full |
+| Autonomous scheduler-tick thread (`scheduler/tick.rs`) | L3 (2026-06-12) | Full (continuous ~30s tick, injected-clock seam, generation-counter registry reload; one-shot `--run-scheduler-once`) |
+| Always-on two-lane worker pump (PTY/browser + coverage/deterministic) | L3 (2026-06-12) | Full (routes every cron kind; defer-on-denial in-memory cooldown) |
+| `commercial_sweep` cron kind (autonomous landed-cost→net-gate→manifest) | L3 (2026-06-12) | Full (in-process, cron `0 0 7 * * *`, 07:00 UTC; not `trigger_pipeline_rerun`) |
+| ProContract awaiting-access resumption (`procontract_pending_enrichment`) | L3 (2026-06-12) | Full (durable tracking + enrich work-list sweep; `interest_registration.state` stays `'completed'`) |
+| `source_health` / `auth_refresh` job handlers | L3 (2026-06-12) | Shadow / record-only (compile-time const) |
+| Desktop autonomy status (`CronStatusSnapshot` → `AutonomyStatusPanel`) | L3/L2 (2026-06-12) | Full (read-only) |
+| `enrich_process` job routing (desktop `trigger_enrichment`) | — | ✗ Deferred — still orphaned |
 | Resource arbiter | L3 | Full |
 | PTY hardening | L3 | Full |
 | Relation resolution | L3 | Full |

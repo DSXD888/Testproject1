@@ -36,6 +36,8 @@ System runs unattended for 5 consecutive days with >=95% skill success rate:
 
 > **[IMPL] ⚠ Deviation:** Actual implementation (2026-05-02): Stage 11 added landed-cost order-quantity basis hardening that is not reflected in this pre-build L3 narrative. `OrderQuantityBasis` now includes `BasisUndetermined` and operator-override paths in `crates/daemon/src/main.rs:3473`, `crates/daemon/src/main.rs:4058`, and `crates/daemon/src/main.rs:4197`; `docs/pipeline/stage-11-hardening-order-quantity-validation-manifest.md` documents the zero-margin calibration and warning behavior.
 
+> **[IMPL] ✓ As designed (2026-06-12 — autonomous daemon scheduling):** The "cron-scheduled ingestion … without manual triggers" claim is now literally true while the daemon stays open. Two runtime additions close the gap that previously made schedules fire only at process start: (1) a continuous **`autonomous-scheduler-tick`** background thread (~30s, injected-clock seam) re-evaluates due schedules while serving, and (2) an always-on **two-lane worker pump** (PTY/browser lane + coverage/deterministic lane) drains `workflow_jobs` and routes every cron kind. A new **`commercial_sweep`** cron kind (cron `0 0 7 * * *`, 07:00 UTC) advances the commercial stages autonomously, and ProContract awaiting-access items are tracked durably in a dedicated table while `interest_registration.state` stays `'completed'` (§1.11). This shipped at **schema epoch 11** (`migrations/0015_procontract_pending_enrichment.sql`). See §1.5 (rewritten trigger model) and §1.11 (ProContract resumption). The daemon no longer needs a quit-and-reopen to pick up schedules.
+
 **Traceability rule:** Every testable Layer 3 behavior below is identified by an inline `L3-FR-*` marker using the stable pattern `L3-FR-{section}.{subsection}.{item}`. Later verification artifacts may reference these requirement IDs without restating the full contract.
 
 ### 1.3 Layer 3 Modules (12 surfaces)
@@ -58,6 +60,11 @@ System runs unattended for 5 consecutive days with >=95% skill success rate:
 Existing repo surfaces intentionally reused rather than forked: `jobs/runner.rs` remains the authoritative enqueue/order/idempotency boundary; `agents/artifacts.rs` remains the authoritative run-manifest struct/size-budget surface; `agents/contracts.rs` remains the authoritative OQG/checkpoint/`ValidationDisposition` surface; `pty/health.rs` remains the host/session health-code surface; `db/sqlite.rs` remains the seeded source/runtime-state entry point; and `ipc/command_router.rs` remains the manual-trigger command boundary. Layer 3 adds modules where needed, but it does not silently create duplicate contracts for those existing types.
 
 > **[IMPL] ✓ As designed** — All 12 named L3 module surfaces exist in the daemon tree: `crates/daemon/src/scheduler/cron.rs`, `crates/daemon/src/sources/registry.rs`, `crates/daemon/src/jobs/claim.rs`, `crates/daemon/src/sessions/reaper.rs`, `crates/daemon/src/pty/hardening.rs`, `crates/daemon/src/agents/arbiter.rs`, `crates/daemon/src/db/checkpoints.rs`, `crates/daemon/src/tracing/structured.rs`, `crates/daemon/src/tracing/forensic.rs`, `crates/daemon/src/validation/policy.rs`, `crates/daemon/src/validation/executor.rs`, and `crates/daemon/src/validation/manifest_writer.rs`.
+
+> **[IMPL] ✓ As designed (2026-06-12 — autonomous daemon scheduling):** The serve loop is no longer a passive IPC-only listener. Three runtime surfaces were added on top of the 12 above to make scheduling autonomous (no new L3-FR contracts — these realize the §1.5 "runs locally in daemon" intent):
+> - `scheduler/tick.rs` — the pure scheduler-tick body `run_scheduler_tick(scheduler, registry, state_db, now)` (injected-clock seam, no inline `Utc::now()`), driven on interval by a `SchedulerTickThread` (thread `autonomous-scheduler-tick`, ~30s, env `DAEMON_SCHEDULER_TICK_INTERVAL_SECS`) with its own `StateDb` connection.
+> - Two `AutonomousWorkerThread` lanes (PTY/browser + coverage/deterministic) spawned in the serve loop, each with its own `StateDb` connection, draining `workflow_jobs` and routing every cron kind (see §1.5). Defer-on-denial is an **in-memory** `DenialCooldowns` (no schema column) that returns a resource-denied job to `pending` without costing an attempt.
+> - `scheduler/cron.rs` now also defines the synthetic **`commercial_sweep`** slot (source id `commercial-sweep`, skill `pipeline/commercial-sweep`, `0 0 7 * * *`) alongside the existing source schedules. The startup-only `enqueue_startup_cron_jobs` path was **deleted** — cold-start catch-up now runs the tick body once at thread start.
 
 **L3-FR-1.3.1 — `scheduler/cron.rs` owns daemon-local cron scheduling**
 - AC1: Layer 3 includes `scheduler/cron.rs`.
@@ -149,6 +156,8 @@ Skill-level `max_concurrency` can lower these ceilings but never raise them.
 
 > **[IMPL] ✓ As designed** — Typed resource admission is implemented by `ResourceArbiter` in `crates/daemon/src/agents/arbiter.rs:152`, initialized in daemon runtime state at `crates/daemon/src/main.rs:2172`, and covered by `crates/daemon/tests/resource_arbiter.rs`.
 
+> **[IMPL] ✓ As designed (2026-06-12 — autonomous daemon scheduling):** The always-on autonomous worker honors these exact quotas — the arbiter is the single `Arc<Mutex<…>>` shared across the serve thread and both worker lanes, so concurrency caps hold whether work is operator-triggered or scheduler-triggered. The `source_lanes` rate cap is load-bearing for autonomy correctness: `procurement_source_lanes = 1` **serializes same-source runs**, so a cron slot that fires while the previous run for that source is still in flight is denied admission (`DenialReason::SourceLaneExhausted { source_id, limit: 1, in_use: 1 }`) rather than running two concurrent scrapes against one authenticated browser. A resource-denied job **defers** rather than failing: it is returned to `pending` with **no `attempt_count` bump and no held lease** (an in-memory `DenialCooldowns` backoff, base 500ms + per-job jitter, prevents hot-looping). "Denied admission → defer" is kept distinct from "ran → failed".
+
 **Admission and release semantics:**
 - Resource units are acquired when a runnable job is admitted and are released on pre-spawn failure or once the session reaches a terminal cleanup point (`reaped`/`archived`).
 - Validator sub-jobs consume `agent_slots` only. In Layer 3 they never consume `browser_slots` or `source_lanes` because `headless_contract` validation does not touch source websites.
@@ -194,11 +203,27 @@ struct CronJobDefinition {
 }
 ```
 
-**Catchup sweeps:** When daemon starts after extended downtime, it checks for overdue scheduled jobs and runs them in priority order, not all at once. Resource arbiter enforces concurrency limits during catchup.
+**Continuous tick (trigger model).** Schedules are re-evaluated **continuously while the daemon serves**, not only at process start. A background `autonomous-scheduler-tick` thread builds the `CronScheduler` and seeds `last_run_at` from history once at thread start, then on each interval (~30s, `DEFAULT_SCHEDULER_TICK_INTERVAL_SECS`, env-overridable) reads `now` from an injected clock and calls `dispatch_due_jobs(&registry, now)`, enqueuing due slots through the ordinary idempotent enqueue path (`cron:{source}:{skill}:{scheduled_for}` dedup). The tick body is `run_scheduler_tick(scheduler, registry, state_db, now)` with **no inline `Utc::now()`** — production supplies the wall clock, tests supply a fixed instant, and a one-shot autonomous entrypoint `--run-scheduler-once --tick-now <rfc3339>` evaluates schedules at an injected instant, drains the worker, and exits. The registry is reloaded **only when it changes**, signalled by a monotonic `SOURCE_REGISTRY_GENERATION` counter bumped by IPC source-mutation handlers (not a per-tick DB poll); on reload, `last_run_at` is re-seeded for newly enabled sources so a just-enabled source does not fire a spurious catch-up burst.
+
+**Catchup sweeps (folded into the tick).** Cold-start catch-up runs the tick body **once at thread start** — the same `schedule.after(last_run_at)` math that, on any later tick, turns a long monotonic gap (e.g. after host sleep/wake or downtime) into an overdue slot the next tick enqueues. Overdue work is processed in priority order through the Resource Arbiter, which enforces concurrency limits during catch-up exactly as in steady state. The previous startup-only path (`enqueue_startup_cron_jobs`) was deleted in favour of this single tick path; the bootstrap-vs-first-tick race is closed by the shared idempotency key.
+
+**Cron-kind routing (target state, now realized).** The always-on worker (§1.4 lanes) routes every enqueued cron kind to a real executor — replacing the earlier reality where only three document/bid kinds were handled and cron-enqueued rows were orphaned:
+
+| `kind` | Lane | Executor |
+|--------|------|----------|
+| `sync_source` | PTY/browser | Shared source live-loop body, routed by `(source_id, skill_id)` (FTS, Contracts Finder, ProContract discover/interest/enrich) |
+| `source_health` | PTY/browser | `source-health/*` canary skill handler — **shadow/record-only** (§1.9) |
+| `auth_refresh` | PTY/browser | `auth-refresh/*` (auth-signin) skill handler — **shadow/record-only** (§1.9) |
+| `validation_cross_model_audit` | coverage/deterministic | Validation cross-model audit handler (not shadow-gated; see §2.3) |
+| `validation_calibration_readiness_sweep` | coverage/deterministic | Calibration readiness sweep handler (not shadow-gated; see §2.3) |
+| `commercial_sweep` *(new at epoch 11)* | coverage/deterministic | In-process `landed-cost` → `run_net_margin_gate_once` → manifest-generation coverage pass (see L5 §1.2 and §2.4 for the commercial-stage pointer); **does not** stop the daemon, **does not** call `trigger_pipeline_rerun` |
+| `enrich_process` | — | **✗ Deferred — still orphaned** (no executor); the desktop `trigger_enrichment` button remains non-functional |
 
 **Source circuit breaker interaction:** If `source_runtime_state` shows an open circuit or active cooldown for a source, the scheduler suppresses normal ingestion and only allows `source-health/*` or `auth-refresh/*` jobs for that source.
 
-> **[IMPL] ✓ As designed** — Cron scheduling freezes source/skill/version definitions in `crates/daemon/src/scheduler/cron.rs:15`, dispatches due startup jobs through `crates/daemon/src/main.rs:2177`, and applies source-circuit suppression in `crates/daemon/src/scheduler/cron.rs:140`.
+> **[IMPL] ✓ As designed** — Cron scheduling freezes source/skill/version definitions in `crates/daemon/src/scheduler/cron.rs:15` and applies source-circuit suppression in `crates/daemon/src/scheduler/cron.rs:140`.
+
+> **[IMPL] ↻ Superseded (2026-06-12 — autonomous daemon scheduling):** The original "schedules dispatched once at startup via `enqueue_startup_cron_jobs`" model is **gone**. The pure tick body is `crates/daemon/src/scheduler/tick.rs:16`; the `SchedulerTickThread` is spawned in `serve_handshake_service` (thread `autonomous-scheduler-tick`, own `StateDb` connection); the one-shot entrypoint is `--run-scheduler-once --tick-now <rfc3339>`; the registry-reload signal is `SOURCE_REGISTRY_GENERATION` (`crates/daemon/src/sources/registry.rs`); the `commercial_sweep` synthetic slot (`0 0 7 * * *`) is defined in `crates/daemon/src/scheduler/cron.rs`. `enqueue_startup_cron_jobs` is deleted; cold-start catch-up runs the tick body once at thread start.
 
 **L3-FR-1.5.1 — Cron scheduling freezes the executable skill binding at enqueue time**
 - AC1: Every cron-enqueued job stores `source_id`, `skill_id`, `skill_version`, `cron_expression`, and enablement/next-run state as part of its scheduling definition.
@@ -233,7 +258,7 @@ struct CronJobDefinition {
 ### 1.7 Host Environment Awareness
 
 - **Sleep/wake:** If host suspends during active session, assume browser-driven PTY sessions are tainted. Use monotonic time for stall detection. Emit `HOST_SLEEP_INTERRUPTED` if suspend gap exceeds configurable threshold.
-- **Missed runs:** On daemon start after extended downtime, catchup sweep checks for overdue jobs. Jobs executed in priority order via resource arbiter.
+- **Missed runs:** Catch-up no longer requires a daemon restart. While the daemon stays open, the next `autonomous-scheduler-tick` (§1.5) after a sleep/wake or idle gap sees the long `schedule.after(last_run_at)` interval as an overdue slot and enqueues it; the cold-start run of the same tick body covers the restart-after-downtime case. Recovered work is executed in priority order via the resource arbiter either way.
 
 > **[IMPL] ✓ As designed** — Host and operational snapshots are surfaced through the daemon status model: cron status at `crates/daemon/src/main.rs:2370`, source health at `crates/daemon/src/main.rs:2397`, validation status at `crates/daemon/src/main.rs:2430`, and resource status at `crates/daemon/src/main.rs:2516`.
 
@@ -291,6 +316,8 @@ struct CronJobDefinition {
 
 > **[IMPL] ✓ As designed** — The operational skill families and validator base directory exist under `skills/auth-refresh/`, `skills/source-health/`, and `skills/validation/base/`; validation execution code consumes the base validator contract through `crates/daemon/src/validation/executor.rs:25`.
 
+> **[IMPL] ✓ As designed (2026-06-12 — autonomous daemon scheduling):** The `source-health/*` and `auth-refresh/*` skills now have **daemon job-handlers** (previously skills with no executor reachable from cron — see §1.5 routing). Both run in **shadow / record-only** mode: the handlers run for real and **persist their side-effect rows** (`source_runtime_state`, `auth_refresh_results`), but completion is stamped `autonomy_mode=shadow enforcement_action=recorded_only production_gate_applied=false`, so the recorded outcome does not yet gate production. This is a **compile-time constant** (`HEALTH_AUTH_SHADOW_MODE = "shadow"`), **not** a runtime/rollout config flag. Shadow mode is applied **only** to `source_health` + `auth_refresh`; the `validation_*` and `commercial_sweep` cron kinds are **not** shadow-gated.
+
 ### 1.10 What's Stubbed in This Layer
 
 | Feature | Layer 3 Stub | Full Implementation |
@@ -302,6 +329,37 @@ struct CronJobDefinition {
 | Multi-user | Single operator only | Layer 4: multi-user via web portal |
 
 > **[IMPL] ↻ Superseded** — The “L3 stub” rows remain accurate only for L4/L5/L6 dependencies. L3 itself has since landed Stage 14 operator clarification/override data in `migrations/0009_operator_input_overrides.sql:1` and desktop IPC handlers in `crates/daemon/src/ipc/handlers/clarifications.rs:90`; validation enforcement, sync, multi-user web, and domain validator overlays remain planned L4 work.
+
+### 1.11 ProContract Awaiting-Access Resumption
+
+> **[IMPL] ✓ As designed (2026-06-12 — autonomous daemon scheduling, schema epoch 11).** This subsection documents an operational-hardening capability added alongside the autonomous scheduler/worker. It is the *ingestion-side* resumption of ProContract tenders awaiting portal access — distinct from the L6 bid-workflow `AUTH_STATE_STALE` resumption pattern.
+
+**Problem.** ProContract register-interest fires once and correctly never re-expresses interest, but when the portal has not yet granted document access the tender sits "awaiting access". Previously the only safety net was the enrich skill re-scanning the portal's "Recently added" list (`maxPages` ≈ 50 rows) each run; a tender stuck awaiting access for many days while newer activities pile in could age out of that window and be silently dropped, because the daemon kept no durable record.
+
+**Durable tracking.** Awaiting-access tenders are now tracked in the local-only `procontract_pending_enrichment` table (full DDL in §4.1) while `interest_registration.state` remains `'completed'`. Enrich derives a **work-list** from `procontract_pending_enrichment WHERE state='awaiting_access'` and navigates directly to each tracked advert by its stored `advert_id`, so resumption is **independent of the "Recently added" ordering and `maxPages`**.
+
+**Correctness invariant (the landmine).** The create transition does **NOT** touch `interest_registration.state` — it stays `'completed'`, so the register-interest re-fire guard (which excludes `state IN ('completed','succeeded','skipped')`) still excludes the tender. A second `NOT EXISTS` anti-join against `procontract_pending_enrichment` was added to the interest-candidate query. If awaiting-access were instead modeled by flipping the `interest_registration` row's state, register-interest would re-express interest every run — explicitly avoided.
+
+**Five-transition lifecycle:**
+
+| Transition | Trigger | Row effect |
+|------------|---------|-----------|
+| **create** | register-interest succeeds | insert `state='awaiting_access'`, `observation_count=0`; `interest_registration.state` stays `'completed'` |
+| **keep** | enrich runs, portal still shows no live tender event | same row, bump `observation_count` / `last_checked_at` |
+| **clear** | enrich finds the live tender event ("Not started (Respond by …)") and downloads docs | `state='enriched'`, `enriched_at` recorded |
+| **backfill** | enrich observes an untracked portal item as `not_yet_responded` | insert a new tracking row (e.g. interest registered before this feature) |
+| **expire** | staleness sweep fires | `state='expired'`, stop sweeping it |
+
+**Staleness rule (Q5).** Expiry keys off the notice-level `deadline_at` captured at discover (reason `notice_deadline`) else a `PROCONTRACT_AWAITING_ACCESS_MAX_AGE_DAYS = 90` fallback (reason `max_age`). It **must never** key off the RFx *response* deadline — that is only learned from the live tender event, which an awaiting-access item by definition has not reached.
+
+**Skill contract.** `skills/procurement-ingestion/procontract-enrich-tender/SKILL.md` is at **v1.3.0**, gaining an optional `awaitingAccessTargets: [{ advertId, sourceNoticeId, processId }]` input. The skill runs its normal "Recently added" scan and, for each work-list target not already located, navigates directly by `advertId`, then **unions** both result sets deduping by `advertId`. When the work-list is empty the skill behaves exactly as before (pure scan) — backward compatible. The daemon builds the work-list at execution time (it is not in the cron payload), so resumption depends only on the autonomous enrich run happening on schedule (G1/G2).
+
+**L3-FR-1.11.1 — Awaiting-access resumption is durable and ordering-independent**
+- AC1: A successful register-interest creates a `procontract_pending_enrichment` row in `state='awaiting_access'` without mutating `interest_registration.state`.
+- AC2: Enrich sweeps the daemon-tracked work-list by `advert_id`, independent of the portal's "Recently added" ordering and `maxPages`.
+- AC3: The five transitions (create/keep/clear/backfill/expire) are each driven by their stated trigger.
+- AC4: Expiry uses notice-level `deadline_at` else the 90-day max-age fallback, never the RFx response deadline.
+- AC5: The enrich skill (`v1.3.0`) is backward compatible — an empty work-list reproduces the prior pure-scan behavior.
 
 ---
 
@@ -550,6 +608,8 @@ This ladder fits the existing design because `incident_signature` and `enforceme
 - AC4: `Full slice enforcement` remains gated by the existing `30/60 + Wilson + false-pass` criteria.
 
 > **[IMPL] ✓ As designed** — Validation policy modes, risk triggers, dry-run ladder phase derivation, and blind demotion logic are implemented in `crates/daemon/src/validation/policy.rs:14`, `crates/daemon/src/validation/policy.rs:238`, and `crates/daemon/src/validation/policy.rs:352`, with coverage in `crates/daemon/tests/validation_policy.rs` and `crates/daemon/tests/validation_canary_health.rs`.
+
+> **[IMPL] ✓ As designed (2026-06-12 — autonomous daemon scheduling):** The two scheduled validation cron kinds — `validation_cross_model_audit` and `validation_calibration_readiness_sweep` — now have real worker executors on the daemon's **coverage/deterministic lane** (§1.5 routing). They are **not** shadow-gated (shadow/record-only applies only to `source_health` + `auth_refresh`, §1.9). This is the *scheduling* path that drives these sweeps autonomously; it is distinct from the per-result `semantic_validate` sub-job path that this section's policy engine governs.
 
 ### 2.4 Validation Executor
 
@@ -1402,6 +1462,56 @@ Source-specific freshness TTLs:
 | 1688 | 72h | 96h |
 | Ready-to-Ship (Alibaba) | 36h | 48h |
 
+#### procontract_pending_enrichment (local-only)
+
+> **[IMPL] ✓ As designed (2026-06-12 — autonomous daemon scheduling, schema epoch 11):** Durable per-daemon tracking of ProContract tenders where interest was registered but portal access is not yet granted, so enrich can resume them independently of the portal's "Recently added" ordering (see §1.11 for the lifecycle). Added by `migrations/0015_procontract_pending_enrichment.sql` (the epoch 10→11 bump). This is a dedicated awaiting-access table, **not** an `interest_registration.state` flip; `interest_registration.state` remains `'completed'`. **Local-only / not projected to Supabase** — there is no Supabase mirror migration for this table; the `owner_id`/`row_version`/`last_local_seq`/`stage_run_id` columns are present for shape consistency only.
+
+```sql
+create table if not exists procontract_pending_enrichment (
+  id text primary key,
+  process_id text not null,
+  notice_id text not null,
+  advert_id text not null,
+  source_notice_id text,
+  state text not null check (state in ('awaiting_access', 'enriched', 'expired')),
+  interest_registered_at text not null,
+  deadline_at text,                              -- notice-level deadline captured at discover (may be null)
+  observation_count integer not null default 0 check (observation_count >= 0), -- enrich-sweep counter; NOT job retry attempt_count
+  last_checked_at text,
+  enriched_at text,
+  expiry_reason text,                           -- 'notice_deadline' | 'max_age'
+  owner_id text not null default 'local-owner',
+  row_version integer not null default 1 check (row_version > 0),
+  last_local_seq integer,
+  stage_run_id text,
+  created_at text not null default current_timestamp,
+  updated_at text not null default current_timestamp,
+  unique (process_id, notice_id, advert_id),
+  check (length(trim(id)) > 0),
+  check (length(trim(process_id)) > 0),
+  check (length(trim(notice_id)) > 0),
+  check (length(trim(advert_id)) > 0),
+  check (source_notice_id is null or length(trim(source_notice_id)) > 0),
+  check (length(trim(interest_registered_at)) > 0),
+  check (deadline_at is null or length(trim(deadline_at)) > 0),
+  check (last_checked_at is null or length(trim(last_checked_at)) > 0),
+  check (enriched_at is null or length(trim(enriched_at)) > 0),
+  check (expiry_reason is null or length(trim(expiry_reason)) > 0),
+  check (length(trim(owner_id)) > 0),
+  check (stage_run_id is null or length(trim(stage_run_id)) > 0)
+);
+create index if not exists idx_procontract_pending_enrichment_state
+  on procontract_pending_enrichment(state, updated_at);
+create index if not exists idx_procontract_pending_enrichment_advert
+  on procontract_pending_enrichment(advert_id);
+```
+
+**L3-FR-4.1.6 — `procontract_pending_enrichment` durably tracks awaiting-access tenders (local-only)**
+- AC1: A row is created with `state='awaiting_access'` when ProContract register-interest succeeds, **without** mutating `interest_registration.state` (it stays `'completed'` so the re-fire guard still excludes it — §1.11).
+- AC2: `observation_count` is the enrich-sweep counter and is distinct from the job-retry `attempt_count`.
+- AC3: Expiry (`state='expired'`) keys off the notice-level `deadline_at` (`expiry_reason='notice_deadline'`) else a max-age-since-interest fallback (`expiry_reason='max_age'`) — **never** the RFx response deadline, which an awaiting-access item by definition has not reached.
+- AC4: The table is local-only; it is not projected to Supabase.
+
 #### process_relations (push-owned)
 
 ```sql
@@ -1488,11 +1598,12 @@ create table process_aliases (
 | `validation_verdicts` | Local-only | Full verdict reasoning too large/sensitive for sync |
 | `source_runtime_state` | Local-only | Per-daemon operational state |
 | `listing_evidence` | Local-only | Cache layer, not authoritative data |
+| `procontract_pending_enrichment` *(epoch 11)* | Local-only | Per-daemon awaiting-access resumption state; dedicated table so `interest_registration.state` stays `'completed'`; not projected to Supabase |
 | `process_relations` | Push-owned | Shared visibility in Layer 4 |
 | `process_aliases` | Push-owned | Stable deep links across desktop/web |
 
 **L3-FR-4.3.1 — Layer 3 table authority classes are fixed at activation**
-- AC1: `validation_verdicts`, `source_runtime_state`, and `listing_evidence` are local-only.
+- AC1: `validation_verdicts`, `source_runtime_state`, `listing_evidence`, and `procontract_pending_enrichment` are local-only.
 - AC2: `process_relations` and `process_aliases` are push-owned.
 - AC3: No Layer 3 table introduced in this section mixes local and remote authority.
 

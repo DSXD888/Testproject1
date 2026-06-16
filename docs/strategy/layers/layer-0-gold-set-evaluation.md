@@ -8,7 +8,9 @@
 
 > **Implementation Status (as of 2026-05-02):** Layer 0 is **PARTIALLY BUILT**. Gold-set fixtures and daemon integration/evaluation harness scaffolding exist in `crates/daemon/tests/`, but the full standalone evaluation pipeline described here is not complete. This layer remains the measurement foundation for L1-L3; no inline implementation markers are added because this pass annotates only built L1-L3 design decisions.
 >
-> **Updated 2026-06-04 — goods-led labour-cost harmonization.** §1.6 (gold-slices tied to the dominance floor + no-list/bespoke flags), §2.2.1 / §2.5.2 DDL (labour/permit/goods-share columns + new `maintenance_period_estimates` table at schema epoch 10, `migrations/0014`), §3.4 (two-phase goods value-share qualification), §3.11.4 (labour step + Phase-2 dominance gate), and §3.13 (goods value-share + labour coverage metrics) were reconciled to the shipped goods-led install/maintenance extension. The schema epoch is now **10**.
+> **Updated 2026-06-04 — goods-led labour-cost harmonization.** §1.6 (gold-slices tied to the dominance floor + no-list/bespoke flags), §2.2.1 / §2.5.2 DDL (labour/permit/goods-share columns + new `maintenance_period_estimates` table at schema epoch 10, `migrations/0014`), §3.4 (two-phase goods value-share qualification), §3.11.4 (labour step + Phase-2 dominance gate), and §3.13 (goods value-share + labour coverage metrics) were reconciled to the shipped goods-led install/maintenance extension. This work set the schema epoch to **10** (subsequently advanced to **11** — see the 2026-06-12 note below).
+>
+> **Updated 2026-06-12 — autonomous daemon scheduling harmonization.** The autonomous daemon scheduling & ProContract resumption feature (shipped 2026-06-12) reconciled the schema record: §2.2.1 / §2.5.2 DDL gained the new local-only `procontract_pending_enrichment` table (durable tracking of ProContract tenders where interest was registered but portal access isn't yet granted, so `enrich` can resume them without flipping `interest_registration.state` away from `'completed'`) and the `commercial_sweep` `workflow_jobs.kind`. The schema epoch is now **11** (`migrations/0015_procontract_pending_enrichment.sql`). This migration is **SQLite-only** — there is no Supabase projection, because `procontract_pending_enrichment` is local-only operational state, not projected.
 
 ---
 
@@ -374,6 +376,8 @@ The correct framing: freeze **logical schema slots** early, but treat **activati
 
 **Schema evolution beyond L0 (goods-led labour-cost extension, epoch 10):** The no-ALTER principle held through L0–L4, but the goods-led supply-and-install / maintenance expansion (shipped 2026-06-04) performed a genuine **additive** schema migration — `migrations/0014_installation_labour_fields.sql` adds the 9 labour/permit/goods columns to `landed_cost_estimates`, the 6 coverage / value-share columns to `pipeline_assessments`, and creates `maintenance_period_estimates`, bumping the schema epoch 9 → 10 (mirrored to Supabase by `infra/supabase/migrations/0010_installation_labour_projection.sql`). All additions are nullable / default-0 and therefore back-compatible. The DDL above shows these columns/tables inline with `-- added at epoch 10` comments so this file remains the complete schema record; the canonical migration provenance is layer-strategy §9 (Schema Stability Matrix) and L5 §1.17.
 
+**Schema evolution beyond L0 (autonomous daemon scheduling, epoch 11):** The autonomous daemon scheduling & ProContract resumption feature (shipped 2026-06-12) performed a further **additive** migration — `migrations/0015_procontract_pending_enrichment.sql` creates the local-only `procontract_pending_enrichment` table and adds the `commercial_sweep` `workflow_jobs.kind`, bumping the schema epoch 10 → 11 (daemon `DEFAULT_SCHEMA_EPOCH = 11` in `crates/daemon/src/db/sqlite.rs`; desktop `EXPECTED_SCHEMA_EPOCH = 11`). Unlike the goods-led `0014` migration, `0015` is **SQLite-only with no Supabase mirror**: the new table holds local operational state (ProContract awaiting-access tracking) and is never projected to the web viewer. It is deliberately separate from `interest_registration` so awaiting-access does not flip `interest_registration.state` away from `'completed'`. The DDL above shows the new table and the new job kind inline with `-- added at epoch 11` comments so this file remains the complete schema record.
+
 ### 2.3 Authority Classification
 
 Every table has exactly one authority classification. This is permanent — no reclassification across layers.
@@ -402,7 +406,7 @@ Every table has exactly one authority classification. This is permanent — no r
 | 18 | `document_semantic_extractions` | Notice | Semantic mapping output from pdf-extraction skills (L1-introduced via `0006_pdf_extraction_toolkit.sql`) |
 | +1 | `maintenance_period_estimates` | Candidate-quote | Per-period maintenance estimate; **goods-led extension, added at epoch 10 via `migrations/0014`** (the 50th table — see count note below). Push-owned. |
 
-> **Table count:** the original constitutional inventory is **49 tables**. The goods-led labour-cost extension adds one persisted table (`maintenance_period_estimates`) at epoch 10, bringing the operational total to **50**. References elsewhere to "49 tables" describe the pre-extension constitutional inventory.
+> **Table count:** the original constitutional inventory is **49 tables**. The goods-led labour-cost extension adds one persisted table (`maintenance_period_estimates`) at epoch 10, bringing the operational total to **50**. The autonomous daemon scheduling extension adds a further local-only table (`procontract_pending_enrichment`) at epoch 11, bringing the operational total to **51**; this is the dedicated awaiting-access table, not an `interest_registration.state` flip. References elsewhere to "49 tables" describe the pre-extension constitutional inventory.
 
 **Push-owned infrastructure tables:**
 
@@ -450,6 +454,7 @@ Every table has exactly one authority classification. This is permanent — no r
 | 43 | `evaluation_runs` | Evaluation run metadata |
 | 44 | `evaluation_case_results` | Per-case results within runs |
 | 45 | `evaluation_metric_summaries` | Aggregate metrics per run |
+| +1 | `procontract_pending_enrichment` | Process/notice/advert awaiting-access tracking; **autonomous daemon scheduling, added at epoch 11 via `migrations/0015`** (the 51st table — see count note above). Local-only (never projected to Supabase). Dedicated table so awaiting-access does not flip `interest_registration.state` away from `'completed'`. |
 
 **Remote-owned tables** (Supabase authoritative, daemon pulls):
 
@@ -1138,7 +1143,7 @@ create table process_stage_heads (
 -- Authority: LOCAL-ONLY
 create table workflow_jobs (
   id uuid primary key default gen_random_uuid(),
-  kind text not null,            -- sync_source, normalize_notice, resolve_relations, prequalify_notice, qualify_lot, acquire_documents, extract_document_structure, extract_document_semantics, extract_lots, extract_products, score_quoteability, enrich_supplier_prices, compute_gross_gate, estimate_landed_cost, compute_net_gate, generate_manifest, record_operator_decision, run_bid_workflow, escalate_rfq, validation
+  kind text not null,            -- sync_source, normalize_notice, resolve_relations, prequalify_notice, qualify_lot, acquire_documents, extract_document_structure, extract_document_semantics, extract_lots, extract_products, score_quoteability, enrich_supplier_prices, compute_gross_gate, estimate_landed_cost, compute_net_gate, generate_manifest, record_operator_decision, run_bid_workflow, escalate_rfq, validation, commercial_sweep -- commercial_sweep added at epoch 11 / migration 0015 (cron 0 0 7 * * *, 07:00 UTC; advances landed-cost -> net-gate -> manifest in-process)
   process_id uuid references procurement_processes(id),
   notice_id uuid references contract_notices(id),
   scope_kind text,               -- process, notice, lot, candidate, candidate_source_pair, candidate_quote_scenario
@@ -1219,6 +1224,55 @@ create table error_manifests (
   resolved_by text,
   created_at timestamptz not null default now()
 );
+
+-- Autonomous daemon scheduling & ProContract resumption.
+-- Added at epoch 11 by migrations/0015_procontract_pending_enrichment.sql (see §2.2.1).
+-- Durably tracks ProContract tenders where interest was registered but portal access
+-- isn't yet granted, so the enrich stage can resume them once access is observed.
+-- Local-only operational state -- never projected to Supabase (no mirror migration).
+-- Authority: LOCAL-ONLY
+-- INVARIANT (the landmine): creating an awaiting-access row must NOT mutate the
+-- interest_registration stage state -- it stays 'completed' so the register-interest
+-- re-fire guard still excludes the tender (a second NOT EXISTS anti-join against this
+-- table guards re-registration). See L3 §1.11 for the full lifecycle.
+create table if not exists procontract_pending_enrichment (
+  id text primary key,
+  process_id text not null,
+  notice_id text not null,
+  advert_id text not null,
+  source_notice_id text,
+  state text not null check (state in ('awaiting_access', 'enriched', 'expired')),
+  interest_registered_at text not null,
+  deadline_at text,
+  observation_count integer not null default 0 check (observation_count >= 0),
+  last_checked_at text,
+  enriched_at text,
+  expiry_reason text,
+  -- sync tracking columns present for shape consistency; table is local-only (never pushed)
+  owner_id text not null default 'local-owner',
+  row_version integer not null default 1 check (row_version > 0),
+  last_local_seq integer,
+  stage_run_id text,
+  created_at text not null default current_timestamp,
+  updated_at text not null default current_timestamp,
+  unique (process_id, notice_id, advert_id),
+  check (length(trim(id)) > 0),
+  check (length(trim(process_id)) > 0),
+  check (length(trim(notice_id)) > 0),
+  check (length(trim(advert_id)) > 0),
+  check (source_notice_id is null or length(trim(source_notice_id)) > 0),
+  check (length(trim(interest_registered_at)) > 0),
+  check (deadline_at is null or length(trim(deadline_at)) > 0),
+  check (last_checked_at is null or length(trim(last_checked_at)) > 0),
+  check (enriched_at is null or length(trim(enriched_at)) > 0),
+  check (expiry_reason is null or length(trim(expiry_reason)) > 0),
+  check (length(trim(owner_id)) > 0),
+  check (stage_run_id is null or length(trim(stage_run_id)) > 0)
+);
+create index if not exists idx_procontract_pending_enrichment_state
+  on procontract_pending_enrichment(state, updated_at);
+create index if not exists idx_procontract_pending_enrichment_advert
+  on procontract_pending_enrichment(advert_id);
 ```
 
 #### 2.5.5 Validation Tables
@@ -3942,7 +3996,7 @@ In Layer 1, the daemon formalizes this into the hybrid-authored run manifest sys
 
 **jobs.ts** — Job payload types:
 - `WorkflowJob` interface with `kind` discriminator
-- 18 + 2 job kinds mapping (from Appendix C):
+- 18 + 3 job kinds mapping (from Appendix C; the third cross-cutting kind, `commercial_sweep`, was added at epoch 11 / 2026-06-12):
 
 | Job Kind | Pipeline Stage | Scope Grain |
 |----------|---------------|-------------|
@@ -3966,6 +4020,7 @@ In Layer 1, the daemon formalizes this into the hybrid-authored run manifest sys
 | `run_bid_workflow` | 15. Bid workflow | per process (with scope) |
 | `escalate_rfq` | (re-entry) | per candidate |
 | `validation` | (cross-cutting) | per worker job |
+| `commercial_sweep` | (scheduled coverage, cron `0 0 7 * * *`, 07:00 UTC) | advances landed-cost → net-gate → manifest in-process for every eligible process lacking a current decision (added epoch 11) |
 
 - `AgentSessionLog` interface
 - `ValidationVerdict`, `ValidationVerdictSummary` interfaces

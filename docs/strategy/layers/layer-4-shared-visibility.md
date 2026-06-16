@@ -11,6 +11,8 @@
 > **3-SOT Validation (2026-05-06):** Validated for downstream TDD, bead creation, and completion-audit coverage. Requirement IDs use `L4-FR-{section}.{subsection}.{item}` and acceptance criteria are listed under the requirements they verify.
 >
 > **Updated 2026-06-04 — goods-led labour-cost harmonization.** Forward notes added to §1.7 (Schema Epoch Guard), §3.5 (validator overlays), and the §5.2/§5.3 epoch stubs to reflect that the schema epoch has since advanced to **10** (goods-led labour migration `migrations/0014` + Supabase projection `0010`), and that the L5 `overlay-labour-cost` overlay joins the four L4 domain overlays. L4 itself did not add labour fields; these are forward pointers only.
+>
+> **Updated 2026-06-12 — autonomous daemon scheduling harmonization.** The schema epoch has since advanced to **11** (autonomous daemon scheduling migration `migrations/0015_procontract_pending_enrichment.sql`, a new **local-only** table with no Supabase projection; see L3 §1.11 for the invariant that this dedicated table leaves `interest_registration.state='completed'`); the §1.7, §5.2, and §5.3 epoch notes are updated accordingly. A clarification was added to §1.6 (Active-Writer Lease) that the lease **gates remote push to Supabase only, not local job execution** — the L3 autonomous worker runs jobs regardless of lease state. These are forward pointers only; L4 itself did not change.
 
 ---
 
@@ -247,6 +249,8 @@ One daemon per org in MVP. Enforced at push protocol level with **writer fencing
 - Second daemon attempting to push → rejected with lease conflict
 - Lease heartbeat via `viewer_sync_status` updates
 
+> **Forward note (2026-06-12):** The active-writer lease **gates remote push to Supabase only — it does not gate local job execution.** Local SQLite is operational authority; the lease only governs who may push shared-authority rows to Supabase. The L3 autonomous daemon worker (see Layer 3) executes scheduled and triggered jobs **regardless of lease state** — job runs continue to write local operational state normally. On lease loss, only push dispatch is suspended (the outbox accumulates and drains once the lease is reacquired); in-flight and subsequent local work is unaffected.
+
 **L4-FR-1.6.1 — Active-writer lease rejects concurrent pushers**
 - AC1: The first pushing daemon registers or renews lease ownership with its `executor_id`.
 - AC2: A second daemon with a different `executor_id` is rejected from push apply while the lease is valid.
@@ -289,7 +293,9 @@ On lease acquisition, increment `writer_epoch`. Every `apply_push_batch` must in
 
 Current daemon grounding: `crates/daemon/src/db/sqlite.rs::open_state_db(path, schema_epoch)` threads the expected epoch into `StateDbConfig`, applies eligible migrations, and persists the resulting value in `PRAGMA user_version`. L4 extends that existing path rather than introducing a second local epoch source. The L4 SQLite migration `migrations/0012_l4_sync_state.sql` is registered in the `MIGRATIONS` list at the next schema epoch after the current repo epoch (`DEFAULT_SCHEMA_EPOCH = 8` before L4), and push code reads the active epoch from `StateDb::schema_epoch()`/`PRAGMA user_version` when constructing outbox and batch envelopes.
 
-> **Forward note (2026-06-04):** The epoch has advanced since L4. The **current schema epoch is 10**, last bumped by the L5 commercial-intelligence work and the goods-led installation-labour migration `migrations/0014_installation_labour_fields.sql`. The labour/permit columns and the `maintenance_period_estimates` table are projected to Supabase by `infra/supabase/migrations/0010_installation_labour_projection.sql`, which sets `schema_metadata` epoch to 10. The "epoch 8 before L4" baseline above describes the pre-L4 state only — L4 itself did not add labour fields. `crates/daemon/src/db/sqlite.rs` `DEFAULT_SCHEMA_EPOCH`, `apps/desktop/src-tauri/src/main.rs` `EXPECTED_SCHEMA_EPOCH`, `daemon_bridge.rs`, `query_service.rs`, and Supabase `schema_metadata` are all reconciled at 10 (the 0014 migration also closed the prior desktop/daemon epoch-coupling lag).
+> **Forward note (2026-06-12):** The epoch has advanced since L4. The **current schema epoch is 11**, last bumped by the autonomous daemon scheduling migration `migrations/0015_procontract_pending_enrichment.sql`, which adds a new **local-only** `procontract_pending_enrichment` table. That table is dedicated awaiting-access state, not an `interest_registration.state` flip; `interest_registration.state` stays `'completed'` so the register-interest re-fire guard still excludes the tender. The prior bump to 10 was the goods-led installation-labour migration `migrations/0014_installation_labour_fields.sql`. Unlike `0014`, migration `0015` is **SQLite-only**: its new table is local operational state and has **no Supabase projection**, so it does not touch `infra/supabase/migrations/` or change Supabase `schema_metadata`'s projected row shape. The Supabase `schema_metadata` projected epoch is therefore **unchanged — still 10, as last set by `0010_installation_labour_projection.sql`** (the highest Supabase migration); only the local daemon guard and desktop expectation advance to 11. Because the bump is a local-only additive table with no change to any projected table, the existing Supabase projection stays compatible and no `infra/supabase/0011` is required. The "epoch 8 before L4" baseline above describes the pre-L4 state only — L4 itself did not add labour or enrichment fields. The desktop↔daemon epoch coupling is what moves to 11: `crates/daemon/src/db/sqlite.rs` `DEFAULT_SCHEMA_EPOCH`, `apps/desktop/src-tauri/src/main.rs` `EXPECTED_SCHEMA_EPOCH`, `daemon_bridge.rs`, and `query_service.rs` are all reconciled at 11.
+>
+> The earlier bump to 10 was last described as: schema epoch 10, bumped by the goods-led installation-labour migration `migrations/0014_installation_labour_fields.sql`, with labour/permit columns and the `maintenance_period_estimates` table projected to Supabase by `infra/supabase/migrations/0010_installation_labour_projection.sql` (the 0014 migration also closed the prior desktop/daemon epoch-coupling lag). That projection remains in place; `0015` builds on top of it without adding a projection of its own.
 
 **L4-FR-1.7.1 — Schema epoch mismatch pauses sync without stopping local operation**
 - AC1: Every push batch includes `schema_epoch`.
@@ -1170,7 +1176,7 @@ CREATE TABLE viewer_sync_status (
 
 | Feature | L4 Stub | Full Implementation |
 |---------|---------|-------------------|
-| Schema epoch transitions | No expand/drain/upgrade/contract *protocol* yet. Additive epoch bumps have since occurred — **current epoch is 10** (last bumped by the goods-led labour migration `migrations/0014`; see §1.7 forward note) — handled by the existing PRAGMA-backed guard | Future: expand/drain/upgrade/contract protocol |
+| Schema epoch transitions | No expand/drain/upgrade/contract *protocol* yet. Additive epoch bumps have since occurred — **current epoch is 11** (last bumped by the autonomous daemon scheduling migration `migrations/0015`, a local-only table; prior bump to 10 was the goods-led labour migration `migrations/0014`; see §1.7 forward note) — handled by the existing PRAGMA-backed guard | Future: expand/drain/upgrade/contract protocol |
 | Multi-org | Single org hardcoded | Future: org_id scoping on all tables |
 | Epoch-repair reproject | Minimum path: after epoch repair, mark `projection_generation`, republish current row images from local tables, discard stale-epoch outbox entries after successful reseed | Future: full generation-based rebuild with anti-entropy |
 | Logical consistency auditor | Not implemented | Future: domain invariant checking with conditional auto-repair |
@@ -1188,7 +1194,7 @@ CREATE TABLE viewer_sync_status (
 
 | Provision | What Exists in L4 | Target Layer |
 |-----------|-------------------|-------------|
-| schema_epoch on every batch | Per-batch epoch present, sync pauses on mismatch; epoch has since advanced to 10 via additive migrations (see §1.7 forward note) | Future schema evolution protocol |
+| schema_epoch on every batch | Per-batch epoch present, sync pauses on mismatch; epoch has since advanced to 11 via additive migrations (last bumped by local-only `migrations/0015`; prior step `0014`; see §1.7 forward note) | Future schema evolution protocol |
 | RLS roles designed for multi-org | viewer/operator/admin/daemon roles | Future: org_id column for multi-tenancy |
 | Projection tables | Denormalized push-owned mirrors | Future: materialized views for complex queries |
 

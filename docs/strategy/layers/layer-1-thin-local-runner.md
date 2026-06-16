@@ -95,6 +95,8 @@ Procurement Sources (live)         Cost-Estimation APIs
 
 > **[IMPL] ↻ Superseded** — This sentence is historically correct for the original L1 build boundary, but several listed items are now built by later layers. Cron scheduling and source registry live in `crates/daemon/src/scheduler/cron.rs:15` and `crates/daemon/src/sources/registry.rs:210`; the resource arbiter lives in `crates/daemon/src/agents/arbiter.rs:152`; validation policy/execution lives in `crates/daemon/src/validation/policy.rs:238` and `crates/daemon/src/validation/executor.rs:25`; Contracts Finder dispatch is wired through `crates/daemon/src/main.rs:1259`.
 
+> **[IMPL] ✓ As designed (2026-06-12 — autonomous daemon scheduling):** "No cron scheduler" remains the correct **Layer 1 scope** boundary — cron is owned by L3, not L1. But two related changes touched the L1 surface and are worth a forward-pointer: (1) the L1 source live-loop bodies were **refactored** so a worker-claimed queued job can drive them — each `run_*_live_loop` now wraps a shared `*_claimed_live_loop` body, with the thin `--ingest` CLI wrapper minting+claiming a job and the L3 autonomous worker claiming a cron-enqueued job, both calling the *same* body (the body is routed by `SyncSourceRoute::from_key(source_id, skill_id)`); and (2) the daemon serve loop (the L3 hardening layer) now hosts the `autonomous-scheduler-tick` thread plus the two autonomous worker lanes — so the once IPC-only `--serve` process is what makes schedules fire. The manual `--ingest` / `--run-next-job` CLI paths are preserved unchanged.
+
 ### 1.4 Relationship to Layer 0
 
 Layer 0's TypeScript intelligence code runs from CLI (`bun run skill-name`). Layer 1 wraps that same code in daemon-managed execution with a full lifecycle. The intelligence pipeline logic does not change — only the execution wrapper changes.
@@ -199,6 +201,8 @@ All pdf-extraction skills use `model_profile: structured_extract_low_cost` (Haik
 The first live operational loop executes this sequence via manual CLI trigger:
 
 > **[IMPL] ⚠ Deviation:** Actual implementation (2026-05-02): the live loop is now a multi-source/staged dispatcher rather than only the original FTS manual path. `crates/daemon/src/main.rs:1259` dispatches FTS, Contracts Finder, ProContract, ProContract-interest/enrichment, landed-cost, net-gate, manifest, and marketplace sources; `docs/pipeline/multi-source-ingestion-validation-manifest.md` records live Contracts Finder plus ProContract validation evidence.
+
+> **[IMPL] ✓ As designed (2026-06-12 — autonomous daemon scheduling):** The live loop is no longer reachable only by manual CLI trigger. The same loop is now also drivable by a **worker-claimed queued job**: the L3 autonomous worker claims a cron-enqueued `sync_source` row and invokes the shared `*_claimed_live_loop` body (see §1.3). Because a cron-enqueued job carries only schedule metadata (`source_id`, `skill_id`, `scheduled_for`), the shared body **derives the per-run execution parameters at execution time** — cursor from `source_cursors`, `download_root` from the artifact root, and (for ProContract enrich) the awaiting-access work-list — rather than reading them from the job payload. The manual `--ingest <source>` path is preserved as the operator trigger and still mints+claims its own job before calling the same body.
 
 **L1-FR-PIPELINE.2 — Manual Trigger Starts the Live Loop**
 - AC1: An operator can start the FTS live loop with an explicit CLI command.
@@ -734,6 +738,8 @@ crates/
                            #   loop, pid→session_id map, orphan/leak scan, cleanup verdict
                            #   assignment, cleanup_report.json emission per session
 ```
+
+> **[IMPL] ✓ As designed (2026-06-12 — autonomous daemon scheduling):** The crate tree above is the L1 bootstrap surface. In the running system the `--serve` loop (`serve_handshake_service`) is no longer IPC-only: at startup it also spawns the `autonomous-scheduler-tick` thread and the two autonomous worker lanes (PTY/browser + coverage/deterministic), each on its own `StateDb` connection. Those runtime threads live in the L3 hardening layer (`scheduler/tick.rs`, the worker pump in `main.rs`); they are noted here only so the L1 reader knows the serve process drives scheduled work, not just desktop IPC. See L3 §1.5.
 
 ### 2.2 Rust Crate Dependencies
 
