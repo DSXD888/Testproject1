@@ -34,7 +34,7 @@ All curl invocations use the **same** bearer token and **same** headers. Only th
 ### 1. `health_check` works (HTTP 200)
 
 ```bash
-TOKEN=60117ac76a9a5e0ef55bfa67bc745a7b16002c189e8ce578330ec9f82e473b77
+TOKEN=REDACTED-loopback-bearer-token
 
 curl -sS -X POST http://127.0.0.1:8765/mcp/ \
   -H "Content-Type: application/json" \
@@ -51,7 +51,7 @@ curl -sS -X POST http://127.0.0.1:8765/mcp/ \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
   -H "Authorization: Bearer $TOKEN" \
-  --data '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_agents","arguments":{"project_key":"/Users/alinaaitova/Desktop/Testproject1"}}}'
+  --data '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_agents","arguments":{"project_key":"/Users/dieterdanicek/Desktop/testproject1"}}}'
 # → HTTP 403, {"detail":"Forbidden"}
 ```
 
@@ -72,7 +72,7 @@ am serve-http --host 127.0.0.1 --port 8765 --no-tui --no-auth &
 curl -sS -X POST http://127.0.0.1:8765/mcp/ \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
-  --data '{"jsonrpc":"2.0","id":99,"method":"tools/call","params":{"name":"list_agents","arguments":{"project_key":"/Users/alinaaitova/Desktop/Testproject1"}}}'
+  --data '{"jsonrpc":"2.0","id":99,"method":"tools/call","params":{"name":"list_agents","arguments":{"project_key":"/Users/dieterdanicek/Desktop/testproject1"}}}'
 # → HTTP 403, {"detail":"Forbidden"}
 ```
 
