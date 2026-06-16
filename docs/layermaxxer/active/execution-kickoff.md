@@ -174,7 +174,7 @@ Register your identity and check for existing activity. Use the macro for speed:
 
 ```
 macro_start_session(
-  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  project_key="~/Desktop/testproject1",
   program="layermaxxer-executor",
   model="your-model"
 )
@@ -190,7 +190,7 @@ This registers your agent, fetches your inbox, and shows active file reservation
 # 1. Discover live peers in YOUR program.
 #    _within_last_hour is a 3-line helper:
 #      def _within_last_hour(ts): return ts and (now_utc() - parse_iso(ts)) < timedelta(hours=1)
-peers = list_agents(project_key="/Users/alinaaitova/Desktop/Testproject1")
+peers = list_agents(project_key="~/Desktop/testproject1")
 my_program = next((p["program"] for p in peers if p["name"] == <your-name>), None)
 candidates = [p for p in peers
               if p["name"] != <your-name>
@@ -200,13 +200,13 @@ candidates = [p for p in peers
 # 2. Handshake each.
 for peer in candidates:
     macro_contact_handshake(
-        project_key="/Users/alinaaitova/Desktop/Testproject1",
+        project_key="~/Desktop/testproject1",
         requester=<your-name>,
         target=peer["name"],
     )
 
 # 3. VERIFY — every candidate must now appear in list_contacts.
-verified = list_contacts(project_key="/Users/alinaaitova/Desktop/Testproject1",
+verified = list_contacts(project_key="~/Desktop/testproject1",
                          agent_name=<your-name>)
 verified_names = {(c["name"] if isinstance(c, dict) else c) for c in (verified or [])}
 missing = [p["name"] for p in candidates if p["name"] not in verified_names]
@@ -220,9 +220,9 @@ Refresh this handshake loop whenever you notice a new peer in `list_agents` that
 If `macro_start_session` is unavailable, do it manually:
 
 ```
-ensure_project(project_key="/Users/alinaaitova/Desktop/Testproject1")
-register_agent(project_key="/Users/alinaaitova/Desktop/Testproject1", program="layermaxxer-executor", model="your-model")
-fetch_inbox(project_key="/Users/alinaaitova/Desktop/Testproject1", agent_name="your-name")
+ensure_project(project_key="~/Desktop/testproject1")
+register_agent(project_key="~/Desktop/testproject1", program="layermaxxer-executor", model="your-model")
+fetch_inbox(project_key="~/Desktop/testproject1", agent_name="your-name")
 ```
 
 **Check your inbox.** Acknowledge any messages. Note any conflicts or coordination requests from other agents.
@@ -233,7 +233,7 @@ Before editing ANY file, you MUST reserve it:
 
 ```
 file_reservation_paths(
-  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  project_key="~/Desktop/testproject1",
   agent_name="your-name",
   paths=["docs/strategy/layers/layer-N-*.md"],
   ttl_seconds=3600,
@@ -250,7 +250,7 @@ Send a message announcing you are starting work on this bead:
 
 ```
 send_message(
-  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  project_key="~/Desktop/testproject1",
   sender_name="your-name",
   to=["<peers>"],  # from list_contacts — NEVER "broadcast"
   thread_id="br-{bead-id}",
@@ -267,7 +267,7 @@ After closing a bead and pushing, you MUST:
 1. **Release the file reservation:**
    ```
    release_file_reservations(
-     project_key="/Users/alinaaitova/Desktop/Testproject1",
+     project_key="~/Desktop/testproject1",
      agent_name="your-name",
      paths=["docs/strategy/layers/layer-N-*.md"]
    )
@@ -276,7 +276,7 @@ After closing a bead and pushing, you MUST:
 2. **Announce completion:**
    ```
    send_message(
-     project_key="/Users/alinaaitova/Desktop/Testproject1",
+     project_key="~/Desktop/testproject1",
      sender_name="your-name",
      to=["<peers>"],  # from list_contacts — NEVER "broadcast"
      thread_id="br-{bead-id}",
@@ -378,7 +378,7 @@ git push
 
 ```
 release_file_reservations(
-  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  project_key="~/Desktop/testproject1",
   agent_name="your-name",
   paths=["docs/strategy/layers/layer-N-*.md"]
 )
@@ -388,7 +388,7 @@ release_file_reservations(
 
 ```
 send_message(
-  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  project_key="~/Desktop/testproject1",
   sender_name="your-name",
   to=["<peers>"],  # from list_contacts — NEVER "broadcast"
   thread_id="br-{bead-id}",
@@ -400,7 +400,7 @@ send_message(
 ### 8.5 Check Inbox Before Picking Next Bead
 
 ```
-fetch_inbox(project_key="/Users/alinaaitova/Desktop/Testproject1", agent_name="your-name")
+fetch_inbox(project_key="~/Desktop/testproject1", agent_name="your-name")
 ```
 
 Acknowledge any messages. Check for conflicts or requests from other agents.
@@ -450,7 +450,7 @@ When ending a work session, execute ALL steps. Do NOT skip Agent Mail steps.
 7. **Release ALL file reservations (MANDATORY):**
    ```
    release_file_reservations(
-     project_key="/Users/alinaaitova/Desktop/Testproject1",
+     project_key="~/Desktop/testproject1",
      agent_name="your-name",
      paths=["docs/strategy/**"]
    )
@@ -458,7 +458,7 @@ When ending a work session, execute ALL steps. Do NOT skip Agent Mail steps.
 8. **Announce session end (MANDATORY):**
    ```
    send_message(
-     project_key="/Users/alinaaitova/Desktop/Testproject1",
+     project_key="~/Desktop/testproject1",
      sender_name="your-name",
      to=["<peers>"],  # from list_contacts — NEVER "broadcast"
      thread_id="session-end",

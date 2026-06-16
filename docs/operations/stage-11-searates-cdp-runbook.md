@@ -20,7 +20,7 @@ curl -sfS -m 3 "http://localhost:9222/json/version"
 #    EXPECTED: HTTP 200 + JSON containing "Browser":"Chrome/<version>" and a "webSocketDebuggerUrl".
 #    FAILURE:  curl exit 7 / "Couldn't connect" → CDP is NOT up. Re-run bin/ensure-cdp-9222
 #              and inspect its JSON status line. Do NOT start a fresh throwaway profile —
-#              the persistent profile lives at /Users/alinaaitova/.chrome-automation.
+#              the persistent profile lives at ~/.chrome-automation.
 ```
 
 If step 2 does not return a healthy `Chrome/<version>` payload, the browser is not reachable and a Stage 11 SeaRates run will persist **`CDP_CONNECT_FAILED`**. Resolve CDP before proceeding.

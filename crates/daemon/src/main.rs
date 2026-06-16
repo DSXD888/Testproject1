@@ -17318,12 +17318,14 @@ fn default_ensure_cdp_helper_path() -> PathBuf {
         .parent()
         .and_then(|p| p.parent())
         .map(|p| p.join("bin").join("ensure-cdp-9222"));
-    if let Some(p) = from_manifest
+    if let Some(p) = &from_manifest
         && p.exists()
     {
-        return p;
+        return p.clone();
     }
-    PathBuf::from("/Users/alinaaitova/Desktop/Testproject1/bin/ensure-cdp-9222")
+    // Last-resort fallback: repo-root-relative (machine-agnostic). The caller
+    // verifies existence and emits a clear error if the helper is missing.
+    from_manifest.unwrap_or_else(|| PathBuf::from("bin/ensure-cdp-9222"))
 }
 
 fn ensure_cdp_9222(cdp_port: u16) -> Result<(), String> {

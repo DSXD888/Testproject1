@@ -95,7 +95,7 @@ All 43 commits tagged OK / REVIEW / SUSPICIOUS per §3.1. Diffs read; no SUSPICI
 | 7e17d43 | 2026-05-12 | +52/-27  | OK | docs only — refine machine fork e2e handoff |
 | 02517df | 2026-05-12 | +1049/-0 | OK | docs only — machine fork e2e QA handoff |
 | 9a9fdc6 | 2026-05-11 | +1/-0    | OK | `.gitignore`: added `.env.local` after existing `.env` line. Security improvement, NOT suspicious. |
-| 15bae1a | 2026-05-09 | +1474/-1474 | OK | Mass path rename across 31 docs (`/Users/alinaaitova/` → `/Users/zacfarrell/`). Diff is symmetric (+/- balanced). This is the change that introduced the wrong AgentMail `project_key` in manifest.yaml line 29. |
+| 15bae1a | 2026-05-09 | +1474/-1474 | OK | Mass path rename across 31 docs (`~/` → `/Users/zacfarrell/`). Diff is symmetric (+/- balanced). This is the change that introduced the wrong AgentMail `project_key` in manifest.yaml line 29. |
 | 7c4cb34 | 2026-05-09 | +2/-0    | OK | AGENTS.md: HTML comment markers `<!-- BEGIN/END: AGENTS.md Rule 2 (managed by install-bead-wrappers skill) -->`. Innocuous. |
 | e7e43b3 | 2026-05-09 | +87/-70  | OK | docs only — refresh Agent Mail handoff instructions across 4 prompts |
 | 301c926 | 2026-05-09 | +21/-1   | OK | docs only — Agent Mail handoff source precedence |
@@ -229,7 +229,7 @@ Per §3.3:
 | docs/pipeline/l5-expanded-commercial-intelligence/13-fix-beads-kickoff.md | dcdd1e1 | Alina | |
 | docs/pipeline/l5-expanded-commercial-intelligence/14-fix-beads-push.md | dcdd1e1 | Alina | |
 | docs/pipeline/l5-expanded-commercial-intelligence/EXECUTION-GUIDE.md | dcdd1e1 | Alina | |
-| docs/pipeline/l5-expanded-commercial-intelligence/manifest.yaml | dcdd1e1 | Alina | **Expected side-effect: AgentMail `project_key` reverts to `/Users/alinaaitova/Desktop/Testproject1`** (verified via §5.6 grep after revert) |
+| docs/pipeline/l5-expanded-commercial-intelligence/manifest.yaml | dcdd1e1 | Alina | **Expected side-effect: AgentMail `project_key` reverts to `~/Desktop/testproject1`** (verified via §5.6 grep after revert) |
 | docs/pipeline/stage-11-cdp-live-demos-continuation-handoff.md | c019eec | Alina | |
 | docs/planmaxer/archived/iteration-001/handoffs/handoff-frontend-integration.md | 9bdf6c0 | Alina | (4 iteration-001 files: same Alina checkin) |
 | docs/planmaxer/archived/iteration-001/handoffs/handoff-mvp-delivery.md | 9bdf6c0 | Alina | |
@@ -410,10 +410,10 @@ Operator may rewrite these files when L5 reaches Phase 5 maturation. Operator de
 
 ## manifest.yaml fix
 
-R1 restoration of `docs/pipeline/l5-expanded-commercial-intelligence/manifest.yaml` automatically reverted `project_key` from `/Users/zacfarrell/Desktop/Testproject1` to `/Users/alinaaitova/Desktop/Testproject1`. Verified via `grep -n project_key`:
+R1 restoration of `docs/pipeline/l5-expanded-commercial-intelligence/manifest.yaml` automatically reverted `project_key` from `/Users/zacfarrell/Desktop/Testproject1` to `~/Desktop/testproject1`. Verified via `grep -n project_key`:
 
 ```
-29:  project_key: /Users/alinaaitova/Desktop/Testproject1
+29:  project_key: ~/Desktop/testproject1
 ```
 
 No manual Edit-tool fix required.
@@ -431,7 +431,7 @@ Returned **0 lines.** Zero zacfarrell / elias path references remain in any trac
 ## AgentMail health
 
 - MCP `mcp__mcp-agent-mail__health_check` returned `health_level: "red"`, `status: "error"`, `recovery: "degraded_read_only"`. **Pre-existing condition** (not caused by this revert). Recovery suggested: `am doctor reconstruct --dry-run` then `--yes` if needed. Operator should run separately when convenient.
-- `am guard status /Users/alinaaitova/Desktop/Testproject1` returned: Mode=Block, Pre-commit=installed, Pre-push=installed. Guards healthy.
+- `am guard status ~/Desktop/testproject1` returned: Mode=Block, Pre-commit=installed, Pre-push=installed. Guards healthy.
 - `bin/br-claim`, `bin/br-complete`, `bin/br-sync` all present and executable.
 - Pre-commit hook required `AGENT_NAME` env var; set to `Cleanup-Handoff-1` for the revert commit. Hook passed without flagging file-reservation conflicts.
 

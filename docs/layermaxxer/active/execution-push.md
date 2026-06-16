@@ -43,7 +43,7 @@ If resuming a session, re-register and check your inbox. Use the macro for speed
 
 ```
 macro_start_session(
-  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  project_key="~/Desktop/testproject1",
   program="layermaxxer-executor",
   model="your-model"
 )
@@ -54,8 +54,8 @@ macro_start_session(
 ```
 # _within_last_hour is a 3-line helper:
 #   def _within_last_hour(ts): return ts and (now_utc() - parse_iso(ts)) < timedelta(hours=1)
-peers = list_agents(project_key="/Users/alinaaitova/Desktop/Testproject1")
-contacts = list_contacts(project_key="/Users/alinaaitova/Desktop/Testproject1", agent_name=<your-name>)
+peers = list_agents(project_key="~/Desktop/testproject1")
+contacts = list_contacts(project_key="~/Desktop/testproject1", agent_name=<your-name>)
 contact_names = {(c["name"] if isinstance(c, dict) else c) for c in (contacts or [])}
 my_program = next((p["program"] for p in peers if p["name"] == <your-name>), None)
 new_handshakes = []
@@ -65,14 +65,14 @@ for peer in peers:
         and peer.get("program") == my_program
         and _within_last_hour(peer.get("last_active_ts"))):
         macro_contact_handshake(
-            project_key="/Users/alinaaitova/Desktop/Testproject1",
+            project_key="~/Desktop/testproject1",
             requester=<your-name>,
             target=peer["name"],
         )
         new_handshakes.append(peer["name"])
 
 # Verify — list_contacts must now include every peer you just handshook.
-contacts_after = list_contacts(project_key="/Users/alinaaitova/Desktop/Testproject1",
+contacts_after = list_contacts(project_key="~/Desktop/testproject1",
                                agent_name=<your-name>)
 after_names = {(c["name"] if isinstance(c, dict) else c) for c in (contacts_after or [])}
 missing = [n for n in new_handshakes if n not in after_names]
@@ -85,9 +85,9 @@ Do this on every session resume and after any "swarm grows" event.
 If `macro_start_session` is unavailable, do it manually:
 
 ```
-ensure_project(project_key="/Users/alinaaitova/Desktop/Testproject1")
-register_agent(project_key="/Users/alinaaitova/Desktop/Testproject1", program="layermaxxer-executor", model="your-model")
-fetch_inbox(project_key="/Users/alinaaitova/Desktop/Testproject1", agent_name="your-name")
+ensure_project(project_key="~/Desktop/testproject1")
+register_agent(project_key="~/Desktop/testproject1", program="layermaxxer-executor", model="your-model")
+fetch_inbox(project_key="~/Desktop/testproject1", agent_name="your-name")
 ```
 
 **Acknowledge all messages.** Note any conflicts or coordination requests from other agents.
@@ -98,7 +98,7 @@ Check what files other agents have reserved before picking work:
 
 ```
 file_reservation_paths(
-  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  project_key="~/Desktop/testproject1",
   agent_name="your-name",
   paths=["docs/strategy/**"]
 )
@@ -146,7 +146,7 @@ br update {id} --status=in_progress
 
 ```
 file_reservation_paths(
-  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  project_key="~/Desktop/testproject1",
   agent_name="your-name",
   paths=["docs/strategy/layers/layer-N-*.md"],
   ttl_seconds=3600,
@@ -161,7 +161,7 @@ If you get `FILE_RESERVATION_CONFLICT`, pick a different bead.
 
 ```
 send_message(
-  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  project_key="~/Desktop/testproject1",
   sender_name="your-name",
   to=["<peers>"],  # from list_contacts — NEVER "broadcast"
   thread_id="br-{bead-id}",
@@ -257,7 +257,7 @@ git push
 
 ```
 release_file_reservations(
-  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  project_key="~/Desktop/testproject1",
   agent_name="your-name",
   paths=["docs/strategy/layers/layer-N-*.md"]
 )
@@ -267,7 +267,7 @@ release_file_reservations(
 
 ```
 send_message(
-  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  project_key="~/Desktop/testproject1",
   sender_name="your-name",
   to=["<peers>"],  # from list_contacts — NEVER "broadcast"
   thread_id="br-{bead-id}",
@@ -279,7 +279,7 @@ send_message(
 ### 6.5 Check Inbox Before Next Bead
 
 ```
-fetch_inbox(project_key="/Users/alinaaitova/Desktop/Testproject1", agent_name="your-name")
+fetch_inbox(project_key="~/Desktop/testproject1", agent_name="your-name")
 ```
 
 Acknowledge any messages. Check for conflicts before continuing.
@@ -305,7 +305,7 @@ When ending work, execute ALL steps. Do NOT skip Agent Mail steps.
 7. **Release ALL file reservations (MANDATORY):**
    ```
    release_file_reservations(
-     project_key="/Users/alinaaitova/Desktop/Testproject1",
+     project_key="~/Desktop/testproject1",
      agent_name="your-name",
      paths=["docs/strategy/**"]
    )
@@ -313,7 +313,7 @@ When ending work, execute ALL steps. Do NOT skip Agent Mail steps.
 8. **Announce session end (MANDATORY):**
    ```
    send_message(
-     project_key="/Users/alinaaitova/Desktop/Testproject1",
+     project_key="~/Desktop/testproject1",
      sender_name="your-name",
      to=["<peers>"],  # from list_contacts — NEVER "broadcast"
      thread_id="session-end",

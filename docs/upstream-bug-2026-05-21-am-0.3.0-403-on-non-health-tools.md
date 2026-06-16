@@ -51,7 +51,7 @@ curl -sS -X POST http://127.0.0.1:8765/mcp/ \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
   -H "Authorization: Bearer $TOKEN" \
-  --data '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_agents","arguments":{"project_key":"/Users/dieterdanicek/Desktop/testproject1"}}}'
+  --data '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_agents","arguments":{"project_key":"~/Desktop/testproject1"}}}'
 # → HTTP 403, {"detail":"Forbidden"}
 ```
 
@@ -72,7 +72,7 @@ am serve-http --host 127.0.0.1 --port 8765 --no-tui --no-auth &
 curl -sS -X POST http://127.0.0.1:8765/mcp/ \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
-  --data '{"jsonrpc":"2.0","id":99,"method":"tools/call","params":{"name":"list_agents","arguments":{"project_key":"/Users/dieterdanicek/Desktop/testproject1"}}}'
+  --data '{"jsonrpc":"2.0","id":99,"method":"tools/call","params":{"name":"list_agents","arguments":{"project_key":"~/Desktop/testproject1"}}}'
 # → HTTP 403, {"detail":"Forbidden"}
 ```
 

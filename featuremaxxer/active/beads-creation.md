@@ -992,7 +992,7 @@ Every bead touching the feature must carry testing requirements:
 
 ## 8. TOOLING
 
-Use the beads_rust CLI (`br`) for bead management. Version 0.1.26 is installed at `/Users/alinaaitova/.local/bin/br`. Existing bead graph lives in `.beads/`.
+Use the beads_rust CLI (`br`) for bead management. Version 0.1.26 is installed at `~/.local/bin/br`. Existing bead graph lives in `.beads/`.
 
 ```bash
 # Create beads

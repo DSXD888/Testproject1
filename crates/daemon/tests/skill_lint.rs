@@ -647,7 +647,7 @@ fn l6_t_bid_portal_procontract_skill_004_cdp_discipline_and_playbook_contract() 
         "bin/ensure-cdp-9222",
         "http://localhost:${CDP_PORT}/json/version",
         "agent-browser --cdp ${CDP_PORT}",
-        "/Users/alinaaitova/.chrome-automation",
+        "~/.chrome-automation",
         "return `AUTH_STATE_STALE` immediately",
         "Do not call `auth-signin/procontract`.",
         "The daemon owns the retry",

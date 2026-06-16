@@ -3159,7 +3159,7 @@ fn l6_t_sync_propagation_002_bid_state_mutation_creates_redacted_outbox_and_batc
         },
         "documents": [
             {
-                "filePath": "/Users/alinaaitova/private/tender-response.pdf"
+                "filePath": "/Users/operator/private/tender-response.pdf"
             }
         ]
     });
@@ -3246,7 +3246,7 @@ fn l6_t_sync_propagation_002_bid_state_mutation_creates_redacted_outbox_and_batc
         !outbox_payload_json.contains("TestCompanyName-Sentinel-L6-2026")
             && !outbox_payload_json.contains("sales@sorelon.com")
             && !outbox_payload_json.contains("OPP-SENSITIVE-REF")
-            && !outbox_payload_json.contains("/Users/alinaaitova/private"),
+            && !outbox_payload_json.contains("/Users/operator/private"),
         "outbox payload leaked sensitive bid scope fields: {outbox_payload_json}"
     );
     ensure!(
@@ -3292,7 +3292,7 @@ fn l6_t_sync_propagation_002_bid_state_mutation_creates_redacted_outbox_and_batc
             .contains("TestCompanyName-Sentinel-L6-2026")
             && !batch.payload_json.contains("sales@sorelon.com")
             && !batch.payload_json.contains("OPP-SENSITIVE-REF")
-            && !batch.payload_json.contains("/Users/alinaaitova/private"),
+            && !batch.payload_json.contains("/Users/operator/private"),
         "sync batch envelope leaked sensitive bid scope fields: {}",
         batch.payload_json
     );

@@ -14,7 +14,7 @@ Read these before resuming work:
 2. Feature: docs/research/2026-04-11-pdf-extraction-toolkit-research.md
 3. Strategy: featuremaxxer/active/implementation-strategy.md
 4. Bead graph: br ready && br show <next-id>
-5. Inbox: fetch_inbox(project_key="/Users/alinaaitova/Desktop/Testproject1", agent_name=<your-name>)
+5. Inbox: fetch_inbox(project_key="~/Desktop/testproject1", agent_name=<your-name>)
 ```
 
 **Feature:** Hybrid Docling + Claude PDF extraction toolkit. New daemon module (`crates/daemon/src/pdf/`), new migration (`migrations/0006_pdf_extraction_toolkit.sql`), new skill family (`skills/pdf-extraction/*` — 4 packages), two new job kinds, document role classification + extraction policy, large-doc chunking, error handling, downstream consumer upgrade.
@@ -61,7 +61,7 @@ inbox → ready → read → claim+reserve+announce → implement (TDD, no mid-w
 
 ```
 # Check inbox BEFORE every bead pick (MCP tool call)
-fetch_inbox(project_key="/Users/alinaaitova/Desktop/Testproject1", agent_name=<your-name>)
+fetch_inbox(project_key="~/Desktop/testproject1", agent_name=<your-name>)
 # Act on ack_required=true messages before proceeding. Check for blocker resolutions.
 ```
 
@@ -76,10 +76,10 @@ br update <id> --status=in_progress
 
 ```
 # Reserve files + announce (MCP tool calls)
-file_reservation_paths(project_key="/Users/alinaaitova/Desktop/Testproject1",
+file_reservation_paths(project_key="~/Desktop/testproject1",
   agent_name=<your-name>, paths=[<files>], ttl_seconds=3600, exclusive=true,
   reason="<bead-id>")
-send_message(project_key="/Users/alinaaitova/Desktop/Testproject1",
+send_message(project_key="~/Desktop/testproject1",
   sender_name=<your-name>, to=["<peers>"], thread_id="<bead-id>",
   subject="[<bead-id>] Start: <title>", body_md="Claiming.", ack_required=false)
 # <peers> = agent names from list_contacts() — NEVER use "broadcast"
@@ -114,9 +114,9 @@ br sync --flush-only
 
 ```
 # Release + announce (MCP tool calls)
-release_file_reservations(project_key="/Users/alinaaitova/Desktop/Testproject1",
+release_file_reservations(project_key="~/Desktop/testproject1",
   agent_name=<your-name>, paths=[<files>])
-send_message(project_key="/Users/alinaaitova/Desktop/Testproject1",
+send_message(project_key="~/Desktop/testproject1",
   sender_name=<your-name>, to=["<peers>"], thread_id="<bead-id>",
   subject="[<bead-id>] Completed", body_md="Done.", ack_required=false)
 # <peers> = agent names from list_contacts() — NEVER use "broadcast"
@@ -206,7 +206,7 @@ Trust `br ready` for actual ordering.
 
 ## 9. AGENTMAIL QUICK REFERENCE
 
-All MCP calls use `project_key="/Users/alinaaitova/Desktop/Testproject1"`.
+All MCP calls use `project_key="~/Desktop/testproject1"`.
 ```
 # Claim:   send_message(..., thread_id="<bead-id>", subject="[<bead-id>] Start: <title>")
 # Complete: send_message(..., thread_id="<bead-id>", subject="[<bead-id>] Completed: <title>")

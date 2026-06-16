@@ -32,7 +32,7 @@ get past Alibaba's anti-bot interstitials and read tier pricing.
 ### Operator prerequisite (one-time setup)
 
 For routine launches, `bin/ensure-cdp-9222` handles this automatically (the
-operator's persistent `/Users/alinaaitova/.chrome-automation` profile IS already
+operator's persistent `~/.chrome-automation` profile IS already
 a non-default dir, so the Chrome-136+ constraint is satisfied). The manual
 ceremony below is for first-time profile creation or recovery from a broken
 profile state only.
@@ -186,10 +186,10 @@ Before doing any navigation:
 # Ensure CDP is up. The daemon's pre-flight gate SHOULD have done this already,
 # but defense in depth: bin/ensure-cdp-9222 is idempotent and fast (<1s no-op
 # when CDP is already up; otherwise launches Chrome with the operator's
-# persistent profile at /Users/alinaaitova/.chrome-automation and polls up to
+# persistent profile at ~/.chrome-automation and polls up to
 # 15s). Returns non-zero only if launch genuinely failed. Absolute path because
 # the skill subprocess cwd is the per-skill workdir, not the project root.
-/Users/alinaaitova/Desktop/Testproject1/bin/ensure-cdp-9222
+~/Desktop/testproject1/bin/ensure-cdp-9222
 
 # Defensive reachability check. If this reports CDP_UNREACHABLE / not JSON
 # containing "Chrome/...", follow the existing fallback guidance below: emit

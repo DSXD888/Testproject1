@@ -59,10 +59,10 @@ Navigate the Procontract eSourcing portal, fill bid forms, upload documents, and
 
    ```bash
    CDP_PORT="${AGENT_BROWSER_CDP_PORT:-9222}"
-   PROJECT_ROOT="/Users/alinaaitova/Desktop/Testproject1"
+   PROJECT_ROOT="~/Desktop/testproject1"
    ```
 
-2. Run the idempotent CDP helper before any portal navigation. It attaches to the operator's persistent Chrome profile at `/Users/alinaaitova/.chrome-automation` on port 9222 and must not create a fresh profile.
+2. Run the idempotent CDP helper before any portal navigation. It attaches to the operator's persistent Chrome profile at `~/.chrome-automation` on port 9222 and must not create a fresh profile.
 
    ```bash
    "${PROJECT_ROOT}/bin/ensure-cdp-9222"
@@ -342,7 +342,7 @@ Before every step, compare the next step's side-effect class with `BidScopePaylo
 - Any unknown portal state after mutation: return a failed result with `portal_state_unknown: true` and all screenshots captured so far.
 
 ## CDP Discipline - Do NOT
-- DO NOT launch a fresh browser profile — attach to operator's persistent CDP at `/Users/alinaaitova/.chrome-automation:9222`.
+- DO NOT launch a fresh browser profile — attach to operator's persistent CDP at `~/.chrome-automation:9222`.
 - DO NOT close the operator's browser.
 - DO NOT sign out — subsequent skills (or operator) need the session.
 - DO NOT solve captchas.

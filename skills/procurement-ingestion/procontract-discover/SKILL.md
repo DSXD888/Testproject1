@@ -67,10 +67,10 @@ CDP_PORT="${AGENT_BROWSER_CDP_PORT:-9222}"
 # Ensure CDP is up. The daemon's pre-flight gate SHOULD have done this already,
 # but defense in depth: bin/ensure-cdp-9222 is idempotent and fast (<1s no-op
 # when CDP is already up; otherwise launches Chrome with the operator's
-# persistent profile at /Users/alinaaitova/.chrome-automation and polls up to
+# persistent profile at ~/.chrome-automation and polls up to
 # 15s). Returns non-zero only if launch genuinely failed. Absolute path because
 # the skill subprocess cwd is the per-skill workdir, not the project root.
-/Users/alinaaitova/Desktop/Testproject1/bin/ensure-cdp-9222
+~/Desktop/testproject1/bin/ensure-cdp-9222
 
 # Defensive reachability check. If this fails (helper exited non-zero, or a
 # rare post-launch race), follow the "If CDP is unreachable" guidance below:

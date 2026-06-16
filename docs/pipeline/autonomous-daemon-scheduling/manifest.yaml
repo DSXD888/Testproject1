@@ -64,7 +64,7 @@ implementation_epic: "testproject1-0c1g"     # set at step 07 (2026-06-08); root
 
 agentmail:
   enabled: true
-  project_key: /Users/alinaaitova/Desktop/Testproject1
+  project_key: ~/Desktop/testproject1
   health_endpoint: http://127.0.0.1:8765/health/liveness
 
 # ============================================================================

@@ -193,10 +193,10 @@ Before starting work, read these documents:
 Before starting any work, register with the coordination system:
 
 ```
-1. ensure_project(project_key="/Users/alinaaitova/Desktop/Testproject1")
-2. register_agent(project_key="/Users/alinaaitova/Desktop/Testproject1", program="claude", model="opus")
-3. set_contact_policy(project_key="/Users/alinaaitova/Desktop/Testproject1", agent_name=<your-name>, policy="open")
-4. fetch_inbox(project_key="/Users/alinaaitova/Desktop/Testproject1", agent_name=<your-name>)
+1. ensure_project(project_key="~/Desktop/testproject1")
+2. register_agent(project_key="~/Desktop/testproject1", program="claude", model="opus")
+3. set_contact_policy(project_key="~/Desktop/testproject1", agent_name=<your-name>, policy="open")
+4. fetch_inbox(project_key="~/Desktop/testproject1", agent_name=<your-name>)
 ```
 
 ---
@@ -255,7 +255,7 @@ Other agents may be working in this repository simultaneously. You will regularl
 
 **INBOX (before every bead pick):**
 ```
-fetch_inbox(project_key="/Users/alinaaitova/Desktop/Testproject1", agent_name=<your-name>)
+fetch_inbox(project_key="~/Desktop/testproject1", agent_name=<your-name>)
 ```
 Check for coordination messages, blocker resolutions, or announcements from other agents. Act on any `ack_required=true` messages before proceeding.
 
@@ -270,12 +270,12 @@ br show testproject1-vt96.1.1          # Read full bead details
 br update testproject1-vt96.1.1 --status=in_progress
 ```
 ```
-file_reservation_paths(project_key="/Users/alinaaitova/Desktop/Testproject1",
+file_reservation_paths(project_key="~/Desktop/testproject1",
   agent_name=<your-name>,
   paths=[<files from bead>],
   ttl_seconds=3600, exclusive=true,
   reason="testproject1-vt96.1.1")
-send_message(project_key="/Users/alinaaitova/Desktop/Testproject1",
+send_message(project_key="~/Desktop/testproject1",
   sender_name=<your-name>, to=["<peers>"], thread_id="testproject1-vt96.1.1",
   subject="[testproject1-vt96.1.1] Start: Migration 0006 — extraction tables",
   body_md="Claiming. Files: migrations/0006_pdf_extraction_toolkit.sql, crates/daemon/src/db/sqlite.rs",
@@ -319,10 +319,10 @@ br close testproject1-vt96.1.1 --reason "Completed"
 br sync --flush-only
 ```
 ```
-release_file_reservations(project_key="/Users/alinaaitova/Desktop/Testproject1",
+release_file_reservations(project_key="~/Desktop/testproject1",
   agent_name=<your-name>,
   paths=[<files from this bead>])
-send_message(project_key="/Users/alinaaitova/Desktop/Testproject1",
+send_message(project_key="~/Desktop/testproject1",
   sender_name=<your-name>, to=["<peers>"], thread_id="testproject1-vt96.1.1",
   subject="[testproject1-vt96.1.1] Completed: Migration 0006 — extraction tables",
   body_md="Done. Files changed: migrations/0006_pdf_extraction_toolkit.sql, crates/daemon/src/db/sqlite.rs. Tests passing.",
@@ -505,40 +505,40 @@ Tracks A and B converge at Epic 4 (Job Runner Integration). Reserve files accord
 
 ## 12. AGENTMAIL QUICK REFERENCE
 
-All MCP calls use `project_key="/Users/alinaaitova/Desktop/Testproject1"`.
+All MCP calls use `project_key="~/Desktop/testproject1"`.
 
 ```
 # Claim work (MCP tool call, not bash)
-send_message(project_key="/Users/alinaaitova/Desktop/Testproject1", sender_name=<your-name>,
+send_message(project_key="~/Desktop/testproject1", sender_name=<your-name>,
   to=["<peers>"], thread_id="testproject1-vt96.X.Y",
   subject="[testproject1-vt96.X.Y] Start: <bead title>",
   body_md="Claiming. Files: <list>", ack_required=false)
 # <peers> = agent names from list_contacts() — NEVER use "broadcast"
 
 # Reserve files (MCP tool call)
-file_reservation_paths(project_key="/Users/alinaaitova/Desktop/Testproject1",
+file_reservation_paths(project_key="~/Desktop/testproject1",
   agent_name=<your-name>,
   paths=[<files from bead>],
   ttl_seconds=3600, exclusive=true,
   reason="testproject1-vt96.X.Y")
 
 # Complete work (MCP tool call)
-send_message(project_key="/Users/alinaaitova/Desktop/Testproject1", sender_name=<your-name>,
+send_message(project_key="~/Desktop/testproject1", sender_name=<your-name>,
   to=["<peers>"], thread_id="testproject1-vt96.X.Y",
   subject="[testproject1-vt96.X.Y] Completed: <bead title>",
   body_md="Done. Summary: <what changed>", ack_required=false)
 # <peers> = agent names from list_contacts() — NEVER use "broadcast"
 
 # Report blocker (MCP tool call)
-send_message(project_key="/Users/alinaaitova/Desktop/Testproject1", sender_name=<your-name>,
+send_message(project_key="~/Desktop/testproject1", sender_name=<your-name>,
   to=["<blocking-agent>"], thread_id="testproject1-vt96.X.Y",
   subject="[testproject1-vt96.X.Y] Blocked: <reason>",
   body_md="<details>", ack_required=true)
 
 # Release files (MCP tool call)
-release_file_reservations(project_key="/Users/alinaaitova/Desktop/Testproject1",
+release_file_reservations(project_key="~/Desktop/testproject1",
   agent_name=<your-name>, paths=[<files>])
 
 # Check inbox (MCP tool call)
-fetch_inbox(project_key="/Users/alinaaitova/Desktop/Testproject1", agent_name=<your-name>)
+fetch_inbox(project_key="~/Desktop/testproject1", agent_name=<your-name>)
 ```

@@ -105,7 +105,7 @@ class DiscoverPeersTests(unittest.TestCase):
         # create archive directories through symlinked paths and enters degraded
         # state, which then makes list_agents/list_contacts fail across the whole
         # daemon (not just this project). Resolving the symlink up front bypasses
-        # that. Real project paths (e.g. /Users/alinaaitova/Desktop/Testproject1)
+        # that. Real project paths (e.g. ~/Desktop/testproject1)
         # don't hit this — only test-tempdir paths do.
         raw_tmp = tempfile.mkdtemp(prefix="test-peer-discovery-")
         self.project_key = os.path.realpath(raw_tmp)

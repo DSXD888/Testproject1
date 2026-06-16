@@ -544,7 +544,7 @@ rg -l -t rust 'unwrap\(' | xargs ast-grep run -l Rust -p '$X.unwrap()' --json
 
 ```
 mcp__morph-mcp__warp_grep(
-  repoPath: "/Users/alinaaitova/Desktop/Testproject1",
+  repoPath: "~/Desktop/testproject1",
   query: "How does the SSE parser handle streaming events?"
 )
 ```
@@ -759,7 +759,7 @@ The skill contains complete usage instructions, command reference, and workflow 
 
 Skills that drive a browser via Chrome DevTools Protocol declare `requires_cdp: true` in their YAML frontmatter. The current set is enumerated in `crates/daemon/tests/skill_lint.rs::CDP_BROWSER_SKILLS`.
 
-**Auto-launch:** The daemon calls `bin/ensure-cdp-9222` before invoking any CDP-requiring skill. If Chrome is not already running on port 9222, the helper launches it with the operator's persistent profile at `/Users/alinaaitova/.chrome-automation`. Skills also call the helper from their "Mandatory CDP Discipline" section as defence in depth (in case Chrome crashes mid-execution).
+**Auto-launch:** The daemon calls `bin/ensure-cdp-9222` before invoking any CDP-requiring skill. If Chrome is not already running on port 9222, the helper launches it with the operator's persistent profile at `~/.chrome-automation`. Skills also call the helper from their "Mandatory CDP Discipline" section as defence in depth (in case Chrome crashes mid-execution).
 
 The helper is idempotent and fast on the happy path (~1s when CDP is up).
 
@@ -769,7 +769,7 @@ The helper is idempotent and fast on the happy path (~1s when CDP is up).
 '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' \
   --remote-debugging-port=9222 \
   '--remote-allow-origins=*' \
-  --user-data-dir=/Users/alinaaitova/.chrome-automation \
+  --user-data-dir=~/.chrome-automation \
   --profile-directory=Default --no-first-run --no-default-browser-check &
 ```
 

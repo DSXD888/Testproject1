@@ -2,7 +2,7 @@
 
 Date: 2026-05-03
 
-Repo: `/Users/alinaaitova/Desktop/Testproject1`
+Repo: `~/Desktop/testproject1`
 
 ## Completion Status
 
@@ -67,7 +67,7 @@ Observed launch command:
 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome \
   --remote-debugging-port=9222 \
   --remote-allow-origins=* \
-  --user-data-dir=/Users/alinaaitova/.chrome-automation \
+  --user-data-dir=~/.chrome-automation \
   --profile-directory=Default \
   --no-first-run \
   --no-default-browser-check
